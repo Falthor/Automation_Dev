@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: feb97abd46457e24a902100925f38609, type: 3}
+  m_Name: WorldGenerationSettings
+  m_EditorClassIdentifier: Game.Data::Game.Data.WorldGenerationSettings
+  coreDefinition: {fileID: 11400000, guid: db7b2dad0db37bc4d9e07b5a2efd6fcf, type: 2}
+  ironOreDefinition: {fileID: 11400000, guid: 85cc813140bf25e49a3ac14c51b44f29, type: 2}
+  copperOreDefinition: {fileID: 11400000, guid: ffff9edcd441e594f93f7a9402beaea4, type: 2}
+  coalOreDefinition: {fileID: 11400000, guid: 24f3c4c440f22c14cb72e74f072b099c, type: 2}
+  resourceSeed: 12345
