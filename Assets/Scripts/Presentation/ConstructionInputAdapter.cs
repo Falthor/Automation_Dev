@@ -10,9 +10,9 @@ namespace Game.Presentation
     /// <summary>
     /// Raw mouse/keyboard polling adapter: translates device input into ConstructionService
     /// calls and drives the ghost preview + spawned views. No .inputactions asset needed for
-    /// this pass. Manual-testing substitute for a hotbar UI (no Game.UI yet):
-    /// 1/2/3 select straight/corner/crossroad, R rotates the preview, Esc cancels,
-    /// left click/drag places, right click/drag demolishes.
+    /// this pass. Building selection itself comes from the Building menu / Bottom Nav toolbar
+    /// (Game.UI); this adapter only owns R (rotate preview), Esc (cancel), left click/drag
+    /// (place), right click/drag (demolish, also cancels an armed tool).
     /// </summary>
     public sealed class ConstructionInputAdapter : MonoBehaviour
     {
@@ -20,13 +20,9 @@ namespace Game.Presentation
         [SerializeField] Camera worldCamera;
         [SerializeField] ConveyorGhostView ghostView;
         [SerializeField] BuildingGhostView buildingGhostView;
+        [SerializeField] BuildingHoverHighlightView hoverHighlightView;
 
-        [Header("Buildable definitions (substitute for a hotbar UI)")]
-        [SerializeField] ConveyorDefinition straightDefinition;
-        [SerializeField] ConveyorDefinition cornerDefinition;
-        [SerializeField] ConveyorDefinition crossroadDefinition;
-        [SerializeField] ExtractorDefinition extractorDefinition;
-        [SerializeField] StorageDefinition storageDefinition;
+        static readonly Color OutputArrowColor = new Color(0.25f, 0.95f, 0.35f, 1f);
 
         readonly ProceduralSpriteFactory _spriteFactory = new ProceduralSpriteFactory();
         BuildingSpawner _spawner;
@@ -55,31 +51,44 @@ namespace Game.Presentation
             // every object's Awake, so gameRuntime.Grid is guaranteed to be initialized here.
             if (worldCamera == null) worldCamera = Camera.main;
             _spawner = new BuildingSpawner(gameRuntime.Grid, _spriteFactory);
+            if (hoverHighlightView != null) hoverHighlightView.Initialize(gameRuntime.Grid);
         }
 
         void Update()
         {
             if (worldCamera == null || gameRuntime == null || _spawner == null) return;
 
-            HandleSelectionHotkeys();
+            // A UI panel (Building menu, Storage panel, ...) owns mouse/keyboard input while
+            // open, and for one extra frame after it closes - otherwise the same click that
+            // selected a menu item or closed a panel also lands on the world underneath it.
+            if (gameRuntime.IsUIBlockingInput || gameRuntime.LastMenuCloseFrame == Time.frameCount) return;
+
             HandleRotateAndCancel();
 
             GridCoord cellUnderMouse = CellUnderMouse();
             UpdateGhost(cellUnderMouse);
+            HandleHoverHighlight(cellUnderMouse);
             HandlePlacement(cellUnderMouse);
             HandleDemolition(cellUnderMouse);
         }
 
-        void HandleSelectionHotkeys()
+        /// <summary>
+        /// Outlines the footprint of whatever building sits under the mouse, active both with
+        /// and without a construction tool armed (only suppressed while a UI panel owns input,
+        /// handled by the early-return above).
+        /// </summary>
+        void HandleHoverHighlight(GridCoord cell)
         {
-            var keyboard = Keyboard.current;
-            if (keyboard == null) return;
+            if (hoverHighlightView == null) return;
 
-            if (keyboard.digit1Key.wasPressedThisFrame) gameRuntime.Construction.SelectBuilding(straightDefinition);
-            if (keyboard.digit2Key.wasPressedThisFrame) gameRuntime.Construction.SelectBuilding(cornerDefinition);
-            if (keyboard.digit3Key.wasPressedThisFrame) gameRuntime.Construction.SelectBuilding(crossroadDefinition);
-            if (keyboard.digit4Key.wasPressedThisFrame) gameRuntime.Construction.SelectBuilding(extractorDefinition);
-            if (keyboard.digit5Key.wasPressedThisFrame) gameRuntime.Construction.SelectBuilding(storageDefinition);
+            if (gameRuntime.Grid.GetOccupant(cell) is BuildingRuntime building)
+            {
+                hoverHighlightView.Show(building.Cell, building.Definition.FootprintSize);
+            }
+            else
+            {
+                hoverHighlightView.Hide();
+            }
         }
 
         void HandleRotateAndCancel()
@@ -133,7 +142,20 @@ namespace Game.Presentation
             Vector3 worldCenter = gameRuntime.Grid.FootprintCenterToWorld(cell, selected.FootprintSize);
             Vector2 worldSize = new Vector2(gameRuntime.Grid.CellSize, gameRuntime.Grid.CellSize) * selected.FootprintSize;
             Sprite sprite = ResolveGhostSprite(selected);
-            buildingGhostView.Show(sprite, worldSize, worldCenter, gameRuntime.Construction.PreviewRotation, valid);
+            Direction previewRotation = gameRuntime.Construction.PreviewRotation;
+
+            if (selected.HasOutputArrow)
+            {
+                GridCoord outputCell = BuildingRuntime.ComputeOutputCell(cell, selected.FootprintSize, previewRotation);
+                Vector3 arrowWorldPos = gameRuntime.Grid.CellCenterToWorld(outputCell);
+                Sprite arrowSprite = _spriteFactory.CreateArrowSprite(OutputArrowColor);
+                buildingGhostView.Show(sprite, worldSize, worldCenter, previewRotation, valid,
+                    arrowSprite, arrowWorldPos, gameRuntime.Grid.CellSize * 0.4f);
+            }
+            else
+            {
+                buildingGhostView.Show(sprite, worldSize, worldCenter, previewRotation, valid);
+            }
         }
 
         Sprite ResolveGhostSprite(BuildingDefinition definition)
@@ -354,6 +376,15 @@ namespace Game.Presentation
 
             if (mouse.rightButton.wasPressedThisFrame)
             {
+                // Right-click while a building/conveyor is armed for placement also cancels the
+                // ghost/construction tool - a right-click "cancel" gesture is the expected escape
+                // hatch mid-place - but demolition still happens underneath it regardless: right-
+                // click stays the one method to remove an existing building.
+                if (gameRuntime.Construction.Selected != null)
+                {
+                    gameRuntime.Construction.Cancel();
+                }
+
                 DemolishAt(cell);
                 _isDragDemolishing = true;
                 _lastDemolishedCell = cell;

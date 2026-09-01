@@ -27,6 +27,7 @@ namespace Game.UI
         {
             if (worldCamera == null || gameRuntime == null || storagePanel == null) return;
             if (gameRuntime.Construction.Selected != null) return;
+            if (gameRuntime.IsUIBlockingInput || gameRuntime.LastMenuCloseFrame == Time.frameCount) return;
 
             Mouse mouse = Mouse.current;
             if (mouse == null || !mouse.leftButton.wasPressedThisFrame) return;

@@ -18,10 +18,16 @@
     <ui:VisualElement name="StoragePanelRoot" class="overlay-root hidden" picking-mode="Ignore">
         <ui:VisualElement class="panel panel-accent" picking-mode="Position">
             <ui:VisualElement class="header-row">
-                <ui:Label text="STORAGE" class="title" />
+                <ui:Label name="StorageTitle" text="STORAGE" class="title" />
                 <ui:Button name="StorageCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
-            <ui:VisualElement name="StorageRows" class="storage-rows" />
+            <ui:VisualElement name="StorageGrid" class="storage-grid" />
         </ui:VisualElement>
+    </ui:VisualElement>
+
+    <ui:VisualElement name="BottomNavRoot" class="bottom-nav" picking-mode="Position">
+        <ui:VisualElement name="BottomNavMinimap" class="bottom-nav-minimap" />
+        <ui:VisualElement name="BottomNavCategoryRow" class="bottom-nav-category-row" />
+        <ui:VisualElement name="BottomNavToolbarRow" class="bottom-nav-toolbar-row" />
     </ui:VisualElement>
 </ui:UXML>

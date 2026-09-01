@@ -25,6 +25,9 @@ namespace Game.Gameplay.Transport
         readonly List<ConveyorRuntime> _conveyors = new List<ConveyorRuntime>();
         readonly List<StorageRuntime> _storages = new List<StorageRuntime>();
 
+        /// <summary>Every registered Storage in the world, for UI that needs to aggregate across all of them (e.g. the global Storage panel).</summary>
+        public IReadOnlyList<StorageRuntime> Storages => _storages;
+
         public TransportSystem(GridRuntime grid)
         {
             _grid = grid;

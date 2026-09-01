@@ -7,9 +7,7 @@ namespace Game.Data
     public sealed class StorageDefinition : BuildingDefinition
     {
         [SerializeField] Sprite sprite;
-        [SerializeField, Min(1)] int capacityPerItem = 500;
 
         public Sprite Sprite => sprite;
-        public int CapacityPerItem => capacityPerItem;
     }
 }

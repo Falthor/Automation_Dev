@@ -79,15 +79,16 @@
 }
 
 .category-button {
-    height: 40px;
+    height: 84px;
     margin-bottom: 6px;
     background-color: rgb(20, 24, 29);
     border-width: 1px;
     border-color: rgb(48, 59, 66);
     color: rgb(200, 205, 210);
     font-size: 13px;
-    -unity-text-align: middle-left;
-    padding-left: 10px;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 4px;
 }
 
 .category-button:hover {
@@ -98,6 +99,23 @@
     border-color: rgb(85, 221, 245);
     color: rgb(85, 221, 245);
     background-color: rgb(26, 34, 40);
+}
+
+.category-button-icon {
+    width: 36px;
+    height: 36px;
+    margin-bottom: 6px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.category-button-label {
+    color: rgb(200, 205, 210);
+    font-size: 12px;
+    -unity-text-align: middle-center;
+}
+
+.category-button-selected .category-button-label {
+    color: rgb(85, 221, 245);
 }
 
 .building-grid {
@@ -137,31 +155,149 @@
     -unity-text-align: middle-center;
 }
 
-.storage-rows {
-    min-width: 320px;
+.storage-grid {
+    flex-direction: column;
 }
 
-.storage-row {
+.storage-grid-row {
     flex-direction: row;
-    justify-content: space-between;
-    padding: 6px 4px;
-    border-bottom-width: 1px;
-    border-bottom-color: rgb(34, 41, 47);
 }
 
-.storage-row-name {
-    color: rgb(220, 220, 220);
-    font-size: 13px;
+.storage-card {
+    width: 52px;
+    height: 52px;
+    margin: 4px;
+    background-color: rgb(10, 13, 15);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    border-radius: 3px;
+    position: relative;
 }
 
-.storage-row-amount {
-    color: rgb(150, 235, 160);
-    font-size: 13px;
+.storage-card-icon {
+    position: absolute;
+    left: 4px;
+    top: 4px;
+    right: 4px;
+    bottom: 4px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.storage-card-count {
+    position: absolute;
+    right: 2px;
+    bottom: 1px;
+    background-color: rgba(0, 0, 0, 0.65);
+    color: rgb(85, 221, 245);
+    font-size: 11px;
     -unity-font-style: bold;
+    padding: 0 3px;
+    border-radius: 3px;
+}
+
+.storage-card-empty {
+    background-color: rgb(10, 13, 15);
+    border-color: rgb(38, 46, 52);
 }
 
 .storage-empty-label {
     color: rgb(140, 148, 155);
     font-size: 12px;
     padding: 6px 4px;
+}
+
+/* Bottom Nav */
+
+.bottom-nav {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 60px;
+    flex-direction: row;
+    align-items: center;
+    background-color: rgba(16, 20, 25, 0.92);
+    border-top-width: 2px;
+    border-top-color: rgba(54, 199, 232, 0.5);
+    padding-left: 8px;
+}
+
+.bottom-nav-minimap {
+    width: 60px;
+    height: 52px;
+    background-color: rgb(10, 13, 15);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    margin-right: 16px;
+}
+
+.bottom-nav-category-row {
+    flex-direction: row;
+    margin-right: 16px;
+}
+
+.bottom-nav-category-button {
+    width: 60px;
+    height: 60px;
+    margin: 0 12px 0 0;
+    padding: 8px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 2px;
+    border-color: rgba(0, 0, 0, 0);
+    align-items: center;
+    justify-content: center;
+}
+
+.bottom-nav-category-button-active {
+    background-color: rgb(22, 50, 58);
+    border-color: rgb(85, 221, 245);
+}
+
+.bottom-nav-category-icon {
+    width: 100%;
+    height: 100%;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.bottom-nav-toolbar-row {
+    flex-direction: row;
+}
+
+.bottom-nav-slot {
+    width: 52px;
+    height: 52px;
+    margin-right: 6px;
+    border-radius: 3px;
+}
+
+.bottom-nav-slot-empty {
+    background-color: rgb(10, 13, 15);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+}
+
+.bottom-nav-slot-icon {
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    right: 2px;
+    bottom: 2px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.bottom-nav-slot-number {
+    position: absolute;
+    left: 3px;
+    top: 1px;
+    color: rgb(135, 147, 156);
+    font-size: 10px;
+}
+
+.bottom-nav-slot-badge {
+    position: absolute;
+    right: 3px;
+    bottom: 0;
+    color: rgb(85, 221, 245);
+    font-size: 11px;
+    -unity-font-style: bold;
 }

@@ -132,6 +132,7 @@ GameObject:
   - component: {fileID: 60635888}
   - component: {fileID: 60635887}
   - component: {fileID: 60635886}
+  - component: {fileID: 60635891}
   m_Layer: 0
   m_Name: GameUI
   m_TagString: Untagged
@@ -167,6 +168,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.UI::Game.UI.StoragePanelController
   uiDocument: {fileID: 60635889}
+  gameRuntime: {fileID: 2103112250}
 --- !u!114 &60635888
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -192,6 +194,13 @@ MonoBehaviour:
     category: 1
   - definition: {fileID: 11400000, guid: 236d03fb6a80953469db3eb917b43016, type: 2}
     category: 2
+  categoryIcons:
+  - category: 0
+    icon: {fileID: 21300000, guid: ce0b09c61ca41ac4d9bfef2a10af2190, type: 3}
+  - category: 1
+    icon: {fileID: 21300000, guid: 24dda1403eb9b484b895171b6591bb2f, type: 3}
+  - category: 2
+    icon: {fileID: 21300000, guid: 8b920d50efaf1024790e8a4744cbdbb8, type: 3}
 --- !u!114 &60635889
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -230,6 +239,25 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &60635891
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 60635885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7f1d41710b9e1949b751439f5bd14c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.UI::Game.UI.BottomNavController
+  uiDocument: {fileID: 60635889}
+  gameRuntime: {fileID: 2103112250}
+  buildingMenu: {fileID: 60635888}
+  storagePanel: {fileID: 60635887}
+  storageIcon: {fileID: -8316999575620232369, guid: 8acaa0918daf8c141abb1ce1964b4cb1, type: 3}
+  buildingIcon: {fileID: 597411320055623791, guid: 010eeacec31baf84887f268a78c928dd, type: 3}
+  researchIcon: {fileID: 8189402887507919899, guid: c997547e9d9b83340bd6a4e53e9a8e10, type: 3}
 --- !u!1 &134080686
 GameObject:
   m_ObjectHideFlags: 0
@@ -263,11 +291,7 @@ MonoBehaviour:
   worldCamera: {fileID: 885634524}
   ghostView: {fileID: 1446239083}
   buildingGhostView: {fileID: 757182935}
-  straightDefinition: {fileID: 11400000, guid: 19683784cfd38ce41924c33986e91b77, type: 2}
-  cornerDefinition: {fileID: 11400000, guid: e9cd37ecbc57c35419a77ff9115d78ad, type: 2}
-  crossroadDefinition: {fileID: 11400000, guid: 84eba5da5f28d424884238f40c544b7f, type: 2}
-  extractorDefinition: {fileID: 11400000, guid: 3ca8ee134be91e141af7553e129403bc, type: 2}
-  storageDefinition: {fileID: 11400000, guid: 236d03fb6a80953469db3eb917b43016, type: 2}
+  hoverHighlightView: {fileID: 438674039}
 --- !u!4 &134080688
 Transform:
   m_ObjectHideFlags: 0
@@ -275,6 +299,52 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 134080686}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &438674038
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 438674040}
+  - component: {fileID: 438674039}
+  m_Layer: 0
+  m_Name: BuildingHoverHighlight
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &438674039
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 438674038}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2c53c254a6d596644a147e8b0d216462, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Presentation::Game.Presentation.BuildingHoverHighlightView
+  lineColor: {r: 0.3, g: 0.6, b: 1, a: 0.95}
+  lineThickness: 0.05
+--- !u!4 &438674040
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 438674038}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -401,6 +471,7 @@ GameObject:
   - component: {fileID: 885634525}
   - component: {fileID: 885634527}
   - component: {fileID: 885634528}
+  - component: {fileID: 885634529}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -511,6 +582,50 @@ MonoBehaviour:
   minOrthographicSize: 3
   maxOrthographicSize: 60
   smoothing: 12
+--- !u!114 &885634529
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 885634523}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
+  m_RenderShadows: 1
+  m_RequiresDepthTextureOption: 2
+  m_RequiresOpaqueTextureOption: 2
+  m_CameraType: 0
+  m_Cameras: []
+  m_RendererIndex: -1
+  m_VolumeLayerMask:
+    serializedVersion: 2
+    m_Bits: 1
+  m_VolumeTrigger: {fileID: 0}
+  m_VolumeFrameworkUpdateModeOption: 2
+  m_RenderPostProcessing: 0
+  m_Antialiasing: 0
+  m_AntialiasingQuality: 2
+  m_StopNaN: 0
+  m_Dithering: 0
+  m_ClearDepth: 1
+  m_AllowXRRendering: 1
+  m_AllowHDROutput: 1
+  m_UseScreenCoordOverride: 0
+  m_ScreenSizeOverride: {x: 0, y: 0, z: 0, w: 0}
+  m_ScreenCoordScaleBias: {x: 0, y: 0, z: 0, w: 0}
+  m_RequiresDepthTexture: 0
+  m_RequiresColorTexture: 0
+  m_TaaSettings:
+    m_Quality: 3
+    m_FrameInfluence: 0.1
+    m_JitterScale: 1
+    m_MipBias: 0
+    m_VarianceClampScale: 0.9
+    m_ContrastAdaptiveSharpening: 0
+  m_Version: 2
 --- !u!1 &946204061
 GameObject:
   m_ObjectHideFlags: 0
@@ -843,3 +958,4 @@ SceneRoots:
   - {fileID: 1305087341}
   - {fileID: 60635890}
   - {fileID: 757182937}
+  - {fileID: 438674040}

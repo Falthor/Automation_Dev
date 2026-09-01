@@ -13,5 +13,7 @@ namespace Game.Data
         public Sprite Sprite => sprite;
         public float ExtractionIntervalSeconds => extractionIntervalSeconds;
         public int ItemsPerCycle => itemsPerCycle;
+
+        public override bool HasOutputArrow => true;
     }
 }

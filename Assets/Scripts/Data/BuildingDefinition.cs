@@ -14,5 +14,20 @@ namespace Game.Data
         public string DisplayName => displayName;
         public Vector2Int FootprintSize => footprintSize;
         public Color PlaceholderColor => placeholderColor;
+
+        /// <summary>
+        /// Whether this building has a single fixed output side (drawn as an arrow, both on the
+        /// construction ghost and the built view). False by default - most buildings have no
+        /// directional output (e.g. Storage accepts input from any side and has none).
+        /// </summary>
+        public virtual bool HasOutputArrow => false;
+
+        /// <summary>
+        /// Whether this building has a single fixed input side. False by default - no current
+        /// building has one (Storage accepts from every adjacent side instead), but the hook
+        /// exists so a future belt-fed single-input building can opt in without touching the
+        /// ghost/view code that draws it.
+        /// </summary>
+        public virtual bool HasInputArrow => false;
     }
 }

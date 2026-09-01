@@ -1,5 +1,6 @@
 using Game.Construction;
 using Game.Data;
+using Game.Gameplay.Selection;
 using Game.Gameplay.Transport;
 using Game.Gameplay.WorldGeneration;
 using Game.Grid;
@@ -30,7 +31,25 @@ namespace Game.Presentation
         public ConstructionService Construction { get; private set; }
         public WorldGenerator World { get; private set; }
         public TransportSystem Transport { get; private set; }
+        public SelectionRuntime Selection { get; private set; }
         public ItemVisualSync ItemVisuals => itemVisuals;
+
+        /// <summary>
+        /// True while a UI panel (Building menu, Storage panel, ...) is open and should own
+        /// mouse input exclusively. World input adapters (construction, storage selection) must
+        /// skip their own click handling while this is set, otherwise a click that selects a
+        /// menu item or closes a panel also leaks through as a world click on the same frame.
+        /// Derived from Selection.ActiveGlobalPanel - there is exactly one source of truth for
+        /// "is a panel open" (CONTRACTS.md §7), panels no longer track this themselves.
+        /// </summary>
+        public bool IsUIBlockingInput => Selection.ActiveGlobalPanel != null;
+
+        /// <summary>
+        /// The frame a UI panel last closed. World input adapters also skip their click handling
+        /// during this exact frame, covering the case where the panel's close callback runs
+        /// after this frame's Update() already saw IsUIBlockingInput as false.
+        /// </summary>
+        public int LastMenuCloseFrame { get; private set; } = -1;
 
         void Awake()
         {
@@ -38,6 +57,11 @@ namespace Game.Presentation
             Terrain = new TerrainRuntime(terrainSettings.Size, terrainSettings.Seed, terrainSettings.TerrainScale, terrainSettings.Proportion);
             Construction = new ConstructionService(Grid);
             Transport = new TransportSystem(Grid);
+            Selection = new SelectionRuntime();
+            Selection.GlobalPanelChanged += name =>
+            {
+                if (name == null) LastMenuCloseFrame = Time.frameCount;
+            };
 
             if (worldGenerationSettings != null)
             {

@@ -12,13 +12,13 @@ namespace Game.Gameplay.Buildings
     {
         readonly Inventory _inventory;
 
-        /// <summary>Public read contract for UI (e.g. the Storage panel) to enumerate contents.</summary>
-        public System.Collections.Generic.IReadOnlyDictionary<OreType, int> Contents => _inventory.Amounts;
+        /// <summary>Public read contract for UI (e.g. the Storage panel) to enumerate contents by slot.</summary>
+        public System.Collections.Generic.IReadOnlyList<InventorySlot> Slots => _inventory.Slots;
 
         public StorageRuntime(StorageDefinition definition, GridCoord cell, Direction facingRotation)
             : base(definition, cell, facingRotation)
         {
-            _inventory = new Inventory(definition.CapacityPerItem);
+            _inventory = new Inventory();
         }
 
         public override bool CanAcceptInput(OreType itemType, int amount, Direction fromDirection)

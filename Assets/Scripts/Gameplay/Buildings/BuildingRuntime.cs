@@ -43,15 +43,21 @@ namespace Game.Gameplay.Buildings
         /// (e.g. a 2x2 building facing North outputs one row past its top edge, aligned to its
         /// origin column). For a 1x1 footprint this is exactly Cell + ExitDirection.
         /// </summary>
-        public GridCoord GetOutputCell()
+        public GridCoord GetOutputCell() => ComputeOutputCell(Cell, Definition.FootprintSize, ExitDirection);
+
+        /// <summary>
+        /// Footprint-aware output cell for a given cell/footprint/exit direction, with no
+        /// BuildingRuntime instance required - lets the construction ghost preview show the same
+        /// output arrow a building will have once actually placed, before it exists.
+        /// </summary>
+        public static GridCoord ComputeOutputCell(GridCoord cell, UnityEngine.Vector2Int footprintSize, Direction exitDirection)
         {
-            UnityEngine.Vector2Int size = Definition.FootprintSize;
-            switch (ExitDirection)
+            switch (exitDirection)
             {
-                case Direction.North: return new GridCoord(Cell.X, Cell.Y + size.y);
-                case Direction.East: return new GridCoord(Cell.X + size.x, Cell.Y);
-                case Direction.South: return new GridCoord(Cell.X, Cell.Y - 1);
-                default: return new GridCoord(Cell.X - 1, Cell.Y); // West
+                case Direction.North: return new GridCoord(cell.X, cell.Y + footprintSize.y);
+                case Direction.East: return new GridCoord(cell.X + footprintSize.x, cell.Y);
+                case Direction.South: return new GridCoord(cell.X, cell.Y - 1);
+                default: return new GridCoord(cell.X - 1, cell.Y); // West
             }
         }
 
