@@ -22,6 +22,7 @@ namespace Game.UI
         const int GridColumns = 4;
 
         [SerializeField] UIDocument uiDocument;
+        [SerializeField] VisualTreeAsset visualTree;
         [SerializeField] GameRuntime gameRuntime;
 
         readonly ProceduralSpriteFactory _spriteFactory = new ProceduralSpriteFactory();
@@ -43,11 +44,14 @@ namespace Game.UI
         {
             // Start(), not OnEnable() - see BuildingMenuController for why (GameRuntime.Awake
             // ordering across objects is not guaranteed, Start() always runs after all Awakes).
-            VisualElement documentRoot = uiDocument.rootVisualElement;
-            _root = documentRoot.Q<VisualElement>("StoragePanelRoot");
-            _grid = documentRoot.Q<VisualElement>("StorageGrid");
-            _title = documentRoot.Q<Label>("StorageTitle");
-            documentRoot.Q<Button>("StorageCloseButton").clicked += Hide;
+            VisualElement panelRoot = visualTree.CloneTree();
+            uiDocument.rootVisualElement.Add(panelRoot);
+            panelRoot.StretchToParentSize();
+
+            _root = panelRoot.Q<VisualElement>("StoragePanelRoot");
+            _grid = panelRoot.Q<VisualElement>("StorageGrid");
+            _title = panelRoot.Q<Label>("StorageTitle");
+            panelRoot.Q<Button>("StorageCloseButton").clicked += Hide;
 
             _root.EnableInClassList("hidden", true);
             gameRuntime.Selection.GlobalPanelChanged += OnGlobalPanelChanged;

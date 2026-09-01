@@ -9,6 +9,7 @@ Entry point for the Unity project's development documentation.
 3. Read `docs/architecture/CONTRACTS.md` when multiple systems or a public contract are involved.
 4. Follow `docs/architecture/WORKFLOW.md`.
 5. Read a more specific subsystem document when the task concerns a documented subsystem.
+6. For Global UI / HUD work (Top Bar, Bottom Nav, panel routing, Selection), also read `docs/architecture/GLOBAL_UI.md` — an imported Godot reference spec, not a Unity implementation to port mechanically. Its own header states exactly which sections are already implemented in Unity versus future work; treat sections marked "not implemented yet" as intent/rationale only, never as a description of current Unity code.
 
 ## Mandatory principles
 
@@ -36,4 +37,4 @@ Entry point for the Unity project's development documentation.
 
 `DEVELOPMENT_RULES.md` → `PROJECT_ARCHITECTURE.md` → `CONTRACTS.md` → `WORKFLOW.md`
 
-Subsystem-specific documents may provide the detailed behavior for their own domain.
+Subsystem-specific documents may provide the detailed behavior for their own domain (e.g. `GLOBAL_UI.md` for the Global UI/HUD). Where a subsystem document and this order disagree, the four documents above still win.

@@ -131,8 +131,9 @@ GameObject:
   - component: {fileID: 60635889}
   - component: {fileID: 60635888}
   - component: {fileID: 60635887}
-  - component: {fileID: 60635886}
   - component: {fileID: 60635891}
+  - component: {fileID: 60635893}
+  - component: {fileID: 60635892}
   m_Layer: 0
   m_Name: GameUI
   m_TagString: Untagged
@@ -140,21 +141,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &60635886
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 60635885}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1edd6b271f892b14cb211ffb8ba0558a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.UI::Game.UI.StorageSelectionInput
-  gameRuntime: {fileID: 2103112250}
-  worldCamera: {fileID: 885634524}
-  storagePanel: {fileID: 60635887}
 --- !u!114 &60635887
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -168,6 +154,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.UI::Game.UI.StoragePanelController
   uiDocument: {fileID: 60635889}
+  visualTree: {fileID: 9197481963319205126, guid: a74de32a638c4034ea49a380019a81e6, type: 3}
   gameRuntime: {fileID: 2103112250}
 --- !u!114 &60635888
 MonoBehaviour:
@@ -182,6 +169,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.UI::Game.UI.BuildingMenuController
   uiDocument: {fileID: 60635889}
+  visualTree: {fileID: 9197481963319205126, guid: 9b86d1fbe4a825e4aa84c981564f7323, type: 3}
   gameRuntime: {fileID: 2103112250}
   entries:
   - definition: {fileID: 11400000, guid: 3ca8ee134be91e141af7553e129403bc, type: 2}
@@ -252,12 +240,43 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.UI::Game.UI.BottomNavController
   uiDocument: {fileID: 60635889}
+  visualTree: {fileID: 9197481963319205126, guid: 2008e305e1834c543905b76b8732b827, type: 3}
   gameRuntime: {fileID: 2103112250}
   buildingMenu: {fileID: 60635888}
   storagePanel: {fileID: 60635887}
   storageIcon: {fileID: -8316999575620232369, guid: 8acaa0918daf8c141abb1ce1964b4cb1, type: 3}
   buildingIcon: {fileID: 597411320055623791, guid: 010eeacec31baf84887f268a78c928dd, type: 3}
   researchIcon: {fileID: 8189402887507919899, guid: c997547e9d9b83340bd6a4e53e9a8e10, type: 3}
+--- !u!114 &60635892
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 60635885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 53f52fcdbe071934f947b5ae9741fe59, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.UI::Game.UI.ExtractorPanelController
+  uiDocument: {fileID: 60635889}
+  visualTree: {fileID: 9197481963319205126, guid: b850fe0f2f27ecc4c864487cf4a14215, type: 3}
+  gameRuntime: {fileID: 2103112250}
+--- !u!114 &60635893
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 60635885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 02126bf199ab16146a270da027dbc513, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.UI::Game.UI.BuildingSelectionInput
+  gameRuntime: {fileID: 2103112250}
+  worldCamera: {fileID: 0}
+  storagePanel: {fileID: 60635887}
 --- !u!1 &134080686
 GameObject:
   m_ObjectHideFlags: 0

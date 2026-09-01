@@ -1,33 +1,3 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="GameUI.uss" />
-
-    <ui:VisualElement name="BuildingMenuRoot" class="overlay-root hidden" picking-mode="Ignore">
-        <ui:VisualElement class="panel panel-accent building-panel" picking-mode="Position">
-            <ui:VisualElement class="header-row">
-                <ui:Label text="BUILDING" class="title" />
-                <ui:Button name="BuildingCloseButton" text="&#215;" class="close-button" />
-            </ui:VisualElement>
-            <ui:VisualElement class="building-body">
-                <ui:VisualElement name="CategoryColumn" class="category-column" />
-                <ui:VisualElement class="v-separator" />
-                <ui:VisualElement name="BuildingGrid" class="building-grid" />
-            </ui:VisualElement>
-        </ui:VisualElement>
-    </ui:VisualElement>
-
-    <ui:VisualElement name="StoragePanelRoot" class="overlay-root hidden" picking-mode="Ignore">
-        <ui:VisualElement class="panel panel-accent" picking-mode="Position">
-            <ui:VisualElement class="header-row">
-                <ui:Label name="StorageTitle" text="STORAGE" class="title" />
-                <ui:Button name="StorageCloseButton" text="&#215;" class="close-button" />
-            </ui:VisualElement>
-            <ui:VisualElement name="StorageGrid" class="storage-grid" />
-        </ui:VisualElement>
-    </ui:VisualElement>
-
-    <ui:VisualElement name="BottomNavRoot" class="bottom-nav" picking-mode="Position">
-        <ui:VisualElement name="BottomNavMinimap" class="bottom-nav-minimap" />
-        <ui:VisualElement name="BottomNavCategoryRow" class="bottom-nav-category-row" />
-        <ui:VisualElement name="BottomNavToolbarRow" class="bottom-nav-toolbar-row" />
-    </ui:VisualElement>
 </ui:UXML>

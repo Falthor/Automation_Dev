@@ -19,6 +19,7 @@ namespace Game.UI
         const string ResearchPanelName = "research";
 
         [SerializeField] UIDocument uiDocument;
+        [SerializeField] VisualTreeAsset visualTree;
         [SerializeField] GameRuntime gameRuntime;
         [SerializeField] BuildingMenuController buildingMenu;
         [SerializeField] StoragePanelController storagePanel;
@@ -40,9 +41,12 @@ namespace Game.UI
             // Start(), not OnEnable() - GameRuntime.Awake() (which constructs Selection) is not
             // guaranteed to run before this object's OnEnable, but Start() always runs after
             // every object's Awake() - see ConstructionInputAdapter/BuildingMenuController.
-            VisualElement root = uiDocument.rootVisualElement;
-            _categoryRow = root.Q<VisualElement>("BottomNavCategoryRow");
-            _toolbarRow = root.Q<VisualElement>("BottomNavToolbarRow");
+            VisualElement panelRoot = visualTree.CloneTree();
+            uiDocument.rootVisualElement.Add(panelRoot);
+            panelRoot.StretchToParentSize();
+
+            _categoryRow = panelRoot.Q<VisualElement>("BottomNavCategoryRow");
+            _toolbarRow = panelRoot.Q<VisualElement>("BottomNavToolbarRow");
 
             BuildCategoryButtons();
             BuildToolbarSlots();

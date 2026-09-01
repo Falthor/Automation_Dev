@@ -14,7 +14,7 @@
 
 .panel {
     margin-top: 90px;
-    min-width: 420px;
+    align-self: center;
     background-color: rgba(16, 20, 25, 0.98);
     border-width: 2px;
     border-color: rgb(48, 59, 66);
@@ -57,10 +57,6 @@
 .close-button:hover {
     border-color: rgb(85, 221, 245);
     color: rgb(85, 221, 245);
-}
-
-.building-panel {
-    min-width: 620px;
 }
 
 .building-body {
@@ -119,9 +115,11 @@
 }
 
 .building-grid {
+    flex-direction: column;
+}
+
+.building-grid-row {
     flex-direction: row;
-    flex-wrap: wrap;
-    flex-grow: 1;
 }
 
 .building-card {
@@ -204,6 +202,34 @@
     color: rgb(140, 148, 155);
     font-size: 12px;
     padding: 6px 4px;
+}
+
+/* Extractor panel */
+
+.extractor-body {
+    width: 220px;
+}
+
+.extractor-section-label {
+    color: rgb(160, 168, 175);
+    font-size: 11px;
+    margin-bottom: 4px;
+    margin-top: 8px;
+}
+
+.extractor-progress-track {
+    width: 220px;
+    height: 14px;
+    background-color: rgb(10, 13, 15);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.extractor-progress-fill {
+    height: 100%;
+    background-color: rgb(85, 221, 245);
 }
 
 /* Bottom Nav */

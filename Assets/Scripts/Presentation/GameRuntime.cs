@@ -39,10 +39,11 @@ namespace Game.Presentation
         /// mouse input exclusively. World input adapters (construction, storage selection) must
         /// skip their own click handling while this is set, otherwise a click that selects a
         /// menu item or closes a panel also leaks through as a world click on the same frame.
-        /// Derived from Selection.ActiveGlobalPanel - there is exactly one source of truth for
-        /// "is a panel open" (CONTRACTS.md §7), panels no longer track this themselves.
+        /// Derived from Selection (both the named global panel and the currently inspected
+        /// building) - there is exactly one source of truth for "is a panel open" (CONTRACTS.md
+        /// §7), panels no longer track this themselves.
         /// </summary>
-        public bool IsUIBlockingInput => Selection.ActiveGlobalPanel != null;
+        public bool IsUIBlockingInput => Selection.ActiveGlobalPanel != null || Selection.SelectedBuilding != null;
 
         /// <summary>
         /// The frame a UI panel last closed. World input adapters also skip their click handling
@@ -61,6 +62,10 @@ namespace Game.Presentation
             Selection.GlobalPanelChanged += name =>
             {
                 if (name == null) LastMenuCloseFrame = Time.frameCount;
+            };
+            Selection.SelectionChanged += building =>
+            {
+                if (building == null) LastMenuCloseFrame = Time.frameCount;
             };
 
             if (worldGenerationSettings != null)

@@ -42,6 +42,7 @@ namespace Game.UI
         public const int ToolbarSlotCount = 8;
 
         [SerializeField] UIDocument uiDocument;
+        [SerializeField] VisualTreeAsset visualTree;
         [SerializeField] GameRuntime gameRuntime;
         [SerializeField] BuildingMenuEntry[] entries;
         [SerializeField] CategoryIcon[] categoryIcons;
@@ -68,11 +69,14 @@ namespace Game.UI
             // Start(), not OnEnable(): GameRuntime.Awake() (which constructs Selection) is not
             // guaranteed to run before this object's OnEnable, but Start() always runs after
             // every object's Awake() - see ConstructionInputAdapter for the same reasoning.
-            VisualElement documentRoot = uiDocument.rootVisualElement;
-            _root = documentRoot.Q<VisualElement>("BuildingMenuRoot");
-            _categoryColumn = documentRoot.Q<VisualElement>("CategoryColumn");
-            _grid = documentRoot.Q<VisualElement>("BuildingGrid");
-            documentRoot.Q<Button>("BuildingCloseButton").clicked += Close;
+            VisualElement panelRoot = visualTree.CloneTree();
+            uiDocument.rootVisualElement.Add(panelRoot);
+            panelRoot.StretchToParentSize();
+
+            _root = panelRoot.Q<VisualElement>("BuildingMenuRoot");
+            _categoryColumn = panelRoot.Q<VisualElement>("CategoryColumn");
+            _grid = panelRoot.Q<VisualElement>("BuildingGrid");
+            panelRoot.Q<Button>("BuildingCloseButton").clicked += Close;
 
             BuildCategoryButtons();
             SelectCategory(BuildingCategory.Production);
@@ -137,10 +141,12 @@ namespace Game.UI
             BuildCards();
         }
 
+        const int GridColumns = 3;
+
         void BuildCards()
         {
-            _grid.Clear();
             HoveredCardDefinition = null;
+            var cards = new List<VisualElement>();
 
             foreach (BuildingMenuEntry entry in entries)
             {
@@ -168,7 +174,21 @@ namespace Game.UI
                 label.AddToClassList("building-card-label");
                 card.Add(label);
 
-                _grid.Add(card);
+                cards.Add(card);
+            }
+
+            // Fixed-width rows (not CSS flex-wrap) so the panel shrinks to fit its content
+            // instead of being forced to a wide fixed width with empty trailing space.
+            _grid.Clear();
+            for (int i = 0; i < cards.Count; i += GridColumns)
+            {
+                var row = new VisualElement();
+                row.AddToClassList("building-grid-row");
+                for (int j = i; j < Mathf.Min(i + GridColumns, cards.Count); j++)
+                {
+                    row.Add(cards[j]);
+                }
+                _grid.Add(row);
             }
         }
 
