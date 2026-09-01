@@ -1,0 +1,21 @@
+{
+    "name": "Game.Presentation",
+    "rootNamespace": "Game.Presentation",
+    "references": [
+        "Game.Core",
+        "Game.Data",
+        "Game.Grid",
+        "Game.Gameplay",
+        "Game.Construction",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
