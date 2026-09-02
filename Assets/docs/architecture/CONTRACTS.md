@@ -50,7 +50,7 @@ A caller querying a neighboring building uses these methods instead of depending
 
 ## 3. Building / Inventory
 
-For non-belt buildings:
+For non-belt buildings. `itemId` is a `string` - the fixed key an `ItemDefinition` (`Game.Data`) is registered under in an `ItemDatabase`; there is no per-building duplicate of item identity or metadata.
 
 ### `CanAcceptInput(itemId, amount, fromDirection)`
 
@@ -76,7 +76,31 @@ Removes output.
 
 Reads current input quantity.
 
-The pooled inventory model must not be mixed with the belt lane model.
+### `GetOutputContents()`
+
+Returns a read-only `IReadOnlyDictionary<string,int>` snapshot of everything currently held in output. Empty by default; only a building with a real pooled output (`ProductionBuildingRuntime`) overrides it. Exists so a generic caller (the transport push step) can enumerate what a building's output holds without knowing its concrete type - `AddOutput`/`TakeOutput` alone are write/consume operations, not an enumeration.
+
+The pooled inventory model must not be mixed with the belt lane model. Two pooled-inventory shapes coexist under this same contract: `Inventory` (`Game.Gameplay.Items`, used by `StorageRuntime`) is slot-based - a fixed `SlotCount` of distinct item ids, each slot capped at `CapacityPerSlot`. `PooledItemStock` (`Game.Gameplay.Items`, used by `ProductionBuildingRuntime`'s input and output) has unlimited distinct item ids, each capped independently at a `MaxStackPerItem`. Which one a building uses is an internal representation choice; both satisfy the same public methods above.
+
+## 3a. Generic transport push/pull
+
+`BuildingRuntime` exposes footprint- and rotation-aware geometry so a generic transport step never needs to know a building's concrete type:
+
+```csharp
+public GridCoord[] GetOutputCells()
+public (GridCoord cell, Direction fromMySide)[] GetEdgeCells()
+```
+
+`GetOutputCells()` returns every cell along the building's output edge (more than one for a footprint wider/taller than 1 cell in the relevant dimension). `GetEdgeCells()` returns every cell touching any of the 4 sides, paired with which side (from this building's own perspective) it touches - used as the `fromDirection` argument to `CanAcceptInput`/`AddInput`.
+
+`TransportSystem` (`Game.Gameplay.Transport`) runs one generic push/pull step, at each building's own `PushIntervalSeconds` (`BuildingRuntime`, default 1s), for every registered building that is not itself belt-driven (Storage, and every `ProductionBuildingRuntime`):
+
+- **Push**: walks `GetOutputCells()`; for the first neighbor whose `CanAcceptInput` accepts one unit of something in `GetOutputContents()`, transfers it via `TakeOutput`/`AddInput`.
+- **Pull**: walks `GetEdgeCells()` (all 4 sides, regardless of that neighbor's own facing); for the first neighbor exposing a `PeekPullableItem()` this building's own `CanAcceptInput` accepts, transfers it via `ConsumePulledItem`/`AddInput`.
+
+Conveyors keep their own dedicated pull-from-behind-via-Flow + lane-advance logic (a conveyor has no pooled input/output, just a single carried item) and are not part of this generic step.
+
+**Behavior change**: Storage's pull previously required the neighbor's own configured output to be aimed at Storage (`GetOutputCell() == destination`). It now uses the same generic pull as every other non-belt building - any of the 4 sides, no alignment check - matching the source project's `Building._try_pull()` exactly. This is a deliberate, documented change (§13), not a Storage-specific redesign.
 
 ## 4. Conveyor configuration
 
@@ -119,6 +143,8 @@ Configures a splitter to replace a conveyor while preserving the intended receiv
 The splitter owns the translation from conveyor orientation semantics to splitter orientation semantics.
 
 ## 6. ProductionBuilding
+
+Implemented by `ProductionBuildingRuntime` (`Game.Gameplay.Buildings`), extended by `FoundryRuntime` (and, in later phases, Factory/AdvancedFoundry/Assembler). Backed by a `RecipeDatabase` (`Game.Data`) lookup and two `PooledItemStock` instances (input/output) - see §3.
 
 ### `GetRecipeIds()`
 
@@ -163,13 +189,16 @@ IDLE
 PRODUCING
 WAITING_RESOURCES
 OUTPUT_BLOCKED
+WAITING_COMPUTE
 ```
 
 ### `GetStateLabel()`
 
 Returns the presentation label for the current state.
 
-Foundry and Extractor do not need to implement this player-selected-recipe contract when their production remains automatic.
+A cycle takes ALL its ingredients and its recipe's one-shot Compute cost (§10) at once, the instant it starts (the transition into `PRODUCING`) - not progressively as it advances. Power demand (§9) is reported only while `PRODUCING`, based on whether the building was `PRODUCING` at the end of the *previous* tick (the same report-then-settle one-frame lag Power/Compute already have) - if unpowered, the effective delta passed to the state machine that tick is scaled to 0, freezing an in-progress cycle's timer without losing already-consumed ingredients/Compute. Continuous Compute demand and this one-shot cycle cost remain distinct (§10); a `ProductionBuildingRuntime` never reports continuous Compute demand.
+
+Extractor does not need to implement this player-selected-recipe contract - its production remains fully automatic.
 
 ## 7. Selection
 
@@ -208,35 +237,60 @@ The construction system owns preview/ghost state and placement orchestration.
 
 ## 9. Power
 
-Power consumers and sources expose their contribution through a public contract.
+Implemented by `PowerSystem` (`Game.Gameplay.Power`), owned by `GameRuntime`:
 
-The UI reads aggregate supply/demand and powered state through that contract.
+```csharp
+public void ReportDemand(float kilowatts)
+public void ReportSupply(float kilowatts)
+public bool IsPowered()
+public void Settle()
+```
 
-The UI must not inspect individual building private power fields.
+Report-then-settle: consumers/sources call `ReportDemand`/`ReportSupply` during their own tick; `Settle()` (called once per `GameRuntime.Update()`, before that tick) moves the previous frame's reports into `SettledDemand`/`SettledSupply` and clears the accumulators - one frame of intentional lag. `IsPowered()` is binary (`SettledDemand <= SettledSupply`), no partial degradation, and recovers automatically the instant reported demand drops back at/under supply (no cooldown).
+
+The UI reads `SettledDemand`/`SettledSupply`/`IsPowered()` through this contract and must not inspect individual building private power fields.
 
 ## 10. Compute
 
-Compute exposes:
+Implemented by `ComputeSystem` (`Game.Gameplay.Compute`), owned by `GameRuntime`:
 
-- supply
-- demand
-- performance ratio
-- pooled reserve where applicable
+```csharp
+public void ReportDemand(float cuPerSecond)
+public void ReportSupply(float cuPerSecond)
+public float GetPerformanceRatio()
+public bool CanSpend(float cost)
+public void Spend(float cost)
+public void GrowReserve(float deltaTime)
+public void Settle()
+```
 
-The UI reads these values.
+Two independent mechanisms share the same settled supply number:
 
-Continuous demand and one-time cycle costs remain distinct concepts.
+1. **Continuous flow**: same report-then-settle pattern as Power; `GetPerformanceRatio()` (`SettledSupply / SettledDemand`, capped at 1) is the throttle a continuous consumer applies to itself.
+2. **Pooled reserve** (`Reserve`, capped at `ReserveCap` = 25000): grows every frame by `SettledSupply * deltaTime` (`GrowReserve`, called once per `GameRuntime.Update()`), spent in one-shot chunks via `CanSpend`/`Spend` (a recipe's `ComputeCost` at cycle start, §6). Never throttled by `GetPerformanceRatio()` - it is a spent balance, not a continuous draw.
+
+The UI reads these values through this contract. Continuous demand and one-time cycle costs remain distinct concepts.
 
 ## 11. Research
 
-Research exposes:
+Implemented by `ResearchSystem` (`Game.Gameplay.Research`), owned by `GameRuntime`:
 
-- current research points
-- active research
-- progression
-- unlock state
+```csharp
+public void AddRp(float amount)
+public bool HasActiveResearch()
+public ResearchDefinition GetActiveResearch()
+public float GetProgress()
+public void ReportActiveLab()
+public int GetActiveLabCount()
+public bool IsUnlocked(string researchId)
+public bool Start(ResearchDefinition research)
+public void Tick(float deltaTime)
+public event Action<string> ResearchCompleted
+```
 
-Building placement queries unlock state through Research's public contract rather than reading internal research collections.
+One RP pool, one active research slot at a time. Laboratories call `ReportActiveLab()` every tick while a research is active; `Tick()` (report-then-settle, same one-frame lag as Power/Compute) advances progress at `activeLabCount / 60` per second, so completion takes 60s/30s/20s/15s for 1/2/3/4 simultaneously active Laboratories. `Start` deducts the cost immediately and rejects if something is already active, already unlocked, or RP is insufficient.
+
+Unlike Power/Compute, there is no separate id-keyed registry: `ResearchDefinition` (`Game.Data`, id/displayName/cost) is referenced directly wherever a gate applies - `BuildingDefinition.UnlockResearch` (checked by `ConstructionService.IsPlaceable`, not by any runtime) and `RecipeDefinition.UnlockResearch` (checked by `ProductionBuildingRuntime.GetRecipeIds()`). Building placement and recipe availability both query unlock state through `IsUnlocked(id)` rather than reading internal research collections.
 
 ## 12. UI contract
 

@@ -16,5 +16,8 @@ MonoBehaviour:
   displayName: Storage Box
   footprintSize: {x: 1, y: 1}
   placeholderColor: {r: 0.7, g: 0.55, b: 0.3, a: 1}
+  unlockResearch: {fileID: 0}
   sprite: {fileID: 21300000, guid: 8cc3f2c2d0292ce4eb676eb70947d729, type: 3}
-  capacityPerItem: 500
+  cost:
+  - item: {fileID: 11400000, guid: b96b1a8817e8abf4bacd918c5be7b859, type: 2}
+    amount: 1

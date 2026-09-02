@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e39504c37f6229a47bf4c7b65a2d8620, type: 3}
+  m_Name: FoundryDefinition
+  m_EditorClassIdentifier: Game.Data::Game.Data.FoundryDefinition
+  id: foundry
+  displayName: Foundry
+  footprintSize: {x: 3, y: 3}
+  placeholderColor: {r: 0.6, g: 0.4, b: 0.2, a: 1}
+  unlockResearch: {fileID: 0}
+  sprite: {fileID: 21300000, guid: c795d520a81cc7d409d0fcf7246fbfeb, type: 3}
+  cost:
+  - item: {fileID: 11400000, guid: b96b1a8817e8abf4bacd918c5be7b859, type: 2}
+    amount: 2
+  - item: {fileID: 11400000, guid: 65d78e7c331fda945b089ab7a130f97c, type: 2}
+    amount: 2
+  maxStackPerItem: 20
+  powerDemandKw: 2
+  intakeIntervalSeconds: 2
+  recipeIds:
+  - Iron_Ingot
+  - copper_Ingot

@@ -23,6 +23,7 @@ namespace Game.UI
         readonly ProceduralSpriteFactory _spriteFactory = new ProceduralSpriteFactory();
 
         VisualElement _root;
+        Label _title;
         VisualElement _progressFill;
         VisualElement _storageIcon;
         Label _storageCount;
@@ -35,8 +36,12 @@ namespace Game.UI
             VisualElement panelRoot = visualTree.CloneTree();
             uiDocument.rootVisualElement.Add(panelRoot);
             panelRoot.StretchToParentSize();
+            // See BuildingMenuController - the clone wrapper itself must not intercept clicks
+            // meant for whatever real content sits underneath it in z-order.
+            panelRoot.pickingMode = PickingMode.Ignore;
 
             _root = panelRoot.Q<VisualElement>("ExtractorPanelRoot");
+            _title = panelRoot.Q<Label>("ExtractorTitle");
             _progressFill = panelRoot.Q<VisualElement>("ExtractorProgressFill");
             _storageIcon = panelRoot.Q<VisualElement>("ExtractorStorageIcon");
             _storageCount = panelRoot.Q<Label>("ExtractorStorageCount");
@@ -76,18 +81,20 @@ namespace Game.UI
 
         void Render()
         {
+            var item = gameRuntime.Items != null ? gameRuntime.Items.Get(_selected.ItemId) : null;
+            _title.text = $"EXTRACTOR - {(item != null ? item.DisplayName : _selected.ItemId)}";
+
             _progressFill.style.width = new StyleLength(Length.Percent(_selected.ProductionProgress * 100f));
 
-            _storageIcon.style.backgroundImage = new StyleBackground(_spriteFactory.CreateSolidSquareSprite(ItemColor(_selected.OreType)));
+            _storageIcon.style.backgroundImage = new StyleBackground(ItemSprite(_selected.ItemId));
             _storageCount.text = $"{_selected.BufferedAmount}/{ExtractorRuntime.InternalStorageCapacity}";
         }
 
-        static Color ItemColor(Game.Data.OreType type) => type switch
+        Sprite ItemSprite(string itemId)
         {
-            Game.Data.OreType.Iron => new Color(0.80f, 0.78f, 0.75f),
-            Game.Data.OreType.Copper => new Color(0.90f, 0.50f, 0.20f),
-            Game.Data.OreType.Coal => new Color(0.10f, 0.10f, 0.10f),
-            _ => Color.gray
-        };
+            var item = gameRuntime.Items != null ? gameRuntime.Items.Get(itemId) : null;
+            if (item != null && item.Icon != null) return item.Icon;
+            return _spriteFactory.CreateSolidSquareSprite(item != null ? item.FallbackColor : Color.gray);
+        }
     }
 }

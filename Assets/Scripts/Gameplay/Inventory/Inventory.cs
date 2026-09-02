@@ -1,12 +1,11 @@
 using System.Collections.Generic;
-using Game.Data;
 
 namespace Game.Gameplay.Items
 {
-    /// <summary>One inventory slot: empty, or up to CapacityPerSlot of a single item type.</summary>
+    /// <summary>One inventory slot: empty, or up to CapacityPerSlot of a single item id.</summary>
     public struct InventorySlot
     {
-        public OreType ItemType;
+        public string ItemId;
         public int Amount;
         public bool IsEmpty => Amount <= 0;
     }
@@ -29,28 +28,28 @@ namespace Game.Gameplay.Items
         /// <summary>Read-only view of the slots for UI (CONTRACTS.md §12: UI reads the public contract, never a private field).</summary>
         public IReadOnlyList<InventorySlot> Slots => _slots;
 
-        public int GetAmount(OreType itemType)
+        public int GetAmount(string itemId)
         {
             int total = 0;
             foreach (var slot in _slots)
             {
-                if (!slot.IsEmpty && slot.ItemType == itemType) total += slot.Amount;
+                if (!slot.IsEmpty && slot.ItemId == itemId) total += slot.Amount;
             }
             return total;
         }
 
-        public bool CanAccept(OreType itemType, int amount)
+        public bool CanAccept(string itemId, int amount)
         {
-            return amount > 0 && RemainingCapacityFor(itemType) >= amount;
+            return amount > 0 && RemainingCapacityFor(itemId) >= amount;
         }
 
-        public void Add(OreType itemType, int amount)
+        public void Add(string itemId, int amount)
         {
             int remaining = amount;
 
             for (int i = 0; i < _slots.Length && remaining > 0; i++)
             {
-                if (_slots[i].IsEmpty || _slots[i].ItemType != itemType) continue;
+                if (_slots[i].IsEmpty || _slots[i].ItemId != itemId) continue;
 
                 int room = CapacityPerSlot - _slots[i].Amount;
                 int add = System.Math.Min(room, remaining);
@@ -63,19 +62,19 @@ namespace Game.Gameplay.Items
                 if (!_slots[i].IsEmpty) continue;
 
                 int add = System.Math.Min(CapacityPerSlot, remaining);
-                _slots[i].ItemType = itemType;
+                _slots[i].ItemId = itemId;
                 _slots[i].Amount = add;
                 remaining -= add;
             }
         }
 
-        public int Take(OreType itemType, int amount)
+        public int Take(string itemId, int amount)
         {
             int taken = 0;
 
             for (int i = 0; i < _slots.Length && taken < amount; i++)
             {
-                if (_slots[i].IsEmpty || _slots[i].ItemType != itemType) continue;
+                if (_slots[i].IsEmpty || _slots[i].ItemId != itemId) continue;
 
                 int take = System.Math.Min(_slots[i].Amount, amount - taken);
                 _slots[i].Amount -= take;
@@ -85,13 +84,13 @@ namespace Game.Gameplay.Items
             return taken;
         }
 
-        int RemainingCapacityFor(OreType itemType)
+        int RemainingCapacityFor(string itemId)
         {
             int capacity = 0;
             foreach (var slot in _slots)
             {
                 if (slot.IsEmpty) capacity += CapacityPerSlot;
-                else if (slot.ItemType == itemType) capacity += CapacityPerSlot - slot.Amount;
+                else if (slot.ItemId == itemId) capacity += CapacityPerSlot - slot.Amount;
             }
             return capacity;
         }

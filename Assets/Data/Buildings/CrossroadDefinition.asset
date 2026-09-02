@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c631b31380b64a54cb297b34ad28f5e0, type: 3}
+  m_Name: CrossroadDefinition
+  m_EditorClassIdentifier: Game.Data::Game.Data.CrossroadDefinition
+  id: crossroad
+  displayName: Crossroad
+  footprintSize: {x: 3, y: 3}
+  placeholderColor: {r: 0.6, g: 0.6, b: 0.65, a: 1}
+  unlockResearch: {fileID: 0}
+  sprite: {fileID: -6866143402853786736, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  animationFrames:
+  - {fileID: -6866143402853786736, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: 4600189116246664156, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: 5728412535312197126, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: 6740974870175206651, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: -122348142884877251, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: 2299428307077670636, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: -2805378341456912211, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: -3552205568348922972, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: -5954264127262402952, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: -175376941552329543, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: 6573482957010474599, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: -3347764381539898122, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: 1060121761823330564, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: -4146340727268211841, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: 4857165839082926883, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: 6824409596175078158, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: -100937660367001050, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: 1684851944025195095, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: 9217797704510734490, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: 1059748590989250256, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: -6167732999233962912, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: -3377491954535971027, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: 8664643408573477280, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  - {fileID: 7733390105704394079, guid: d125ffec87e1b924daca8f14ac97cb5d, type: 3}
+  animationFps: 12
+  cost: []

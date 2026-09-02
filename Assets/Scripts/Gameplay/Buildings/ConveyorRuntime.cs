@@ -91,12 +91,6 @@ namespace Game.Gameplay.Buildings
             Orientation = new ConveyorOrientation(ConveyorShapeKind.Corner, Orientation.Rotation, Orientation.Mirrored);
         }
 
-        /// <summary>Sets the crossroad shape without implying a direction. Rotation is applied separately via SetRotation.</summary>
-        public void ConfigureAsCrossroadShape()
-        {
-            Orientation = new ConveyorOrientation(ConveyorShapeKind.Crossroad, Orientation.Rotation, mirrored: false);
-        }
-
         /// <summary>Applies a rotation to the current shape without changing it.</summary>
         public void SetRotation(Direction rotation)
         {
@@ -111,7 +105,7 @@ namespace Game.Gameplay.Buildings
         /// the canonical unmirrored corner (entry=South, exit=East) is itself stored as
         /// FacingRotation=North (its "no rotation" pose). Re-derive the true exit here so
         /// GetOutputCell() (and therefore transport pulls and drag-corner detection) work
-        /// correctly for corners. Straight/Crossroad have no such offset, so this matches the
+        /// correctly for corners. Straight has no such offset, so this matches the
         /// base FacingRotation default for them.
         /// </summary>
         public override Direction ExitDirection

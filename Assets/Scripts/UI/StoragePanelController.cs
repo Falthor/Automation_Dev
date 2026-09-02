@@ -47,6 +47,9 @@ namespace Game.UI
             VisualElement panelRoot = visualTree.CloneTree();
             uiDocument.rootVisualElement.Add(panelRoot);
             panelRoot.StretchToParentSize();
+            // See BuildingMenuController - the clone wrapper itself must not intercept clicks
+            // meant for whatever real content sits underneath it in z-order.
+            panelRoot.pickingMode = PickingMode.Ignore;
 
             _root = panelRoot.Q<VisualElement>("StoragePanelRoot");
             _grid = panelRoot.Q<VisualElement>("StorageGrid");
@@ -108,11 +111,12 @@ namespace Game.UI
         void RenderPerBox(StorageRuntime storage)
         {
             _title.text = "STORAGE BOX";
+            _root.EnableInClassList("overlay-root-right", true);
 
             var cards = new List<VisualElement>(Inventory.SlotCount);
             foreach (InventorySlot slot in storage.Slots)
             {
-                cards.Add(slot.IsEmpty ? BuildEmptyCard() : BuildCard(slot.ItemType, slot.Amount));
+                cards.Add(slot.IsEmpty ? BuildEmptyCard() : BuildCard(slot.ItemId, slot.Amount));
             }
             LayoutGrid(cards);
         }
@@ -120,14 +124,15 @@ namespace Game.UI
         void RenderAggregate()
         {
             _title.text = "STORAGE";
+            _root.EnableInClassList("overlay-root-right", false);
 
-            var totals = new Dictionary<OreType, int>();
+            var totals = new Dictionary<string, int>();
             foreach (StorageRuntime storage in gameRuntime.Transport.Storages)
             {
                 foreach (InventorySlot slot in storage.Slots)
                 {
                     if (slot.IsEmpty) continue;
-                    totals[slot.ItemType] = (totals.TryGetValue(slot.ItemType, out int existing) ? existing : 0) + slot.Amount;
+                    totals[slot.ItemId] = (totals.TryGetValue(slot.ItemId, out int existing) ? existing : 0) + slot.Amount;
                 }
             }
 
@@ -164,14 +169,14 @@ namespace Game.UI
             }
         }
 
-        VisualElement BuildCard(OreType itemType, int amount)
+        VisualElement BuildCard(string itemId, int amount)
         {
             var card = new VisualElement();
             card.AddToClassList("storage-card");
 
             var icon = new VisualElement();
             icon.AddToClassList("storage-card-icon");
-            icon.style.backgroundImage = new StyleBackground(_spriteFactory.CreateSolidSquareSprite(ItemColor(itemType)));
+            icon.style.backgroundImage = new StyleBackground(_spriteFactory.CreateSolidSquareSprite(ItemColor(itemId)));
             card.Add(icon);
 
             var count = new Label(amount.ToString());
@@ -189,12 +194,10 @@ namespace Game.UI
             return card;
         }
 
-        static Color ItemColor(OreType type) => type switch
+        Color ItemColor(string itemId)
         {
-            OreType.Iron => new Color(0.80f, 0.78f, 0.75f),
-            OreType.Copper => new Color(0.90f, 0.50f, 0.20f),
-            OreType.Coal => new Color(0.10f, 0.10f, 0.10f),
-            _ => Color.gray
-        };
+            var item = gameRuntime.Items != null ? gameRuntime.Items.Get(itemId) : null;
+            return item != null ? item.FallbackColor : Color.gray;
+        }
     }
 }

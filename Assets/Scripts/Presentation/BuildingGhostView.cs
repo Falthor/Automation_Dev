@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Core;
 using UnityEngine;
 
@@ -18,11 +19,16 @@ namespace Game.Presentation
 
         SpriteRenderer _spriteRenderer;
 
-        // Independent transform (not a child of this sprite) so the arrow's own scale never
+        // Independent transforms (not children of this sprite) so an arrow's own scale never
         // compounds with the ghost sprite's footprint-driven, often non-uniform scale - the same
-        // reason BuildingSpawner keeps its OutputArrow a sibling of the sprite, not a child of it.
+        // reason BuildingSpawner keeps its arrows siblings of the sprite, not children of it.
         Transform _outputArrow;
         SpriteRenderer _outputArrowRenderer;
+
+        // Pooled entry-arrow slots: sized up as needed, extra ones deactivated rather than
+        // destroyed/recreated every frame (Show() is called once per Update while a tool is armed).
+        readonly List<Transform> _inputArrows = new List<Transform>();
+        readonly List<SpriteRenderer> _inputArrowRenderers = new List<SpriteRenderer>();
 
         void Awake()
         {
@@ -38,7 +44,9 @@ namespace Game.Presentation
         }
 
         public void Show(Sprite sprite, Vector2 worldSize, Vector3 worldPosition, Direction rotation, bool valid,
-            Sprite outputArrowSprite = null, Vector3? outputArrowWorldPosition = null, float outputArrowWorldSize = 0f)
+            Sprite outputArrowSprite = null, Vector3? outputArrowWorldPosition = null, float outputArrowWorldSize = 0f,
+            Sprite inputArrowSprite = null, IReadOnlyList<(Vector3 position, Direction direction)> inputArrows = null,
+            bool rotateSprite = false, Direction artNativeDirection = default)
         {
             gameObject.SetActive(true);
             if (_spriteRenderer == null) _spriteRenderer = GetComponent<SpriteRenderer>();
@@ -49,19 +57,68 @@ namespace Game.Presentation
             Vector2 nativeSize = sprite.bounds.size;
             transform.localScale = new Vector3(worldSize.x / nativeSize.x, worldSize.y / nativeSize.y, 1f);
             transform.position = worldPosition;
-            transform.rotation = Quaternion.Euler(0f, 0f, -rotation.ToRotationDegrees());
+
+            // Most buildings never rotate their sprite - rotating only moves input/output arrows
+            // (matches BuildingSpawner.SpawnStandardView). The "+"-shaped Splitter/Crossroad are the
+            // exception: their real view DOES rotate the sprite (SpawnRotatingCrossView), so the
+            // ghost must mirror that exact formula or it previews a different facing than what
+            // gets built.
+            if (rotateSprite)
+            {
+                int rotationDegrees = rotation.ToRotationDegrees() - artNativeDirection.ToRotationDegrees();
+                transform.rotation = Quaternion.Euler(0f, 0f, -rotationDegrees);
+            }
+            else
+            {
+                transform.rotation = Quaternion.identity;
+            }
 
             if (outputArrowSprite != null && outputArrowWorldPosition.HasValue)
             {
                 _outputArrow.gameObject.SetActive(true);
                 _outputArrowRenderer.sprite = outputArrowSprite;
                 _outputArrow.position = outputArrowWorldPosition.Value;
-                _outputArrow.rotation = transform.rotation;
+                _outputArrow.rotation = Quaternion.Euler(0f, 0f, -rotation.ToRotationDegrees());
                 _outputArrow.localScale = Vector3.one * outputArrowWorldSize;
             }
             else
             {
                 _outputArrow.gameObject.SetActive(false);
+            }
+
+            UpdateInputArrows(inputArrowSprite, inputArrows, outputArrowWorldSize);
+        }
+
+        void UpdateInputArrows(Sprite sprite, IReadOnlyList<(Vector3 position, Direction direction)> arrows, float worldSize)
+        {
+            int count = sprite != null && arrows != null ? arrows.Count : 0;
+
+            while (_inputArrows.Count < count)
+            {
+                var arrowGo = new GameObject("GhostInputArrow");
+                arrowGo.transform.SetParent(transform.parent, false);
+                var renderer = arrowGo.AddComponent<SpriteRenderer>();
+                renderer.sortingOrder = ArrowSortingOrder;
+                arrowGo.SetActive(false);
+                _inputArrows.Add(arrowGo.transform);
+                _inputArrowRenderers.Add(renderer);
+            }
+
+            for (int i = 0; i < _inputArrows.Count; i++)
+            {
+                if (i >= count)
+                {
+                    _inputArrows[i].gameObject.SetActive(false);
+                    continue;
+                }
+
+                (Vector3 position, Direction direction) = arrows[i];
+                _inputArrows[i].gameObject.SetActive(true);
+                _inputArrowRenderers[i].sprite = sprite;
+                _inputArrows[i].position = position;
+                // Entry arrows point inward (toward the building), the opposite of their own side.
+                _inputArrows[i].rotation = Quaternion.Euler(0f, 0f, -direction.Opposite().ToRotationDegrees());
+                _inputArrows[i].localScale = Vector3.one * worldSize;
             }
         }
 
@@ -69,6 +126,7 @@ namespace Game.Presentation
         {
             gameObject.SetActive(false);
             if (_outputArrow != null) _outputArrow.gameObject.SetActive(false);
+            foreach (Transform arrow in _inputArrows) arrow.gameObject.SetActive(false);
         }
     }
 }

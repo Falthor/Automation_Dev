@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using Game.Core;
 using Game.Data;
 using Game.Gameplay.Buildings;
+using Game.Gameplay.Compute;
+using Game.Gameplay.Power;
 using Game.Grid;
 using UnityEngine;
 
@@ -16,14 +18,14 @@ namespace Game.Gameplay.WorldGeneration
     {
         const int DepositPlacementAttempts = 500;
 
-        public BuildingRuntime Core { get; private set; }
+        public CoreRuntime Core { get; private set; }
         public GridCoord CoreOrigin { get; private set; }
         public int ActionRadiusCells { get; private set; }
         public IReadOnlyList<DepositRuntime> OreDeposits => _oreDeposits;
 
         readonly List<DepositRuntime> _oreDeposits = new List<DepositRuntime>();
 
-        public void Generate(GridRuntime grid, int mapSizeCells, WorldGenerationSettings settings)
+        public void Generate(GridRuntime grid, int mapSizeCells, WorldGenerationSettings settings, ComputeSystem computeSystem, PowerSystem powerSystem)
         {
             CoreDefinition coreDefinition = settings.CoreDefinition;
             ActionRadiusCells = coreDefinition.ActionRadiusCells;
@@ -32,7 +34,7 @@ namespace Game.Gameplay.WorldGeneration
                 mapSizeCells / 2 - coreDefinition.FootprintSize.x / 2,
                 mapSizeCells / 2 - coreDefinition.FootprintSize.y / 2);
 
-            Core = new BuildingRuntime(coreDefinition, CoreOrigin, Direction.North);
+            Core = new CoreRuntime(coreDefinition, CoreOrigin, Direction.North, computeSystem, powerSystem);
             grid.SetOccupantFootprint(CoreOrigin, coreDefinition.FootprintSize, Core);
 
             var random = new System.Random(settings.ResourceSeed);

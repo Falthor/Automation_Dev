@@ -1,5 +1,7 @@
 using Game.Core;
 using Game.Data;
+using Game.Gameplay.Compute;
+using Game.Gameplay.Power;
 using Game.Grid;
 
 namespace Game.Gameplay.Buildings
@@ -19,12 +21,14 @@ namespace Game.Gameplay.Buildings
 
         readonly ExtractorDefinition _definition;
         readonly DepositRuntime _deposit;
+        readonly ComputeSystem _computeSystem;
+        readonly PowerSystem _powerSystem;
 
         float _productionTimer;
         int _bufferedAmount;
 
         public DepositRuntime Deposit => _deposit;
-        public OreType OreType => _deposit.OreType;
+        public string ItemId => _deposit.ItemId;
         public int BufferedAmount => _bufferedAmount;
 
         /// <summary>Progress toward the next extraction cycle, in [0,1]. Frozen (does not advance) while the internal buffer is full.</summary>
@@ -40,19 +44,32 @@ namespace Game.Gameplay.Buildings
             }
         }
 
-        public ExtractorRuntime(ExtractorDefinition definition, GridCoord cell, Direction facingRotation, DepositRuntime deposit)
+        public ExtractorRuntime(ExtractorDefinition definition, GridCoord cell, Direction facingRotation, DepositRuntime deposit,
+            ComputeSystem computeSystem, PowerSystem powerSystem)
             : base(definition, cell, facingRotation)
         {
             _definition = definition;
             _deposit = deposit;
+            _computeSystem = computeSystem;
+            _powerSystem = powerSystem;
         }
 
         /// <summary>Advances the production timer; call once per simulation tick.</summary>
-        public void Tick(float deltaTime)
+        public override void Tick(float deltaTime)
         {
-            if (_bufferedAmount >= InternalStorageCapacity) return; // full: output blocked (e.g. no conveyor attached) - stop producing entirely.
+            bool bufferFull = _bufferedAmount >= InternalStorageCapacity;
 
-            _productionTimer += deltaTime;
+            // CU draw is unconditional (always trying to extract); Power draw only while it can
+            // actually output - a full buffer (e.g. no conveyor attached) stops drawing power
+            // for work it isn't doing, matching the source project's extractor.gd exactly.
+            float performance = ComputeEffectivePerformance(
+                cuDemand: _definition.CuDemand, computeActive: true,
+                powerDemand: _definition.PowerDemandKw, powerActive: !bufferFull,
+                _computeSystem, _powerSystem);
+
+            if (bufferFull) return; // full: output blocked (e.g. no conveyor attached) - stop producing entirely.
+
+            _productionTimer += deltaTime * performance;
             if (_productionTimer < _definition.ExtractionIntervalSeconds) return;
 
             _productionTimer = 0f;
@@ -65,11 +82,11 @@ namespace Game.Gameplay.Buildings
             }
         }
 
-        public override object PeekPullableItem() => _bufferedAmount > 0 ? (object)_deposit.OreType : null;
+        public override object PeekPullableItem() => _bufferedAmount > 0 ? (object)_deposit.ItemId : null;
 
         public override void ConsumePulledItem(object item)
         {
-            if (_bufferedAmount > 0 && Equals(_deposit.OreType, item))
+            if (_bufferedAmount > 0 && Equals(_deposit.ItemId, item))
             {
                 _bufferedAmount -= 1;
             }

@@ -1,0 +1,14 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="GameUI.uss" />
+
+    <ui:VisualElement name="TopBarRoot" picking-mode="Ignore" style="position: absolute; left: 0; top: 0; right: 0; height: 36px;">
+        <ui:VisualElement name="TopBarHeaderBg" class="top-bar-header-bg" picking-mode="Ignore">
+            <ui:VisualElement name="TopBarCardsArea" class="top-bar-cards-area" picking-mode="Ignore">
+                <ui:VisualElement name="TopBarCardsRow" picking-mode="Ignore" style="flex-direction: row;" />
+            </ui:VisualElement>
+            <ui:Button name="TopBarMenuButton" text="&#9776;" class="top-bar-icon-button top-bar-menu-button" />
+            <ui:Button name="TopBarPauseButton" text="II" class="top-bar-icon-button top-bar-pause-button" />
+        </ui:VisualElement>
+        <ui:Label name="TopBarPauseOverlay" text="PAUSE" class="top-bar-pause-overlay hidden" />
+    </ui:VisualElement>
+</ui:UXML>

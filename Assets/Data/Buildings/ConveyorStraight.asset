@@ -16,6 +16,9 @@ MonoBehaviour:
   displayName: Conveyor
   footprintSize: {x: 1, y: 1}
   placeholderColor: {r: 0.85, g: 0.65, b: 0.2, a: 1}
+  unlockResearch: {fileID: 0}
+  sprite: {fileID: -3107164642997654838, guid: 0d56e1d22225c2c47a6343ea44e4f9ca, type: 3}
+  cost: []
   defaultShape: 0
-  overrideSprite: {fileID: 21300000, guid: ba7d74acffb2ad2478d1a7b75d1a61a2, type: 3}
+  overrideSprite: {fileID: -3107164642997654838, guid: 0d56e1d22225c2c47a6343ea44e4f9ca, type: 3}
   artNativeDirection: 1

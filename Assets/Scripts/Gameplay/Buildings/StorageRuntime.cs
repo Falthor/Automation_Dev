@@ -21,24 +21,24 @@ namespace Game.Gameplay.Buildings
             _inventory = new Inventory();
         }
 
-        public override bool CanAcceptInput(OreType itemType, int amount, Direction fromDirection)
+        public override bool CanAcceptInput(string itemId, int amount, Direction fromDirection)
         {
-            return _inventory.CanAccept(itemType, amount);
+            return _inventory.CanAccept(itemId, amount);
         }
 
-        public override void AddInput(OreType itemType, int amount, Direction fromDirection)
+        public override void AddInput(string itemId, int amount, Direction fromDirection)
         {
-            _inventory.Add(itemType, amount);
+            _inventory.Add(itemId, amount);
         }
 
-        public override int TakeInput(OreType itemType, int amount)
+        public override int TakeInput(string itemId, int amount)
         {
-            return _inventory.Take(itemType, amount);
+            return _inventory.Take(itemId, amount);
         }
 
-        public override int GetInputAmount(OreType itemType)
+        public override int GetInputAmount(string itemId)
         {
-            return _inventory.GetAmount(itemType);
+            return _inventory.GetAmount(itemId);
         }
     }
 }

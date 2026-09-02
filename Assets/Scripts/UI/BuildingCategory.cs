@@ -8,6 +8,7 @@ namespace Game.UI
     public enum BuildingCategory
     {
         Production,
+        Power,
         Logistic,
         Organisation
     }

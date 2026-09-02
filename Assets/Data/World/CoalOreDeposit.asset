@@ -16,4 +16,5 @@ MonoBehaviour:
   displayName: Coal Ore Deposit
   footprintSize: {x: 2, y: 2}
   placeholderColor: {r: 0.12, g: 0.12, b: 0.12, a: 1}
-  oreType: 2
+  item: {fileID: 11400000, guid: 5e06ac222b66b1543b7ac815dd074e68, type: 2}
+  initialQuantity: 1000

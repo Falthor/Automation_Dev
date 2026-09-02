@@ -10,10 +10,20 @@ namespace Game.Data
     [CreateAssetMenu(fileName = "CoreDefinition", menuName = "Game/World/Core Definition")]
     public sealed class CoreDefinition : BuildingDefinition
     {
-        [SerializeField] Sprite sprite;
         [SerializeField, Min(1)] int actionRadiusCells = 50;
+        [SerializeField, Min(0f)] float cuOutput = 3000f;
+        [SerializeField, Min(0f)] float powerOutputKw = 20f;
+        [SerializeField] RecipeIngredient[] startingStock = System.Array.Empty<RecipeIngredient>();
 
-        public Sprite Sprite => sprite;
         public int ActionRadiusCells => actionRadiusCells;
+
+        /// <summary>Permanent CU/s supply, no cable/network needed - reported unconditionally every tick.</summary>
+        public float CuOutput => cuOutput;
+
+        /// <summary>Permanent Power supply, same unconditional per-tick report as CuOutput.</summary>
+        public float PowerOutputKw => powerOutputKw;
+
+        /// <summary>Bootstraps the first constructions - added to Core's own inventory once at world generation.</summary>
+        public RecipeIngredient[] StartingStock => startingStock;
     }
 }

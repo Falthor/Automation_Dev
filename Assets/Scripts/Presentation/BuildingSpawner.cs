@@ -15,10 +15,11 @@ namespace Game.Presentation
     /// </summary>
     public sealed class BuildingSpawner
     {
-        const int ExtractorSortingOrder = 10;
-        const int StorageSortingOrder = 10;
+        const int StandardSortingOrder = 10;
         const int OutputArrowSortingOrder = 11;
+        const int InputArrowSortingOrder = 11;
         static readonly Color OutputArrowColor = new Color(0.25f, 0.95f, 0.35f, 1f);
+        static readonly Color InputArrowColor = new Color(0.3f, 0.6f, 1f, 1f);
 
         readonly GridRuntime _grid;
         readonly ProceduralSpriteFactory _spriteFactory;
@@ -44,69 +45,126 @@ namespace Game.Presentation
                 go.transform.position = _grid.CellCenterToWorld(runtime.Cell);
                 var view = go.AddComponent<ConveyorView>();
                 var conveyorDefinition = (ConveyorDefinition)conveyorRuntime.Definition;
-                view.Sync(conveyorRuntime, _spriteFactory, conveyorDefinition);
+                view.Sync(conveyorRuntime, _spriteFactory, conveyorDefinition, _grid.CellSize);
 
                 _views[runtime.Cell] = go;
             }
-            else if (runtime is ExtractorRuntime extractorRuntime)
+            else if (runtime is SplitterRuntime splitterRuntime)
             {
-                _views[runtime.Cell] = SpawnExtractorView(extractorRuntime);
+                _views[runtime.Cell] = SpawnRotatingCrossView(splitterRuntime, (SplitterDefinition)splitterRuntime.Definition, ((SplitterDefinition)splitterRuntime.Definition).ArtNativeEntrySide);
             }
-            else if (runtime is StorageRuntime storageRuntime)
+            else if (runtime is CrossroadRuntime crossroadRuntime)
             {
-                _views[runtime.Cell] = SpawnStorageView(storageRuntime);
+                _views[runtime.Cell] = SpawnRotatingCrossView(crossroadRuntime, (CrossroadDefinition)crossroadRuntime.Definition, Direction.North);
+            }
+            else
+            {
+                _views[runtime.Cell] = SpawnStandardView(runtime);
             }
         }
 
-        GameObject SpawnExtractorView(ExtractorRuntime extractor)
+        /// <summary>
+        /// Generic view for every non-conveyor building: a sprite sized to its footprint, plus
+        /// an output arrow (and, for a recipe-based production building, entry arrows on every
+        /// other side) if its Definition declares one. Covers Extractor/Storage/Foundry/Factory/
+        /// AdvancedFoundry/Assembler/PowerplantGaz/Laboratory/DataCenter - the only per-type
+        /// differences (HasOutputArrow/HasInputArrows) already live on BuildingDefinition, so no
+        /// concrete-type dispatch is needed here at all.
+        ///
+        /// The root never rotates - only the sprite's world size follows the footprint. Rotating
+        /// a building must not change how it looks, only where its input/output arrows sit, so
+        /// facing is baked into each arrow's own position/rotation instead of the root's.
+        /// </summary>
+        GameObject SpawnStandardView(BuildingRuntime runtime)
         {
-            var definition = (ExtractorDefinition)extractor.Definition;
+            BuildingDefinition definition = runtime.Definition;
 
-            // Root carries only position/rotation (no scale) so the sprite and the arrow can
-            // each have their own independent scale without compounding through the hierarchy.
-            var root = new GameObject($"Extractor {extractor.Cell}");
-            root.transform.position = _grid.FootprintCenterToWorld(extractor.Cell, definition.FootprintSize);
-            root.transform.rotation = Quaternion.Euler(0f, 0f, -extractor.FacingRotation.ToRotationDegrees());
+            var root = new GameObject($"{definition.DisplayName} {runtime.Cell}");
+            root.transform.position = _grid.FootprintCenterToWorld(runtime.Cell, definition.FootprintSize);
 
             var spriteGo = new GameObject("Sprite");
             spriteGo.transform.SetParent(root.transform, false);
             var renderer = spriteGo.AddComponent<SpriteRenderer>();
-            renderer.sortingOrder = ExtractorSortingOrder;
+            renderer.sortingOrder = StandardSortingOrder;
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
             SetSpriteToWorldSize(renderer, sprite, new Vector2(_grid.CellSize, _grid.CellSize) * definition.FootprintSize);
 
-            var arrowGo = new GameObject("OutputArrow");
-            arrowGo.transform.position = _grid.CellCenterToWorld(extractor.GetOutputCell());
-            arrowGo.transform.rotation = root.transform.rotation;
-            arrowGo.transform.localScale = Vector3.one * (_grid.CellSize * 0.4f);
-            arrowGo.transform.SetParent(root.transform, true);
+            if (definition.HasOutputArrow)
+            {
+                SpawnDirectionalArrow(root.transform, _grid.CellCenterToWorld(runtime.GetOutputCell()), runtime.ExitDirection, OutputArrowColor, OutputArrowSortingOrder, inward: false);
 
-            var arrowRenderer = arrowGo.AddComponent<SpriteRenderer>();
-            arrowRenderer.sortingOrder = OutputArrowSortingOrder;
-            arrowRenderer.sprite = _spriteFactory.CreateArrowSprite(OutputArrowColor);
+                if (definition.HasInputArrows)
+                {
+                    var drawnSides = new HashSet<Direction>();
+                    foreach ((GridCoord cell, Direction fromMySide) in runtime.GetEdgeCells())
+                    {
+                        if (fromMySide == runtime.ExitDirection) continue;
+                        if (!drawnSides.Add(fromMySide)) continue;
+                        SpawnDirectionalArrow(root.transform, _grid.CellCenterToWorld(cell), fromMySide, InputArrowColor, InputArrowSortingOrder, inward: true);
+                    }
+                }
+            }
 
             return root;
         }
 
-        GameObject SpawnStorageView(StorageRuntime storage)
+        /// <summary>
+        /// Shared view for the "+"-shaped rotatable buildings (Splitter, Crossroad): unlike
+        /// SpawnStandardView, the sprite itself DOES rotate with FacingRotation - their asymmetric
+        /// art (an entry chevron, or two crossing lanes) has to visually turn with it, since there
+        /// is no separate procedural arrow overlay to move instead (matches ConveyorView's own
+        /// rotation formula: rotation minus the art's native pose, negated for Unity's CCW-positive Z).
+        /// </summary>
+        GameObject SpawnRotatingCrossView(BuildingRuntime runtime, BuildingDefinition definition, Direction artNativeDirection)
         {
-            var definition = (StorageDefinition)storage.Definition;
-            var go = new GameObject($"Storage {storage.Cell}");
-            go.transform.position = _grid.CellCenterToWorld(storage.Cell);
+            var root = new GameObject($"{definition.DisplayName} {runtime.Cell}");
+            root.transform.position = _grid.FootprintCenterToWorld(runtime.Cell, definition.FootprintSize);
 
-            var renderer = go.AddComponent<SpriteRenderer>();
-            renderer.sortingOrder = StorageSortingOrder;
+            var renderer = root.AddComponent<SpriteRenderer>();
+            renderer.sortingOrder = StandardSortingOrder;
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
             SetSpriteToWorldSize(renderer, sprite, new Vector2(_grid.CellSize, _grid.CellSize) * definition.FootprintSize);
 
-            return go;
+            if (definition.RenderOverscan != 1f)
+            {
+                renderer.transform.localScale *= definition.RenderOverscan;
+            }
+
+            if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
+            {
+                renderer.gameObject.AddComponent<SpriteFlipbook>().Initialize(definition.AnimationFrames, definition.AnimationFps);
+            }
+
+            int rotationDegrees = runtime.FacingRotation.ToRotationDegrees() - artNativeDirection.ToRotationDegrees();
+            root.transform.rotation = Quaternion.Euler(0f, 0f, -rotationDegrees);
+
+            return root;
         }
 
-        static void SetSpriteToWorldSize(SpriteRenderer renderer, Sprite sprite, Vector2 desiredWorldSize)
+        /// <summary>
+        /// One small arrow sprite at a world position, facing outward from the building
+        /// (output) or inward toward it (entry). Facing is entirely determined by `direction`
+        /// and `inward`, never by the parent's rotation - the parent (root) never rotates.
+        /// </summary>
+        void SpawnDirectionalArrow(Transform parent, Vector3 worldPosition, Direction direction, Color color, int sortingOrder, bool inward)
+        {
+            var arrowGo = new GameObject(inward ? "InputArrow" : "OutputArrow");
+            arrowGo.transform.position = worldPosition;
+            Direction pointingDirection = inward ? direction.Opposite() : direction;
+            arrowGo.transform.rotation = Quaternion.Euler(0f, 0f, -pointingDirection.ToRotationDegrees());
+            arrowGo.transform.localScale = Vector3.one * (_grid.CellSize * 0.4f);
+            arrowGo.transform.SetParent(parent, true);
+
+            var arrowRenderer = arrowGo.AddComponent<SpriteRenderer>();
+            arrowRenderer.sortingOrder = sortingOrder;
+            arrowRenderer.sprite = _spriteFactory.CreateArrowSprite(color);
+        }
+
+        internal static void SetSpriteToWorldSize(SpriteRenderer renderer, Sprite sprite, Vector2 desiredWorldSize)
         {
             renderer.sprite = sprite;
             Vector2 nativeSize = sprite.bounds.size;

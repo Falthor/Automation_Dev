@@ -21,22 +21,28 @@ namespace Game.Presentation
 
         readonly List<ExtractorRuntime> _extractors = new List<ExtractorRuntime>();
         readonly List<ConveyorRuntime> _conveyors = new List<ConveyorRuntime>();
+        readonly List<SplitterRuntime> _splitters = new List<SplitterRuntime>();
+        readonly List<CrossroadRuntime> _crossroads = new List<CrossroadRuntime>();
         readonly Dictionary<object, GameObject> _views = new Dictionary<object, GameObject>();
         readonly HashSet<object> _liveKeys = new HashSet<object>();
 
         GridRuntime _grid;
         ProceduralSpriteFactory _spriteFactory;
+        ItemDatabase _itemDatabase;
 
-        public void Initialize(GridRuntime grid, ProceduralSpriteFactory spriteFactory)
+        public void Initialize(GridRuntime grid, ProceduralSpriteFactory spriteFactory, ItemDatabase itemDatabase)
         {
             _grid = grid;
             _spriteFactory = spriteFactory;
+            _itemDatabase = itemDatabase;
         }
 
         public void Register(BuildingRuntime building)
         {
             if (building is ExtractorRuntime extractor) _extractors.Add(extractor);
             else if (building is ConveyorRuntime conveyor) _conveyors.Add(conveyor);
+            else if (building is SplitterRuntime splitter) _splitters.Add(splitter);
+            else if (building is CrossroadRuntime crossroad) _crossroads.Add(crossroad);
         }
 
         public void Unregister(BuildingRuntime building)
@@ -50,6 +56,17 @@ namespace Game.Presentation
             {
                 _conveyors.Remove(conveyor);
                 RemoveView(conveyor);
+            }
+            else if (building is SplitterRuntime splitter)
+            {
+                _splitters.Remove(splitter);
+                RemoveView(splitter);
+            }
+            else if (building is CrossroadRuntime crossroad)
+            {
+                _crossroads.Remove(crossroad);
+                RemoveView((crossroad, 'A'));
+                RemoveView((crossroad, 'B'));
             }
         }
 
@@ -85,6 +102,10 @@ namespace Game.Presentation
                 SyncView(conveyor, conveyor.CarriedItem, worldPos);
             }
 
+            // Splitter/Crossroad items are deliberately not drawn while held/in-transit through
+            // these two building types (per explicit request) - they still occupy _splitters/
+            // _crossroads for registration bookkeeping, just never added to _liveKeys/synced.
+
             RemoveStaleViews();
         }
 
@@ -95,8 +116,15 @@ namespace Game.Presentation
                 go = new GameObject("Item");
                 var renderer = go.AddComponent<SpriteRenderer>();
                 renderer.sortingOrder = ItemSortingOrder;
-                renderer.sprite = _spriteFactory.CreateSolidSquareSprite(ColorFor(item));
-                go.transform.localScale = Vector3.one * (_grid.CellSize * itemVisualScale);
+                Sprite sprite = SpriteFor(item as string);
+                renderer.sprite = sprite;
+
+                // Icons come from imported art with their own native pixel size/PPU, unlike the
+                // procedural placeholder square (always exactly 1x1 world unit) - normalize
+                // against the sprite's own bounds so every item reads at the same world size.
+                float desiredWorldSize = _grid.CellSize * itemVisualScale;
+                Vector2 nativeSize = sprite.bounds.size;
+                go.transform.localScale = new Vector3(desiredWorldSize / nativeSize.x, desiredWorldSize / nativeSize.y, 1f);
                 _views[owner] = go;
             }
 
@@ -132,20 +160,13 @@ namespace Game.Presentation
             }
         }
 
-        static Color ColorFor(object item)
+        Sprite SpriteFor(string itemId)
         {
-            if (item is OreType ore)
-            {
-                return ore switch
-                {
-                    OreType.Iron => new Color(0.80f, 0.78f, 0.75f),
-                    OreType.Copper => new Color(0.90f, 0.50f, 0.20f),
-                    OreType.Coal => new Color(0.10f, 0.10f, 0.10f),
-                    _ => Color.magenta
-                };
-            }
+            ItemDefinition item = _itemDatabase != null ? _itemDatabase.Get(itemId) : null;
+            if (item != null && item.Icon != null) return item.Icon;
 
-            return Color.magenta;
+            Color fallback = item != null ? item.FallbackColor : Color.magenta;
+            return _spriteFactory.CreateSolidSquareSprite(fallback);
         }
     }
 }

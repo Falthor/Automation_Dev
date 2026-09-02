@@ -46,13 +46,17 @@ namespace Game.UI
         [SerializeField] GameRuntime gameRuntime;
         [SerializeField] BuildingMenuEntry[] entries;
         [SerializeField] CategoryIcon[] categoryIcons;
+        [SerializeField] Sprite powerIcon;
+        [SerializeField] Sprite computeIcon;
 
         readonly ProceduralSpriteFactory _spriteFactory = new ProceduralSpriteFactory();
 
         VisualElement _root;
         VisualElement _categoryColumn;
         VisualElement _grid;
+        VisualElement _details;
         readonly Dictionary<BuildingCategory, Button> _categoryButtons = new Dictionary<BuildingCategory, Button>();
+        readonly List<(VisualElement card, BuildingDefinition definition)> _cardStates = new List<(VisualElement, BuildingDefinition)>();
         BuildingCategory _selectedCategory = BuildingCategory.Production;
         bool _isOpen;
 
@@ -72,10 +76,16 @@ namespace Game.UI
             VisualElement panelRoot = visualTree.CloneTree();
             uiDocument.rootVisualElement.Add(panelRoot);
             panelRoot.StretchToParentSize();
+            // The clone wrapper itself is an invisible full-screen box with no content of its
+            // own - without Ignore, it swallows clicks meant for whatever real content (this
+            // panel's own included) sits underneath it in z-order, anywhere it has no visible
+            // child at that exact point. Its actual content keeps its own default picking mode.
+            panelRoot.pickingMode = PickingMode.Ignore;
 
             _root = panelRoot.Q<VisualElement>("BuildingMenuRoot");
             _categoryColumn = panelRoot.Q<VisualElement>("CategoryColumn");
             _grid = panelRoot.Q<VisualElement>("BuildingGrid");
+            _details = panelRoot.Q<VisualElement>("BuildingDetails");
             panelRoot.Q<Button>("BuildingCloseButton").clicked += Close;
 
             BuildCategoryButtons();
@@ -146,6 +156,7 @@ namespace Game.UI
         void BuildCards()
         {
             HoveredCardDefinition = null;
+            _cardStates.Clear();
             var cards = new List<VisualElement>();
 
             foreach (BuildingMenuEntry entry in entries)
@@ -153,12 +164,23 @@ namespace Game.UI
                 if (entry.definition == null || entry.category != _selectedCategory) continue;
 
                 BuildingDefinition definition = entry.definition;
+
+                // A building whose research is not yet unlocked doesn't appear at all (matches
+                // the source project's building_panel.gd, which only lists unlocked buildings) -
+                // "unaffordable" (amber tint) is a different, visible-but-not-yet-buildable state.
+                if (definition.UnlockResearch != null && !gameRuntime.Research.IsUnlocked(definition.UnlockResearch.Id)) continue;
                 var card = new Button(() => SelectAndClose(definition)) { text = string.Empty };
                 card.AddToClassList("building-card");
-                card.RegisterCallback<PointerEnterEvent>(_ => HoveredCardDefinition = definition);
+                card.RegisterCallback<PointerEnterEvent>(_ =>
+                {
+                    HoveredCardDefinition = definition;
+                    PopulateDetails(definition);
+                });
                 card.RegisterCallback<PointerLeaveEvent>(_ =>
                 {
-                    if (HoveredCardDefinition == definition) HoveredCardDefinition = null;
+                    if (HoveredCardDefinition != definition) return;
+                    HoveredCardDefinition = null;
+                    _details.Clear();
                 });
 
                 var icon = new VisualElement();
@@ -175,10 +197,12 @@ namespace Game.UI
                 card.Add(label);
 
                 cards.Add(card);
+                _cardStates.Add((card, definition));
             }
 
-            // Fixed-width rows (not CSS flex-wrap) so the panel shrinks to fit its content
-            // instead of being forced to a wide fixed width with empty trailing space.
+            // Rows built manually (not CSS flex-wrap) at a fixed GridColumns count, so the panel
+            // stays the same width across every category regardless of card count (the actual
+            // fixed width comes from .building-grid-scroll in GameUI.uss).
             _grid.Clear();
             for (int i = 0; i < cards.Count; i += GridColumns)
             {
@@ -192,19 +216,26 @@ namespace Game.UI
             }
         }
 
+        /// <summary>
+        /// Tints every visible card by availability (matches the source project's
+        /// building_panel.gd _refresh_states(): grey = locked, amber = unaffordable, normal =
+        /// available), refreshed every frame the panel is open so paying/unlocking updates cards
+        /// live without needing to hover them.
+        /// </summary>
+        void RefreshCardStates()
+        {
+            foreach (var (card, definition) in _cardStates)
+            {
+                bool locked = definition.UnlockResearch != null && !gameRuntime.Research.IsUnlocked(definition.UnlockResearch.Id);
+                bool affordable = locked || gameRuntime.Construction.CanAfford(definition);
+                card.EnableInClassList("building-card-locked", locked);
+                card.EnableInClassList("building-card-unaffordable", !locked && !affordable);
+            }
+        }
+
         public Sprite ResolveIcon(BuildingDefinition definition)
         {
             if (definition == null) return null;
-
-            if (definition is ExtractorDefinition extractorDef)
-            {
-                return extractorDef.Sprite != null ? extractorDef.Sprite : _spriteFactory.CreateSolidSquareSprite(extractorDef.PlaceholderColor);
-            }
-
-            if (definition is StorageDefinition storageDef)
-            {
-                return storageDef.Sprite != null ? storageDef.Sprite : _spriteFactory.CreateSolidSquareSprite(storageDef.PlaceholderColor);
-            }
 
             if (definition is ConveyorDefinition conveyorDef)
             {
@@ -213,7 +244,7 @@ namespace Game.UI
                     : _spriteFactory.CreateShapeSprite(conveyorDef.DefaultShape, conveyorDef.PlaceholderColor);
             }
 
-            return _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
+            return definition.Sprite != null ? definition.Sprite : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
         }
 
         /// <summary>Assigns a definition to a toolbar slot (null clears it), overwriting whatever was there.</summary>
@@ -227,6 +258,15 @@ namespace Game.UI
 
         void Update()
         {
+            // Keeps "Available: X" and the affordability status live while the panel stays open
+            // and a card stays hovered - a full rebuild each frame, same pattern as every other
+            // panel controller's Update()-driven Refresh() (e.g. ResearchPanelController).
+            if (_isOpen)
+            {
+                RefreshCardStates();
+                if (HoveredCardDefinition != null) PopulateDetails(HoveredCardDefinition);
+            }
+
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null || IsTextFieldFocused()) return;
 
@@ -238,6 +278,124 @@ namespace Game.UI
             {
                 gameRuntime.Selection.CloseGlobalPanel();
             }
+        }
+
+        /// <summary>
+        /// Hover-only details (matches the source project's building_panel.gd): icon, name, its
+        /// construction cost (item icon + name + ×amount + how much is currently available) and
+        /// an affordability status line - all read through ConstructionService's public
+        /// CanAfford/GetAvailableAmount (CONTRACTS.md §12), never a second cost-aggregation path.
+        /// </summary>
+        void PopulateDetails(BuildingDefinition definition)
+        {
+            _details.Clear();
+
+            var header = new VisualElement();
+            header.AddToClassList("building-details-header");
+
+            var icon = new VisualElement();
+            icon.AddToClassList("building-details-icon");
+            Sprite iconSprite = ResolveIcon(definition);
+            if (iconSprite != null) icon.style.backgroundImage = new StyleBackground(iconSprite);
+            header.Add(icon);
+
+            var name = new Label(definition.DisplayName);
+            name.AddToClassList("building-details-name");
+            header.Add(name);
+
+            _details.Add(header);
+
+            var info = new VisualElement();
+            info.AddToClassList("building-details-info");
+
+            if (definition.Cost.Length > 0)
+            {
+                var costTitle = new Label("COUT DE CONSTRUCTION");
+                costTitle.AddToClassList("building-details-section-title");
+                info.Add(costTitle);
+
+                foreach (RecipeIngredient ingredient in definition.Cost)
+                {
+                    if (ingredient.Item == null) continue;
+                    info.Add(BuildCostRow(ingredient));
+                }
+            }
+
+            if (definition.PowerDemandKw > 0f || definition.CuDemand > 0f)
+            {
+                var consumptionTitle = new Label("CONSOMMATION");
+                consumptionTitle.AddToClassList("building-details-section-title");
+                info.Add(consumptionTitle);
+
+                var consumptionRow = new VisualElement();
+                consumptionRow.AddToClassList("building-details-consumption-row");
+                if (definition.PowerDemandKw > 0f) consumptionRow.Add(BuildConsumptionPill(powerIcon, $"{definition.PowerDemandKw:0} kW"));
+                if (definition.CuDemand > 0f) consumptionRow.Add(BuildConsumptionPill(computeIcon, $"{definition.CuDemand:0} CU"));
+                info.Add(consumptionRow);
+            }
+
+            var status = new Label();
+            status.AddToClassList("building-details-status");
+            bool locked = definition.UnlockResearch != null && !gameRuntime.Research.IsUnlocked(definition.UnlockResearch.Id);
+            bool affordable = gameRuntime.Construction.CanAfford(definition);
+            if (locked)
+            {
+                status.text = "VERROUILLE";
+                status.AddToClassList("building-details-status-locked");
+            }
+            else if (!affordable)
+            {
+                status.text = "RESSOURCES INSUFFISANTES";
+                status.AddToClassList("building-details-status-unaffordable");
+            }
+            else
+            {
+                status.text = "DISPONIBLE";
+                status.AddToClassList("building-details-status-available");
+            }
+            info.Add(status);
+
+            _details.Add(info);
+        }
+
+        VisualElement BuildConsumptionPill(Sprite icon, string text)
+        {
+            var pill = new VisualElement();
+            pill.AddToClassList("building-details-consumption-pill");
+
+            var iconElement = new VisualElement();
+            iconElement.AddToClassList("building-details-consumption-icon");
+            if (icon != null) iconElement.style.backgroundImage = new StyleBackground(icon);
+            pill.Add(iconElement);
+
+            var label = new Label(text);
+            label.AddToClassList("building-details-consumption-text");
+            pill.Add(label);
+
+            return pill;
+        }
+
+        VisualElement BuildCostRow(RecipeIngredient ingredient)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("building-details-cost-row");
+
+            var icon = new VisualElement();
+            icon.AddToClassList("building-details-cost-icon");
+            if (ingredient.Item.Icon != null) icon.style.backgroundImage = new StyleBackground(ingredient.Item.Icon);
+            row.Add(icon);
+
+            var name = new Label($"{ingredient.Item.DisplayName} x{ingredient.Amount}");
+            name.AddToClassList("building-details-cost-name");
+            row.Add(name);
+
+            int available = gameRuntime.Construction.GetAvailableAmount(ingredient.Item.Id);
+            var have = new Label($"{available}");
+            have.AddToClassList("building-details-cost-have");
+            have.EnableInClassList("building-details-cost-have-insufficient", available < ingredient.Amount);
+            row.Add(have);
+
+            return row;
         }
 
         bool IsTextFieldFocused()

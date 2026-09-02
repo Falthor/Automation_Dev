@@ -8,9 +8,15 @@
                 <ui:Button name="BuildingCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
             <ui:VisualElement class="building-body">
-                <ui:VisualElement name="CategoryColumn" class="category-column" />
-                <ui:VisualElement class="v-separator" />
-                <ui:VisualElement name="BuildingGrid" class="building-grid" />
+                <ui:VisualElement class="building-top-row">
+                    <ui:VisualElement name="CategoryColumn" class="category-column" />
+                    <ui:VisualElement class="v-separator" />
+                    <ui:ScrollView name="BuildingGridScroll" class="building-grid-scroll" mode="Vertical" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto">
+                        <ui:VisualElement name="BuildingGrid" class="building-grid" />
+                    </ui:ScrollView>
+                </ui:VisualElement>
+                <ui:VisualElement class="h-separator" />
+                <ui:VisualElement name="BuildingDetails" class="building-details" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

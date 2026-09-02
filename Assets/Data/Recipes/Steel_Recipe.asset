@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c066c336084ad324aa88241708a951b1, type: 3}
+  m_Name: Steel_Recipe
+  m_EditorClassIdentifier: Game.Data::Game.Data.RecipeDefinition
+  id: Steel
+  ingredients:
+  - item: {fileID: 11400000, guid: 929b7f451c0471e4792a67bdfa782512, type: 2}
+    amount: 3
+  - item: {fileID: 11400000, guid: 5e06ac222b66b1543b7ac815dd074e68, type: 2}
+    amount: 2
+  outputAmount: 1
+  timeSeconds: 6
+  computeCost: 600
+  unlockResearch: {fileID: 0}

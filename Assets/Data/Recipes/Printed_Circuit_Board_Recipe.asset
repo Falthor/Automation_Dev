@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c066c336084ad324aa88241708a951b1, type: 3}
+  m_Name: Printed_Circuit_Board_Recipe
+  m_EditorClassIdentifier: Game.Data::Game.Data.RecipeDefinition
+  id: Printed_Circuit_Board
+  ingredients:
+  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+    amount: 2
+  - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
+    amount: 2
+  outputAmount: 2
+  timeSeconds: 2
+  computeCost: 800
+  unlockResearch: {fileID: 0}

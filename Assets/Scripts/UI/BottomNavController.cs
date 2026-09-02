@@ -16,8 +16,6 @@ namespace Game.UI
     /// </summary>
     public sealed class BottomNavController : MonoBehaviour
     {
-        const string ResearchPanelName = "research";
-
         [SerializeField] UIDocument uiDocument;
         [SerializeField] VisualTreeAsset visualTree;
         [SerializeField] GameRuntime gameRuntime;
@@ -44,6 +42,9 @@ namespace Game.UI
             VisualElement panelRoot = visualTree.CloneTree();
             uiDocument.rootVisualElement.Add(panelRoot);
             panelRoot.StretchToParentSize();
+            // See BuildingMenuController - the clone wrapper itself must not intercept clicks
+            // meant for whatever real content sits underneath it in z-order.
+            panelRoot.pickingMode = PickingMode.Ignore;
 
             _categoryRow = panelRoot.Q<VisualElement>("BottomNavCategoryRow");
             _toolbarRow = panelRoot.Q<VisualElement>("BottomNavToolbarRow");
@@ -68,7 +69,7 @@ namespace Game.UI
             _categoryRow.Clear();
             AddCategoryButton(0, StoragePanelController.PanelName, storageIcon);
             AddCategoryButton(1, BuildingMenuController.PanelName, buildingIcon);
-            AddCategoryButton(2, ResearchPanelName, researchIcon);
+            AddCategoryButton(2, ResearchPanelController.PanelName, researchIcon);
         }
 
         void AddCategoryButton(int index, string panelName, Sprite icon)
@@ -136,11 +137,28 @@ namespace Game.UI
                 badge.AddToClassList("bottom-nav-slot-badge");
                 slot.Add(badge);
 
+                int slotIndex = i;
+                slot.RegisterCallback<ClickEvent>(_ => OnSlotClicked(slotIndex));
+
                 _toolbarRow.Add(slot);
                 _slotRoots[i] = slot;
                 _slotIcons[i] = icon;
                 _slotBadges[i] = badge;
             }
+        }
+
+        void OnSlotClicked(int slotIndex)
+        {
+            if (buildingMenu.IsOpen && buildingMenu.HoveredCardDefinition != null)
+            {
+                buildingMenu.AssignToSlot(slotIndex, buildingMenu.HoveredCardDefinition);
+                return;
+            }
+
+            if (buildingMenu.ToolbarSlots[slotIndex] == null) return;
+
+            gameRuntime.Construction.SelectBuilding(buildingMenu.ToolbarSlots[slotIndex]);
+            gameRuntime.Selection.CloseGlobalPanel();
         }
 
         void RefreshToolbar()
@@ -177,16 +195,7 @@ namespace Game.UI
             for (int i = 0; i < BuildingMenuController.ToolbarSlotCount; i++)
             {
                 if (!DigitKey(keyboard, i).wasPressedThisFrame) continue;
-
-                if (buildingMenu.IsOpen && buildingMenu.HoveredCardDefinition != null)
-                {
-                    buildingMenu.AssignToSlot(i, buildingMenu.HoveredCardDefinition);
-                }
-                else if (buildingMenu.ToolbarSlots[i] != null)
-                {
-                    gameRuntime.Construction.SelectBuilding(buildingMenu.ToolbarSlots[i]);
-                    gameRuntime.Selection.CloseGlobalPanel();
-                }
+                OnSlotClicked(i);
             }
         }
 

@@ -12,13 +12,24 @@
     justify-content: flex-start;
 }
 
+/* Per-building context panels (Extractor, Storage box, Production) dock to the right edge
+   instead of the centered default used by the Building catalog/aggregate Storage view. */
+.overlay-root-right {
+    align-items: flex-end;
+}
+
+.overlay-root-right .panel {
+    align-self: flex-end;
+    margin-right: 24px;
+}
+
 .panel {
     margin-top: 90px;
     align-self: center;
     background-color: rgba(16, 20, 25, 0.98);
     border-width: 2px;
     border-color: rgb(48, 59, 66);
-    padding: 16px;
+    padding: 10px;
 }
 
 .panel-accent {
@@ -30,27 +41,27 @@
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
     border-bottom-width: 1px;
     border-bottom-color: rgb(48, 59, 66);
-    padding-bottom: 8px;
+    padding-bottom: 5px;
 }
 
 .title {
     color: rgb(85, 221, 245);
-    font-size: 16px;
+    font-size: 13px;
     -unity-font-style: bold;
     letter-spacing: 1px;
 }
 
 .close-button {
-    width: 26px;
-    height: 26px;
+    width: 22px;
+    height: 22px;
     background-color: rgba(0, 0, 0, 0);
     border-width: 1px;
     border-color: rgb(48, 59, 66);
     color: rgb(220, 220, 220);
-    font-size: 16px;
+    font-size: 13px;
     -unity-text-align: middle-center;
 }
 
@@ -60,11 +71,21 @@
 }
 
 .building-body {
+    flex-direction: column;
+}
+
+.building-top-row {
     flex-direction: row;
 }
 
+.h-separator {
+    height: 1px;
+    background-color: rgb(48, 59, 66);
+    margin: 10px 0;
+}
+
 .category-column {
-    width: 130px;
+    width: 150px;
     margin-right: 10px;
 }
 
@@ -75,16 +96,17 @@
 }
 
 .category-button {
-    height: 84px;
+    height: 40px;
     margin-bottom: 6px;
     background-color: rgb(20, 24, 29);
     border-width: 1px;
     border-color: rgb(48, 59, 66);
     color: rgb(200, 205, 210);
     font-size: 13px;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
-    padding: 8px 4px;
+    justify-content: flex-start;
+    padding: 0 8px;
 }
 
 .category-button:hover {
@@ -98,20 +120,45 @@
 }
 
 .category-button-icon {
-    width: 36px;
-    height: 36px;
-    margin-bottom: 6px;
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
     -unity-background-scale-mode: scale-to-fit;
 }
 
 .category-button-label {
     color: rgb(200, 205, 210);
     font-size: 12px;
-    -unity-text-align: middle-center;
+    -unity-text-align: middle-left;
 }
 
 .category-button-selected .category-button-label {
     color: rgb(85, 221, 245);
+}
+
+.building-grid-scroll {
+    width: 360px;
+    max-height: 200px;
+}
+
+.building-grid-scroll .unity-scroller--vertical {
+    width: 6px;
+}
+
+.building-grid-scroll .unity-scroller--vertical .unity-scroller__low-button,
+.building-grid-scroll .unity-scroller--vertical .unity-scroller__high-button {
+    display: none;
+}
+
+.building-grid-scroll .unity-scroller--vertical .unity-base-slider__tracker {
+    width: 4px;
+    border-radius: 2px;
+}
+
+.building-grid-scroll .unity-scroller--vertical .unity-base-slider__dragger {
+    width: 4px;
+    border-radius: 2px;
+    background-color: rgb(85, 221, 245);
 }
 
 .building-grid {
@@ -138,6 +185,22 @@
 .building-card:hover {
     border-color: rgb(85, 221, 245);
     background-color: rgb(30, 37, 44);
+}
+
+.building-card-locked {
+    opacity: 0.5;
+}
+
+.building-card-unaffordable {
+    border-color: rgb(255, 216, 102);
+}
+
+.building-card-unaffordable .building-card-icon {
+    -unity-background-image-tint-color: rgb(255, 216, 102);
+}
+
+.building-card-unaffordable .building-card-label {
+    color: rgb(255, 216, 102);
 }
 
 .building-card-icon {
@@ -212,9 +275,9 @@
 
 .extractor-section-label {
     color: rgb(160, 168, 175);
-    font-size: 11px;
-    margin-bottom: 4px;
-    margin-top: 8px;
+    font-size: 10px;
+    margin-bottom: 3px;
+    margin-top: 5px;
 }
 
 .extractor-progress-track {
@@ -239,7 +302,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    height: 60px;
+    height: 44px;
     flex-direction: row;
     align-items: center;
     background-color: rgba(16, 20, 25, 0.92);
@@ -249,24 +312,24 @@
 }
 
 .bottom-nav-minimap {
-    width: 60px;
-    height: 52px;
+    width: 44px;
+    height: 38px;
     background-color: rgb(10, 13, 15);
     border-width: 1px;
     border-color: rgb(48, 59, 66);
-    margin-right: 16px;
+    margin-right: 12px;
 }
 
 .bottom-nav-category-row {
     flex-direction: row;
-    margin-right: 16px;
+    margin-right: 12px;
 }
 
 .bottom-nav-category-button {
-    width: 60px;
-    height: 60px;
-    margin: 0 12px 0 0;
-    padding: 8px;
+    width: 40px;
+    height: 40px;
+    margin: 0 8px 0 0;
+    padding: 6px;
     background-color: rgba(0, 0, 0, 0);
     border-width: 2px;
     border-color: rgba(0, 0, 0, 0);
@@ -290,9 +353,9 @@
 }
 
 .bottom-nav-slot {
-    width: 52px;
-    height: 52px;
-    margin-right: 6px;
+    width: 36px;
+    height: 36px;
+    margin-right: 5px;
     border-radius: 3px;
 }
 
@@ -313,17 +376,678 @@
 
 .bottom-nav-slot-number {
     position: absolute;
-    left: 3px;
-    top: 1px;
+    left: 2px;
+    top: 0;
     color: rgb(135, 147, 156);
-    font-size: 10px;
+    font-size: 8px;
 }
 
 .bottom-nav-slot-badge {
     position: absolute;
-    right: 3px;
+    right: 2px;
     bottom: 0;
+    color: rgb(85, 221, 245);
+    font-size: 9px;
+    -unity-font-style: bold;
+}
+
+/* Production panel (Foundry/Factory/AdvancedFoundry/Assembler) */
+
+.production-panel {
+    width: 220px;
+}
+
+.production-tab-bar {
+    flex-direction: row;
+    margin-bottom: 6px;
+}
+
+.production-tab-button {
+    flex-grow: 1;
+    height: 24px;
+    margin: 0;
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    color: rgb(160, 168, 175);
+    font-size: 10px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.production-tab-button-active {
+    border-color: rgb(85, 221, 245);
+    color: rgb(85, 221, 245);
+    background-color: rgb(26, 34, 40);
+}
+
+.recipes-grid {
+    flex-direction: column;
+}
+
+.recipes-grid-row {
+    flex-direction: row;
+}
+
+.recipe-card {
+    width: 92px;
+    margin: 3px;
+    padding: 4px;
+    background-color: rgb(24, 29, 35);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    align-items: center;
+}
+
+.recipe-card:hover {
+    border-color: rgba(85, 221, 245, 0.55);
+}
+
+.recipe-card-selected {
+    border-width: 2px;
+    border-color: rgb(85, 221, 245);
+    background-color: rgb(22, 50, 58);
+}
+
+.recipe-card-unavailable {
+    opacity: 0.6;
+}
+
+.recipe-card-icon-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 3px;
+}
+
+.recipe-card-icon {
+    width: 18px;
+    height: 18px;
+    margin-right: 2px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.recipe-card-amount {
+    color: rgb(85, 221, 245);
+    font-size: 9px;
+}
+
+.recipe-card-divider {
+    width: 100%;
+    height: 1px;
+    background-color: rgb(48, 59, 66);
+    margin-bottom: 3px;
+}
+
+.recipe-card-name {
+    color: rgb(215, 224, 229);
+    font-size: 9px;
+    -unity-text-align: middle-center;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    width: 100%;
+    margin-bottom: 3px;
+}
+
+.recipe-card-ingredients-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 3px;
+}
+
+.recipe-card-ingredient-icon {
+    width: 12px;
+    height: 12px;
+    margin: 0 2px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.recipe-card-ingredient-qty {
+    color: rgb(160, 168, 175);
+    font-size: 7px;
+    margin-right: 3px;
+}
+
+.recipe-card-time {
+    color: rgb(135, 147, 156);
+    font-size: 8px;
+}
+
+.recipe-action-button {
+    height: 26px;
+    margin: 4px 3px 0 3px;
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    color: rgb(200, 205, 210);
+    font-size: 10px;
+    -unity-font-style: bold;
+}
+
+.recipe-action-button:disabled {
+    color: rgb(90, 96, 102);
+}
+
+.production-empty-state {
+    color: rgb(140, 148, 155);
+    font-size: 10px;
+    padding: 5px 3px;
+}
+
+.production-content {
+    width: 200px;
+}
+
+.production-current-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.production-current-icon {
+    width: 32px;
+    height: 32px;
+    margin-right: 6px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.production-current-amount {
+    color: rgb(85, 221, 245);
+    font-size: 10px;
+}
+
+.production-current-name {
+    color: rgb(220, 220, 220);
+    font-size: 11px;
+    -unity-font-style: bold;
+}
+
+.production-progress-track {
+    width: 100%;
+}
+
+.production-percent-label {
+    color: rgb(160, 168, 175);
+    font-size: 9px;
+    -unity-text-align: upper-right;
+    margin-top: 1px;
+    margin-bottom: 5px;
+}
+
+.production-ingredients-list {
+    flex-direction: column;
+}
+
+.production-ingredient-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 3px;
+}
+
+.production-ingredient-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.production-ingredient-name {
+    color: rgb(200, 205, 210);
+    font-size: 10px;
+    flex-grow: 1;
+}
+
+.production-ingredient-status-ok {
+    color: rgb(100, 210, 130);
+    font-size: 10px;
+}
+
+.production-ingredient-status-missing {
+    color: rgb(220, 105, 95);
+    font-size: 10px;
+}
+
+.production-consumption-row {
+    flex-direction: row;
+    margin-bottom: 5px;
+}
+
+.production-consumption-pill {
+    flex-direction: row;
+    align-items: center;
+    margin-right: 8px;
+}
+
+.production-consumption-icon {
+    width: 12px;
+    height: 12px;
+    margin-right: 4px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.production-consumption-pill-text {
+    color: rgb(85, 221, 245);
+    font-size: 10px;
+}
+
+.inline-icon-row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.inline-icon {
+    width: 14px;
+    height: 14px;
+    margin-right: 5px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.production-state-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.production-state-label {
+    font-size: 10px;
+    -unity-font-style: bold;
+}
+
+.production-time-label {
+    color: rgb(160, 168, 175);
+    font-size: 9px;
+}
+
+/* Research panel */
+
+.research-panel {
+    width: 220px;
+}
+
+.research-rp-label {
     color: rgb(85, 221, 245);
     font-size: 11px;
     -unity-font-style: bold;
+    margin-bottom: 6px;
+}
+
+.research-list {
+    flex-direction: column;
+}
+
+.research-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 5px 6px;
+    margin-bottom: 3px;
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+}
+
+.research-row:hover {
+    border-color: rgba(85, 221, 245, 0.55);
+}
+
+.research-row-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+    border-radius: 8px;
+}
+
+.research-row-text {
+    flex-grow: 1;
+}
+
+.research-row-name {
+    font-size: 10px;
+    -unity-font-style: bold;
+}
+
+.research-row-status {
+    font-size: 9px;
+}
+
+.research-state-locked .research-row-icon { background-color: rgb(135, 147, 156); }
+.research-state-locked .research-row-name,
+.research-state-locked .research-row-status { color: rgb(135, 147, 156); }
+
+.research-state-available .research-row-icon { background-color: rgb(215, 224, 229); }
+.research-state-available .research-row-name,
+.research-state-available .research-row-status { color: rgb(215, 224, 229); }
+
+.research-state-in-progress { border-color: rgb(85, 221, 245); }
+.research-state-in-progress .research-row-icon { background-color: rgb(85, 221, 245); }
+.research-state-in-progress .research-row-name,
+.research-state-in-progress .research-row-status { color: rgb(85, 221, 245); }
+
+.research-state-completed { opacity: 0.7; }
+.research-state-completed .research-row-icon { background-color: rgb(102, 217, 128); }
+.research-state-completed .research-row-name,
+.research-state-completed .research-row-status { color: rgb(102, 217, 128); }
+
+/* Top Bar */
+
+.top-bar-header-bg {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    height: 36px;
+    background-color: rgba(16, 20, 25, 0.98);
+    border-bottom-width: 2px;
+    border-bottom-color: rgba(54, 199, 232, 0.5);
+}
+
+.top-bar-cards-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 128px;
+    bottom: 0;
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.top-bar-card {
+    background-color: rgb(21, 25, 30);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    margin: 0 3px;
+    overflow: hidden;
+    height: 28px;
+    transition-property: height;
+    transition-timing-function: ease-out;
+    transition-duration: 0.15s;
+}
+
+.top-bar-card-collapsing {
+    transition-timing-function: ease-in;
+    transition-duration: 0.12s;
+}
+
+.top-bar-card:hover {
+    border-color: rgba(85, 221, 245, 0.55);
+}
+
+.top-bar-card-header {
+    flex-direction: row;
+    align-items: center;
+    height: 28px;
+    padding: 0 7px;
+}
+
+.top-bar-card-icon {
+    width: 13px;
+    height: 13px;
+    margin-right: 5px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.top-bar-card-value {
+    color: rgb(239, 242, 244);
+    font-size: 10px;
+    -unity-font-style: bold;
+}
+
+.top-bar-card-value-deficit {
+    color: rgb(242, 83, 83);
+}
+
+.top-bar-card-detail {
+    padding: 0 7px 0 7px;
+    height: 0;
+    overflow: hidden;
+    transition-property: height;
+    transition-timing-function: ease-out;
+    transition-duration: 0.15s;
+}
+
+.top-bar-card-detail-line {
+    color: rgb(215, 224, 229);
+    font-size: 9px;
+    margin-bottom: 2px;
+}
+
+.top-bar-card-detail-line-deficit {
+    color: rgb(242, 83, 83);
+}
+
+.top-bar-card-bar-track {
+    width: 100%;
+    height: 4px;
+    background-color: rgb(10, 13, 15);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 3px;
+}
+
+.top-bar-card-bar-fill-power {
+    height: 100%;
+    background-color: rgb(100, 210, 130);
+}
+
+.top-bar-card-bar-fill-compute {
+    height: 100%;
+    background-color: rgb(85, 221, 245);
+}
+
+.top-bar-card-bar-fill-research {
+    height: 100%;
+    background-color: rgb(85, 221, 245);
+}
+
+.top-bar-icon-button {
+    position: absolute;
+    top: 0;
+    width: 36px;
+    height: 36px;
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    color: rgb(85, 221, 245);
+    font-size: 13px;
+    -unity-text-align: middle-center;
+}
+
+.top-bar-icon-button:hover {
+    border-color: rgb(85, 221, 245);
+}
+
+.top-bar-menu-button {
+    right: 60px;
+}
+
+.top-bar-pause-button {
+    right: 16px;
+}
+
+/* Data Center / Core inspectors */
+
+.datacenter-panel {
+    width: 260px;
+}
+
+.datacenter-slot-list {
+    flex-direction: column;
+    margin-bottom: 4px;
+}
+
+.datacenter-slot-row {
+    padding: 3px 4px;
+    margin-bottom: 2px;
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+}
+
+.datacenter-slot-label {
+    color: rgb(215, 224, 229);
+    font-size: 9px;
+    white-space: normal;
+}
+
+.datacenter-slot-empty {
+    background-color: rgb(15, 18, 22);
+    border-color: rgb(38, 46, 52);
+}
+
+.datacenter-slot-empty .datacenter-slot-label {
+    color: rgb(120, 128, 135);
+}
+
+.datacenter-slot-replacing {
+    border-color: rgb(232, 168, 61);
+}
+
+.datacenter-slot-replacing .datacenter-slot-label {
+    color: rgb(232, 168, 61);
+}
+
+/* Building menu - hover details (cost preview) */
+
+.building-details {
+    flex-direction: row;
+    align-items: flex-start;
+    min-height: 60px;
+}
+
+.building-details-header {
+    flex-direction: row;
+    align-items: center;
+    width: 150px;
+    margin-right: 16px;
+}
+
+.building-details-icon {
+    width: 36px;
+    height: 36px;
+    margin-right: 8px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.building-details-name {
+    color: rgb(220, 220, 220);
+    font-size: 12px;
+    -unity-font-style: bold;
+    white-space: normal;
+    flex-shrink: 1;
+}
+
+.building-details-info {
+    flex-grow: 1;
+}
+
+.building-details-section-title {
+    color: rgb(160, 168, 175);
+    font-size: 9px;
+    margin-top: 2px;
+    margin-bottom: 3px;
+}
+
+.building-details-cost-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 2px;
+    width: 220px;
+}
+
+.building-details-cost-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.building-details-cost-name {
+    color: rgb(200, 205, 210);
+    font-size: 9px;
+    flex-grow: 1;
+}
+
+.building-details-cost-have {
+    color: rgb(160, 168, 175);
+    font-size: 9px;
+}
+
+.building-details-cost-have-insufficient {
+    color: rgb(220, 105, 95);
+}
+
+.building-details-consumption-row {
+    flex-direction: row;
+}
+
+.building-details-consumption-pill {
+    flex-direction: row;
+    align-items: center;
+    margin-right: 14px;
+}
+
+.building-details-consumption-icon {
+    width: 13px;
+    height: 13px;
+    margin-right: 4px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.building-details-consumption-text {
+    color: rgb(85, 221, 245);
+    font-size: 10px;
+}
+
+.building-details-status {
+    font-size: 9px;
+    -unity-font-style: bold;
+    margin-top: 4px;
+}
+
+.building-details-status-locked { color: rgb(135, 147, 156); }
+.building-details-status-unaffordable { color: rgb(220, 105, 95); }
+.building-details-status-available { color: rgb(100, 210, 130); }
+
+.history-graph {
+    width: 100%;
+    height: 60px;
+    background-color: rgb(13, 16, 20);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    margin-top: 8px;
+}
+
+.core-item-amount {
+    color: rgb(85, 221, 245);
+    font-size: 11px;
+    -unity-font-style: bold;
+}
+
+.top-bar-pause-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 46px;
+    -unity-text-align: upper-center;
+    color: rgb(85, 221, 245);
+    font-size: 13px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+}
+
+.state-producing {
+    color: rgb(85, 221, 245);
+}
+
+.state-waiting {
+    color: rgb(232, 168, 61);
+}
+
+.state-blocked {
+    color: rgb(222, 107, 74);
+}
+
+.state-idle {
+    color: rgb(135, 147, 156);
 }

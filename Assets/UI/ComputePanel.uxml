@@ -1,0 +1,21 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="GameUI.uss" />
+
+    <ui:VisualElement name="ComputePanelRoot" class="overlay-root hidden" picking-mode="Ignore">
+        <ui:VisualElement class="panel panel-accent" picking-mode="Position">
+            <ui:VisualElement class="header-row">
+                <ui:Label text="COMPUTE" class="title" />
+                <ui:Button name="ComputeCloseButton" text="&#215;" class="close-button" />
+            </ui:VisualElement>
+            <ui:VisualElement class="extractor-body">
+                <ui:Label name="ComputeAvailableLabel" text="Available: 0 CU" class="extractor-section-label" />
+                <ui:Label name="ComputeProductionLabel" text="Production: 0 CU/s" class="extractor-section-label" />
+                <ui:Label name="ComputeDrawLabel" text="Continuous draw: 0 CU/s" class="extractor-section-label" />
+                <ui:VisualElement class="extractor-progress-track">
+                    <ui:VisualElement name="ComputeBarFill" class="extractor-progress-fill" />
+                </ui:VisualElement>
+                <ui:VisualElement name="ComputeGraphContainer" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

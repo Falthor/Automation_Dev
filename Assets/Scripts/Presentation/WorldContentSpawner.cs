@@ -44,7 +44,7 @@ namespace Game.Presentation
         public void SpawnOreDeposit(DepositRuntime deposit)
         {
             OreDepositDefinition definition = deposit.Definition;
-            var go = new GameObject($"OreDeposit_{definition.OreType}");
+            var go = new GameObject($"OreDeposit_{definition.Item.Id}");
             go.transform.position = _grid.FootprintCenterToWorld(deposit.Origin, definition.FootprintSize);
 
             var renderer = go.AddComponent<SpriteRenderer>();

@@ -16,4 +16,5 @@ MonoBehaviour:
   displayName: Copper Ore Deposit
   footprintSize: {x: 2, y: 2}
   placeholderColor: {r: 0.85, g: 0.45, b: 0.2, a: 1}
-  oreType: 1
+  item: {fileID: 11400000, guid: f4990fb2614444647bfa5e069df5b9c5, type: 2}
+  initialQuantity: 1000

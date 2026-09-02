@@ -1,0 +1,15 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="GameUI.uss" />
+
+    <ui:VisualElement name="ResearchPanelRoot" class="overlay-root hidden" picking-mode="Ignore">
+        <ui:VisualElement class="panel panel-accent research-panel" picking-mode="Position">
+            <ui:VisualElement class="header-row">
+                <ui:Label text="RESEARCH" class="title" />
+                <ui:Button name="ResearchCloseButton" text="&#215;" class="close-button" />
+            </ui:VisualElement>
+
+            <ui:Label name="ResearchRpLabel" text="RP: 0" class="research-rp-label" />
+            <ui:VisualElement name="ResearchList" class="research-list" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

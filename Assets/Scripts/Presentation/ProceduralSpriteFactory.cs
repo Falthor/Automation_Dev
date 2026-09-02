@@ -10,7 +10,6 @@ namespace Game.Presentation
     /// match the runtime orientation, and mirrors localScale.x for corner chirality.
     /// Straight: entry south (bottom) -> exit north (top).
     /// Corner (unmirrored): entry south (bottom) -> exit east (right).
-    /// Crossroad: symmetric, all four sides open.
     /// </summary>
     public sealed class ProceduralSpriteFactory
     {
@@ -94,7 +93,6 @@ namespace Game.Presentation
             {
                 ConveyorShapeKind.Straight => DrawStraight(color),
                 ConveyorShapeKind.Corner => DrawCorner(color),
-                ConveyorShapeKind.Crossroad => DrawCrossroad(color),
                 _ => DrawStraight(color)
             };
 
@@ -146,29 +144,6 @@ namespace Game.Presentation
                 {
                     bool inVerticalBand = x >= bandStart && x < bandEnd;
                     tex.SetPixel(x, y, inVerticalBand ? band : background);
-                }
-            }
-
-            tex.Apply(false, false);
-            return tex;
-        }
-
-        static Texture2D DrawCrossroad(Color color)
-        {
-            var tex = NewTexture();
-            Color background = color * 0.5f;
-            Color band = color;
-
-            int bandStart = TextureSize / 2 - TextureSize / 8;
-            int bandEnd = TextureSize / 2 + TextureSize / 8;
-
-            for (int y = 0; y < TextureSize; y++)
-            {
-                for (int x = 0; x < TextureSize; x++)
-                {
-                    bool inVerticalBand = x >= bandStart && x < bandEnd;
-                    bool inHorizontalBand = y >= bandStart && y < bandEnd;
-                    tex.SetPixel(x, y, inVerticalBand || inHorizontalBand ? band : background);
                 }
             }
 

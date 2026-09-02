@@ -1,5 +1,8 @@
 using Game.Construction;
 using Game.Data;
+using Game.Gameplay.Compute;
+using Game.Gameplay.Power;
+using Game.Gameplay.Research;
 using Game.Gameplay.Selection;
 using Game.Gameplay.Transport;
 using Game.Gameplay.WorldGeneration;
@@ -21,9 +24,14 @@ namespace Game.Presentation
         [SerializeField] TerrainView terrainView;
         [SerializeField] GridLineView gridLineView;
 
+        [Header("Item/Recipe registries")]
+        [SerializeField] ItemDatabase itemDatabase;
+        [SerializeField] RecipeDatabase recipeDatabase;
+
         [Header("World generation (Core + ore deposits, spawned once at game start)")]
         [SerializeField] WorldGenerationSettings worldGenerationSettings;
         [SerializeField] ActionRadiusView actionRadiusView;
+        [SerializeField] FogOfWarView fogOfWarView;
         [SerializeField] ItemVisualSync itemVisuals;
 
         public GridRuntime Grid { get; private set; }
@@ -33,6 +41,11 @@ namespace Game.Presentation
         public TransportSystem Transport { get; private set; }
         public SelectionRuntime Selection { get; private set; }
         public ItemVisualSync ItemVisuals => itemVisuals;
+        public ItemDatabase Items => itemDatabase;
+        public RecipeDatabase Recipes => recipeDatabase;
+        public PowerSystem Power { get; private set; }
+        public ComputeSystem Compute { get; private set; }
+        public ResearchSystem Research { get; private set; }
 
         /// <summary>
         /// True while a UI panel (Building menu, Storage panel, ...) is open and should own
@@ -56,8 +69,20 @@ namespace Game.Presentation
         {
             Grid = new GridRuntime(cellSize);
             Terrain = new TerrainRuntime(terrainSettings.Size, terrainSettings.Seed, terrainSettings.TerrainScale, terrainSettings.Proportion);
-            Construction = new ConstructionService(Grid);
+            Power = new PowerSystem();
+            Compute = new ComputeSystem();
+            Research = new ResearchSystem();
             Transport = new TransportSystem(Grid);
+
+            // World generation (Core + deposits) must exist before ConstructionService, which
+            // needs the Core instance to check/deduct construction costs and its action radius.
+            if (worldGenerationSettings != null)
+            {
+                World = new WorldGenerator();
+                World.Generate(Grid, Terrain.Size, worldGenerationSettings, Compute, Power);
+            }
+
+            Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core);
             Selection = new SelectionRuntime();
             Selection.GlobalPanelChanged += name =>
             {
@@ -67,17 +92,19 @@ namespace Game.Presentation
             {
                 if (building == null) LastMenuCloseFrame = Time.frameCount;
             };
-
-            if (worldGenerationSettings != null)
-            {
-                World = new WorldGenerator();
-                World.Generate(Grid, Terrain.Size, worldGenerationSettings);
-            }
         }
 
         void Update()
         {
+            // Settle last frame's Power/Compute reports before this frame's buildings report new
+            // ones - the one-frame lag is intentional (CONTRACTS.md §9/§10's report-then-settle
+            // contract), not an ordering bug.
+            Power.Settle();
+            Compute.Settle();
+            Compute.GrowReserve(Time.deltaTime);
+
             Transport.Tick(Time.deltaTime);
+            Research.Tick(Time.deltaTime);
         }
 
         void Start()
@@ -95,13 +122,14 @@ namespace Game.Presentation
 
             if (itemVisuals != null)
             {
-                itemVisuals.Initialize(Grid, new ProceduralSpriteFactory());
+                itemVisuals.Initialize(Grid, new ProceduralSpriteFactory(), itemDatabase);
             }
 
             if (World != null)
             {
                 var contentSpawner = new WorldContentSpawner(Grid, new ProceduralSpriteFactory());
                 contentSpawner.SpawnCore(World.Core);
+                Transport.Register(World.Core);
                 foreach (var deposit in World.OreDeposits)
                 {
                     contentSpawner.SpawnOreDeposit(deposit);
@@ -112,6 +140,11 @@ namespace Game.Presentation
                 if (actionRadiusView != null)
                 {
                     actionRadiusView.Initialize(coreCenter, World.ActionRadiusCells * Grid.CellSize);
+                }
+
+                if (fogOfWarView != null)
+                {
+                    fogOfWarView.Initialize(coreCenter, World.ActionRadiusCells * Grid.CellSize);
                 }
 
                 // Start the camera centered on the Core - otherwise its fixed scene position

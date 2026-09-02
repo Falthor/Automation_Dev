@@ -4,7 +4,6 @@ namespace Game.Data
     public enum ConveyorShapeKind
     {
         Straight,
-        Corner,
-        Crossroad
+        Corner
     }
 }

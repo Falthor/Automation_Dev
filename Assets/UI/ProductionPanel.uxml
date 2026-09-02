@@ -1,0 +1,60 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="GameUI.uss" />
+
+    <ui:VisualElement name="ProductionPanelRoot" class="overlay-root overlay-root-right hidden" picking-mode="Ignore">
+        <ui:VisualElement class="panel panel-accent production-panel" picking-mode="Position">
+            <ui:VisualElement class="header-row">
+                <ui:Label name="ProductionTitle" text="FOUNDRY" class="title" />
+                <ui:Button name="ProductionCloseButton" text="&#215;" class="close-button" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="production-tab-bar">
+                <ui:Button name="ProductionTabRecipes" text="RECETTES" class="production-tab-button" />
+                <ui:Button name="ProductionTabProduction" text="PRODUCTION" class="production-tab-button" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="RecipesTab" class="recipes-tab">
+                <ui:VisualElement name="RecipesGrid" class="recipes-grid" />
+                <ui:Button name="RecipeActionButton" text="COMMENCER" class="recipe-action-button" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="ProductionTab" class="production-tab-content hidden">
+                <ui:Label name="ProductionEmptyState" text="AUCUNE RECETTE SELECTIONNEE" class="production-empty-state" />
+                <ui:VisualElement name="ProductionContent" class="production-content hidden">
+                    <ui:VisualElement class="production-current-row">
+                        <ui:VisualElement name="ProductionCurrentIcon" class="production-current-icon" />
+                        <ui:VisualElement class="production-current-text">
+                            <ui:Label name="ProductionCurrentAmount" text="&#215;1" class="production-current-amount" />
+                            <ui:Label name="ProductionCurrentName" text="" class="production-current-name" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <ui:VisualElement class="extractor-progress-track production-progress-track">
+                        <ui:VisualElement name="ProductionProgressFill" class="extractor-progress-fill" />
+                    </ui:VisualElement>
+                    <ui:Label name="ProductionPercentLabel" text="0 %" class="production-percent-label" />
+
+                    <ui:Label text="MATIERES PREMIERES" class="extractor-section-label" />
+                    <ui:VisualElement name="ProductionIngredientsList" class="production-ingredients-list" />
+
+                    <ui:Label text="CONSOMMATION" class="extractor-section-label" />
+                    <ui:VisualElement class="production-consumption-row">
+                        <ui:VisualElement class="production-consumption-pill">
+                            <ui:VisualElement name="ProductionPowerIcon" class="production-consumption-icon" />
+                            <ui:Label name="ProductionPowerValue" text="0 kW" class="production-consumption-pill-text" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="production-consumption-pill">
+                            <ui:VisualElement name="ProductionComputeIcon" class="production-consumption-icon" />
+                            <ui:Label name="ProductionComputeValue" text="0 CU" class="production-consumption-pill-text" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <ui:VisualElement class="production-state-row">
+                        <ui:Label name="ProductionStateLabel" text="" class="production-state-label" />
+                        <ui:Label name="ProductionTimeLabel" text="" class="production-time-label" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

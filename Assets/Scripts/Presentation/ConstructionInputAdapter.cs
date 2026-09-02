@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Construction;
 using Game.Core;
 using Game.Data;
@@ -23,6 +24,7 @@ namespace Game.Presentation
         [SerializeField] BuildingHoverHighlightView hoverHighlightView;
 
         static readonly Color OutputArrowColor = new Color(0.25f, 0.95f, 0.35f, 1f);
+        static readonly Color InputArrowColor = new Color(0.3f, 0.6f, 1f, 1f);
 
         readonly ProceduralSpriteFactory _spriteFactory = new ProceduralSpriteFactory();
         BuildingSpawner _spawner;
@@ -143,34 +145,55 @@ namespace Game.Presentation
             Vector2 worldSize = new Vector2(gameRuntime.Grid.CellSize, gameRuntime.Grid.CellSize) * selected.FootprintSize;
             Sprite sprite = ResolveGhostSprite(selected);
             Direction previewRotation = gameRuntime.Construction.PreviewRotation;
+            (bool rotateSprite, Direction artNativeDirection) = ResolveGhostRotation(selected);
 
             if (selected.HasOutputArrow)
             {
-                GridCoord outputCell = BuildingRuntime.ComputeOutputCell(cell, selected.FootprintSize, previewRotation);
+                GridCoord outputCell = BuildingRuntime.ComputeOutputCells(cell, selected.FootprintSize, previewRotation)[0];
                 Vector3 arrowWorldPos = gameRuntime.Grid.CellCenterToWorld(outputCell);
                 Sprite arrowSprite = _spriteFactory.CreateArrowSprite(OutputArrowColor);
+
+                Sprite inputArrowSprite = null;
+                List<(Vector3 position, Direction direction)> inputArrows = null;
+                if (selected.HasInputArrows)
+                {
+                    inputArrowSprite = _spriteFactory.CreateArrowSprite(InputArrowColor);
+                    inputArrows = new List<(Vector3, Direction)>();
+                    var drawnSides = new HashSet<Direction>();
+                    foreach ((GridCoord edgeCell, Direction fromMySide) in BuildingRuntime.ComputeEdgeCells(cell, selected.FootprintSize))
+                    {
+                        if (fromMySide == previewRotation) continue;
+                        if (!drawnSides.Add(fromMySide)) continue;
+                        inputArrows.Add((gameRuntime.Grid.CellCenterToWorld(edgeCell), fromMySide));
+                    }
+                }
+
                 buildingGhostView.Show(sprite, worldSize, worldCenter, previewRotation, valid,
-                    arrowSprite, arrowWorldPos, gameRuntime.Grid.CellSize * 0.4f);
+                    arrowSprite, arrowWorldPos, gameRuntime.Grid.CellSize * 0.4f,
+                    inputArrowSprite, inputArrows, rotateSprite, artNativeDirection);
             }
             else
             {
-                buildingGhostView.Show(sprite, worldSize, worldCenter, previewRotation, valid);
+                buildingGhostView.Show(sprite, worldSize, worldCenter, previewRotation, valid,
+                    rotateSprite: rotateSprite, artNativeDirection: artNativeDirection);
             }
         }
 
         Sprite ResolveGhostSprite(BuildingDefinition definition)
         {
-            if (definition is ExtractorDefinition extractorDef)
-            {
-                return extractorDef.Sprite != null ? extractorDef.Sprite : _spriteFactory.CreateSolidSquareSprite(extractorDef.PlaceholderColor);
-            }
+            return definition.Sprite != null ? definition.Sprite : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
+        }
 
-            if (definition is StorageDefinition storageDef)
-            {
-                return storageDef.Sprite != null ? storageDef.Sprite : _spriteFactory.CreateSolidSquareSprite(storageDef.PlaceholderColor);
-            }
-
-            return _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
+        /// <summary>
+        /// Whether the ghost's sprite itself must rotate to match the real built view. Only the
+        /// "+"-shaped Splitter/Crossroad rotate their sprite (SpawnRotatingCrossView) - every other
+        /// building's root never rotates (SpawnStandardView), so the ghost mustn't either.
+        /// </summary>
+        static (bool rotateSprite, Direction artNativeDirection) ResolveGhostRotation(BuildingDefinition definition)
+        {
+            if (definition is SplitterDefinition splitter) return (true, splitter.ArtNativeEntrySide);
+            if (definition is CrossroadDefinition) return (true, Direction.North);
+            return (false, Direction.North);
         }
 
         void HandlePlacement(GridCoord cell)
@@ -352,8 +375,21 @@ namespace Game.Presentation
         {
             // Captured before TryPlace: a conveyor placed onto an existing conveyor "overtakes"
             // it (see ConstructionService), which would otherwise leave the replaced instance
-            // stuck registered in Transport forever with no grid cell pointing to it.
-            object previousOccupant = gameRuntime.Grid.GetOccupant(cell);
+            // stuck registered in Transport forever with no grid cell pointing to it. A masked
+            // multi-cell footprint (Splitter/Crossroad's "+" shape) can overtake several distinct
+            // conveyor instances at once across its footprint, not just the one at the clicked
+            // cell - scan every footprint cell, not just `cell` itself.
+            var previousOccupants = new HashSet<BuildingRuntime>();
+            if (gameRuntime.Construction.Selected != null)
+            {
+                foreach (Vector2Int offset in gameRuntime.Construction.Selected.FootprintCells)
+                {
+                    if (gameRuntime.Grid.GetOccupant(new GridCoord(cell.X + offset.x, cell.Y + offset.y)) is BuildingRuntime occupant)
+                    {
+                        previousOccupants.Add(occupant);
+                    }
+                }
+            }
 
             if (gameRuntime.Construction.TryPlace(cell, rotation, out BuildingRuntime placed))
             {
@@ -361,8 +397,13 @@ namespace Game.Presentation
                 gameRuntime.Transport.Register(placed);
                 if (gameRuntime.ItemVisuals != null) gameRuntime.ItemVisuals.Register(placed);
 
-                if (previousOccupant is BuildingRuntime previousBuilding && !ReferenceEquals(previousOccupant, placed))
+                foreach (BuildingRuntime previousBuilding in previousOccupants)
                 {
+                    if (ReferenceEquals(previousBuilding, placed)) continue;
+                    // SpawnView(placed) already replaced the view at placed.Cell if a previous
+                    // occupant shared that exact cell (the common 1x1-onto-1x1 conveyor overtake)
+                    // - only remove views for occupants at a genuinely different cell.
+                    if (previousBuilding.Cell != placed.Cell) _spawner.RemoveView(previousBuilding.Cell);
                     gameRuntime.Transport.Unregister(previousBuilding);
                     if (gameRuntime.ItemVisuals != null) gameRuntime.ItemVisuals.Unregister(previousBuilding);
                 }

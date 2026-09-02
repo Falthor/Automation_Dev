@@ -16,4 +16,5 @@ MonoBehaviour:
   displayName: Iron Ore Deposit
   footprintSize: {x: 2, y: 2}
   placeholderColor: {r: 0.7, g: 0.65, b: 0.62, a: 1}
-  oreType: 0
+  item: {fileID: 11400000, guid: 929b7f451c0471e4792a67bdfa782512, type: 2}
+  initialQuantity: 1000

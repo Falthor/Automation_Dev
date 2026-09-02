@@ -1,18 +1,25 @@
 using System.Collections.Generic;
 using Game.Core;
-using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Grid;
 
 namespace Game.Gameplay.Transport
 {
     /// <summary>
-    /// Central tick driving item production and belt movement. Pull-based: a receiver (a
-    /// conveyor with a free slot, or a storage) looks at the specific neighbor whose configured
-    /// output (GetOutputCell(), footprint-aware) points at the receiver's own cell, and pulls
-    /// from it via the existing Flow contract (PeekPullableItem/ConsumePulledItem) - no new
-    /// transport contract, no belt-lane simulation, no per-frame world search (direct grid
-    /// lookups only).
+    /// Central tick driving item production and belt movement.
+    ///
+    /// Conveyors keep their own dedicated pull-from-behind-via-Flow + lane-advance logic
+    /// (unchanged - a conveyor has no pooled input/output, just a single carried item).
+    ///
+    /// Every other registered building (Storage, production buildings) goes through one generic
+    /// push/pull step at its own PushIntervalSeconds: push walks GetOutputCells() and offers
+    /// GetOutputContents() to whichever neighbor's CanAcceptInput/AddInput accepts one unit; pull
+    /// scans GetEdgeCells() (all 4 sides, regardless of that neighbor's own facing) and takes one
+    /// unit from the first neighbor whose PeekPullableItem()/CanAcceptInput lines up. This
+    /// replaces the previous Storage-specific pull loop with the same shared code path - Storage
+    /// no longer requires the neighbor's own output to be aimed at it (CONTRACTS.md §13: this is
+    /// a deliberate, documented behavior change, matching the source project's building.gd
+    /// exactly, not a Storage-specific redesign).
     /// </summary>
     public sealed class TransportSystem
     {
@@ -21,9 +28,20 @@ namespace Game.Gameplay.Transport
         const float ConveyorSpeedCellsPerSecond = 1.5f;
 
         readonly GridRuntime _grid;
-        readonly List<ExtractorRuntime> _extractors = new List<ExtractorRuntime>();
         readonly List<ConveyorRuntime> _conveyors = new List<ConveyorRuntime>();
+        readonly List<SplitterRuntime> _splitters = new List<SplitterRuntime>();
+        readonly List<CrossroadRuntime> _crossroads = new List<CrossroadRuntime>();
         readonly List<StorageRuntime> _storages = new List<StorageRuntime>();
+
+        /// <summary>
+        /// Every registered building except conveyors (which have their own dedicated
+        /// lane-advance loop below, needing direct GridRuntime access no other building needs).
+        /// Ticked uniformly via the generic BuildingRuntime.Tick() virtual, then run through the
+        /// generic push/pull step - both are safe no-ops for a building that doesn't override
+        /// them (e.g. an Extractor's push/pull is a no-op since it has no pooled input/output).
+        /// </summary>
+        readonly List<BuildingRuntime> _allOthers = new List<BuildingRuntime>();
+        readonly Dictionary<BuildingRuntime, float> _pushPullTimers = new Dictionary<BuildingRuntime, float>();
 
         /// <summary>Every registered Storage in the world, for UI that needs to aggregate across all of them (e.g. the global Storage panel).</summary>
         public IReadOnlyList<StorageRuntime> Storages => _storages;
@@ -35,29 +53,60 @@ namespace Game.Gameplay.Transport
 
         public void Register(BuildingRuntime building)
         {
-            switch (building)
+            if (building is ConveyorRuntime conveyor)
             {
-                case ExtractorRuntime extractor: _extractors.Add(extractor); break;
-                case ConveyorRuntime conveyor: _conveyors.Add(conveyor); break;
-                case StorageRuntime storage: _storages.Add(storage); break;
+                _conveyors.Add(conveyor);
+                return;
             }
+
+            if (building is SplitterRuntime splitter)
+            {
+                _splitters.Add(splitter);
+                return;
+            }
+
+            if (building is CrossroadRuntime crossroad)
+            {
+                _crossroads.Add(crossroad);
+                return;
+            }
+
+            _allOthers.Add(building);
+            if (building is StorageRuntime storage) _storages.Add(storage);
         }
 
         public void Unregister(BuildingRuntime building)
         {
-            switch (building)
+            building.OnUnregistered();
+
+            if (building is ConveyorRuntime conveyor)
             {
-                case ExtractorRuntime extractor: _extractors.Remove(extractor); break;
-                case ConveyorRuntime conveyor: _conveyors.Remove(conveyor); break;
-                case StorageRuntime storage: _storages.Remove(storage); break;
+                _conveyors.Remove(conveyor);
+                return;
             }
+
+            if (building is SplitterRuntime splitter)
+            {
+                _splitters.Remove(splitter);
+                return;
+            }
+
+            if (building is CrossroadRuntime crossroad)
+            {
+                _crossroads.Remove(crossroad);
+                return;
+            }
+
+            _allOthers.Remove(building);
+            _pushPullTimers.Remove(building);
+            if (building is StorageRuntime storage) _storages.Remove(storage);
         }
 
         public void Tick(float deltaTime)
         {
-            for (int i = 0; i < _extractors.Count; i++)
+            for (int i = 0; i < _allOthers.Count; i++)
             {
-                _extractors[i].Tick(deltaTime);
+                _allOthers[i].Tick(deltaTime);
             }
 
             for (int i = 0; i < _conveyors.Count; i++)
@@ -76,19 +125,217 @@ namespace Game.Gameplay.Transport
                 conveyor.AdvanceItem(deltaTime, ConveyorSpeedCellsPerSecond);
             }
 
-            for (int i = 0; i < _storages.Count; i++)
-            {
-                StorageRuntime storage = _storages[i];
-                for (int d = 0; d < AllDirections.Length; d++)
-                {
-                    Direction dir = AllDirections[d];
-                    GridCoord neighborCell = storage.Cell + dir;
-                    if (!TryPullFromNeighbor(neighborCell, storage.Cell, out object item, out BuildingRuntime source)) continue;
-                    if (!(item is OreType oreType) || !storage.CanAcceptInput(oreType, 1, dir.Opposite())) continue;
+            TickSplitters();
+            TickCrossroads(deltaTime);
 
-                    storage.AddInput(oreType, 1, dir.Opposite());
-                    source.ConsumePulledItem(item);
+            for (int i = 0; i < _allOthers.Count; i++)
+            {
+                BuildingRuntime building = _allOthers[i];
+                float timer = _pushPullTimers.TryGetValue(building, out float existing) ? existing : 0f;
+                timer += deltaTime;
+                if (timer < building.PushIntervalSeconds)
+                {
+                    _pushPullTimers[building] = timer;
+                    continue;
                 }
+
+                _pushPullTimers[building] = 0f;
+                TryGenericPush(building);
+                TryGenericPull(building);
+            }
+        }
+
+        /// <summary>
+        /// Every tick: pull one item off the fixed entry side if empty, then attempt delivery
+        /// (assigned exit first, falling back to the other connected exits) if holding one -
+        /// mirroring the conveyor loop above but using the splitter's own arm-tip cells instead
+        /// of a single "behind" offset, since its footprint isn't 1x1.
+        /// </summary>
+        void TickSplitters()
+        {
+            for (int i = 0; i < _splitters.Count; i++)
+            {
+                SplitterRuntime splitter = _splitters[i];
+
+                if (!splitter.HasItem)
+                {
+                    GridCoord armCell = splitter.ArmCell(splitter.EntrySide);
+                    GridCoord neighborCell = splitter.NeighborCell(splitter.EntrySide);
+                    if (TryPullFromNeighbor(neighborCell, armCell, out object item, out BuildingRuntime source) && item is string itemId)
+                    {
+                        splitter.AddInput(itemId, 1, splitter.EntrySide);
+                        source.ConsumePulledItem(item);
+                    }
+                }
+
+                if (splitter.HasItem)
+                {
+                    TryDeliverFromSplitter(splitter);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Tries the currently assigned exit first, then cycles through every other connected
+        /// exit before giving up for this tick - a jammed destination never blocks the others.
+        /// Connected candidates and the assignment itself are recomputed every call (not
+        /// cached), so a neighbor placed/removed after intake is picked up immediately.
+        /// </summary>
+        void TryDeliverFromSplitter(SplitterRuntime splitter)
+        {
+            var connected = new List<Direction>(3);
+            foreach (Direction direction in SplitterRuntime.CandidateExits(splitter.EntrySide))
+            {
+                if (IsBeltOrStorage(splitter.NeighborCell(direction))) connected.Add(direction);
+            }
+            if (connected.Count == 0) return;
+
+            if (splitter.AssignedExit == null || !connected.Contains(splitter.AssignedExit.Value))
+            {
+                splitter.AssignExit(splitter.NextCursorExit(connected));
+            }
+
+            Direction assigned = splitter.AssignedExit.Value;
+            if (TryDeliverSplitterItem(splitter, assigned)) return;
+
+            foreach (Direction direction in connected)
+            {
+                if (direction == assigned) continue;
+                if (TryDeliverSplitterItem(splitter, direction)) return;
+            }
+        }
+
+        bool IsBeltOrStorage(GridCoord cell)
+        {
+            object occupant = _grid.GetOccupant(cell);
+            return occupant is ConveyorRuntime || occupant is SplitterRuntime || occupant is CrossroadRuntime || occupant is StorageRuntime;
+        }
+
+        /// <summary>
+        /// Hands the splitter's held item to whatever sits at the given exit's neighbor cell. A
+        /// conveyor target is fed directly via ReceiveItem (conveyors never accept the generic
+        /// CanAcceptInput/AddInput push contract - see the conveyor loop above); anything else
+        /// goes through the normal Building/Inventory contract.
+        /// </summary>
+        bool TryDeliverSplitterItem(SplitterRuntime splitter, Direction direction)
+        {
+            if (!TryDeliverItem(splitter.NeighborCell(direction), direction, splitter.HeldItemId)) return false;
+            splitter.ClearHeldItem();
+            return true;
+        }
+
+        /// <summary>
+        /// Every tick: pull one item per lane off its fixed entry side if that lane is empty,
+        /// advance both lanes, then deliver whichever lane(s) have reached their exit. Mirrors
+        /// the conveyor loop but for two independent lanes sharing one "+" footprint.
+        /// </summary>
+        void TickCrossroads(float deltaTime)
+        {
+            for (int i = 0; i < _crossroads.Count; i++)
+            {
+                CrossroadRuntime crossroad = _crossroads[i];
+
+                TryPullIntoCrossroadLane(crossroad, crossroad.EntryA, isLaneA: true);
+                TryPullIntoCrossroadLane(crossroad, crossroad.EntryB, isLaneA: false);
+
+                crossroad.AdvanceItems(deltaTime, ConveyorSpeedCellsPerSecond);
+
+                if (crossroad.HasItemA && crossroad.ProgressA >= 1f && TryDeliverItem(crossroad.NeighborCell(crossroad.ExitA), crossroad.ExitA, crossroad.ItemA))
+                {
+                    crossroad.ClearA();
+                }
+
+                if (crossroad.HasItemB && crossroad.ProgressB >= 1f && TryDeliverItem(crossroad.NeighborCell(crossroad.ExitB), crossroad.ExitB, crossroad.ItemB))
+                {
+                    crossroad.ClearB();
+                }
+            }
+        }
+
+        void TryPullIntoCrossroadLane(CrossroadRuntime crossroad, Direction entry, bool isLaneA)
+        {
+            if (isLaneA ? crossroad.HasItemA : crossroad.HasItemB) return;
+
+            GridCoord armCell = crossroad.ArmCell(entry);
+            GridCoord neighborCell = crossroad.NeighborCell(entry);
+            if (!TryPullFromNeighbor(neighborCell, armCell, out object item, out BuildingRuntime source)) return;
+
+            if (isLaneA) crossroad.ReceiveA(item);
+            else crossroad.ReceiveB(item);
+            source.ConsumePulledItem(item);
+        }
+
+        /// <summary>
+        /// Hands an item to whatever occupies neighborCell, as seen from a "+"-shaped building's
+        /// exit side - a conveyor target is fed directly via ReceiveItem (conveyors never accept
+        /// the generic CanAcceptInput/AddInput push contract), anything else goes through the
+        /// normal Building/Inventory contract. Shared by Splitter and Crossroad delivery.
+        /// </summary>
+        bool TryDeliverItem(GridCoord neighborCell, Direction exitDirection, object item)
+        {
+            object occupant = _grid.GetOccupant(neighborCell);
+
+            if (occupant is ConveyorRuntime targetConveyor)
+            {
+                if (targetConveyor.HasItem) return false;
+                targetConveyor.ReceiveItem(item);
+                return true;
+            }
+
+            if (occupant is BuildingRuntime targetBuilding && item is string itemId)
+            {
+                Direction fromDirection = exitDirection.Opposite();
+                if (!targetBuilding.CanAcceptInput(itemId, 1, fromDirection)) return false;
+                targetBuilding.AddInput(itemId, 1, fromDirection);
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Offers one unit of whatever the building's output currently holds to the first
+        /// accepting neighbor across its output edge (may be several cells wide).
+        /// </summary>
+        void TryGenericPush(BuildingRuntime building)
+        {
+            IReadOnlyDictionary<string, int> contents = building.GetOutputContents();
+            if (contents.Count == 0) return;
+
+            foreach (GridCoord cell in building.GetOutputCells())
+            {
+                if (!(_grid.GetOccupant(cell) is BuildingRuntime target) || ReferenceEquals(target, building)) continue;
+
+                foreach (var kvp in contents)
+                {
+                    if (kvp.Value <= 0) continue;
+                    if (!target.CanAcceptInput(kvp.Key, 1, building.ExitDirection.Opposite())) continue;
+
+                    building.TakeOutput(kvp.Key, 1);
+                    target.AddInput(kvp.Key, 1, building.ExitDirection.Opposite());
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Actively grabs one item off any adjacent neighbor exposing a pullable item (Flow
+        /// contract), regardless of that neighbor's own facing - only straight-on, directly
+        /// touching cells (no reaching around corners or through other buildings).
+        /// </summary>
+        void TryGenericPull(BuildingRuntime building)
+        {
+            foreach (var (cell, fromMySide) in building.GetEdgeCells())
+            {
+                if (!(_grid.GetOccupant(cell) is BuildingRuntime occupant)) continue;
+
+                object item = occupant.PeekPullableItem();
+                if (item == null || !(item is string itemId)) continue;
+                if (!building.CanAcceptInput(itemId, 1, fromMySide)) continue;
+
+                occupant.ConsumePulledItem(item);
+                building.AddInput(itemId, 1, fromMySide);
+                return;
             }
         }
 
@@ -96,7 +343,8 @@ namespace Game.Gameplay.Transport
         /// A candidate at <paramref name="neighborCell"/> may only be pulled from if its own
         /// configured output actually targets <paramref name="destinationCell"/> - otherwise a
         /// conveyor/extractor pointed elsewhere would be incorrectly drained by an unrelated
-        /// neighbor.
+        /// neighbor. Used only by the conveyor lane pull above (a conveyor has exactly one back
+        /// edge, unlike the generic multi-side pull).
         /// </summary>
         bool TryPullFromNeighbor(GridCoord neighborCell, GridCoord destinationCell, out object item, out BuildingRuntime source)
         {

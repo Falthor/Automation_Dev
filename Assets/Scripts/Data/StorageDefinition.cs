@@ -6,8 +6,5 @@ namespace Game.Data
     [CreateAssetMenu(fileName = "StorageDefinition", menuName = "Game/Buildings/Storage Definition")]
     public sealed class StorageDefinition : BuildingDefinition
     {
-        [SerializeField] Sprite sprite;
-
-        public Sprite Sprite => sprite;
     }
 }
