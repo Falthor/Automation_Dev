@@ -151,7 +151,7 @@ namespace Game.Tests.EditMode.TestSupport
             return advancedFoundry;
         }
 
-        public static PowerplantGazDefinition NewPowerplantGaz(ItemDefinition fuelItem, int maxFuelStack, float powerOutputKw, float selfPowerDemandKw, float cuDemand, float fuelCycleTimeSeconds)
+        public static PowerplantGazDefinition NewPowerplantGaz(ItemDefinition fuelItem, int maxFuelStack, float powerOutputKw, float selfPowerDemandKw, float cuCostPerCycle, float fuelCycleTimeSeconds)
         {
             var powerplant = ScriptableObject.CreateInstance<PowerplantGazDefinition>();
             var so = new SerializedObject(powerplant);
@@ -159,20 +159,20 @@ namespace Game.Tests.EditMode.TestSupport
             so.FindProperty("maxFuelStack").intValue = maxFuelStack;
             so.FindProperty("powerOutputKw").floatValue = powerOutputKw;
             so.FindProperty("selfPowerDemandKw").floatValue = selfPowerDemandKw;
-            so.FindProperty("cuDemand").floatValue = cuDemand;
+            so.FindProperty("cuCostPerCycle").floatValue = cuCostPerCycle;
             so.FindProperty("fuelCycleTimeSeconds").floatValue = fuelCycleTimeSeconds;
             so.ApplyModifiedPropertiesWithoutUndo();
             return powerplant;
         }
 
-        public static LaboratoryDefinition NewLaboratory(ItemDefinition cardItem, int maxCardStack, float powerDemandKw, float cuDemand, float cardConvertIntervalSeconds, float rpPerCard)
+        public static LaboratoryDefinition NewLaboratory(ItemDefinition cardItem, int maxCardStack, float powerDemandKw, float cuCostPerCycle, float cardConvertIntervalSeconds, float rpPerCard)
         {
             var laboratory = ScriptableObject.CreateInstance<LaboratoryDefinition>();
             var so = new SerializedObject(laboratory);
             so.FindProperty("cardItem").objectReferenceValue = cardItem;
             so.FindProperty("maxCardStack").intValue = maxCardStack;
             so.FindProperty("powerDemandKw").floatValue = powerDemandKw;
-            so.FindProperty("cuDemand").floatValue = cuDemand;
+            so.FindProperty("cuCostPerCycle").floatValue = cuCostPerCycle;
             so.FindProperty("cardConvertIntervalSeconds").floatValue = cardConvertIntervalSeconds;
             so.FindProperty("rpPerCard").floatValue = rpPerCard;
             so.ApplyModifiedPropertiesWithoutUndo();

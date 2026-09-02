@@ -17,13 +17,39 @@ MonoBehaviour:
   footprintSize: {x: 4, y: 4}
   placeholderColor: {r: 0.5, g: 0.5, b: 0.55, a: 1}
   unlockResearch: {fileID: 0}
-  sprite: {fileID: 21300000, guid: d346560d0ff15ef4eaec4858d429ba73, type: 3}
+  sprite: {fileID: 117662578931831975, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  animationFrames:
+  - {fileID: 117662578931831975, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: -1724405050244600732, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: 3041916908770512861, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: 7763931264471754533, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: -7074031100167081991, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: -5685834940968372656, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: 5759318232944890437, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: -4446751388196846472, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: 3215504988840223363, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: 6531294102089355835, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: 7730690991380305990, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: -3070497141074646924, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: 7557651859836951600, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: -1320867274565550807, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: 9097430000908809023, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: 7178541186200063606, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: 8082865375312364228, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: -3129247881221395032, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: 659778974565326353, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: -5121056122670293321, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: -8719645224024356538, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: 1331085618433385101, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: 4241765896929567332, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  - {fileID: -8135502871323164064, guid: 3e09a53534f939d4e9b4b8cbe6c151c0, type: 3}
+  animationFps: 12
   cost:
-  - item: {fileID: 11400000, guid: b96b1a8817e8abf4bacd918c5be7b859, type: 2}
-    amount: 4
-  - item: {fileID: 11400000, guid: 65d78e7c331fda945b089ab7a130f97c, type: 2}
-    amount: 4
-  maxStackPerItem: 100
+  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+    amount: 10
+  - item: {fileID: 11400000, guid: d5be11fa9d151e345a38f4254d3f1430, type: 2}
+    amount: 10
+  maxStackPerItem: 20
   powerDemandKw: 3
   recipeIds:
   - copper_wire

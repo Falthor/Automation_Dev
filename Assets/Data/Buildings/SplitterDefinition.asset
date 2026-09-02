@@ -44,5 +44,7 @@ MonoBehaviour:
   - {fileID: -1834930108671492532, guid: 124878c28f465104fb7c22379644edd9, type: 3}
   - {fileID: 281605877496347442, guid: 124878c28f465104fb7c22379644edd9, type: 3}
   animationFps: 12
-  cost: []
+  cost:
+  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+    amount: 1
   artNativeEntrySide: 3

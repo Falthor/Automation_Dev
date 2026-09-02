@@ -196,7 +196,7 @@ The project must not create one assembly per subsystem merely for organizational
 - placement
 - demolition
 - conveyor drag/replacement behavior
-- construction costs
+- construction costs, drawn from the player's global stock first, then the Core, then every placed Storage, and refunded in full to the global stock on demolition
 - building unlock checks
 - construction preview orchestration
 
@@ -323,7 +323,9 @@ The exact inheritance hierarchy is an implementation choice; functional contract
 
 Core is a special world entity and is unique.
 
-Its gameplay behavior must remain consistent with the source project's accepted behavior when migrated, including its role as the starting resource/power/compute source where those systems are implemented.
+Its gameplay behavior must remain consistent with the source project's accepted behavior when migrated, including its role as the starting power/compute source where those systems are implemented.
+
+The game's starting items are not part of it: they belong to the player, seeded once at game start into a global stock (`GameRuntime.GlobalStock`, from `WorldGenerationSettings.StartingStock`) that no building owns. The Core keeps its own pooled inventory for what transport actually delivers to it, and starts empty.
 
 ### Ore deposits
 

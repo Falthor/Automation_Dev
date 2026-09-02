@@ -12,6 +12,10 @@
                 <ui:VisualElement class="extractor-progress-track">
                     <ui:VisualElement name="ExtractorProgressFill" class="extractor-progress-fill" />
                 </ui:VisualElement>
+                <ui:VisualElement class="progress-info-row">
+                    <ui:Label name="ExtractorTimeLabel" text="" class="production-time-label" />
+                    <ui:Label name="ExtractorPercentLabel" text="0 %" class="production-percent-label" />
+                </ui:VisualElement>
                 <ui:Label text="INTERNAL STORAGE" class="extractor-section-label" />
                 <ui:VisualElement class="storage-card">
                     <ui:VisualElement name="ExtractorStorageIcon" class="storage-card-icon" />

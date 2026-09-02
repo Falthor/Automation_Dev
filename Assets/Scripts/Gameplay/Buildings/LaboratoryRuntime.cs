@@ -8,8 +8,8 @@ namespace Game.Gameplay.Buildings
 {
     /// <summary>
     /// Converts delivered Cartes de donnee into RP continuously (independent of whether a
-    /// research is selected), and contributes to whichever research is currently active. Draws
-    /// CU only while a research is active; Power is always drawn. Matches laboratory.gd exactly.
+    /// research is selected), and contributes to whichever research is currently active. Power is
+    /// always drawn and freezes the conversion when the network cannot cover it.
     /// </summary>
     public sealed class LaboratoryRuntime : BuildingRuntime
     {
@@ -20,6 +20,9 @@ namespace Game.Gameplay.Buildings
 
         int _cardAmount;
         float _cardTimer;
+
+        /// <summary>Whether the conversion currently in progress has already paid its CU, so each converted card is charged exactly once.</summary>
+        bool _conversionCharged;
 
         public float CardTimer => _cardTimer;
 
@@ -47,17 +50,24 @@ namespace Game.Gameplay.Buildings
         {
             bool researchActive = _researchSystem.HasActiveResearch();
 
-            float performance = ComputeEffectivePerformance(
-                cuDemand: _definition.CuDemand, computeActive: researchActive,
-                powerDemand: _definition.PowerDemandKw, powerActive: true,
-                _computeSystem, _powerSystem);
+            float performance = ComputeEffectivePerformance(_definition.PowerDemandKw, powerActive: true, _powerSystem);
 
             if (researchActive) _researchSystem.ReportActiveLab();
 
             if (_cardAmount <= 0)
             {
                 _cardTimer = 0f;
+                _conversionCharged = false;
                 return;
+            }
+
+            // Turning one card into RP costs CuCostPerCycle, taken in full when that conversion
+            // starts (§10). Too little in the reserve and it does not start at all.
+            if (!_conversionCharged)
+            {
+                if (!_computeSystem.CanSpend(_definition.CuCostPerCycle)) return;
+                _computeSystem.Spend(_definition.CuCostPerCycle);
+                _conversionCharged = true;
             }
 
             _cardTimer += deltaTime * performance;
@@ -65,6 +75,7 @@ namespace Game.Gameplay.Buildings
 
             _cardAmount -= 1;
             _researchSystem.AddRp(_definition.RpPerCard);
+            _conversionCharged = false;
             _cardTimer = _cardAmount <= 0 ? 0f : _cardTimer - _definition.CardConvertIntervalSeconds;
         }
     }

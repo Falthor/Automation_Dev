@@ -19,6 +19,13 @@ namespace Game.Presentation
 
         [SerializeField, Range(0.05f, 1f)] float itemVisualScale = 0.35f;
 
+        /// <summary>
+        /// Items riding a conveyor are drawn larger than elsewhere (e.g. an extractor's pending
+        /// output) - up to MaxItemsPerCell of them share a single cell at once, so they need to
+        /// read clearly at that reduced spacing rather than looking like a generic small icon.
+        /// </summary>
+        [SerializeField, Range(0.05f, 1f)] float conveyorItemVisualScale = 0.4f;
+
         readonly List<ExtractorRuntime> _extractors = new List<ExtractorRuntime>();
         readonly List<ConveyorRuntime> _conveyors = new List<ConveyorRuntime>();
         readonly List<SplitterRuntime> _splitters = new List<SplitterRuntime>();
@@ -55,7 +62,7 @@ namespace Game.Presentation
             else if (building is ConveyorRuntime conveyor)
             {
                 _conveyors.Remove(conveyor);
-                RemoveView(conveyor);
+                foreach (ConveyorItemSlot slot in conveyor.Items) RemoveView(slot);
             }
             else if (building is SplitterRuntime splitter)
             {
@@ -84,22 +91,38 @@ namespace Game.Presentation
 
                 _liveKeys.Add(extractor);
                 Vector3 outputWorld = _grid.CellCenterToWorld(extractor.GetOutputCell());
-                SyncView(extractor, pending, outputWorld);
+                SyncView(extractor, pending, outputWorld, itemVisualScale);
             }
 
             for (int i = 0; i < _conveyors.Count; i++)
             {
                 ConveyorRuntime conveyor = _conveyors[i];
-                if (!conveyor.HasItem) continue;
+                IReadOnlyList<ConveyorItemSlot> slots = conveyor.Items;
+                if (slots.Count == 0) continue;
 
-                _liveKeys.Add(conveyor);
                 Vector3 cellCenter = _grid.CellCenterToWorld(conveyor.Cell);
-                Vector3 exitOffset = new Vector3(conveyor.Orientation.Rotation.ToOffset().X, conveyor.Orientation.Rotation.ToOffset().Y, 0f) * (_grid.CellSize * 0.5f);
-                Vector3 backEdge = cellCenter - exitOffset;
-                Vector3 frontEdge = cellCenter + exitOffset;
-                Vector3 worldPos = Vector3.Lerp(backEdge, frontEdge, conveyor.ItemProgress);
+                float half = _grid.CellSize * 0.5f;
+                Direction entryDirection = conveyor.Orientation.Rotation.Opposite();
+                Vector3 entryEdge = cellCenter + DirectionOffset(entryDirection) * half;
+                Vector3 exitEdge = cellCenter + DirectionOffset(conveyor.ExitDirection) * half;
 
-                SyncView(conveyor, conveyor.CarriedItem, worldPos);
+                for (int s = 0; s < slots.Count; s++)
+                {
+                    ConveyorItemSlot slot = slots[s];
+                    _liveKeys.Add(slot);
+
+                    // A corner's entry and exit sides are perpendicular, not opposite - a
+                    // straight lerp between them would cut across the cell on the wrong diagonal
+                    // instead of following the belt's curve. Quadratic bezier through the cell
+                    // center fixes that; for a straight conveyor entry/center/exit are colinear
+                    // with center at the midpoint, so this reduces to the exact same lerp as
+                    // before for that shape.
+                    float t = slot.Progress;
+                    float oneMinusT = 1f - t;
+                    Vector3 worldPos = oneMinusT * oneMinusT * entryEdge + 2f * oneMinusT * t * cellCenter + t * t * exitEdge;
+
+                    SyncView(slot, slot.Item, worldPos, conveyorItemVisualScale);
+                }
             }
 
             // Splitter/Crossroad items are deliberately not drawn while held/in-transit through
@@ -109,7 +132,7 @@ namespace Game.Presentation
             RemoveStaleViews();
         }
 
-        void SyncView(object owner, object item, Vector3 worldPosition)
+        void SyncView(object owner, object item, Vector3 worldPosition, float visualScale)
         {
             if (!_views.TryGetValue(owner, out GameObject go))
             {
@@ -122,7 +145,7 @@ namespace Game.Presentation
                 // Icons come from imported art with their own native pixel size/PPU, unlike the
                 // procedural placeholder square (always exactly 1x1 world unit) - normalize
                 // against the sprite's own bounds so every item reads at the same world size.
-                float desiredWorldSize = _grid.CellSize * itemVisualScale;
+                float desiredWorldSize = _grid.CellSize * visualScale;
                 Vector2 nativeSize = sprite.bounds.size;
                 go.transform.localScale = new Vector3(desiredWorldSize / nativeSize.x, desiredWorldSize / nativeSize.y, 1f);
                 _views[owner] = go;
@@ -158,6 +181,12 @@ namespace Game.Presentation
                 Destroy(go);
                 _views.Remove(owner);
             }
+        }
+
+        static Vector3 DirectionOffset(Direction direction)
+        {
+            GridCoord offset = direction.ToOffset();
+            return new Vector3(offset.X, offset.Y, 0f);
         }
 
         Sprite SpriteFor(string itemId)

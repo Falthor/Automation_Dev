@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.RecipeDefinition
   id: Printed_Circuit_Board
   ingredients:
-  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+  - item: {fileID: 11400000, guid: 9bec515a877d4e04cbaa7d2d32b667ce, type: 2}
     amount: 2
   - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
-    amount: 2
-  outputAmount: 2
-  timeSeconds: 2
-  computeCost: 800
-  unlockResearch: {fileID: 0}
+    amount: 3
+  outputAmount: 1
+  timeSeconds: 10
+  computeCost: 1000
+  unlockResearch: {fileID: 11400000, guid: 6d2e1b8c5f4a49b3c7dae1f2a3b4c5d6, type: 2}

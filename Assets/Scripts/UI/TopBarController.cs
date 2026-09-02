@@ -1,4 +1,5 @@
 using Game.Data;
+using Game.Gameplay.Compute;
 using Game.Presentation;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -65,7 +66,7 @@ namespace Game.UI
             // Base widths reduced per user feedback ("moins large") - hover only expands height
             // (SetExpanded below), never width, so this has no effect on the hover-expand behavior.
             _powerCard = BuildCard(powerIcon, PowerPanelController.PanelName, 170f, 130f, 210f, 66f, 3, "top-bar-card-bar-fill-power");
-            _computeCard = BuildCard(computeIcon, ComputePanelController.PanelName, 190f, 145f, 230f, 66f, 3, "top-bar-card-bar-fill-compute");
+            _computeCard = BuildCard(computeIcon, ComputePanelController.PanelName, 190f, 145f, 230f, 56f, 2, "top-bar-card-bar-fill-compute");
             _researchCard = BuildCard(researchIcon, ResearchPanelController.PanelName, 170f, 130f, 210f, 56f, 2, "top-bar-card-bar-fill-research");
         }
 
@@ -188,17 +189,16 @@ namespace Game.UI
         void RefreshCompute()
         {
             var compute = gameRuntime.Compute;
-            float available = compute.SettledSupply;
-            float requested = compute.SettledDemand;
 
             _computeCard.Value.text = $"{FormatThousands(compute.Reserve)} CU";
 
-            _computeCard.Lines[0].text = $"Available: {FormatThousands(compute.Reserve)} CU";
-            _computeCard.Lines[1].text = $"Production: {Mathf.RoundToInt(available)} CU/s";
-            _computeCard.Lines[2].text = $"Continuous draw: {Mathf.RoundToInt(requested)} CU/s";
+            // No continuous-draw line: CU is spent in one shot when a production cycle starts,
+            // so there is no per-second consumption to show - only the banked reserve and the
+            // rate it refills at.
+            _computeCard.Lines[0].text = $"Reserve: {FormatThousands(compute.Reserve)} / {FormatThousands(ComputeSystem.ReserveCap)} CU";
+            _computeCard.Lines[1].text = $"Production: {Mathf.RoundToInt(compute.IncomePerSecond)} CU/s";
 
-            float ratio = available > 0f ? Mathf.Clamp01(requested / available) : 0f;
-            _computeCard.BarFill.style.width = new StyleLength(Length.Percent(ratio * 100f));
+            _computeCard.BarFill.style.width = new StyleLength(Length.Percent(Mathf.Clamp01(compute.Reserve / ComputeSystem.ReserveCap) * 100f));
         }
 
         void RefreshResearch()

@@ -393,8 +393,9 @@
 
 /* Production panel (Foundry/Factory/AdvancedFoundry/Assembler) */
 
+/* Wide enough for a full row of 3 recipe cards (3 x 92px + their 3px margins + panel padding). */
 .production-panel {
-    width: 220px;
+    width: 320px;
 }
 
 .production-tab-bar {
@@ -571,6 +572,14 @@
     color: rgb(160, 168, 175);
     font-size: 9px;
     -unity-text-align: upper-right;
+}
+
+/* Remaining time on the left, percentage on the right, directly under a progress bar
+   (Production and Extractor panels share it). */
+.progress-info-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
     margin-top: 1px;
     margin-bottom: 5px;
 }

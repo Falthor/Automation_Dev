@@ -32,7 +32,10 @@
                     <ui:VisualElement class="extractor-progress-track production-progress-track">
                         <ui:VisualElement name="ProductionProgressFill" class="extractor-progress-fill" />
                     </ui:VisualElement>
-                    <ui:Label name="ProductionPercentLabel" text="0 %" class="production-percent-label" />
+                    <ui:VisualElement class="progress-info-row">
+                        <ui:Label name="ProductionTimeLabel" text="" class="production-time-label" />
+                        <ui:Label name="ProductionPercentLabel" text="0 %" class="production-percent-label" />
+                    </ui:VisualElement>
 
                     <ui:Label text="MATIERES PREMIERES" class="extractor-section-label" />
                     <ui:VisualElement name="ProductionIngredientsList" class="production-ingredients-list" />
@@ -51,7 +54,6 @@
 
                     <ui:VisualElement class="production-state-row">
                         <ui:Label name="ProductionStateLabel" text="" class="production-state-label" />
-                        <ui:Label name="ProductionTimeLabel" text="" class="production-time-label" />
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>

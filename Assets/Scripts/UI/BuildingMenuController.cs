@@ -321,7 +321,7 @@ namespace Game.UI
                 }
             }
 
-            if (definition.PowerDemandKw > 0f || definition.CuDemand > 0f)
+            if (definition.PowerDemandKw > 0f || definition.CuCostPerCycle > 0f)
             {
                 var consumptionTitle = new Label("CONSOMMATION");
                 consumptionTitle.AddToClassList("building-details-section-title");
@@ -330,7 +330,7 @@ namespace Game.UI
                 var consumptionRow = new VisualElement();
                 consumptionRow.AddToClassList("building-details-consumption-row");
                 if (definition.PowerDemandKw > 0f) consumptionRow.Add(BuildConsumptionPill(powerIcon, $"{definition.PowerDemandKw:0} kW"));
-                if (definition.CuDemand > 0f) consumptionRow.Add(BuildConsumptionPill(computeIcon, $"{definition.CuDemand:0} CU"));
+                if (definition.CuCostPerCycle > 0f) consumptionRow.Add(BuildConsumptionPill(computeIcon, $"{definition.CuCostPerCycle:0} CU"));
                 info.Add(consumptionRow);
             }
 

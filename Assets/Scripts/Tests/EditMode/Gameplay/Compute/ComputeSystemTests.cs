@@ -14,38 +14,7 @@ namespace Game.Tests.EditMode.Gameplay.Compute
         }
 
         [Test]
-        public void GetPerformanceRatio_CappedAtOne_WhenSupplyExceedsDemand()
-        {
-            var compute = new ComputeSystem();
-            compute.ReportDemand(10f);
-            compute.ReportSupply(100f);
-            compute.Settle();
-
-            Assert.AreEqual(1f, compute.GetPerformanceRatio());
-        }
-
-        [Test]
-        public void GetPerformanceRatio_ThrottlesProportionally_WhenDemandExceedsSupply()
-        {
-            var compute = new ComputeSystem();
-            compute.ReportDemand(100f);
-            compute.ReportSupply(50f);
-            compute.Settle();
-
-            Assert.AreEqual(0.5f, compute.GetPerformanceRatio());
-        }
-
-        [Test]
-        public void GetPerformanceRatio_IsOne_WhenNoDemand()
-        {
-            var compute = new ComputeSystem();
-            compute.Settle();
-
-            Assert.AreEqual(1f, compute.GetPerformanceRatio());
-        }
-
-        [Test]
-        public void CanSpend_And_Spend_DeductFromReserve_NeverThrottled()
+        public void CanSpend_And_Spend_DeductFromReserve()
         {
             var compute = new ComputeSystem();
 
@@ -65,28 +34,74 @@ namespace Game.Tests.EditMode.Gameplay.Compute
         }
 
         [Test]
-        public void GrowReserve_AddsSettledSupplyTimesDelta_CappedAtReserveCap()
+        public void Grant_CreditsTheReserve()
         {
             var compute = new ComputeSystem();
-            compute.Spend(1000f);
-            compute.ReportSupply(100f);
-            compute.Settle();
+            compute.Spend(3000f);
 
-            compute.GrowReserve(1f);
+            compute.Grant(3000f);
 
-            Assert.AreEqual(ComputeSystem.ReserveCap - 1000f + 100f, compute.Reserve);
+            Assert.AreEqual(ComputeSystem.ReserveCap, compute.Reserve);
         }
 
         [Test]
-        public void GrowReserve_NeverExceedsCap()
+        public void Grant_NeverExceedsCap()
         {
             var compute = new ComputeSystem();
-            compute.ReportSupply(1000000f);
-            compute.Settle();
 
-            compute.GrowReserve(1f);
+            compute.Grant(1000000f);
 
             Assert.AreEqual(ComputeSystem.ReserveCap, compute.Reserve);
+        }
+
+        [Test]
+        public void Grant_IgnoresNonPositiveAmounts()
+        {
+            var compute = new ComputeSystem();
+            compute.Spend(1000f);
+
+            compute.Grant(0f);
+            compute.Grant(-500f);
+
+            Assert.AreEqual(ComputeSystem.ReserveCap - 1000f, compute.Reserve);
+        }
+
+        [Test]
+        public void IncomePerSecond_AveragesWhatWasActuallyCredited_OverTheWindow()
+        {
+            var compute = new ComputeSystem();
+            compute.Spend(10000f);
+
+            // One 3000 CU grant per 5s window reads as 600 CU/s.
+            compute.Grant(3000f);
+            compute.Tick(5f);
+
+            Assert.AreEqual(600f, compute.IncomePerSecond, 0.01f);
+        }
+
+        [Test]
+        public void IncomePerSecond_ExcludesWhatTheCapDiscarded()
+        {
+            var compute = new ComputeSystem();
+            compute.Spend(1000f);
+
+            // Only 1000 of the 5000 actually fits back under the cap.
+            compute.Grant(5000f);
+            compute.Tick(5f);
+
+            Assert.AreEqual(200f, compute.IncomePerSecond, 0.01f);
+        }
+
+        [Test]
+        public void IncomePerSecond_StaysUnchanged_BeforeTheWindowElapses()
+        {
+            var compute = new ComputeSystem();
+            compute.Spend(10000f);
+
+            compute.Grant(3000f);
+            compute.Tick(1f);
+
+            Assert.AreEqual(0f, compute.IncomePerSecond);
         }
     }
 }

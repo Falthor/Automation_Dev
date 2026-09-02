@@ -17,15 +17,41 @@ MonoBehaviour:
   footprintSize: {x: 3, y: 3}
   placeholderColor: {r: 0.6, g: 0.4, b: 0.2, a: 1}
   unlockResearch: {fileID: 0}
-  sprite: {fileID: 21300000, guid: c795d520a81cc7d409d0fcf7246fbfeb, type: 3}
+  sprite: {fileID: -2610165466428882619, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  animationFrames:
+  - {fileID: -2610165466428882619, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: 5713306734818948834, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: 8629836777822714939, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: -5339648612368354237, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: 2368062777697752656, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: -5699117219369246791, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: 6085658565781574849, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: 8226592871741132088, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: 8141353972664474452, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: -3382018857642457042, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: 7938075933432614043, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: 6060037723901778576, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: -1319037068067022081, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: -1505842676546114891, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: -3292876833210677751, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: 1136544278107316473, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: -6667870247056382283, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: 5384201035649376248, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: 3398767785266953317, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: 8748660282809404935, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: -42019536814759766, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: -5552106276435702465, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: -3999188394873889746, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  - {fileID: 2887260337758662768, guid: 9607556de099a5348b80504b85e068f2, type: 3}
+  animationFps: 12
   cost:
-  - item: {fileID: 11400000, guid: b96b1a8817e8abf4bacd918c5be7b859, type: 2}
-    amount: 2
-  - item: {fileID: 11400000, guid: 65d78e7c331fda945b089ab7a130f97c, type: 2}
-    amount: 2
+  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+    amount: 5
+  - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
+    amount: 5
   maxStackPerItem: 20
   powerDemandKw: 2
-  intakeIntervalSeconds: 2
+  intakeIntervalSeconds: 1
   recipeIds:
   - Iron_Ingot
   - copper_Ingot

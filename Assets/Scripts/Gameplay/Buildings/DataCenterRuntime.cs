@@ -94,10 +94,7 @@ namespace Game.Gameplay.Buildings
             // delta already carries the Power gate (0 whenever unpowered, from last frame's
             // reported demand - same one-frame lag as every other Compute/Power report),
             // freezing the wear/stability timers below while unpowered.
-            float performance = ComputeEffectivePerformance(
-                cuDemand: 0f, computeActive: false,
-                powerDemand: _previousPowerDemand, powerActive: true,
-                _computeSystem, _powerSystem);
+            float performance = ComputeEffectivePerformance(_previousPowerDemand, powerActive: true, _powerSystem);
             float effectiveDelta = deltaTime * performance;
 
             _wearTimer += effectiveDelta;
@@ -119,10 +116,11 @@ namespace Game.Gameplay.Buildings
                 RecalculateStability(_memorySlots);
             }
 
-            // Compute output is explicitly gated on IsPowered() directly (an instantaneous sum,
+            // Compute output is explicitly gated on IsPowered() directly (an instantaneous rate,
             // not something effectiveDelta=0 would zero out on its own) - shutdown must silence
-            // it immediately, not just freeze its progression.
-            _computeSystem.ReportSupply(_powerSystem.IsPowered() ? TotalComputeOutput() : 0f);
+            // it immediately, not just freeze its progression. It is a CU/s rate, so what lands
+            // in the reserve is that rate times this tick's own duration.
+            if (_powerSystem.IsPowered()) _computeSystem.Grant(TotalComputeOutput() * deltaTime);
             _previousPowerDemand = TotalPowerDemand();
         }
 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Data;
 using Game.Gameplay.Research;
 using Game.Presentation;
@@ -11,9 +12,9 @@ namespace Game.UI
     /// Global Research panel (CONTRACTS.md §11/§12), opened from the Bottom Nav "Research"
     /// category button - not tied to any single Laboratory instance, since every built
     /// Laboratory contributes to whichever research is active regardless of which panel opened
-    /// it. For now: just the offered research list with its RP cost and unlock state (matches
-    /// the source project's research_panel.gd at this stage) - starting a research and richer
-    /// progress display can follow once the list itself is confirmed.
+    /// it. Lists every offered research with its RP cost and unlock state; clicking an available
+    /// one starts it through ResearchSystem.Start (CONTRACTS.md §11) - the only command this
+    /// panel issues.
     /// </summary>
     public sealed class ResearchPanelController : MonoBehaviour
     {
@@ -27,6 +28,14 @@ namespace Game.UI
         VisualElement _root;
         VisualElement _list;
         Label _rpLabel;
+
+        /// <summary>
+        /// One built row per offered research, kept alive for as long as the panel is open. The
+        /// rows are NOT rebuilt every frame: a Button destroyed and recreated between the pointer
+        /// going down and coming back up never completes its click, which is exactly why clicking
+        /// a research did nothing. Only their labels/state classes refresh per frame.
+        /// </summary>
+        readonly List<(ResearchDefinition definition, Button row, Label status)> _rows = new List<(ResearchDefinition, Button, Label)>();
 
         void Start()
         {
@@ -54,7 +63,10 @@ namespace Game.UI
         void OnGlobalPanelChanged(string panelName)
         {
             _root.EnableInClassList("hidden", panelName != PanelName);
-            if (panelName == PanelName) Refresh();
+            if (panelName != PanelName) return;
+
+            BuildRows();
+            Refresh();
         }
 
         void Hide()
@@ -77,66 +89,78 @@ namespace Game.UI
             Refresh();
         }
 
+        /// <summary>Creates one row per offered research. Called when the panel opens, never per frame - see _rows.</summary>
+        void BuildRows()
+        {
+            _list.Clear();
+            _rows.Clear();
+            if (researches == null) return;
+
+            ResearchSystem research = gameRuntime.Research;
+            foreach (ResearchDefinition definition in researches)
+            {
+                if (definition == null) continue;
+
+                // A Button, not a plain VisualElement - clicking an available row starts that
+                // research immediately (research.Start deducts the cost and rejects everything
+                // the availability styling already rules out, so this can never double-spend).
+                ResearchDefinition captured = definition;
+                var row = new Button(() => research.Start(captured));
+                row.AddToClassList("research-row");
+
+                var icon = new VisualElement();
+                icon.AddToClassList("research-row-icon");
+                row.Add(icon);
+
+                var text = new VisualElement();
+                text.AddToClassList("research-row-text");
+
+                var name = new Label(definition.DisplayName);
+                name.AddToClassList("research-row-name");
+                text.Add(name);
+
+                var status = new Label();
+                status.AddToClassList("research-row-status");
+                text.Add(status);
+
+                row.Add(text);
+                _list.Add(row);
+                _rows.Add((definition, row, status));
+            }
+        }
+
+        /// <summary>Per-frame update of the existing rows only: RP total, each row's state class, enabled-ness and status line.</summary>
         void Refresh()
         {
             ResearchSystem research = gameRuntime.Research;
             _rpLabel.text = $"RP: {Mathf.FloorToInt(research.Rp)}";
 
-            _list.Clear();
-            if (researches == null) return;
-
-            foreach (ResearchDefinition definition in researches)
+            foreach ((ResearchDefinition definition, Button row, Label status) in _rows)
             {
-                if (definition != null) _list.Add(BuildRow(research, definition));
+                bool completed = research.IsUnlocked(definition.Id);
+                bool inProgress = !completed && research.GetActiveResearch() == definition;
+                bool locked = !completed && !inProgress
+                    && (research.HasActiveResearch() || !research.ArePrerequisitesMet(definition) || research.Rp < definition.Cost);
+                bool available = !completed && !inProgress && !locked;
+
+                row.SetEnabled(available);
+                row.EnableInClassList("research-state-completed", completed);
+                row.EnableInClassList("research-state-in-progress", inProgress);
+                row.EnableInClassList("research-state-locked", locked);
+                row.EnableInClassList("research-state-available", available);
+                status.text = StatusText(research, definition, completed, inProgress);
             }
-        }
-
-        VisualElement BuildRow(ResearchSystem research, ResearchDefinition definition)
-        {
-            bool completed = research.IsUnlocked(definition.Id);
-            bool inProgress = !completed && research.HasActiveResearch() && research.GetActiveResearch() == definition;
-            bool locked = !completed && !inProgress && (research.HasActiveResearch() || research.Rp < definition.Cost);
-            bool available = !completed && !inProgress && !locked;
-
-            // A Button, not a plain VisualElement - clicking an available row starts that
-            // research immediately (research.Start deducts the cost and rejects everything
-            // this same availability check already rules out, so this can never double-spend).
-            var row = new Button(() => research.Start(definition));
-            row.SetEnabled(available);
-            row.AddToClassList("research-row");
-            row.AddToClassList(StateClass(completed, inProgress, locked));
-
-            var icon = new VisualElement();
-            icon.AddToClassList("research-row-icon");
-            row.Add(icon);
-
-            var text = new VisualElement();
-            text.AddToClassList("research-row-text");
-
-            var name = new Label(definition.DisplayName);
-            name.AddToClassList("research-row-name");
-            text.Add(name);
-
-            var status = new Label(StatusText(research, definition, completed, inProgress));
-            status.AddToClassList("research-row-status");
-            text.Add(status);
-
-            row.Add(text);
-            return row;
-        }
-
-        static string StateClass(bool completed, bool inProgress, bool locked)
-        {
-            if (completed) return "research-state-completed";
-            if (inProgress) return "research-state-in-progress";
-            if (locked) return "research-state-locked";
-            return "research-state-available";
         }
 
         static string StatusText(ResearchSystem research, ResearchDefinition definition, bool completed, bool inProgress)
         {
             if (completed) return "TERMINEE";
             if (inProgress) return $"EN COURS ({Mathf.FloorToInt(research.GetProgress() * 100f)}%)";
+
+            // A missing prerequisite is named rather than just greying the row out: the cost
+            // alone would leave the player wondering why an affordable research does nothing.
+            if (!research.ArePrerequisitesMet(definition)) return $"REQUIERT : {definition.RequiresResearch.DisplayName}";
+
             return $"{Mathf.CeilToInt(definition.Cost)} RP";
         }
     }

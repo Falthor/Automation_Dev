@@ -19,7 +19,7 @@ namespace Game.UI
     /// </summary>
     public sealed class ProductionPanelController : MonoBehaviour
     {
-        const int GridColumns = 2;
+        const int GridColumns = 3;
 
         [SerializeField] UIDocument uiDocument;
         [SerializeField] VisualTreeAsset visualTree;

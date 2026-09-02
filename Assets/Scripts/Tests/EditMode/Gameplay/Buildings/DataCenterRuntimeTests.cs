@@ -79,31 +79,33 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         }
 
         [Test]
-        public void ComputeSupply_ZeroWhileUnpowered_EvenTheTickAComponentIsInstalled()
+        public void ComputeGrant_ZeroWhileUnpowered_EvenTheTickAComponentIsInstalled()
         {
             _power.ReportDemand(9999f); // nothing supplies -> unpowered once settled
             _power.Settle();
+            _compute.Spend(5000f); // make room under the cap so a grant would be visible
 
             DataCenterRuntime dataCenter = NewDataCenter();
             dataCenter.AddInput("cpu_mkI", 1, Direction.South);
+            float before = _compute.Reserve;
             dataCenter.Tick(1f);
-            _compute.Settle();
 
-            Assert.AreEqual(0f, _compute.SettledSupply);
+            Assert.AreEqual(before, _compute.Reserve);
         }
 
         [Test]
-        public void ComputeSupply_ReportsInstalledComponentsOutput_WhenPowered()
+        public void ComputeGrant_CreditsInstalledComponentsOutputForTheTicksDuration_WhenPowered()
         {
             _power.ReportSupply(9999f);
             _power.Settle();
+            _compute.Spend(5000f);
 
             DataCenterRuntime dataCenter = NewDataCenter();
             dataCenter.AddInput("cpu_mkI", 1, Direction.South);
+            float before = _compute.Reserve;
             dataCenter.Tick(1f);
-            _compute.Settle();
 
-            Assert.AreEqual(1000f, _compute.SettledSupply); // default EffectivePerformance = 1.0
+            Assert.AreEqual(before + 1000f, _compute.Reserve); // 1000 CU/s for 1 second
         }
 
         [Test]

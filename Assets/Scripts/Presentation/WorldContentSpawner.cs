@@ -50,7 +50,13 @@ namespace Game.Presentation
             var renderer = go.AddComponent<SpriteRenderer>();
             renderer.sortingOrder = OreDepositSortingOrder;
 
-            Sprite sprite = _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
+            // Real deposit art has its own transparent background, so the terrain tile
+            // underneath must stay visible through it - unlike the solid-color placeholder
+            // fallback, it must not be tinted by PlaceholderColor.
+            Sprite sprite = definition.Sprite != null
+                ? definition.Sprite
+                : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
+            renderer.color = Color.white;
             SetSpriteToWorldSize(renderer, sprite, WorldFootprintSize(definition.FootprintSize));
         }
 

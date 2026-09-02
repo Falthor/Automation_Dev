@@ -91,14 +91,24 @@ public GridCoord[] GetOutputCells()
 public (GridCoord cell, Direction fromMySide)[] GetEdgeCells()
 ```
 
-`GetOutputCells()` returns every cell along the building's output edge (more than one for a footprint wider/taller than 1 cell in the relevant dimension). `GetEdgeCells()` returns every cell touching any of the 4 sides, paired with which side (from this building's own perspective) it touches - used as the `fromDirection` argument to `CanAcceptInput`/`AddInput`.
+```csharp
+public (GridCoord cell, Direction fromMySide)[] GetInputCells()
+```
 
-`TransportSystem` (`Game.Gameplay.Transport`) runs one generic push/pull step, at each building's own `PushIntervalSeconds` (`BuildingRuntime`, default 1s), for every registered building that is not itself belt-driven (Storage, and every `ProductionBuildingRuntime`):
+`GetOutputCells()` returns every cell along the building's output edge (more than one for a footprint wider/taller than 1 cell in the relevant dimension). `GetEdgeCells()` returns every cell touching any of the 4 sides, paired with which side (from this building's own perspective) it touches - used as the `fromDirection` argument to `CanAcceptInput`/`AddInput`. `GetInputCells()` returns the subset items are actually taken from: for a building declaring directional input (`BuildingDefinition.HasInputArrows`) that is one cell per side other than its output side - exactly the cells its entry arrows are drawn on, so an arrow always marks a real intake point and there are no invisible ones; for a building declaring none (Storage, Core) it is every edge cell, matching the "input from any side" behavior those are defined with.
 
-- **Push**: walks `GetOutputCells()`; for the first neighbor whose `CanAcceptInput` accepts one unit of something in `GetOutputContents()`, transfers it via `TakeOutput`/`AddInput`.
-- **Pull**: walks `GetEdgeCells()` (all 4 sides, regardless of that neighbor's own facing); for the first neighbor exposing a `PeekPullableItem()` this building's own `CanAcceptInput` accepts, transfers it via `ConsumePulledItem`/`AddInput`.
+`TransportSystem` (`Game.Gameplay.Transport`) runs one generic push and one generic pull for every registered building that is not itself belt-driven (Storage, and every `ProductionBuildingRuntime`):
 
-Conveyors keep their own dedicated pull-from-behind-via-Flow + lane-advance logic (a conveyor has no pooled input/output, just a single carried item) and are not part of this generic step.
+- **Push**, at the building's own `PushIntervalSeconds` (`BuildingRuntime`, default 1s): walks `GetOutputCells()`; for the first neighbor whose `CanAcceptInput` accepts one unit of something in `GetOutputContents()`, transfers it via `TakeOutput`/`AddInput`.
+- **Pull**, every tick: walks `GetInputCells()` (regardless of that neighbor's own facing); for the first neighbor exposing a `PeekPullableItem()` this building's own `CanAcceptInput` accepts, transfers it via `ConsumePulledItem`/`AddInput`. How fast a building may actually absorb what it reads stays its own concern (e.g. `FoundryRuntime`'s intake cooldown), not a side effect of transport's polling rate.
+
+One tick therefore runs: building state machines → **every belt advances** → **every building reads its input cells** → **every belt hands over** (back-edge pull, then side merge) → splitters/crossroads → building pushes. The belt phase is split around the building read on purpose. Doing a belt's advance and hand-over together, belt by belt, made the whole line's behavior depend on the order belts sit in the internal list and left no moment where an item is observably parked at the end of a cell - the next belt, visited later in that same pass, took it immediately. A building alongside a *running* line then never saw anything to pick up and was only fed once the line downstream jammed. With the split, order stops mattering and a building takes an item parked at the cell its entry arrow points at before the belt carries it further. Consequence to keep in mind when designing a line: of two machines reading the same belt, the upstream one is served first and the downstream one gets what is left, exactly like the belt's own downstream continuation.
+
+Conveyors keep their own dedicated pull-from-behind-via-Flow + lane-advance logic (a conveyor has no pooled input/output, just the items riding it) and are not part of this generic step.
+
+A conveyor also accepts a **side merge**: when its pull from the back edge finds nothing and it still has a free slot, it takes one item from any building whose own output points into it across one of its two side edges - another belt merging in, or a production building standing alongside dropping its output onto the belt it runs past. The exit edge is excluded, so two belts facing each other head-on never trade the same item back and forth. The side is always the lower priority of the two intakes - the in-line belt is served first every tick, and a merging item only enters when the receiving belt has room (`HasRoomForNewItem`); otherwise it waits where it is.
+
+Both intakes match against the source's **whole output edge** (`GetOutputCells()`), not just its first cell, so a building whose footprint is wider than one cell hands its output to every belt cell it faces rather than to one arbitrary cell of that edge.
 
 **Behavior change**: Storage's pull previously required the neighbor's own configured output to be aimed at Storage (`GetOutputCell() == destination`). It now uses the same generic pull as every other non-belt building - any of the 4 sides, no alignment check - matching the source project's `Building._try_pull()` exactly. This is a deliberate, documented change (§13), not a Storage-specific redesign.
 
@@ -196,7 +206,7 @@ WAITING_COMPUTE
 
 Returns the presentation label for the current state.
 
-A cycle takes ALL its ingredients and its recipe's one-shot Compute cost (§10) at once, the instant it starts (the transition into `PRODUCING`) - not progressively as it advances. Power demand (§9) is reported only while `PRODUCING`, based on whether the building was `PRODUCING` at the end of the *previous* tick (the same report-then-settle one-frame lag Power/Compute already have) - if unpowered, the effective delta passed to the state machine that tick is scaled to 0, freezing an in-progress cycle's timer without losing already-consumed ingredients/Compute. Continuous Compute demand and this one-shot cycle cost remain distinct (§10); a `ProductionBuildingRuntime` never reports continuous Compute demand.
+A cycle takes ALL its ingredients and its recipe's one-shot Compute cost (§10) at once, the instant it starts (the transition into `PRODUCING`) - not progressively as it advances. Power demand (§9) is reported only while `PRODUCING`, based on whether the building was `PRODUCING` at the end of the *previous* tick (the same report-then-settle one-frame lag Power has) - if unpowered, the effective delta passed to the state machine that tick is scaled to 0, freezing an in-progress cycle's timer without losing already-consumed ingredients/Compute. Only Power gates a building's speed; CU is never a continuous draw (§10).
 
 Extractor does not need to implement this player-selected-recipe contract - its production remains fully automatic.
 
@@ -229,6 +239,8 @@ public bool TryPlace(GridCoord cell, Direction rotation, out BuildingRuntime pla
 public bool TryDemolish(GridCoord cell, out BuildingRuntime removed)
 ```
 
+`TryPlace` deducts the definition's cost (player's global stock first, then Core, then every Storage); `TryDemolish` refunds that same cost in full into the global stock, so placing and removing a building is cost-neutral.
+
 `TryPlace`/`TryDemolish` only mutate `Game.Grid`/runtime state and return the affected `BuildingRuntime` via `out`; they never create or destroy GameObjects. The caller (a Presentation-layer input adapter) is responsible for the corresponding view, which is what keeps `Game.Construction` free of a dependency on `Game.Presentation`. `CanPlace` is a non-mutating query used for ghost-preview valid/invalid tinting.
 
 Drag-gesture decoding (turning a mouse drag into a sequence of single-cell `TryPlace` calls, and detecting when to reshape the drag anchor into a corner) is input-interpretation and lives in the Presentation-layer input adapter, not in `ConstructionService` itself, which stays single-cell and Unity-input-agnostic.
@@ -255,21 +267,27 @@ The UI reads `SettledDemand`/`SettledSupply`/`IsPowered()` through this contract
 Implemented by `ComputeSystem` (`Game.Gameplay.Compute`), owned by `GameRuntime`:
 
 ```csharp
-public void ReportDemand(float cuPerSecond)
-public void ReportSupply(float cuPerSecond)
-public float GetPerformanceRatio()
+public void Grant(float amount)
 public bool CanSpend(float cost)
 public void Spend(float cost)
-public void GrowReserve(float deltaTime)
-public void Settle()
+public void Tick(float deltaTime)
 ```
 
-Two independent mechanisms share the same settled supply number:
+CU is a **currency, not a flow**. There is one mechanism: a pooled reserve (`Reserve`, capped at `ReserveCap` = 25000) credited by `Grant` and spent in one-shot chunks via `CanSpend`/`Spend`. Nothing draws CU per second, nothing is throttled by a CU ratio: a building either affords the cycle it is about to start, or waits at 0 progress until the reserve can pay for it.
 
-1. **Continuous flow**: same report-then-settle pattern as Power; `GetPerformanceRatio()` (`SettledSupply / SettledDemand`, capped at 1) is the throttle a continuous consumer applies to itself.
-2. **Pooled reserve** (`Reserve`, capped at `ReserveCap` = 25000): grows every frame by `SettledSupply * deltaTime` (`GrowReserve`, called once per `GameRuntime.Update()`), spent in one-shot chunks via `CanSpend`/`Spend` (a recipe's `ComputeCost` at cycle start, §6). Never throttled by `GetPerformanceRatio()` - it is a spent balance, not a continuous draw.
+Two kinds of spender, both charged in full at the instant a cycle starts:
 
-The UI reads these values through this contract. Continuous demand and one-time cycle costs remain distinct concepts.
+- a recipe-based production building pays its **recipe's** `ComputeCost` (§6);
+- Extractor, Laboratory and Gas Powerplant pay their own **`BuildingDefinition.CuCostPerCycle`** - per extraction, per card converted into RP, and per unit of fuel burned respectively. A powerplant that cannot pay does not light its fuel, and therefore supplies no Power that tick.
+
+Two sources credit the reserve:
+
+- the **Core**, which grants `CuOutput` in one go every `CuOutputIntervalSeconds` (3000 CU / 5s today) - no cable or network needed;
+- a **Data Center**, which credits its installed components' output for the duration of each tick, and only while powered.
+
+`Tick(deltaTime)` (called once per `GameRuntime.Update()`) only advances the window `IncomePerSecond` is averaged over - the credited-CU-per-second figure the UI shows. Anything granted above the cap is discarded, and `IncomePerSecond` counts only what was really credited.
+
+The UI reads `Reserve`/`IncomePerSecond` through this contract; it must not show a continuous consumption figure, because there is none.
 
 ## 11. Research
 
@@ -283,12 +301,15 @@ public float GetProgress()
 public void ReportActiveLab()
 public int GetActiveLabCount()
 public bool IsUnlocked(string researchId)
+public bool ArePrerequisitesMet(ResearchDefinition research)
 public bool Start(ResearchDefinition research)
 public void Tick(float deltaTime)
 public event Action<string> ResearchCompleted
 ```
 
-One RP pool, one active research slot at a time. Laboratories call `ReportActiveLab()` every tick while a research is active; `Tick()` (report-then-settle, same one-frame lag as Power/Compute) advances progress at `activeLabCount / 60` per second, so completion takes 60s/30s/20s/15s for 1/2/3/4 simultaneously active Laboratories. `Start` deducts the cost immediately and rejects if something is already active, already unlocked, or RP is insufficient.
+One RP pool, one active research slot at a time. Laboratories call `ReportActiveLab()` every tick while a research is active; `Tick()` (report-then-settle, same one-frame lag as Power/Compute) advances progress at `activeLabCount / 60` per second, so completion takes 60s/30s/20s/15s for 1/2/3/4 simultaneously active Laboratories. `Start` deducts the cost immediately and rejects if something is already active, already unlocked, RP is insufficient, or its prerequisite is not completed yet.
+
+A research may require one other research to be completed first (`ResearchDefinition.RequiresResearch`, a direct asset reference - the tree is a chain today, so it is one reference and not a list). `ArePrerequisitesMet` is the read-only form the UI uses to show *why* a row is unavailable instead of only greying it out.
 
 Unlike Power/Compute, there is no separate id-keyed registry: `ResearchDefinition` (`Game.Data`, id/displayName/cost) is referenced directly wherever a gate applies - `BuildingDefinition.UnlockResearch` (checked by `ConstructionService.IsPlaceable`, not by any runtime) and `RecipeDefinition.UnlockResearch` (checked by `ProductionBuildingRuntime.GetRecipeIds()`). Building placement and recipe availability both query unlock state through `IsUnlocked(id)` rather than reading internal research collections.
 

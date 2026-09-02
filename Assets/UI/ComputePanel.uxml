@@ -8,9 +8,8 @@
                 <ui:Button name="ComputeCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
             <ui:VisualElement class="extractor-body">
-                <ui:Label name="ComputeAvailableLabel" text="Available: 0 CU" class="extractor-section-label" />
+                <ui:Label name="ComputeAvailableLabel" text="Reserve: 0 CU" class="extractor-section-label" />
                 <ui:Label name="ComputeProductionLabel" text="Production: 0 CU/s" class="extractor-section-label" />
-                <ui:Label name="ComputeDrawLabel" text="Continuous draw: 0 CU/s" class="extractor-section-label" />
                 <ui:VisualElement class="extractor-progress-track">
                     <ui:VisualElement name="ComputeBarFill" class="extractor-progress-fill" />
                 </ui:VisualElement>

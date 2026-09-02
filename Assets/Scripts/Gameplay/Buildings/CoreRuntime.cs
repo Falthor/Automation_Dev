@@ -8,11 +8,14 @@ using Game.Gameplay.Power;
 namespace Game.Gameplay.Buildings
 {
     /// <summary>
-    /// The unique, world-generated Core: a permanent Power/Compute source (unconditional per-tick
-    /// report, no cable/network needed) plus a pooled, uncapped inventory seeded with a starting
-    /// stock - the first currency ConstructionService draws construction costs from (alongside
-    /// every placed Storage). Never placed by the player (see WorldGenerator); accepts input from
-    /// every side, like Storage, since it has no output direction of its own.
+    /// The unique, world-generated Core: a permanent Power source (unconditional per-tick report)
+    /// and the game's CU source (a fixed grant into the global reserve at a fixed interval), no
+    /// cable/network needed for either, plus a pooled, uncapped inventory - one of the sources
+    /// ConstructionService draws construction costs from (alongside the player's global starting
+    /// stock and every placed Storage). It starts empty: the game's starting resources belong to
+    /// the player, not to this building (WorldGenerationSettings.StartingStock). Never placed by
+    /// the player (see WorldGenerator); accepts input from every side, like Storage, since it has
+    /// no output direction of its own.
     /// </summary>
     public sealed class CoreRuntime : BuildingRuntime
     {
@@ -21,6 +24,8 @@ namespace Game.Gameplay.Buildings
         readonly PowerSystem _powerSystem;
         readonly PooledItemStock _inventory = new PooledItemStock(int.MaxValue);
 
+        float _cuTimer;
+
         public CoreRuntime(CoreDefinition definition, GridCoord cell, Direction facingRotation,
             ComputeSystem computeSystem, PowerSystem powerSystem)
             : base(definition, cell, facingRotation)
@@ -28,11 +33,6 @@ namespace Game.Gameplay.Buildings
             _definition = definition;
             _computeSystem = computeSystem;
             _powerSystem = powerSystem;
-
-            foreach (RecipeIngredient entry in definition.StartingStock)
-            {
-                if (entry.Item != null) _inventory.Add(entry.Item.Id, entry.Amount);
-            }
         }
 
         /// <summary>Read-only snapshot for the Core inspector panel (CONTRACTS.md §12).</summary>
@@ -45,7 +45,15 @@ namespace Game.Gameplay.Buildings
 
         public override void Tick(float deltaTime)
         {
-            _computeSystem.ReportSupply(_definition.CuOutput);
+            // CU arrives as a periodic grant, not a per-second flow: the reserve jumps by
+            // CuOutput once every CuOutputIntervalSeconds. Power stays a continuous supply.
+            _cuTimer += deltaTime;
+            if (_cuTimer >= _definition.CuOutputIntervalSeconds)
+            {
+                _cuTimer -= _definition.CuOutputIntervalSeconds;
+                _computeSystem.Grant(_definition.CuOutput);
+            }
+
             _powerSystem.ReportSupply(_definition.PowerOutputKw);
         }
     }

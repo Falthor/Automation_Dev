@@ -8,12 +8,12 @@ namespace Game.Data
     {
         [SerializeField, Min(0.01f)] float extractionIntervalSeconds = 2f;
         [SerializeField, Min(1)] int itemsPerCycle = 1;
-        [SerializeField, Min(0f)] float cuDemand = 10f;
+        [SerializeField, Min(0f)] float cuCostPerCycle = 50f;
         [SerializeField, Min(0f)] float powerDemandKw = 1f;
 
         public float ExtractionIntervalSeconds => extractionIntervalSeconds;
         public int ItemsPerCycle => itemsPerCycle;
-        public override float CuDemand => cuDemand;
+        public override float CuCostPerCycle => cuCostPerCycle;
         public override float PowerDemandKw => powerDemandKw;
 
         public override bool HasOutputArrow => true;

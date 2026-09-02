@@ -173,10 +173,7 @@ namespace Game.Gameplay.Buildings
         /// </summary>
         public override void Tick(float deltaTime)
         {
-            float performance = ComputeEffectivePerformance(
-                cuDemand: 0f, computeActive: false,
-                powerDemand: _powerDemandKw, powerActive: _state == ProductionState.Producing,
-                _computeSystem, _powerSystem);
+            float performance = ComputeEffectivePerformance(_powerDemandKw, powerActive: _state == ProductionState.Producing, _powerSystem);
 
             float effectiveDeltaTime = deltaTime * performance;
             OnBeforeProductionTick(effectiveDeltaTime);

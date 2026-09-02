@@ -25,5 +25,12 @@ namespace Game.Data
 
         /// <summary>Direction the override sprite art visually points to at zero rotation (e.g. East for an arrow pointing right).</summary>
         public Direction ArtNativeDirection => artNativeDirection;
+
+        /// <summary>
+        /// A corner's art connects to a neighbor on two perpendicular edges (entry and exit) -
+        /// a slight uniform overscan closes both seams at once (straight instead stretches only
+        /// its length axis via ConveyorView.LengthStretchFactor, so it doesn't need this).
+        /// </summary>
+        public override float RenderOverscan => defaultShape == ConveyorShapeKind.Corner ? 1.02f : 1f;
     }
 }

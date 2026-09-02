@@ -8,18 +8,23 @@ namespace Game.Gameplay.Transport
     /// <summary>
     /// Central tick driving item production and belt movement.
     ///
-    /// Conveyors keep their own dedicated pull-from-behind-via-Flow + lane-advance logic
-    /// (unchanged - a conveyor has no pooled input/output, just a single carried item).
+    /// Conveyors keep their own dedicated pull-from-behind-via-Flow + lane-advance logic (a
+    /// conveyor has no pooled input/output, just the items riding it), plus a lower-priority side
+    /// merge for a belt arriving perpendicular to it (see TryMergeFromSide). Their two halves -
+    /// advance, then hand over - run as two separate passes with every building's own read in
+    /// between, so a building takes an item parked at the end of the belt cell its entry arrow
+    /// points at before that belt passes it further down the line (see Tick).
     ///
     /// Every other registered building (Storage, production buildings) goes through one generic
-    /// push/pull step at its own PushIntervalSeconds: push walks GetOutputCells() and offers
-    /// GetOutputContents() to whichever neighbor's CanAcceptInput/AddInput accepts one unit; pull
-    /// scans GetEdgeCells() (all 4 sides, regardless of that neighbor's own facing) and takes one
-    /// unit from the first neighbor whose PeekPullableItem()/CanAcceptInput lines up. This
-    /// replaces the previous Storage-specific pull loop with the same shared code path - Storage
-    /// no longer requires the neighbor's own output to be aimed at it (CONTRACTS.md §13: this is
-    /// a deliberate, documented behavior change, matching the source project's building.gd
-    /// exactly, not a Storage-specific redesign).
+    /// push and one generic pull. Push runs at the building's own PushIntervalSeconds: it walks
+    /// GetOutputCells() and offers GetOutputContents() to whichever neighbor's
+    /// CanAcceptInput/AddInput accepts one unit. Pull runs every tick, before the belts move: it
+    /// scans GetInputCells() (the cells the building's entry arrows mark, regardless of that
+    /// neighbor's own facing) and takes one unit from the first neighbor whose
+    /// PeekPullableItem()/CanAcceptInput lines up. This replaces the previous Storage-specific
+    /// pull loop with the same shared code path - Storage no longer requires the neighbor's own
+    /// output to be aimed at it (CONTRACTS.md §13: this is a deliberate, documented behavior
+    /// change, matching the source project's building.gd exactly, not a Storage-specific redesign).
     /// </summary>
     public sealed class TransportSystem
     {
@@ -109,20 +114,43 @@ namespace Game.Gameplay.Transport
                 _allOthers[i].Tick(deltaTime);
             }
 
+            // The belt phase is deliberately split in two, with the buildings' own read wedged
+            // between the halves. Advancing and handing over in one pass per belt made the whole
+            // line's behavior depend on the order belts happen to sit in this list, and left no
+            // moment where an item is observably parked at the end of a cell: a belt advanced its
+            // item to the end and the next belt - visited later in that same pass - immediately
+            // took it. A building alongside a *running* line therefore never saw anything to pick
+            // up and only got fed once the line downstream jammed. Advancing everything first,
+            // then letting buildings read, then letting belts hand over, makes the order
+            // irrelevant and gives a building priority over the belt continuing past it.
+            for (int i = 0; i < _conveyors.Count; i++)
+            {
+                _conveyors[i].AdvanceItem(deltaTime, ConveyorSpeedCellsPerSecond);
+            }
+
+            // Buildings read their input cells every tick (not at PushIntervalSeconds like the
+            // push side): how fast a building may absorb what it reads is its own business - e.g.
+            // FoundryRuntime's intake cooldown - not a side effect of how often transport looks.
+            for (int i = 0; i < _allOthers.Count; i++)
+            {
+                TryGenericPull(_allOthers[i]);
+            }
+
             for (int i = 0; i < _conveyors.Count; i++)
             {
                 ConveyorRuntime conveyor = _conveyors[i];
-                if (!conveyor.HasItem)
-                {
-                    GridCoord behind = conveyor.Cell + conveyor.Orientation.Rotation.Opposite();
-                    if (TryPullFromNeighbor(behind, conveyor.Cell, out object item, out BuildingRuntime source))
-                    {
-                        conveyor.ReceiveItem(item);
-                        source.ConsumePulledItem(item);
-                    }
-                }
+                if (!conveyor.HasRoomForNewItem) continue;
 
-                conveyor.AdvanceItem(deltaTime, ConveyorSpeedCellsPerSecond);
+                GridCoord behind = conveyor.Cell + conveyor.Orientation.Rotation.Opposite();
+                if (TryPullFromNeighbor(behind, conveyor.Cell, out object item, out BuildingRuntime source))
+                {
+                    conveyor.ReceiveItem(item);
+                    source.ConsumePulledItem(item);
+                }
+                else
+                {
+                    TryMergeFromSide(conveyor);
+                }
             }
 
             TickSplitters();
@@ -141,7 +169,40 @@ namespace Game.Gameplay.Transport
 
                 _pushPullTimers[building] = 0f;
                 TryGenericPush(building);
-                TryGenericPull(building);
+            }
+        }
+
+        /// <summary>
+        /// Side merge: a neighbor whose own output points into this conveyor, but across one of
+        /// its two side edges rather than its back edge, hands over one item. That neighbor is
+        /// any building, not just another belt - it is equally how a Foundry/Factory standing
+        /// alongside a belt drops its output onto it, instead of only being able to feed a belt
+        /// aimed back at its output edge. Deliberately the lower priority of the two intakes: it
+        /// is only attempted when the straight-through pull above found nothing, and only while
+        /// this belt still has a free slot, so the belt being merged into always keeps the right
+        /// of way and a merging item simply waits its turn.
+        ///
+        /// The exit edge is excluded along with the entry edge: a neighbor sitting there and
+        /// pointing back at us is two belts facing each other head-on, which would otherwise pass
+        /// the same item back and forth forever.
+        /// </summary>
+        void TryMergeFromSide(ConveyorRuntime conveyor)
+        {
+            Direction entry = conveyor.Orientation.Rotation.Opposite();
+            Direction exit = conveyor.ExitDirection;
+
+            foreach (Direction side in AllDirections)
+            {
+                if (side == entry || side == exit) continue;
+                if (!(_grid.GetOccupant(conveyor.Cell + side) is BuildingRuntime neighbor)) continue;
+                if (!OutputsTo(neighbor, conveyor.Cell)) continue;
+
+                object item = neighbor.PeekPullableItem();
+                if (item == null) continue;
+
+                conveyor.ReceiveItem(item);
+                neighbor.ConsumePulledItem(item);
+                return;
             }
         }
 
@@ -277,7 +338,7 @@ namespace Game.Gameplay.Transport
 
             if (occupant is ConveyorRuntime targetConveyor)
             {
-                if (targetConveyor.HasItem) return false;
+                if (!targetConveyor.HasRoomForNewItem) return false;
                 targetConveyor.ReceiveItem(item);
                 return true;
             }
@@ -319,13 +380,14 @@ namespace Game.Gameplay.Transport
         }
 
         /// <summary>
-        /// Actively grabs one item off any adjacent neighbor exposing a pullable item (Flow
-        /// contract), regardless of that neighbor's own facing - only straight-on, directly
-        /// touching cells (no reaching around corners or through other buildings).
+        /// Actively grabs one item off a neighbor exposing a pullable item (Flow contract),
+        /// regardless of that neighbor's own facing, but only across this building's own input
+        /// cells - the cells its entry arrows are drawn on (GetInputCells). Straight-on, directly
+        /// touching cells only (no reaching around corners or through other buildings).
         /// </summary>
         void TryGenericPull(BuildingRuntime building)
         {
-            foreach (var (cell, fromMySide) in building.GetEdgeCells())
+            foreach (var (cell, fromMySide) in building.GetInputCells())
             {
                 if (!(_grid.GetOccupant(cell) is BuildingRuntime occupant)) continue;
 
@@ -352,7 +414,7 @@ namespace Game.Gameplay.Transport
             source = null;
 
             if (!(_grid.GetOccupant(neighborCell) is BuildingRuntime candidate)) return false;
-            if (candidate.GetOutputCell() != destinationCell) return false;
+            if (!OutputsTo(candidate, destinationCell)) return false;
 
             object pulled = candidate.PeekPullableItem();
             if (pulled == null) return false;
@@ -360,6 +422,20 @@ namespace Game.Gameplay.Transport
             item = pulled;
             source = candidate;
             return true;
+        }
+
+        /// <summary>
+        /// Whether that cell is anywhere along the building's output edge. The whole edge counts,
+        /// not just its first cell (GetOutputCell()): a footprint wider than one cell hands its
+        /// output to every cell it faces, so a belt may take from any of them.
+        /// </summary>
+        static bool OutputsTo(BuildingRuntime building, GridCoord cell)
+        {
+            foreach (GridCoord outputCell in building.GetOutputCells())
+            {
+                if (outputCell == cell) return true;
+            }
+            return false;
         }
     }
 }

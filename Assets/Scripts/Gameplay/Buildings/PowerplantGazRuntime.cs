@@ -9,8 +9,8 @@ namespace Game.Gameplay.Buildings
     /// Electricity source. Immediately operational once built (no fuel required) but only
     /// actually supplies Power while it holds Coal_ore, consumed 1 unit every
     /// FuelCycleTimeSeconds. No fuel -> 0 Power supplied and the burn timer holds at 0, but the
-    /// building stays built/selectable. Its own CU/self-power draw is unconditional regardless
-    /// of fuel state - matching the source project's powerplant_gaz.gd exactly.
+    /// building stays built/selectable. Its own self-power draw is unconditional regardless of
+    /// fuel state - matching the source project's powerplant_gaz.gd exactly.
     /// </summary>
     public sealed class PowerplantGazRuntime : BuildingRuntime
     {
@@ -20,6 +20,9 @@ namespace Game.Gameplay.Buildings
 
         int _fuelAmount;
         float _fuelTimer;
+
+        /// <summary>Whether the fuel unit currently burning has already paid its CU, so each consumed unit is charged exactly once.</summary>
+        bool _burnCharged;
 
         public int FuelAmount => _fuelAmount;
         public float FuelTimer => _fuelTimer;
@@ -46,14 +49,23 @@ namespace Game.Gameplay.Buildings
 
         public override void Tick(float deltaTime)
         {
-            // Self-consumption and CU draw are unconditional - unrelated to whether it currently has fuel.
-            _computeSystem.ReportDemand(_definition.CuDemand);
+            // Self-consumption is unconditional - unrelated to whether it currently has fuel.
             _powerSystem.ReportDemand(_definition.SelfPowerDemandKw);
 
             if (!HasFuel)
             {
                 _fuelTimer = 0f;
+                _burnCharged = false;
                 return;
+            }
+
+            // Burning one unit of fuel costs CuCostPerCycle, taken in full when that unit starts
+            // burning (§10). Without the CU the unit never lights, so no Power is supplied either.
+            if (!_burnCharged)
+            {
+                if (!_computeSystem.CanSpend(_definition.CuCostPerCycle)) return;
+                _computeSystem.Spend(_definition.CuCostPerCycle);
+                _burnCharged = true;
             }
 
             _powerSystem.ReportSupply(_definition.PowerOutputKw);
@@ -61,6 +73,7 @@ namespace Game.Gameplay.Buildings
             if (_fuelTimer < _definition.FuelCycleTimeSeconds) return;
 
             _fuelAmount -= 1;
+            _burnCharged = false;
             _fuelTimer = !HasFuel ? 0f : _fuelTimer - _definition.FuelCycleTimeSeconds;
         }
     }

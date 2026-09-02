@@ -1,21 +1,41 @@
 using System;
+using System.Collections.Generic;
 using Game.Core;
 using Game.Data;
 
 namespace Game.Gameplay.Buildings
 {
+    /// <summary>One item riding a conveyor. Reference identity (not ItemId) is what Presentation keys its per-item view on, so it stays stable while the item advances or the queue shifts.</summary>
+    public sealed class ConveyorItemSlot
+    {
+        public object Item { get; }
+        public float Progress { get; internal set; }
+
+        internal ConveyorItemSlot(object item)
+        {
+            Item = item;
+        }
+    }
+
     public sealed class ConveyorRuntime : BuildingRuntime
     {
+        /// <summary>How many items can queue on a single conveyor cell at once, evenly spaced - see MinItemSpacing.</summary>
+        public const int MaxItemsPerCell = 3;
+
+        /// <summary>Minimum progress gap kept between consecutive items so MaxItemsPerCell of them fit without overlapping.</summary>
+        const float MinItemSpacing = 1f / MaxItemsPerCell;
+
         public ConveyorOrientation Orientation { get; private set; }
 
-        /// <summary>0 = item just entered at this conveyor's back edge, 1 = reached the front edge and ready to hand off.</summary>
-        public float ItemProgress { get; private set; }
-        public bool HasItem { get; private set; }
+        /// <summary>Items currently riding this conveyor, front (closest to the exit, index 0) to back, for Presentation to draw. Use PeekPullableItem() for transport logic instead.</summary>
+        public IReadOnlyList<ConveyorItemSlot> Items => _slots;
 
-        /// <summary>The item currently riding this conveyor regardless of progress, for Presentation to draw. Use PeekPullableItem() for transport logic instead.</summary>
-        public object CarriedItem => _item;
+        public bool HasItem => _slots.Count > 0;
 
-        object _item;
+        /// <summary>True while another item can be accepted at the back edge - either the queue isn't full, or the back-most item has already moved far enough ahead to leave room.</summary>
+        public bool HasRoomForNewItem => _slots.Count < MaxItemsPerCell && (_slots.Count == 0 || _slots[_slots.Count - 1].Progress >= MinItemSpacing);
+
+        readonly List<ConveyorItemSlot> _slots = new List<ConveyorItemSlot>();
 
         public ConveyorRuntime(ConveyorDefinition definition, GridCoord cell, Direction facingRotation)
             : base(definition, cell, facingRotation)
@@ -23,19 +43,25 @@ namespace Game.Gameplay.Buildings
             Orientation = new ConveyorOrientation(definition.DefaultShape, facingRotation, mirrored: false);
         }
 
-        /// <summary>Accepts an item at the back edge (progress 0). Caller must have checked !HasItem first.</summary>
+        /// <summary>Accepts an item at the back edge (progress 0). Caller must have checked HasRoomForNewItem first.</summary>
         public void ReceiveItem(object item)
         {
-            _item = item;
-            HasItem = true;
-            ItemProgress = 0f;
+            _slots.Add(new ConveyorItemSlot(item));
         }
 
-        /// <summary>Advances the carried item toward the front edge; call once per simulation tick.</summary>
+        /// <summary>
+        /// Advances every carried item toward the front edge; call once per simulation tick.
+        /// Each item is capped by the one ahead of it (MinItemSpacing back from it) so items
+        /// queue up instead of overlapping - only the front item (index 0) can reach 1.
+        /// </summary>
         public void AdvanceItem(float deltaTime, float speedCellsPerSecond)
         {
-            if (!HasItem) return;
-            ItemProgress = System.Math.Min(1f, ItemProgress + deltaTime * speedCellsPerSecond);
+            float delta = deltaTime * speedCellsPerSecond;
+            for (int i = 0; i < _slots.Count; i++)
+            {
+                float cap = i == 0 ? 1f : _slots[i - 1].Progress - MinItemSpacing;
+                _slots[i].Progress = System.Math.Min(cap, _slots[i].Progress + delta);
+            }
         }
 
         /// <summary>Configures a straight conveyor toward the requested exit.</summary>
@@ -120,15 +146,13 @@ namespace Game.Gameplay.Buildings
             }
         }
 
-        public override object PeekPullableItem() => HasItem && ItemProgress >= 1f ? _item : null;
+        public override object PeekPullableItem() => _slots.Count > 0 && _slots[0].Progress >= 1f ? _slots[0].Item : null;
 
         public override void ConsumePulledItem(object item)
         {
-            if (HasItem && Equals(_item, item))
+            if (_slots.Count > 0 && Equals(_slots[0].Item, item))
             {
-                _item = null;
-                HasItem = false;
-                ItemProgress = 0f;
+                _slots.RemoveAt(0);
             }
         }
     }

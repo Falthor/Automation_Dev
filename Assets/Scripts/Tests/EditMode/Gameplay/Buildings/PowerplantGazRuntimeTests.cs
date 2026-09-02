@@ -22,9 +22,9 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _power = new PowerSystem();
         }
 
-        PowerplantGazRuntime NewPlant(float powerOutputKw = 10f, float selfPowerDemandKw = 2f, float cuDemand = 20f, float fuelCycleTimeSeconds = 10f)
+        PowerplantGazRuntime NewPlant(float powerOutputKw = 10f, float selfPowerDemandKw = 2f, float cuCostPerCycle = 150f, float fuelCycleTimeSeconds = 10f)
         {
-            PowerplantGazDefinition definition = TestDataFactory.NewPowerplantGaz(_fuel, 20, powerOutputKw, selfPowerDemandKw, cuDemand, fuelCycleTimeSeconds);
+            PowerplantGazDefinition definition = TestDataFactory.NewPowerplantGaz(_fuel, 20, powerOutputKw, selfPowerDemandKw, cuCostPerCycle, fuelCycleTimeSeconds);
             return new PowerplantGazRuntime(definition, new GridCoord(0, 0), Direction.North, _compute, _power);
         }
 
@@ -35,11 +35,9 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             plant.Tick(1f);
             _power.Settle();
-            _compute.Settle();
 
             Assert.AreEqual(0f, _power.SettledSupply);
             Assert.AreEqual(2f, _power.SettledDemand); // self-demand always reported
-            Assert.AreEqual(20f, _compute.SettledDemand); // CU always reported
         }
 
         [Test]

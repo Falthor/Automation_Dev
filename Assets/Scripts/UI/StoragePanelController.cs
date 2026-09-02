@@ -11,8 +11,9 @@ namespace Game.UI
 {
     /// <summary>
     /// Storage panel, opened either from the Bottom Nav "Storage" category button (aggregated
-    /// view: total of every item type across every Storage in the world, grid sized to however
-    /// many types actually exist) or by clicking a specific Storage in the world (that box's own
+    /// view: total of every item type across the player's global stock and every Storage in the
+    /// world, grid sized to however many types actually exist) or by clicking a specific Storage
+    /// in the world (that box's own
     /// 8 fixed slots, empty ones included). Same panel shell, same global-panel slot
     /// (CONTRACTS.md §7/§12: UI reads the public Inventory contract, never a private field).
     /// </summary>
@@ -127,6 +128,15 @@ namespace Game.UI
             _root.EnableInClassList("overlay-root-right", false);
 
             var totals = new Dictionary<string, int>();
+
+            // The player's global stock (the items the game starts with, held by no building) is
+            // part of what this aggregate view reports - it is spendable exactly like a Storage
+            // box's contents, so hiding it here would show the player less than they own.
+            foreach (var entry in gameRuntime.GlobalStock.Contents)
+            {
+                totals[entry.Key] = (totals.TryGetValue(entry.Key, out int owned) ? owned : 0) + entry.Value;
+            }
+
             foreach (StorageRuntime storage in gameRuntime.Transport.Storages)
             {
                 foreach (InventorySlot slot in storage.Slots)
@@ -176,7 +186,7 @@ namespace Game.UI
 
             var icon = new VisualElement();
             icon.AddToClassList("storage-card-icon");
-            icon.style.backgroundImage = new StyleBackground(_spriteFactory.CreateSolidSquareSprite(ItemColor(itemId)));
+            icon.style.backgroundImage = new StyleBackground(ItemSprite(itemId));
             card.Add(icon);
 
             var count = new Label(amount.ToString());
@@ -194,10 +204,12 @@ namespace Game.UI
             return card;
         }
 
-        Color ItemColor(string itemId)
+        /// <summary>The item's real icon, falling back to its flat color only for an item that has no art assigned yet.</summary>
+        Sprite ItemSprite(string itemId)
         {
-            var item = gameRuntime.Items != null ? gameRuntime.Items.Get(itemId) : null;
-            return item != null ? item.FallbackColor : Color.gray;
+            ItemDefinition item = gameRuntime.Items != null ? gameRuntime.Items.Get(itemId) : null;
+            if (item != null && item.Icon != null) return item.Icon;
+            return _spriteFactory.CreateSolidSquareSprite(item != null ? item.FallbackColor : Color.gray);
         }
     }
 }

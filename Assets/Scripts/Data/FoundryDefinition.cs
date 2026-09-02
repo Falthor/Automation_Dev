@@ -12,7 +12,7 @@ namespace Game.Data
     {
         [SerializeField, Min(1)] int maxStackPerItem = 20;
         [SerializeField, Min(0f)] float powerDemandKw = 2f;
-        [SerializeField, Min(0f)] float intakeIntervalSeconds = 2f;
+        [SerializeField, Min(0f)] float intakeIntervalSeconds = 1f;
         [SerializeField] string[] recipeIds = { "Iron_Ingot", "copper_Ingot" };
 
         public int MaxStackPerItem => maxStackPerItem;

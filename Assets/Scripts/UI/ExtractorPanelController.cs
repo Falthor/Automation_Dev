@@ -25,6 +25,8 @@ namespace Game.UI
         VisualElement _root;
         Label _title;
         VisualElement _progressFill;
+        Label _timeLabel;
+        Label _percentLabel;
         VisualElement _storageIcon;
         Label _storageCount;
         ExtractorRuntime _selected;
@@ -43,6 +45,8 @@ namespace Game.UI
             _root = panelRoot.Q<VisualElement>("ExtractorPanelRoot");
             _title = panelRoot.Q<Label>("ExtractorTitle");
             _progressFill = panelRoot.Q<VisualElement>("ExtractorProgressFill");
+            _timeLabel = panelRoot.Q<Label>("ExtractorTimeLabel");
+            _percentLabel = panelRoot.Q<Label>("ExtractorPercentLabel");
             _storageIcon = panelRoot.Q<VisualElement>("ExtractorStorageIcon");
             _storageCount = panelRoot.Q<Label>("ExtractorStorageCount");
             panelRoot.Q<Button>("ExtractorCloseButton").clicked += Close;
@@ -84,7 +88,10 @@ namespace Game.UI
             var item = gameRuntime.Items != null ? gameRuntime.Items.Get(_selected.ItemId) : null;
             _title.text = $"EXTRACTOR - {(item != null ? item.DisplayName : _selected.ItemId)}";
 
-            _progressFill.style.width = new StyleLength(Length.Percent(_selected.ProductionProgress * 100f));
+            float progress = _selected.ProductionProgress;
+            _progressFill.style.width = new StyleLength(Length.Percent(progress * 100f));
+            _percentLabel.text = $"{Mathf.RoundToInt(progress * 100f)} %";
+            _timeLabel.text = $"{_selected.ExtractionIntervalSeconds * (1f - progress):0.0}s restantes";
 
             _storageIcon.style.backgroundImage = new StyleBackground(ItemSprite(_selected.ItemId));
             _storageCount.text = $"{_selected.BufferedAmount}/{ExtractorRuntime.InternalStorageCapacity}";

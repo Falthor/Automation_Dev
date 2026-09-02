@@ -53,8 +53,13 @@ namespace Game.Data
         /// </summary>
         public virtual float PowerDemandKw => 0f;
 
-        /// <summary>Configured Compute draw (CU/s), for the Building menu's consumption preview. 0 by default.</summary>
-        public virtual float CuDemand => 0f;
+        /// <summary>
+        /// One-shot CU taken from the reserve each time this building starts a cycle (an
+        /// extraction, an RP conversion, burning one unit of fuel), for the Building menu's
+        /// consumption preview. 0 by default - a recipe-based production building pays its
+        /// recipe's own ComputeCost instead, not a per-building one.
+        /// </summary>
+        public virtual float CuCostPerCycle => 0f;
 
         /// <summary>
         /// Every cell (relative to the placement origin) this building actually occupies. A full
@@ -101,12 +106,13 @@ namespace Game.Data
         public virtual bool HasOutputArrow => false;
 
         /// <summary>
-        /// Whether every non-output side should be drawn with an inward-pointing entry arrow
-        /// (construction ghost and built view alike) - only meaningful alongside HasOutputArrow,
-        /// since "every side but the output side" needs a fixed output side to be defined
-        /// against. False by default; the recipe-based production buildings (Foundry/Factory/
-        /// AdvancedFoundry/Assembler) override it - Extractor keeps the default since it accepts
-        /// no input at all.
+        /// Whether every side other than the facing one should be drawn with an inward-pointing
+        /// entry arrow (construction ghost and built view alike), and - since an arrow marks a
+        /// real intake point - restrict where transport may hand this building items
+        /// (BuildingRuntime.GetInputCells). Independent of HasOutputArrow: a building can take
+        /// deliveries without producing anything physical (Laboratory). False by default; the
+        /// recipe-based production buildings override it, and Extractor keeps the default since
+        /// it accepts no input at all.
         /// </summary>
         public virtual bool HasInputArrows => false;
     }

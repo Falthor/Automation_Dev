@@ -1,34 +1,35 @@
 namespace Game.Gameplay.Compute
 {
     /// <summary>
-    /// Global compute supply/demand (CONTRACTS.md §10). Two independent mechanisms share the
-    /// same settled supply number:
-    /// 1) Continuous flow: consumers report a CU/s demand every frame; GetPerformanceRatio()
-    ///    (settled supply / settled demand, capped at 1) throttles all of them proportionally.
-    ///    Same report-then-settle, one-frame-lag pattern as PowerSystem.
-    /// 2) A pooled reserve (capped at ReserveCap) that grows every frame by settled supply * dt
-    ///    and is spent in one-shot chunks (a recipe's ComputeCost at cycle start) - never
-    ///    throttled by the performance ratio, since it is a spent balance, not a continuous draw.
+    /// Global compute pool (CONTRACTS.md §10). CU is a currency, not a flow: it is credited into
+    /// a capped reserve - the Core grants a fixed amount at a fixed interval, a Data Center
+    /// credits its own output as it produces it - and spent in one-shot chunks the moment a
+    /// production cycle starts. There is no continuous per-second draw, and therefore no
+    /// throttling ratio: a building either can afford the cycle it is about to start or waits.
     /// </summary>
     public sealed class ComputeSystem
     {
         public const float ReserveCap = 25000f;
 
-        float _pendingDemand;
-        float _pendingSupply;
+        /// <summary>Length of the window IncomePerSecond is averaged over - long enough that a Core grant arriving every few seconds reads as a steady rate rather than a spike.</summary>
+        const float IncomeWindowSeconds = 5f;
 
-        public float SettledDemand { get; private set; }
-        public float SettledSupply { get; private set; }
+        float _grantedInWindow;
+        float _windowTimer;
+
         public float Reserve { get; private set; } = ReserveCap;
 
-        public void ReportDemand(float cuPerSecond) => _pendingDemand += cuPerSecond;
-        public void ReportSupply(float cuPerSecond) => _pendingSupply += cuPerSecond;
+        /// <summary>CU actually credited per second, averaged over the last window - what the UI shows as production.</summary>
+        public float IncomePerSecond { get; private set; }
 
-        public float GetPerformanceRatio()
+        /// <summary>Credits CU into the reserve, clamped at ReserveCap. Anything over the cap is lost, not banked.</summary>
+        public void Grant(float amount)
         {
-            if (SettledDemand <= 0f) return 1f;
-            float ratio = SettledSupply / SettledDemand;
-            return ratio > 1f ? 1f : ratio;
+            if (amount <= 0f) return;
+
+            float before = Reserve;
+            Reserve = System.Math.Min(Reserve + amount, ReserveCap);
+            _grantedInWindow += Reserve - before;
         }
 
         public bool CanSpend(float cost) => cost <= Reserve;
@@ -36,20 +37,15 @@ namespace Game.Gameplay.Compute
         /// <summary>Deducts cost from the reserve. Caller must have checked CanSpend first.</summary>
         public void Spend(float cost) => Reserve -= cost;
 
-        /// <summary>Grows the reserve by settled supply * deltaTime, capped at ReserveCap. Call once per frame from GameRuntime.Update().</summary>
-        public void GrowReserve(float deltaTime)
+        /// <summary>Advances the income-rate window. Call once per frame from GameRuntime.Update().</summary>
+        public void Tick(float deltaTime)
         {
-            Reserve += SettledSupply * deltaTime;
-            if (Reserve > ReserveCap) Reserve = ReserveCap;
-        }
+            _windowTimer += deltaTime;
+            if (_windowTimer < IncomeWindowSeconds) return;
 
-        /// <summary>Moves this frame's reports into the settled totals and clears the pending accumulators for the next frame.</summary>
-        public void Settle()
-        {
-            SettledDemand = _pendingDemand;
-            SettledSupply = _pendingSupply;
-            _pendingDemand = 0f;
-            _pendingSupply = 0f;
+            IncomePerSecond = _grantedInWindow / _windowTimer;
+            _grantedInWindow = 0f;
+            _windowTimer = 0f;
         }
     }
 }

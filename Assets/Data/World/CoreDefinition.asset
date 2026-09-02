@@ -21,9 +21,5 @@ MonoBehaviour:
   cost: []
   actionRadiusCells: 50
   cuOutput: 3000
+  cuOutputIntervalSeconds: 5
   powerOutputKw: 20
-  startingStock:
-  - item: {fileID: 11400000, guid: b96b1a8817e8abf4bacd918c5be7b859, type: 2}
-    amount: 200
-  - item: {fileID: 11400000, guid: 65d78e7c331fda945b089ab7a130f97c, type: 2}
-    amount: 200

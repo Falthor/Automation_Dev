@@ -14,4 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: cpu_assembler
   displayName: CPU Assembler
-  cost: 50
+  cost: 100
+  requiresResearch: {fileID: 11400000, guid: 6d2e1b8c5f4a49b3c7dae1f2a3b4c5d6, type: 2}

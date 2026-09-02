@@ -2,6 +2,7 @@ using Game.Core;
 using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
+using Game.Gameplay.Items;
 using Game.Gameplay.Power;
 using Game.Gameplay.Research;
 using Game.Gameplay.Transport;
@@ -25,12 +26,14 @@ namespace Game.Construction
         readonly ResearchSystem _researchSystem;
         readonly TransportSystem _transport;
         readonly CoreRuntime _core;
+        readonly PooledItemStock _globalStock;
 
         public BuildingDefinition Selected { get; private set; }
         public Direction PreviewRotation { get; private set; } = Direction.North;
 
-        public ConstructionService(GridRuntime grid, ItemDatabase itemDatabase, RecipeDatabase recipeDatabase, ComputeSystem computeSystem, PowerSystem powerSystem, ResearchSystem researchSystem, TransportSystem transport = null, CoreRuntime core = null)
+        public ConstructionService(GridRuntime grid, ItemDatabase itemDatabase, RecipeDatabase recipeDatabase, ComputeSystem computeSystem, PowerSystem powerSystem, ResearchSystem researchSystem, TransportSystem transport = null, CoreRuntime core = null, PooledItemStock globalStock = null)
         {
+            _globalStock = globalStock;
             _grid = grid;
             _itemDatabase = itemDatabase;
             _recipeDatabase = recipeDatabase;
@@ -64,10 +67,10 @@ namespace Game.Construction
         }
 
         /// <summary>
-        /// Whether every item in definition.Cost is currently available from Core + every placed
-        /// Storage combined. Public so the Building menu can show the same affordability the
-        /// placement check itself enforces (CONTRACTS.md §12), without duplicating the
-        /// Core+Storage aggregation logic.
+        /// Whether every item in definition.Cost is currently available from the player's global
+        /// stock + Core + every placed Storage combined. Public so the Building menu can show the
+        /// same affordability the placement check itself enforces (CONTRACTS.md §12), without
+        /// duplicating the aggregation logic.
         /// </summary>
         public bool CanAfford(BuildingDefinition definition)
         {
@@ -79,10 +82,10 @@ namespace Game.Construction
             return true;
         }
 
-        /// <summary>Total of one item id currently held by Core plus every placed Storage - the same pool a construction cost draws from.</summary>
+        /// <summary>Total of one item id currently held by the player's global stock, the Core and every placed Storage - the same pool a construction cost draws from.</summary>
         public int GetAvailableAmount(string itemId)
         {
-            int total = _core?.GetInputAmount(itemId) ?? 0;
+            int total = (_globalStock?.GetAmount(itemId) ?? 0) + (_core?.GetInputAmount(itemId) ?? 0);
             if (_transport != null)
             {
                 foreach (StorageRuntime storage in _transport.Storages)
@@ -93,7 +96,7 @@ namespace Game.Construction
             return total;
         }
 
-        /// <summary>Deducts a definition's cost from Core first, then every Storage in turn (arbitrary but deterministic order). Caller must have checked CanAfford first.</summary>
+        /// <summary>Deducts a definition's cost from the player's global stock first, then Core, then every Storage in turn (arbitrary but deterministic order). Caller must have checked CanAfford first.</summary>
         void PayCost(BuildingDefinition definition)
         {
             foreach (RecipeIngredient ingredient in definition.Cost)
@@ -101,6 +104,11 @@ namespace Game.Construction
                 if (ingredient.Item == null) continue;
 
                 int remaining = ingredient.Amount;
+                if (_globalStock != null)
+                {
+                    remaining -= _globalStock.Take(ingredient.Item.Id, remaining);
+                }
+
                 if (_core != null)
                 {
                     int fromCore = Mathf.Min(remaining, _core.GetInputAmount(ingredient.Item.Id));
@@ -123,6 +131,18 @@ namespace Game.Construction
                     storage.TakeInput(ingredient.Item.Id, fromStorage);
                     remaining -= fromStorage;
                 }
+            }
+        }
+
+        /// <summary>Gives a demolished building's construction cost back to the player's global stock (no-op when there is no stock, e.g. a headless test).</summary>
+        void RefundCost(BuildingDefinition definition)
+        {
+            if (_globalStock == null) return;
+
+            foreach (RecipeIngredient ingredient in definition.Cost)
+            {
+                if (ingredient.Item == null || ingredient.Amount <= 0) continue;
+                _globalStock.Add(ingredient.Item.Id, ingredient.Amount);
             }
         }
 
@@ -268,6 +288,9 @@ namespace Game.Construction
         /// cell was clicked). Demolishing an Extractor restores the deposit underneath instead
         /// of leaving the cells empty: ore deposits are world/terrain entities, not buildings,
         /// and outlive whatever gets built and later removed on top of them.
+        ///
+        /// The building's full construction cost is refunded into the player's global stock -
+        /// the pool PayCost draws from first - so building and removing is cost-neutral.
         /// </summary>
         public bool TryDemolish(GridCoord cell, out BuildingRuntime removed)
         {
@@ -276,6 +299,8 @@ namespace Game.Construction
             {
                 return false;
             }
+
+            RefundCost(removed.Definition);
 
             Vector2Int footprint = removed.Definition.FootprintSize;
 

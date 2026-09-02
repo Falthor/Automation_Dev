@@ -58,6 +58,7 @@ Improvements discovered outside the requested scope must be reported without sil
 - Do not use a prefab as the authoritative gameplay database.
 - Do not derive gameplay occupancy from renderer/collider dimensions.
 - Keep editor-only concerns separate from runtime code when practical.
+- This project runs with Domain Reload disabled (`ProjectSettings/EditorSettings.asset`), so a mutable static field's value survives across Play sessions instead of resetting automatically. Before introducing any mutable static field (a `static` field that is not `readonly`, or a `static readonly` collection/reference whose contents are mutated after initialization), stop and explicitly warn the user of this risk instead of adding it silently. This is a strict rule.
 
 ## 6. UI rules
 

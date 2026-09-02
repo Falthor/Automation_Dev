@@ -1,4 +1,5 @@
 using System.Globalization;
+using Game.Gameplay.Compute;
 using Game.Presentation;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -8,9 +9,10 @@ namespace Game.UI
 {
     /// <summary>
     /// Global Compute panel (CONTRACTS.md §10/§12), opened from the Top Bar's Compute card.
-    /// Shows the flow model's own Available/Production/Continuous draw in CU/s, distinct from
-    /// the pooled reserve (the Top Bar's own headline figure), plus a 5-minute history graph
-    /// (available vs requested, sampled every 5s) matching the source project's compute_panel.gd.
+    /// CU is a pooled currency: the panel shows how much is banked against the cap, and the rate
+    /// it is being credited at, plus a 5-minute history graph of the reserve (sampled every 5s).
+    /// There is no continuous-draw figure - CU is only ever spent in one shot when a production
+    /// cycle starts, so there is no per-second consumption to report.
     /// </summary>
     public sealed class ComputePanelController : MonoBehaviour
     {
@@ -27,7 +29,6 @@ namespace Game.UI
         VisualElement _root;
         Label _available;
         Label _production;
-        Label _draw;
         VisualElement _barFill;
         HistoryGraphElement _graph;
         float _sampleTimer;
@@ -42,7 +43,6 @@ namespace Game.UI
             _root = panelRoot.Q<VisualElement>("ComputePanelRoot");
             _available = panelRoot.Q<Label>("ComputeAvailableLabel");
             _production = panelRoot.Q<Label>("ComputeProductionLabel");
-            _draw = panelRoot.Q<Label>("ComputeDrawLabel");
             _barFill = panelRoot.Q<VisualElement>("ComputeBarFill");
             panelRoot.Q<Button>("ComputeCloseButton").clicked += Hide;
 
@@ -88,20 +88,17 @@ namespace Game.UI
             Refresh();
         }
 
-        void Sample() => _graph.AddSample(gameRuntime.Compute.SettledSupply, gameRuntime.Compute.SettledDemand);
+        // Series B is the reserve cap, drawn as a flat ceiling line the reserve curve is read against.
+        void Sample() => _graph.AddSample(gameRuntime.Compute.Reserve, ComputeSystem.ReserveCap);
 
         void Refresh()
         {
             var compute = gameRuntime.Compute;
-            float available = compute.SettledSupply;
-            float requested = compute.SettledDemand;
 
-            _available.text = $"Available: {FormatThousands(compute.Reserve)} CU";
-            _production.text = $"Production: {Mathf.RoundToInt(available)} CU/s";
-            _draw.text = $"Continuous draw: {Mathf.RoundToInt(requested)} CU/s";
+            _available.text = $"Reserve: {FormatThousands(compute.Reserve)} / {FormatThousands(ComputeSystem.ReserveCap)} CU";
+            _production.text = $"Production: {Mathf.RoundToInt(compute.IncomePerSecond)} CU/s";
 
-            float ratio = available > 0f ? Mathf.Clamp01(requested / available) : 0f;
-            _barFill.style.width = new StyleLength(Length.Percent(ratio * 100f));
+            _barFill.style.width = new StyleLength(Length.Percent(Mathf.Clamp01(compute.Reserve / ComputeSystem.ReserveCap) * 100f));
         }
 
         static string FormatThousands(float value)

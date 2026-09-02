@@ -16,19 +16,43 @@ namespace Game.Presentation
     public sealed class BuildingSpawner
     {
         const int StandardSortingOrder = 10;
-        const int OutputArrowSortingOrder = 11;
-        const int InputArrowSortingOrder = 11;
+
+        // Splitter/Crossroad's RenderOverscan deliberately makes their arms overlap the
+        // neighboring conveyor's sprite bounds at the seam (to close the visual gap). With an
+        // equal sortingOrder, Unity breaks the tie by draw/instantiation order, which is
+        // unstable across placements - the overlapping edge would randomly render behind or in
+        // front of the conveyor. Giving the cross-shaped view a strictly higher order makes it
+        // always win at that seam, matching the intent of the overscan.
+        //
+        // This also must stay above ItemVisualSync.ItemSortingOrder: an item riding the
+        // conveyor right up to the shared edge sits inside that same overscanned overlap, and an
+        // equal order there caused the item to flicker in and out as the tie-break flipped. Cross
+        // always winning means the item is reliably covered as soon as it reaches the overlap,
+        // instead of flickering.
+        const int CrossSortingOrder = 13;
+        const int OutputArrowSortingOrder = 14;
+        const int InputArrowSortingOrder = 14;
         static readonly Color OutputArrowColor = new Color(0.25f, 0.95f, 0.35f, 1f);
         static readonly Color InputArrowColor = new Color(0.3f, 0.6f, 1f, 1f);
 
         readonly GridRuntime _grid;
         readonly ProceduralSpriteFactory _spriteFactory;
+        readonly ConveyorDefinition _straightConveyorArt;
+        readonly ConveyorDefinition _cornerConveyorArt;
         readonly Dictionary<GridCoord, GameObject> _views = new Dictionary<GridCoord, GameObject>();
 
-        public BuildingSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory)
+        /// <summary>
+        /// straightConveyorArt/cornerConveyorArt are optional canonical art sources used only
+        /// when a conveyor's own Definition no longer matches its current Orientation.Shape
+        /// (reshaped via a drag turn) - see ResolveConveyorArtDefinition. Null is fine wherever
+        /// conveyors are never reshaped (e.g. EditMode tests spawning other building types).
+        /// </summary>
+        public BuildingSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory, ConveyorDefinition straightConveyorArt = null, ConveyorDefinition cornerConveyorArt = null)
         {
             _grid = grid;
             _spriteFactory = spriteFactory;
+            _straightConveyorArt = straightConveyorArt;
+            _cornerConveyorArt = cornerConveyorArt;
         }
 
         public void SpawnView(BuildingRuntime runtime)
@@ -44,7 +68,7 @@ namespace Game.Presentation
                 var go = new GameObject($"Conveyor {runtime.Cell}");
                 go.transform.position = _grid.CellCenterToWorld(runtime.Cell);
                 var view = go.AddComponent<ConveyorView>();
-                var conveyorDefinition = (ConveyorDefinition)conveyorRuntime.Definition;
+                ConveyorDefinition conveyorDefinition = ResolveConveyorArtDefinition(conveyorRuntime);
                 view.Sync(conveyorRuntime, _spriteFactory, conveyorDefinition, _grid.CellSize);
 
                 _views[runtime.Cell] = go;
@@ -60,6 +84,27 @@ namespace Game.Presentation
             else
             {
                 _views[runtime.Cell] = SpawnStandardView(runtime);
+            }
+        }
+
+        /// <summary>
+        /// A conveyor's Definition is fixed to whichever tool placed it and never changes, but
+        /// its Orientation.Shape can (a straight drag-turned into a corner, or - since the Corner
+        /// tool's drag now continues in straight - a corner re-pointed at a later turn). When
+        /// Shape no longer matches Definition.DefaultShape, fall back to whichever of the two
+        /// canonical conveyor definitions' art actually matches the current shape instead of the
+        /// procedural placeholder ConveyorView would otherwise use.
+        /// </summary>
+        ConveyorDefinition ResolveConveyorArtDefinition(ConveyorRuntime conveyorRuntime)
+        {
+            var ownDefinition = (ConveyorDefinition)conveyorRuntime.Definition;
+            if (ownDefinition.DefaultShape == conveyorRuntime.Orientation.Shape) return ownDefinition;
+
+            switch (conveyorRuntime.Orientation.Shape)
+            {
+                case ConveyorShapeKind.Straight: return _straightConveyorArt != null ? _straightConveyorArt : ownDefinition;
+                case ConveyorShapeKind.Corner: return _cornerConveyorArt != null ? _cornerConveyorArt : ownDefinition;
+                default: return ownDefinition;
             }
         }
 
@@ -91,19 +136,29 @@ namespace Game.Presentation
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
             SetSpriteToWorldSize(renderer, sprite, new Vector2(_grid.CellSize, _grid.CellSize) * definition.FootprintSize);
 
+            if (definition.RenderOverscan != 1f)
+            {
+                renderer.transform.localScale *= definition.RenderOverscan;
+            }
+
+            if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
+            {
+                renderer.gameObject.AddComponent<SpriteFlipbook>().Initialize(definition.AnimationFrames, definition.AnimationFps);
+            }
+
             if (definition.HasOutputArrow)
             {
                 SpawnDirectionalArrow(root.transform, _grid.CellCenterToWorld(runtime.GetOutputCell()), runtime.ExitDirection, OutputArrowColor, OutputArrowSortingOrder, inward: false);
+            }
 
-                if (definition.HasInputArrows)
+            // Independent of the output arrow: a building can take deliveries without producing
+            // anything physical (Laboratory). Same list the transport pull reads from, so an
+            // arrow always marks a cell items are genuinely taken from - and only those cells.
+            if (definition.HasInputArrows)
+            {
+                foreach ((GridCoord cell, Direction fromMySide) in runtime.GetInputCells())
                 {
-                    var drawnSides = new HashSet<Direction>();
-                    foreach ((GridCoord cell, Direction fromMySide) in runtime.GetEdgeCells())
-                    {
-                        if (fromMySide == runtime.ExitDirection) continue;
-                        if (!drawnSides.Add(fromMySide)) continue;
-                        SpawnDirectionalArrow(root.transform, _grid.CellCenterToWorld(cell), fromMySide, InputArrowColor, InputArrowSortingOrder, inward: true);
-                    }
+                    SpawnDirectionalArrow(root.transform, _grid.CellCenterToWorld(cell), fromMySide, InputArrowColor, InputArrowSortingOrder, inward: true);
                 }
             }
 
@@ -123,7 +178,7 @@ namespace Game.Presentation
             root.transform.position = _grid.FootprintCenterToWorld(runtime.Cell, definition.FootprintSize);
 
             var renderer = root.AddComponent<SpriteRenderer>();
-            renderer.sortingOrder = StandardSortingOrder;
+            renderer.sortingOrder = CrossSortingOrder;
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);

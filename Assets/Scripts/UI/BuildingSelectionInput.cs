@@ -18,6 +18,10 @@ namespace Game.UI
     /// SelectionRuntime.Select(building) (CONTRACTS.md §7's "currently inspected building"),
     /// which the matching panel controller (e.g. ExtractorPanelController) reacts to - so adding
     /// a new building type's panel never means touching this router's Storage-specific branch.
+    ///
+    /// It is also the single place that implements click-outside-to-close for global panels:
+    /// this is the one component that already sees every world-bound click and can tell UI from
+    /// world, so the behavior lives here once instead of being duplicated in each panel.
     /// </summary>
     public sealed class BuildingSelectionInput : MonoBehaviour
     {
@@ -35,28 +39,33 @@ namespace Game.UI
         {
             if (worldCamera == null || gameRuntime == null || storagePanel == null) return;
             if (gameRuntime.Construction.Selected != null) return;
-            // Only a global panel (Storage/Building/Research) blocks re-routing a click here - an
-            // already-open per-building panel (SelectedBuilding != null, also part of
-            // IsUIBlockingInput) must NOT block it, otherwise clicking a different building while
-            // one is selected - or clicking empty space to close it - would never register.
-            if (gameRuntime.Selection.ActiveGlobalPanel != null || gameRuntime.LastMenuCloseFrame == Time.frameCount) return;
 
             Mouse mouse = Mouse.current;
             if (mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
 
             Vector2 screenPos = mouse.position.ReadValue();
+            bool overUI = IsPointerOverUI(screenPos);
+
+            // A global panel (Storage/Building/Research/Power/...) owns the click while it is
+            // open: inside it, the panel's own widgets handle it; outside it, the click closes
+            // it. Either way it never also reaches the world on that frame. An already-open
+            // per-building panel (SelectedBuilding != null, also part of IsUIBlockingInput) must
+            // NOT block routing below, otherwise clicking a different building while one is
+            // selected - or clicking empty space to close it - would never register.
+            if (gameRuntime.Selection.ActiveGlobalPanel != null)
+            {
+                if (!overUI) gameRuntime.Selection.CloseGlobalPanel();
+                return;
+            }
+
+            if (gameRuntime.LastMenuCloseFrame == Time.frameCount) return;
 
             // A click that actually lands on a real UI element (a recipe card, a tab button, a
             // panel's own content) must never also be treated as a world click - otherwise
             // clicking something inside an open per-building panel (e.g. ProductionPanel's
             // recipe cards) would simultaneously select/clear a world building on the same
-            // frame, closing the panel the player was just interacting with. Global panels are
-            // already excluded above; this additionally covers a per-building panel's own content.
-            if (uiDocument != null && uiDocument.rootVisualElement?.panel != null)
-            {
-                Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(uiDocument.rootVisualElement.panel, screenPos);
-                if (uiDocument.rootVisualElement.panel.Pick(panelPos) != null) return;
-            }
+            // frame, closing the panel the player was just interacting with.
+            if (overUI) return;
 
             Vector3 world = worldCamera.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, -worldCamera.transform.position.z));
             GridCoord cell = gameRuntime.Grid.WorldToCell(world);
@@ -101,6 +110,25 @@ namespace Game.UI
                 storagePanel.Hide();
                 gameRuntime.Selection.Clear();
             }
+        }
+
+        /// <summary>
+        /// True when the click landed on a real (pickable) UI element rather than on the world.
+        /// The mouse position comes in with the origin at the screen's bottom-left while a UI
+        /// Toolkit panel's coordinates start at its top-left, and ScreenToPanel does not flip
+        /// that axis itself - passing the raw position picks a vertically mirrored point, which
+        /// reported "no UI here" for clicks that did hit a panel (a ProductionPanel recipe card
+        /// then also read as a world click and cleared the selection, closing the panel).
+        /// </summary>
+        bool IsPointerOverUI(Vector2 screenPos)
+        {
+            if (uiDocument == null) return false;
+
+            IPanel panel = uiDocument.rootVisualElement?.panel;
+            if (panel == null) return false;
+
+            Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(panel, new Vector2(screenPos.x, Screen.height - screenPos.y));
+            return panel.Pick(panelPos) != null;
         }
     }
 }

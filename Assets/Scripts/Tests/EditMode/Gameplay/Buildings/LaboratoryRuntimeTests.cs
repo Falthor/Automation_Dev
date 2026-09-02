@@ -25,9 +25,9 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _research = new ResearchSystem();
         }
 
-        LaboratoryRuntime NewLab(float cardConvertIntervalSeconds = 2f, float rpPerCard = 2f, float cuDemand = 50f, float powerDemandKw = 3f)
+        LaboratoryRuntime NewLab(float cardConvertIntervalSeconds = 2f, float rpPerCard = 2f, float cuCostPerCycle = 250f, float powerDemandKw = 3f)
         {
-            LaboratoryDefinition definition = TestDataFactory.NewLaboratory(_card, 100, powerDemandKw, cuDemand, cardConvertIntervalSeconds, rpPerCard);
+            LaboratoryDefinition definition = TestDataFactory.NewLaboratory(_card, 100, powerDemandKw, cuCostPerCycle, cardConvertIntervalSeconds, rpPerCard);
             return new LaboratoryRuntime(definition, new GridCoord(0, 0), Direction.North, _compute, _power, _research);
         }
 
@@ -69,24 +69,6 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             lab.Tick(0.1f);
             _research.Tick(0f);
             Assert.AreEqual(1, _research.GetActiveLabCount());
-        }
-
-        [Test]
-        public void CardConversion_ThrottledByComputePerformance_WhileResearchActive()
-        {
-            LaboratoryRuntime lab = NewLab(cardConvertIntervalSeconds: 2f);
-            lab.AddInput("Data_Card", 1, Direction.South);
-            _research.AddRp(1000f);
-            _research.Start(TestDataFactory.NewResearch("test", 10f));
-
-            // Oversubscribe Compute so performance = 0.5.
-            _compute.ReportDemand(100f);
-            _compute.ReportSupply(50f);
-            _compute.Settle();
-
-            lab.Tick(2f); // effective progress = 2 * 0.5 = 1s, half the interval
-
-            Assert.AreEqual(1, lab.GetInputAmount("Data_Card")); // not converted yet - still buffered
         }
 
         [Test]

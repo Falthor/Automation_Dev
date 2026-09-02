@@ -340,6 +340,8 @@ MonoBehaviour:
   visualTree: {fileID: 9197481963319205126, guid: 220685bdf5724ea498a8bf358cd8f510, type: 3}
   gameRuntime: {fileID: 2103112250}
   researches:
+  - {fileID: 11400000, guid: 5c1f0a7b4e3d48a2b6c9d0e1f2a3b4c5, type: 2}
+  - {fileID: 11400000, guid: 6d2e1b8c5f4a49b3c7dae1f2a3b4c5d6, type: 2}
   - {fileID: 11400000, guid: 044697c9013e7824e93bafe53e0ddb6f, type: 2}
   - {fileID: 11400000, guid: 876b69fc3c5662542a4b0797dffca515, type: 2}
   - {fileID: 11400000, guid: 8e7a78127efaea543854b4afb8011b8f, type: 2}
@@ -490,6 +492,9 @@ MonoBehaviour:
   ghostView: {fileID: 1446239083}
   buildingGhostView: {fileID: 757182935}
   hoverHighlightView: {fileID: 438674039}
+  depositHoverGlowView: {fileID: 753154656}
+  straightConveyorForDragContinuation: {fileID: 11400000, guid: 19683784cfd38ce41924c33986e91b77, type: 2}
+  cornerConveyorForReshape: {fileID: 11400000, guid: e9cd37ecbc57c35419a77ff9115d78ad, type: 2}
 --- !u!4 &134080688
 Transform:
   m_ObjectHideFlags: 0
@@ -543,6 +548,52 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 438674038}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &753154655
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 753154657}
+  - component: {fileID: 753154656}
+  m_Layer: 0
+  m_Name: DepositHoverGlow
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &753154656
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 753154655}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 524d2c1afdec73e41bc9b69b3f776d83, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Presentation::Game.Presentation.DepositHoverGlowView
+  glowColor: {r: 1, g: 0.85, b: 0.3, a: 0.75}
+  paddingFactor: 1.5
+--- !u!4 &753154657
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 753154655}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -777,8 +828,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.CameraZoomController
   zoomSpeed: 4
-  minOrthographicSize: 3
-  maxOrthographicSize: 60
+  minOrthographicSize: 10
+  maxOrthographicSize: 40
   smoothing: 12
 --- !u!114 &885634529
 MonoBehaviour:
@@ -1192,6 +1243,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.ItemVisualSync
   itemVisualScale: 0.35
+  conveyorItemVisualScale: 0.4
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -1207,3 +1259,4 @@ SceneRoots:
   - {fileID: 757182937}
   - {fileID: 438674040}
   - {fileID: 1659034850}
+  - {fileID: 753154657}

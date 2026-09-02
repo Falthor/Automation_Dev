@@ -71,7 +71,7 @@ namespace Game.UI
 
         void Render()
         {
-            _computeLabel.text = $"Compute: {Mathf.RoundToInt(gameRuntime.Compute.SettledSupply)} CU/s";
+            _computeLabel.text = $"Compute: {Mathf.RoundToInt(gameRuntime.Compute.IncomePerSecond)} CU/s";
             _powerLabel.text = $"Power: {Mathf.RoundToInt(gameRuntime.Power.SettledSupply)} kW";
 
             _itemsList.Clear();

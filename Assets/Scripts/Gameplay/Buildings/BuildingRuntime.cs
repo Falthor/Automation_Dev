@@ -74,6 +74,20 @@ namespace Game.Gameplay.Buildings
         public (GridCoord cell, Direction fromMySide)[] GetEdgeCells() => ComputeEdgeCells(Cell, Definition.FootprintSize);
 
         /// <summary>
+        /// The cells this building actually takes input from - exactly the cells its input arrows
+        /// are drawn on, so what the player sees is what transport does. A building declaring
+        /// directional input (HasInputArrows) accepts on one cell per side other than its output
+        /// side, and nowhere else; one declaring none (Storage, Core) keeps accepting on every
+        /// edge cell, matching the "input from any side" behavior it is defined with.
+        /// </summary>
+        public (GridCoord cell, Direction fromMySide)[] GetInputCells()
+        {
+            return Definition.HasInputArrows
+                ? ComputeInputCells(Cell, Definition.FootprintSize, ExitDirection)
+                : GetEdgeCells();
+        }
+
+        /// <summary>
         /// Footprint-aware output cells for a given cell/footprint/exit direction, with no
         /// BuildingRuntime instance required - lets the construction ghost preview show the same
         /// output arrow(s) a building will have once actually placed, before it exists.
@@ -107,6 +121,24 @@ namespace Game.Gameplay.Buildings
                     return cells;
                 }
             }
+        }
+
+        /// <summary>
+        /// The one input cell per side (other than the output side) a directional-input building
+        /// accepts on, without a BuildingRuntime instance - so the construction ghost draws its
+        /// entry arrows on exactly the cells the placed building will read from.
+        /// </summary>
+        public static (GridCoord cell, Direction fromMySide)[] ComputeInputCells(GridCoord cell, UnityEngine.Vector2Int footprintSize, Direction exitDirection)
+        {
+            var result = new List<(GridCoord, Direction)>(3);
+            var sides = new HashSet<Direction>();
+            foreach ((GridCoord edgeCell, Direction fromMySide) in ComputeEdgeCells(cell, footprintSize))
+            {
+                if (fromMySide == exitDirection) continue;
+                if (!sides.Add(fromMySide)) continue;
+                result.Add((edgeCell, fromMySide));
+            }
+            return result.ToArray();
         }
 
         /// <summary>Footprint-aware version of GetEdgeCells(), usable without a BuildingRuntime instance (e.g. ghost preview).</summary>
@@ -182,32 +214,22 @@ namespace Game.Gameplay.Buildings
         }
 
         /// <summary>
-        /// Shared Power/Compute gating pipeline (CONTRACTS.md §9/§10), used by every building
-        /// whose own tick progress must freeze while unpowered and throttle proportionally under
-        /// an oversubscribed Compute network: reports demand only while "active" for each system,
-        /// starts from Compute's performance ratio (or 1 if CU-inactive), then forces 0 if
-        /// unpowered - matching the source project's Building._process exactly. The caller
-        /// multiplies its own deltaTime by the returned value before advancing any timer.
+        /// Shared Power gating pipeline (CONTRACTS.md §9), used by every building whose own tick
+        /// progress must freeze while unpowered: reports demand only while "active", then returns
+        /// 0 if the network cannot cover it. The caller multiplies its own deltaTime by the
+        /// returned value before advancing any timer. Compute plays no part here - CU is a
+        /// reserve spent in one shot when a cycle starts (§10), never a continuous draw that
+        /// throttles a building's speed.
         /// </summary>
-        protected static float ComputeEffectivePerformance(
-            float cuDemand, bool computeActive, float powerDemand, bool powerActive,
-            ComputeSystem compute, PowerSystem power)
+        protected static float ComputeEffectivePerformance(float powerDemand, bool powerActive, PowerSystem power)
         {
-            float performance = 1f;
-
-            if (cuDemand > 0f && computeActive)
-            {
-                compute.ReportDemand(cuDemand);
-                performance = compute.GetPerformanceRatio();
-            }
-
             if (powerDemand > 0f && powerActive)
             {
                 power.ReportDemand(powerDemand);
-                if (!power.IsPowered()) performance = 0f;
+                if (!power.IsPowered()) return 0f;
             }
 
-            return performance;
+            return 1f;
         }
     }
 }

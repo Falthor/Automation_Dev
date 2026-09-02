@@ -27,9 +27,15 @@ namespace Game.Gameplay.Buildings
         float _productionTimer;
         int _bufferedAmount;
 
+        /// <summary>Whether the extraction currently in progress has already paid its CU. Reset once it completes, so each extraction is charged exactly once.</summary>
+        bool _cycleCharged;
+
         public DepositRuntime Deposit => _deposit;
         public string ItemId => _deposit.ItemId;
         public int BufferedAmount => _bufferedAmount;
+
+        /// <summary>Duration of one extraction cycle, so a panel can turn ProductionProgress into a remaining time without reading the definition itself.</summary>
+        public float ExtractionIntervalSeconds => _definition.ExtractionIntervalSeconds;
 
         /// <summary>Progress toward the next extraction cycle, in [0,1]. Frozen (does not advance) while the internal buffer is full.</summary>
         public float ProductionProgress
@@ -59,20 +65,28 @@ namespace Game.Gameplay.Buildings
         {
             bool bufferFull = _bufferedAmount >= InternalStorageCapacity;
 
-            // CU draw is unconditional (always trying to extract); Power draw only while it can
-            // actually output - a full buffer (e.g. no conveyor attached) stops drawing power
-            // for work it isn't doing, matching the source project's extractor.gd exactly.
-            float performance = ComputeEffectivePerformance(
-                cuDemand: _definition.CuDemand, computeActive: true,
-                powerDemand: _definition.PowerDemandKw, powerActive: !bufferFull,
-                _computeSystem, _powerSystem);
+            // Power is drawn only while it can actually output - a full buffer (e.g. no conveyor
+            // attached) stops drawing power for work it isn't doing, matching the source
+            // project's extractor.gd exactly.
+            float performance = ComputeEffectivePerformance(_definition.PowerDemandKw, powerActive: !bufferFull, _powerSystem);
 
             if (bufferFull) return; // full: output blocked (e.g. no conveyor attached) - stop producing entirely.
+
+            // One extraction costs CuCostPerCycle, taken in full when it starts (§10) - the same
+            // rule a production building's recipe cost follows. Too little in the reserve and the
+            // extraction simply does not start: the timer holds at 0 rather than running for free.
+            if (!_cycleCharged)
+            {
+                if (!_computeSystem.CanSpend(_definition.CuCostPerCycle)) return;
+                _computeSystem.Spend(_definition.CuCostPerCycle);
+                _cycleCharged = true;
+            }
 
             _productionTimer += deltaTime * performance;
             if (_productionTimer < _definition.ExtractionIntervalSeconds) return;
 
             _productionTimer = 0f;
+            _cycleCharged = false;
 
             int room = InternalStorageCapacity - _bufferedAmount;
             int toExtract = System.Math.Min(_definition.ItemsPerCycle, room);

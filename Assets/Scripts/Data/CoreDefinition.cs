@@ -12,18 +12,18 @@ namespace Game.Data
     {
         [SerializeField, Min(1)] int actionRadiusCells = 50;
         [SerializeField, Min(0f)] float cuOutput = 3000f;
+        [SerializeField, Min(0.01f)] float cuOutputIntervalSeconds = 5f;
         [SerializeField, Min(0f)] float powerOutputKw = 20f;
-        [SerializeField] RecipeIngredient[] startingStock = System.Array.Empty<RecipeIngredient>();
 
         public int ActionRadiusCells => actionRadiusCells;
 
-        /// <summary>Permanent CU/s supply, no cable/network needed - reported unconditionally every tick.</summary>
+        /// <summary>CU granted into the global reserve in one go, every CuOutputIntervalSeconds - no cable/network needed.</summary>
         public float CuOutput => cuOutput;
 
-        /// <summary>Permanent Power supply, same unconditional per-tick report as CuOutput.</summary>
-        public float PowerOutputKw => powerOutputKw;
+        /// <summary>How often the CuOutput grant lands, in seconds.</summary>
+        public float CuOutputIntervalSeconds => cuOutputIntervalSeconds;
 
-        /// <summary>Bootstraps the first constructions - added to Core's own inventory once at world generation.</summary>
-        public RecipeIngredient[] StartingStock => startingStock;
+        /// <summary>Permanent Power supply, reported unconditionally every tick.</summary>
+        public float PowerOutputKw => powerOutputKw;
     }
 }

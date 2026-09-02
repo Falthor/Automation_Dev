@@ -26,6 +26,6 @@ MonoBehaviour:
   cardItem: {fileID: 11400000, guid: ea86aab40b2dbf34990e252cd329a17b, type: 2}
   maxCardStack: 100
   powerDemandKw: 3
-  cuDemand: 50
+  cuCostPerCycle: 250
   cardConvertIntervalSeconds: 2
   rpPerCard: 2
