@@ -307,15 +307,25 @@ charbon et trois centrales gaz suffisent** à couvrir tout le parc de l'introduc
 ajustements doivent rester minimes — l'énergie n'est pas le sujet de cette phase, elle
 est une seconde dépendance qui apprend au joueur qu'une usine ne tourne pas toute seule.
 
-**Règle impérative : une centrale ne brûle du charbon qu'à hauteur de la demande.** Le
-contrat de Power (§9 de `CONTRACTS.md`) fait déjà déclarer la demande uniquement pendant
-`PRODUCING`. Il faut que la consommation de combustible suive cette demande, et non le
-temps qui passe.
+**Règle : une centrale brûle en continu, qu'il y ait une demande ou non.** C'est un choix
+délibéré. Le joueur ne doit pas pouvoir poser dix centrales en se disant qu'il est
+tranquille — surdimensionner son énergie doit se payer.
 
-C'est un point non négociable, et il touche au principe fondateur de l'introduction. Si
-les centrales brûlent en continu, la réserve de CU se vide à l'horloge et non à
-l'activité du joueur : un joueur lent se retrouve puni pour avoir réfléchi, ce qui est
-exactement ce que toute la conception de cette phase cherche à éviter.
+Chiffré : une centrale consomme 0,8 CU/s en combustible, donc les trois nécessaires en
+coûtent 2,4, soit environ 4 300 CU sur une introduction de trente minutes — 7 % de la
+réserve. C'est ce qui rend le choix tenable : la dépense court à l'horloge, mais elle
+reste petite tant que le joueur dimensionne juste.
+
+Celui qui en pose dix paie sur trois fronts. Huit CU par seconde en combustible, deux de
+plus en extraction puisqu'il lui faut quatre extracteurs de charbon pour les alimenter,
+soit **18 000 CU sur l'introduction, près d'un tiers de sa réserve**. Et surtout quatorze
+slots engloutis sur les quarante, alors que le parc en réclame vingt-sept : il devient
+mécaniquement incapable de finir. La démolition remboursant intégralement, l'erreur reste
+rattrapable, mais elle se paie en CU brûlé et en temps perdu.
+
+Le charbon pose le plafond dur. Une grappe n'offre que quatre emplacements d'extracteur,
+soit un charbon par seconde au maximum, donc dix centrales au grand maximum. Le plafond
+de bâtiments mord bien avant.
 
 **Risque d'enfermement à vérifier.** Si un extracteur de charbon a besoin d'énergie pour
 fonctionner et qu'il n'y a plus d'énergie, le joueur ne peut plus produire le charbon qui
@@ -801,11 +811,10 @@ sont **ancrés à des distances imposées**. L'aléatoire ne s'exprime qu'au-del
    suppression de la production de CU du Core, `ReserveCap` porté à la réserve de départ,
    nouveaux `computeCost`, arrêt des machines à buffer plein, réserve finie.
 3. Nouvelles recettes et coûts de construction, plafond à 40.
-4. Consommation de combustible des centrales gaz proportionnelle à la demande.
-5. Modèle de recherche en processus, prérequis multiples, file d'attente, pause à zéro CU.
-6. Menu de recherche linéaire de l'introduction, avec ses cinq états et son panneau de
+4. Modèle de recherche en processus, prérequis multiples, file d'attente, pause à zéro CU.
+5. Menu de recherche linéaire de l'introduction, avec ses cinq états et son panneau de
    détail.
-7. Datacenter MK1, amorçage, baies, curseur de répartition, formule de rendement.
-8. Système d'expéditions : sondes, carte dézoomée, deux types de mission, sites finis.
-9. Transformation du menu en réseau radial, trois noyaux, algorithme de placement.
-10. Nid, branche armement, unités, usure, entretien, réparation.
+6. Datacenter MK1, amorçage, baies, curseur de répartition, formule de rendement.
+7. Système d'expéditions : sondes, carte dézoomée, deux types de mission, sites finis.
+8. Transformation du menu en réseau radial, trois noyaux, algorithme de placement.
+9. Nid, branche armement, unités, usure, entretien, réparation.

@@ -174,7 +174,7 @@ stabilité courante et le seuil qu'il a fixé.
 | `ResearchDefinition.RequiresResearch` | référence unique | **liste** |
 | `ResearchDefinition` | id, nom, coût | **+ débit d'absorption, + palier, + effets** |
 | Plafond de bâtiments | inexistant | **40**, hors convoyeurs et splitters |
-| Consommation de combustible | à vérifier | **proportionnelle à la demande**, jamais à l'horloge |
+| Consommation de combustible | continue | **inchangée** — une centrale brûle qu'il y ait demande ou non, c'est délibéré (GDD §4.3) |
 
 ### Registre de recherches
 
@@ -190,20 +190,32 @@ définir. C'est aussi la condition pour que le menu radial puisse se construire 
 un menu qui calcule ses angles à partir d'un tableau sérialisé dans une scène serait
 ingérable.
 
-## 6b. Corrections de bugs
+## 6b. Règle : vérifier avant de payer
 
-**Un gisement épuisé continue de facturer.** `ExtractorRuntime` paie son `cuCostPerCycle`
-et remet son timer à zéro **avant** d'appeler `TryExtract`, et ignore le résultat. Un
-extracteur posé sur un gisement vide prélève donc du CU indéfiniment sans rien produire.
+**Un cycle n'est débité qu'une fois toutes les conditions de sa réussite réunies.** Le CU
+reste prélevé en entier au démarrage du cycle, jamais étalé — mais ce démarrage n'a lieu
+que si le cycle peut effectivement aboutir. Aucun cycle ne démarre pour échouer ensuite.
 
-Ce bug disparaît de lui-même avec la suppression du modèle d'épuisement (§8) : sans
-quantité restante, `TryExtract` ne peut plus échouer. C'est la bonne façon de le traiter —
-retirer le mécanisme plutôt que corriger un défaut à l'intérieur.
+L'extracteur est déjà conforme sur ce point : il vérifie son buffer et la réserve avant de
+débiter. Le seul cas d'échec restant, le gisement vide, disparaît avec la suppression du
+modèle d'épuisement (§8).
 
-**Point de vigilance général** : le même schéma — payer puis agir sans vérifier — existe
-peut-être ailleurs. Avec une réserve finie, toute facturation qui ne débouche sur rien est
-une fuite silencieuse capable de coûter la partie à un joueur qui n'a rien vu. À vérifier
-sur chaque `Spend` du projet.
+La règle reste à faire respecter partout ailleurs. Avec une réserve finie, toute
+facturation qui ne débouche sur rien est une fuite silencieuse : elle ne produit aucun
+symptôme visible, juste une jauge qui descend plus vite que prévu. À auditer sur chaque
+site de `Spend`, avec un test de régression par site.
+
+La centrale gaz est hors de ce champ : elle brûle en continu par choix de conception, et
+son combustible n'est donc pas une facturation sans contrepartie mais un coût de
+fonctionnement assumé. **Vérifié dans le code** : `PowerplantGazRuntime.Tick` sort avant
+tout débit quand `HasFuel` est faux, et un indicateur `_cycleCharged` garantit qu'une
+unité de combustible n'est facturée qu'une fois. Rien à corriger.
+
+Un détail relevé au passage : une centrale sans combustible continue de déclarer sa
+`SelfPowerDemandKw` de 2 kW. Elle est donc une charge nette sur le réseau tant qu'elle
+n'est pas alimentée. C'est cohérent — une centrale à l'arrêt consomme quand même — mais
+plusieurs centrales en panne sèche peuvent faire tomber la base. À garder en tête au
+moment d'équilibrer, ce n'est pas un bug.
 
 ## 7. Recherches — `Assets/Data/Research/`
 
@@ -274,14 +286,24 @@ rayon d'action** : il n'existe aucune ressource hors de portée.
 | Grappes de fer | 2 | **4** dans le rayon, **+1 hors rayon** |
 | Grappes de cuivre | 2 | **2** dans le rayon |
 | Grappes de charbon | 2 | **1** dans le rayon |
-| Placement | polaire aléatoire, 500 tentatives | **distances imposées** pour les grappes de départ |
-| `maxDistance` | `ActionRadiusCells − 4` | doit **autoriser un placement au-delà du rayon** |
+| Garantie | aucune | **au moins une grappe de fer, une de cuivre et une de charbon dans le rayon**, quoi qu'il arrive |
+| `minDistance` | 6 cellules | **10 cellules** — laisser de la place pour bâtir autour du Noyau |
+| `maxDistance` (dans le rayon) | `ActionRadiusCells − 4` | inchangé, soit 18 avec un rayon de 22 |
+| Grappe d'invitation | impossible | placée **entre 28 et 34 cellules**, hors rayon, visible mais inexploitable |
 | Échec de placement | silencieux | **doit lever une erreur** — une grappe manquante rend l'introduction infaisable |
 
-Ce dernier point mérite attention : aujourd'hui, si les 500 tentatives échouent, la
-grappe n'est simplement pas placée et rien n'est signalé. Avec une introduction dont
-l'équilibrage suppose un nombre exact de grappes, un échec silencieux produit une partie
-injouable sans le moindre message.
+Deux points méritent attention.
+
+La distance minimale actuelle de 6 cellules place une grappe presque contre le Noyau,
+qui fait lui-même 4×4. Le joueur se retrouve alors à construire ses lignes dans un
+couloir. Dix cellules laissent de quoi respirer sans éloigner les ressources au point de
+rendre les premiers convoyeurs pénibles.
+
+Et l'échec silencieux est le vrai danger : aujourd'hui, si les 500 tentatives échouent,
+la grappe n'est simplement pas placée et rien n'est signalé. Avec un équilibrage qui
+suppose un nombre exact de grappes, ça produit une partie injouable sans le moindre
+message. Les trois grappes garanties doivent être placées en premier, et un échec doit
+lever une erreur plutôt que produire un monde incomplet.
 
 Le placement de ces gisements est **ancré à des distances imposées**, pas aléatoire.
 L'aléatoire ne s'exprime qu'au-delà du rayon initial.
