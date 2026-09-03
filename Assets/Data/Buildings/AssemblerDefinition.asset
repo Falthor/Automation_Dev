@@ -18,16 +18,21 @@ MonoBehaviour:
   placeholderColor: {r: 0.6, g: 0.3, b: 0.3, a: 1}
   unlockResearch: {fileID: 11400000, guid: 044697c9013e7824e93bafe53e0ddb6f, type: 2}
   sprite: {fileID: 21300000, guid: 31970e638711a6845b856547f4d76b02, type: 3}
+  animationFrames: []
+  animationFps: 8
   cost:
-  - item: {fileID: 11400000, guid: b96b1a8817e8abf4bacd918c5be7b859, type: 2}
-    amount: 4
-  - item: {fileID: 11400000, guid: 65d78e7c331fda945b089ab7a130f97c, type: 2}
-    amount: 4
+  - item: {fileID: 11400000, guid: 0ff6217112897ef44ae6bdf7d7d711de, type: 2}
+    amount: 2
+  - item: {fileID: 11400000, guid: 9bec515a877d4e04cbaa7d2d32b667ce, type: 2}
+    amount: 10
+  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+    amount: 5
   maxStackPerItem: 100
   powerDemandKw: 4
   recipeIds:
   - cpu_mkI
   - mechanical_component
+  - Memory_MK1
   acceptedItemIds:
   - copper_Ingot
   - Gear
@@ -35,3 +40,4 @@ MonoBehaviour:
   - cpu_mkI
   - Memory_MK1
   - Iron_Plate
+  - Iron_Ingot

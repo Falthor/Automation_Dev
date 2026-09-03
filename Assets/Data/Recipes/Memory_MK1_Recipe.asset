@@ -14,10 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.RecipeDefinition
   id: Memory_MK1
   ingredients:
-  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
-    amount: 3
-  - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
+  - item: {fileID: 11400000, guid: 0ff6217112897ef44ae6bdf7d7d711de, type: 2}
     amount: 4
+  - item: {fileID: 11400000, guid: b96b1a8817e8abf4bacd918c5be7b859, type: 2}
+    amount: 5
   outputAmount: 1
   timeSeconds: 3
   computeCost: 1500
