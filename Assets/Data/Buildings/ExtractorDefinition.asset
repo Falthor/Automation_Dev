@@ -16,6 +16,38 @@ MonoBehaviour:
   displayName: Extractor
   footprintSize: {x: 2, y: 2}
   placeholderColor: {r: 0.6, g: 0.6, b: 0.65, a: 1}
-  sprite: {fileID: 21300000, guid: 4c2526531ea498441a9f45e3dbfbf7c9, type: 3}
+  unlockResearch: {fileID: 0}
+  sprite: {fileID: 1789741380136484095, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  animationFrames:
+  - {fileID: 1789741380136484095, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: 4671348889966783846, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: 7996440326335723917, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: 5648210539625976025, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: 7569203527054964812, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: 3248150774291831911, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: 4785693740885031625, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: 1546707159658095362, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: -746935526203191751, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: 2161613128618787550, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: -5954932453402745001, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: 1047699911136252746, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: -7334070837043628546, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: -4138135057067376047, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: -4284041166892100855, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: 2263168930524577150, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: -5542162335223751466, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: 1490976289534033274, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: 1529194148253509490, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: -7718684264314927745, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: -6431101930391115052, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: 3064040495033395757, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: -2545337491887148267, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  - {fileID: 7187656917129190932, guid: d7d46f8fdc42f4e4094b16891af0c4c2, type: 3}
+  animationFps: 12
+  cost:
+  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+    amount: 5
   extractionIntervalSeconds: 2
   itemsPerCycle: 1
+  cuCostPerCycle: 50
+  powerDemandKw: 1

@@ -67,6 +67,37 @@ namespace Game.Grid
             }
         }
 
+        /// <summary>True when every relative cell of a masked footprint (origin + offset) is unoccupied.</summary>
+        public bool IsAreaFree(GridCoord origin, Vector2Int[] cells)
+        {
+            foreach (Vector2Int offset in cells)
+            {
+                if (IsOccupied(new GridCoord(origin.X + offset.x, origin.Y + offset.y)))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /// <summary>Registers the same occupant on every relative cell of a masked footprint (origin + offset).</summary>
+        public void SetOccupantFootprint(GridCoord origin, Vector2Int[] cells, object occupant)
+        {
+            foreach (Vector2Int offset in cells)
+            {
+                SetOccupant(new GridCoord(origin.X + offset.x, origin.Y + offset.y), occupant);
+            }
+        }
+
+        /// <summary>Clears every relative cell of a masked footprint (origin + offset).</summary>
+        public void ClearOccupantFootprint(GridCoord origin, Vector2Int[] cells)
+        {
+            foreach (Vector2Int offset in cells)
+            {
+                ClearOccupant(new GridCoord(origin.X + offset.x, origin.Y + offset.y));
+            }
+        }
+
         public Vector3 CellToWorld(GridCoord cell)
         {
             return new Vector3(cell.X * CellSize, cell.Y * CellSize, 0f);

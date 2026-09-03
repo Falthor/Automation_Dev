@@ -8,8 +8,8 @@ namespace Game.Presentation
     public sealed class CameraZoomController : MonoBehaviour
     {
         [SerializeField, Min(0.01f)] float zoomSpeed = 4f;
-        [SerializeField, Min(0.01f)] float minOrthographicSize = 3f;
-        [SerializeField, Min(0.01f)] float maxOrthographicSize = 60f;
+        [SerializeField, Min(0.01f)] float minOrthographicSize = 10f;
+        [SerializeField, Min(0.01f)] float maxOrthographicSize = 40f;
         [SerializeField, Min(0.01f)] float smoothing = 12f;
 
         Camera _camera;

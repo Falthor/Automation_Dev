@@ -14,7 +14,7 @@ namespace Game.Grid
         public GridCoord Origin { get; }
         public int RemainingQuantity { get; private set; }
 
-        public OreType OreType => Definition.OreType;
+        public string ItemId => Definition.Item.Id;
 
         public DepositRuntime(OreDepositDefinition definition, GridCoord origin)
         {

@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="GameUI.uss" />
+
+    <ui:VisualElement name="BottomNavRoot" class="bottom-nav" picking-mode="Position">
+        <ui:VisualElement name="BottomNavMinimap" class="bottom-nav-minimap" />
+        <ui:VisualElement name="BottomNavCategoryRow" class="bottom-nav-category-row" />
+        <ui:VisualElement name="BottomNavToolbarRow" class="bottom-nav-toolbar-row" />
+    </ui:VisualElement>
+</ui:UXML>

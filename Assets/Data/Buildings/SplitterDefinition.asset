@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5944d6c7159968e4b87621974dbb6952, type: 3}
+  m_Name: SplitterDefinition
+  m_EditorClassIdentifier: Game.Data::Game.Data.SplitterDefinition
+  id: splitter
+  displayName: Splitter
+  footprintSize: {x: 3, y: 3}
+  placeholderColor: {r: 0.6, g: 0.6, b: 0.65, a: 1}
+  unlockResearch: {fileID: 0}
+  sprite: {fileID: 8903154468128671159, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  animationFrames:
+  - {fileID: 8903154468128671159, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: 1279439577041809640, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: 1025931006434754521, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: 6351519339560279100, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: 2326477301701244070, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: -8293706374726503871, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: 6753902743668619, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: -8740324106463690464, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: 1609007565296804787, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: 5950303811604476476, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: -7305888956370803865, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: 8031435909015753756, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: 8189397107688402275, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: 4819015170666435728, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: -3705870841305786077, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: -6433640698206201642, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: -4917165561212174838, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: -8475191372636982995, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: 5063522437149226468, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: -7322347883063047423, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: 4899775246337223314, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: 8665046892039710501, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: -1834930108671492532, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  - {fileID: 281605877496347442, guid: 124878c28f465104fb7c22379644edd9, type: 3}
+  animationFps: 12
+  cost:
+  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+    amount: 1
+  artNativeEntrySide: 3

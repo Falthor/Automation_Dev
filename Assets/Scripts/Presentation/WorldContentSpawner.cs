@@ -44,13 +44,19 @@ namespace Game.Presentation
         public void SpawnOreDeposit(DepositRuntime deposit)
         {
             OreDepositDefinition definition = deposit.Definition;
-            var go = new GameObject($"OreDeposit_{definition.OreType}");
+            var go = new GameObject($"OreDeposit_{definition.Item.Id}");
             go.transform.position = _grid.FootprintCenterToWorld(deposit.Origin, definition.FootprintSize);
 
             var renderer = go.AddComponent<SpriteRenderer>();
             renderer.sortingOrder = OreDepositSortingOrder;
 
-            Sprite sprite = _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
+            // Real deposit art has its own transparent background, so the terrain tile
+            // underneath must stay visible through it - unlike the solid-color placeholder
+            // fallback, it must not be tinted by PlaceholderColor.
+            Sprite sprite = definition.Sprite != null
+                ? definition.Sprite
+                : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
+            renderer.color = Color.white;
             SetSpriteToWorldSize(renderer, sprite, WorldFootprintSize(definition.FootprintSize));
         }
 

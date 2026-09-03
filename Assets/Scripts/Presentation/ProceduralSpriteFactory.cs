@@ -10,15 +10,58 @@ namespace Game.Presentation
     /// match the runtime orientation, and mirrors localScale.x for corner chirality.
     /// Straight: entry south (bottom) -> exit north (top).
     /// Corner (unmirrored): entry south (bottom) -> exit east (right).
-    /// Crossroad: symmetric, all four sides open.
     /// </summary>
     public sealed class ProceduralSpriteFactory
     {
         const int TextureSize = 32;
         const float PixelsPerUnit = 32f;
 
+        const int GlowTextureSize = 64;
+
         readonly Dictionary<(ConveyorShapeKind, Color32), Sprite> _cache = new Dictionary<(ConveyorShapeKind, Color32), Sprite>();
         readonly Dictionary<Color32, Sprite> _solidSquareCache = new Dictionary<Color32, Sprite>();
+        readonly Dictionary<Color32, Sprite> _radialGlowCache = new Dictionary<Color32, Sprite>();
+
+        /// <summary>Soft radial falloff (opaque at center, fully transparent at the edge) - used for the hover halo around world content like ore deposits.</summary>
+        public Sprite CreateRadialGlowSprite(Color color)
+        {
+            Color32 key = color;
+            if (_radialGlowCache.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            var texture = new Texture2D(GlowTextureSize, GlowTextureSize, TextureFormat.RGBA32, false)
+            {
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp
+            };
+
+            var pixels = new Color[GlowTextureSize * GlowTextureSize];
+            float center = (GlowTextureSize - 1) * 0.5f;
+            for (int y = 0; y < GlowTextureSize; y++)
+            {
+                for (int x = 0; x < GlowTextureSize; x++)
+                {
+                    float dx = (x - center) / center;
+                    float dy = (y - center) / center;
+                    float falloff = Mathf.Clamp01(1f - Mathf.Sqrt(dx * dx + dy * dy));
+                    falloff *= falloff;
+                    pixels[y * GlowTextureSize + x] = new Color(color.r, color.g, color.b, color.a * falloff);
+                }
+            }
+            texture.SetPixels(pixels);
+            texture.Apply(false, false);
+
+            var sprite = Sprite.Create(
+                texture,
+                new Rect(0, 0, GlowTextureSize, GlowTextureSize),
+                new Vector2(0.5f, 0.5f),
+                PixelsPerUnit);
+
+            _radialGlowCache[key] = sprite;
+            return sprite;
+        }
 
         /// <summary>Flat colored square placeholder, used for content with no art asset yet (e.g. ore deposits).</summary>
         public Sprite CreateSolidSquareSprite(Color color)
@@ -94,7 +137,6 @@ namespace Game.Presentation
             {
                 ConveyorShapeKind.Straight => DrawStraight(color),
                 ConveyorShapeKind.Corner => DrawCorner(color),
-                ConveyorShapeKind.Crossroad => DrawCrossroad(color),
                 _ => DrawStraight(color)
             };
 
@@ -146,29 +188,6 @@ namespace Game.Presentation
                 {
                     bool inVerticalBand = x >= bandStart && x < bandEnd;
                     tex.SetPixel(x, y, inVerticalBand ? band : background);
-                }
-            }
-
-            tex.Apply(false, false);
-            return tex;
-        }
-
-        static Texture2D DrawCrossroad(Color color)
-        {
-            var tex = NewTexture();
-            Color background = color * 0.5f;
-            Color band = color;
-
-            int bandStart = TextureSize / 2 - TextureSize / 8;
-            int bandEnd = TextureSize / 2 + TextureSize / 8;
-
-            for (int y = 0; y < TextureSize; y++)
-            {
-                for (int x = 0; x < TextureSize; x++)
-                {
-                    bool inVerticalBand = x >= bandStart && x < bandEnd;
-                    bool inHorizontalBand = y >= bandStart && y < bandEnd;
-                    tex.SetPixel(x, y, inVerticalBand || inHorizontalBand ? band : background);
                 }
             }
 

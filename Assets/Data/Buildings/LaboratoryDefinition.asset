@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7adbb8534dbe1064ea893aa5b1584db1, type: 3}
+  m_Name: LaboratoryDefinition
+  m_EditorClassIdentifier: Game.Data::Game.Data.LaboratoryDefinition
+  id: laboratory
+  displayName: Laboratory
+  footprintSize: {x: 3, y: 3}
+  placeholderColor: {r: 0.3, g: 0.6, b: 0.9, a: 1}
+  unlockResearch: {fileID: 0}
+  sprite: {fileID: 21300000, guid: b3e40943d82898949b50ff22a7860160, type: 3}
+  cost:
+  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+    amount: 10
+  - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
+    amount: 5
+  cardItem: {fileID: 11400000, guid: ea86aab40b2dbf34990e252cd329a17b, type: 2}
+  maxCardStack: 100
+  powerDemandKw: 3
+  cuCostPerCycle: 250
+  cardConvertIntervalSeconds: 2
+  rpPerCard: 2

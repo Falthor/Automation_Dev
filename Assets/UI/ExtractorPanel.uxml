@@ -1,0 +1,27 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="GameUI.uss" />
+
+    <ui:VisualElement name="ExtractorPanelRoot" class="overlay-root overlay-root-right hidden" picking-mode="Ignore">
+        <ui:VisualElement class="panel panel-accent" picking-mode="Position">
+            <ui:VisualElement class="header-row">
+                <ui:Label name="ExtractorTitle" text="EXTRACTOR" class="title" />
+                <ui:Button name="ExtractorCloseButton" text="&#215;" class="close-button" />
+            </ui:VisualElement>
+            <ui:VisualElement class="extractor-body">
+                <ui:Label text="PRODUCTION" class="extractor-section-label" />
+                <ui:VisualElement class="extractor-progress-track">
+                    <ui:VisualElement name="ExtractorProgressFill" class="extractor-progress-fill" />
+                </ui:VisualElement>
+                <ui:VisualElement class="progress-info-row">
+                    <ui:Label name="ExtractorTimeLabel" text="" class="production-time-label" />
+                    <ui:Label name="ExtractorPercentLabel" text="0 %" class="production-percent-label" />
+                </ui:VisualElement>
+                <ui:Label text="INTERNAL STORAGE" class="extractor-section-label" />
+                <ui:VisualElement class="storage-card">
+                    <ui:VisualElement name="ExtractorStorageIcon" class="storage-card-icon" />
+                    <ui:Label name="ExtractorStorageCount" text="0/20" class="storage-card-count" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

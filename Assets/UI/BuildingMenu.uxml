@@ -1,0 +1,23 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="GameUI.uss" />
+
+    <ui:VisualElement name="BuildingMenuRoot" class="overlay-root hidden" picking-mode="Ignore">
+        <ui:VisualElement class="panel panel-accent" picking-mode="Position">
+            <ui:VisualElement class="header-row">
+                <ui:Label text="BUILDING" class="title" />
+                <ui:Button name="BuildingCloseButton" text="&#215;" class="close-button" />
+            </ui:VisualElement>
+            <ui:VisualElement class="building-body">
+                <ui:VisualElement class="building-top-row">
+                    <ui:VisualElement name="CategoryColumn" class="category-column" />
+                    <ui:VisualElement class="v-separator" />
+                    <ui:ScrollView name="BuildingGridScroll" class="building-grid-scroll" mode="Vertical" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto">
+                        <ui:VisualElement name="BuildingGrid" class="building-grid" />
+                    </ui:ScrollView>
+                </ui:VisualElement>
+                <ui:VisualElement class="h-separator" />
+                <ui:VisualElement name="BuildingDetails" class="building-details" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

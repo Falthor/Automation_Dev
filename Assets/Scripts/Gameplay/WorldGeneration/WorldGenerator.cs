@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using Game.Core;
 using Game.Data;
 using Game.Gameplay.Buildings;
+using Game.Gameplay.Compute;
+using Game.Gameplay.Power;
 using Game.Grid;
 using UnityEngine;
 
@@ -16,14 +18,14 @@ namespace Game.Gameplay.WorldGeneration
     {
         const int DepositPlacementAttempts = 500;
 
-        public BuildingRuntime Core { get; private set; }
+        public CoreRuntime Core { get; private set; }
         public GridCoord CoreOrigin { get; private set; }
         public int ActionRadiusCells { get; private set; }
         public IReadOnlyList<DepositRuntime> OreDeposits => _oreDeposits;
 
         readonly List<DepositRuntime> _oreDeposits = new List<DepositRuntime>();
 
-        public void Generate(GridRuntime grid, int mapSizeCells, WorldGenerationSettings settings)
+        public void Generate(GridRuntime grid, int mapSizeCells, WorldGenerationSettings settings, ComputeSystem computeSystem, PowerSystem powerSystem)
         {
             CoreDefinition coreDefinition = settings.CoreDefinition;
             ActionRadiusCells = coreDefinition.ActionRadiusCells;
@@ -32,7 +34,7 @@ namespace Game.Gameplay.WorldGeneration
                 mapSizeCells / 2 - coreDefinition.FootprintSize.x / 2,
                 mapSizeCells / 2 - coreDefinition.FootprintSize.y / 2);
 
-            Core = new BuildingRuntime(coreDefinition, CoreOrigin, Direction.North);
+            Core = new CoreRuntime(coreDefinition, CoreOrigin, Direction.North, computeSystem, powerSystem);
             grid.SetOccupantFootprint(CoreOrigin, coreDefinition.FootprintSize, Core);
 
             var random = new System.Random(settings.ResourceSeed);
@@ -51,9 +53,30 @@ namespace Game.Gameplay.WorldGeneration
             {
                 if (definition == null) continue;
 
-                if (TryFindFreeSpot(grid, random, coreCenter, coreDefinition.FootprintSize, definition.FootprintSize, out GridCoord origin))
+                // A deposit never spawns as a single isolated footprint anymore - it's a 2x2
+                // cluster of individually-exploitable deposit instances (each still its own
+                // definition-sized footprint), so up to 4 extractors can work the same deposit
+                // side by side, and it reads as a much bigger, more visible ore field on the map.
+                Vector2Int clusterFootprint = definition.FootprintSize * 2;
+
+                if (TryFindFreeSpot(grid, random, coreCenter, coreDefinition.FootprintSize, clusterFootprint, out GridCoord clusterOrigin))
                 {
-                    _oreDeposits.Add(grid.PlaceDeposit(origin, definition));
+                    PlaceDepositCluster(grid, clusterOrigin, definition);
+                }
+            }
+        }
+
+        /// <summary>Places a 2x2 grid of individual deposit instances filling clusterOrigin's 2x-sized footprint.</summary>
+        void PlaceDepositCluster(GridRuntime grid, GridCoord clusterOrigin, OreDepositDefinition definition)
+        {
+            Vector2Int size = definition.FootprintSize;
+
+            for (int qx = 0; qx < 2; qx++)
+            {
+                for (int qy = 0; qy < 2; qy++)
+                {
+                    var subOrigin = new GridCoord(clusterOrigin.X + qx * size.x, clusterOrigin.Y + qy * size.y);
+                    _oreDeposits.Add(grid.PlaceDeposit(subOrigin, definition));
                 }
             }
         }

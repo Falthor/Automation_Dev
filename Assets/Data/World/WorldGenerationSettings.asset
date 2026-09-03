@@ -17,3 +17,10 @@ MonoBehaviour:
   copperOreDefinition: {fileID: 11400000, guid: ffff9edcd441e594f93f7a9402beaea4, type: 2}
   coalOreDefinition: {fileID: 11400000, guid: 24f3c4c440f22c14cb72e74f072b099c, type: 2}
   resourceSeed: 12345
+  startingStock:
+  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+    amount: 150
+  - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
+    amount: 50
+  - item: {fileID: 11400000, guid: d5be11fa9d151e345a38f4254d3f1430, type: 2}
+    amount: 30

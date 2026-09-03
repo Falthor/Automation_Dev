@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c066c336084ad324aa88241708a951b1, type: 3}
+  m_Name: Iron_Plate_Recipe
+  m_EditorClassIdentifier: Game.Data::Game.Data.RecipeDefinition
+  id: Iron_Plate
+  ingredients:
+  - item: {fileID: 11400000, guid: b96b1a8817e8abf4bacd918c5be7b859, type: 2}
+    amount: 2
+  outputAmount: 2
+  timeSeconds: 5
+  computeCost: 300

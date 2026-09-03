@@ -1,7 +1,9 @@
+using System.Collections.Generic;
 using Game.Construction;
 using Game.Core;
 using Game.Data;
 using Game.Gameplay.Buildings;
+using Game.Grid;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -10,9 +12,9 @@ namespace Game.Presentation
     /// <summary>
     /// Raw mouse/keyboard polling adapter: translates device input into ConstructionService
     /// calls and drives the ghost preview + spawned views. No .inputactions asset needed for
-    /// this pass. Manual-testing substitute for a hotbar UI (no Game.UI yet):
-    /// 1/2/3 select straight/corner/crossroad, R rotates the preview, Esc cancels,
-    /// left click/drag places, right click/drag demolishes.
+    /// this pass. Building selection itself comes from the Building menu / Bottom Nav toolbar
+    /// (Game.UI); this adapter only owns R (rotate preview), Esc (cancel), left click/drag
+    /// (place), right click/drag (demolish, also cancels an armed tool).
     /// </summary>
     public sealed class ConstructionInputAdapter : MonoBehaviour
     {
@@ -20,13 +22,30 @@ namespace Game.Presentation
         [SerializeField] Camera worldCamera;
         [SerializeField] ConveyorGhostView ghostView;
         [SerializeField] BuildingGhostView buildingGhostView;
+        [SerializeField] BuildingHoverHighlightView hoverHighlightView;
+        [SerializeField] DepositHoverGlowView depositHoverGlowView;
 
-        [Header("Buildable definitions (substitute for a hotbar UI)")]
-        [SerializeField] ConveyorDefinition straightDefinition;
-        [SerializeField] ConveyorDefinition cornerDefinition;
-        [SerializeField] ConveyorDefinition crossroadDefinition;
-        [SerializeField] ExtractorDefinition extractorDefinition;
-        [SerializeField] StorageDefinition storageDefinition;
+        /// <summary>
+        /// Used to lay straight segments while dragging with the Corner tool selected - a corner
+        /// is only ever stamped at the anchor (initial click) or at a later turn, never repeated
+        /// along a straight run. See PlaceStraightSegment. Also passed to BuildingSpawner so a
+        /// conveyor reshaped into a straight (e.g. a corner drag-turned back straight) still
+        /// shows this art instead of the procedural placeholder - see
+        /// BuildingSpawner.ResolveConveyorArtDefinition.
+        /// </summary>
+        [SerializeField] ConveyorDefinition straightConveyorForDragContinuation;
+
+        /// <summary>
+        /// Passed to BuildingSpawner so a conveyor reshaped into a corner (drag-turned from the
+        /// Straight tool, or from the Corner tool re-pointed at a later turn) shows real corner
+        /// art - its own Definition stays whichever tool originally placed it, which no longer
+        /// matches its current Orientation.Shape after a reshape. See
+        /// BuildingSpawner.ResolveConveyorArtDefinition.
+        /// </summary>
+        [SerializeField] ConveyorDefinition cornerConveyorForReshape;
+
+        static readonly Color OutputArrowColor = new Color(0.25f, 0.95f, 0.35f, 1f);
+        static readonly Color InputArrowColor = new Color(0.3f, 0.6f, 1f, 1f);
 
         readonly ProceduralSpriteFactory _spriteFactory = new ProceduralSpriteFactory();
         BuildingSpawner _spawner;
@@ -54,32 +73,61 @@ namespace Game.Presentation
             // GameRuntime and this adapter is not guaranteed, but Start always runs after
             // every object's Awake, so gameRuntime.Grid is guaranteed to be initialized here.
             if (worldCamera == null) worldCamera = Camera.main;
-            _spawner = new BuildingSpawner(gameRuntime.Grid, _spriteFactory);
+            _spawner = new BuildingSpawner(gameRuntime.Grid, _spriteFactory, straightConveyorForDragContinuation, cornerConveyorForReshape);
+            if (hoverHighlightView != null) hoverHighlightView.Initialize(gameRuntime.Grid);
+            if (depositHoverGlowView != null) depositHoverGlowView.Initialize(gameRuntime.Grid, _spriteFactory);
         }
 
         void Update()
         {
             if (worldCamera == null || gameRuntime == null || _spawner == null) return;
 
-            HandleSelectionHotkeys();
+            // A UI panel (Building menu, Storage panel, ...) owns mouse/keyboard input while
+            // open, and for one extra frame after it closes - otherwise the same click that
+            // selected a menu item or closed a panel also lands on the world underneath it.
+            if (gameRuntime.IsUIBlockingInput || gameRuntime.LastMenuCloseFrame == Time.frameCount) return;
+
             HandleRotateAndCancel();
 
             GridCoord cellUnderMouse = CellUnderMouse();
             UpdateGhost(cellUnderMouse);
+            HandleHoverHighlight(cellUnderMouse);
             HandlePlacement(cellUnderMouse);
             HandleDemolition(cellUnderMouse);
         }
 
-        void HandleSelectionHotkeys()
+        /// <summary>
+        /// Outlines the footprint of whatever building sits under the mouse, active both with
+        /// and without a construction tool armed (only suppressed while a UI panel owns input,
+        /// handled by the early-return above).
+        /// </summary>
+        void HandleHoverHighlight(GridCoord cell)
         {
-            var keyboard = Keyboard.current;
-            if (keyboard == null) return;
+            object occupant = gameRuntime.Grid.GetOccupant(cell);
 
-            if (keyboard.digit1Key.wasPressedThisFrame) gameRuntime.Construction.SelectBuilding(straightDefinition);
-            if (keyboard.digit2Key.wasPressedThisFrame) gameRuntime.Construction.SelectBuilding(cornerDefinition);
-            if (keyboard.digit3Key.wasPressedThisFrame) gameRuntime.Construction.SelectBuilding(crossroadDefinition);
-            if (keyboard.digit4Key.wasPressedThisFrame) gameRuntime.Construction.SelectBuilding(extractorDefinition);
-            if (keyboard.digit5Key.wasPressedThisFrame) gameRuntime.Construction.SelectBuilding(storageDefinition);
+            if (hoverHighlightView != null)
+            {
+                if (occupant is BuildingRuntime building)
+                {
+                    hoverHighlightView.Show(building.Cell, building.Definition.FootprintSize);
+                }
+                else
+                {
+                    hoverHighlightView.Hide();
+                }
+            }
+
+            if (depositHoverGlowView != null)
+            {
+                if (occupant is DepositRuntime deposit)
+                {
+                    depositHoverGlowView.Show(deposit.Origin, deposit.Definition.FootprintSize);
+                }
+                else
+                {
+                    depositHoverGlowView.Hide();
+                }
+            }
         }
 
         void HandleRotateAndCancel()
@@ -133,22 +181,52 @@ namespace Game.Presentation
             Vector3 worldCenter = gameRuntime.Grid.FootprintCenterToWorld(cell, selected.FootprintSize);
             Vector2 worldSize = new Vector2(gameRuntime.Grid.CellSize, gameRuntime.Grid.CellSize) * selected.FootprintSize;
             Sprite sprite = ResolveGhostSprite(selected);
-            buildingGhostView.Show(sprite, worldSize, worldCenter, gameRuntime.Construction.PreviewRotation, valid);
+            Direction previewRotation = gameRuntime.Construction.PreviewRotation;
+            (bool rotateSprite, Direction artNativeDirection) = ResolveGhostRotation(selected);
+
+            // Output and entry arrows are independent: a building can take deliveries without
+            // producing anything physical (Laboratory), so each side is previewed on its own.
+            Sprite outputArrowSprite = null;
+            Vector3? outputArrowWorldPos = null;
+            if (selected.HasOutputArrow)
+            {
+                GridCoord outputCell = BuildingRuntime.ComputeOutputCells(cell, selected.FootprintSize, previewRotation)[0];
+                outputArrowWorldPos = gameRuntime.Grid.CellCenterToWorld(outputCell);
+                outputArrowSprite = _spriteFactory.CreateArrowSprite(OutputArrowColor);
+            }
+
+            Sprite inputArrowSprite = null;
+            List<(Vector3 position, Direction direction)> inputArrows = null;
+            if (selected.HasInputArrows)
+            {
+                inputArrowSprite = _spriteFactory.CreateArrowSprite(InputArrowColor);
+                inputArrows = new List<(Vector3, Direction)>();
+                foreach ((GridCoord edgeCell, Direction fromMySide) in BuildingRuntime.ComputeInputCells(cell, selected.FootprintSize, previewRotation))
+                {
+                    inputArrows.Add((gameRuntime.Grid.CellCenterToWorld(edgeCell), fromMySide));
+                }
+            }
+
+            buildingGhostView.Show(sprite, worldSize, worldCenter, previewRotation, valid,
+                outputArrowSprite, outputArrowWorldPos, gameRuntime.Grid.CellSize * 0.4f,
+                inputArrowSprite, inputArrows, rotateSprite, artNativeDirection);
         }
 
         Sprite ResolveGhostSprite(BuildingDefinition definition)
         {
-            if (definition is ExtractorDefinition extractorDef)
-            {
-                return extractorDef.Sprite != null ? extractorDef.Sprite : _spriteFactory.CreateSolidSquareSprite(extractorDef.PlaceholderColor);
-            }
+            return definition.Sprite != null ? definition.Sprite : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
+        }
 
-            if (definition is StorageDefinition storageDef)
-            {
-                return storageDef.Sprite != null ? storageDef.Sprite : _spriteFactory.CreateSolidSquareSprite(storageDef.PlaceholderColor);
-            }
-
-            return _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
+        /// <summary>
+        /// Whether the ghost's sprite itself must rotate to match the real built view. Only the
+        /// "+"-shaped Splitter/Crossroad rotate their sprite (SpawnRotatingCrossView) - every other
+        /// building's root never rotates (SpawnStandardView), so the ghost mustn't either.
+        /// </summary>
+        static (bool rotateSprite, Direction artNativeDirection) ResolveGhostRotation(BuildingDefinition definition)
+        {
+            if (definition is SplitterDefinition splitter) return (true, splitter.ArtNativeEntrySide);
+            if (definition is CrossroadDefinition) return (true, Direction.North);
+            return (false, Direction.North);
         }
 
         void HandlePlacement(GridCoord cell)
@@ -244,12 +322,12 @@ namespace Game.Presentation
 
                 Direction newAxis = DominantDirection(rawDelta);
 
-                // Only the "straight" tool auto-turns its anchor into a corner on an axis
-                // change; corner/crossroad tools stamp the same explicit shape along the drag.
-                bool isStraightTool = gameRuntime.Construction.Selected is ConveyorDefinition def
-                    && def.DefaultShape == ConveyorShapeKind.Straight;
-
-                if (isStraightTool)
+                // Both conveyor tools share the same auto-corner-on-turn reshape for the anchor -
+                // only what it started as differs. The straight tool's anchor starts straight and
+                // only becomes a corner if the drag turns; the corner tool's anchor already IS a
+                // corner from the initial click, so with no inherited entry to reconcile there is
+                // nothing to reshape - it just keeps facing however it was placed.
+                if (gameRuntime.Construction.Selected is ConveyorDefinition selectedConveyor)
                 {
                     if (_pendingCornerEntry.HasValue)
                     {
@@ -260,7 +338,7 @@ namespace Game.Presentation
                         // else: the inherited entry is already collinear with the discovered
                         // axis - the anchor was placed facing the right way, nothing to redo.
                     }
-                    else
+                    else if (selectedConveyor.DefaultShape == ConveyorShapeKind.Straight)
                     {
                         // No neighbor feeding into the anchor: it was placed with whatever
                         // rotation happened to be previewed, which may not match the direction
@@ -286,9 +364,34 @@ namespace Game.Presentation
             while (steps > 0 && guard++ < 4096)
             {
                 _lastPlacedCell += axis;
-                PlaceAt(_lastPlacedCell, axis);
+                // A run continues as straight belts regardless of which tool started the drag -
+                // a corner only ever belongs at the anchor (or a later turn, handled above).
+                PlaceStraightSegment(_lastPlacedCell, axis);
                 steps--;
             }
+        }
+
+        /// <summary>
+        /// Places a straight conveyor at `cell` even if the Corner tool is the one currently
+        /// selected, by briefly swapping ConstructionService's selection to the dedicated
+        /// straight definition and back. Selection/preview rotation are restored immediately
+        /// after so the drag's own tool state is unaffected.
+        /// </summary>
+        void PlaceStraightSegment(GridCoord cell, Direction axis)
+        {
+            var construction = gameRuntime.Construction;
+            if (!(construction.Selected is ConveyorDefinition selectedConveyor) || selectedConveyor.DefaultShape == ConveyorShapeKind.Straight)
+            {
+                PlaceAt(cell, axis);
+                return;
+            }
+
+            BuildingDefinition previousSelected = construction.Selected;
+            Direction previousPreview = construction.PreviewRotation;
+            construction.SelectBuilding(straightConveyorForDragContinuation);
+            PlaceAt(cell, axis);
+            construction.SelectBuilding(previousSelected);
+            construction.SetPreviewRotation(previousPreview);
         }
 
         static Direction DominantDirection(GridCoord delta)
@@ -330,8 +433,21 @@ namespace Game.Presentation
         {
             // Captured before TryPlace: a conveyor placed onto an existing conveyor "overtakes"
             // it (see ConstructionService), which would otherwise leave the replaced instance
-            // stuck registered in Transport forever with no grid cell pointing to it.
-            object previousOccupant = gameRuntime.Grid.GetOccupant(cell);
+            // stuck registered in Transport forever with no grid cell pointing to it. A masked
+            // multi-cell footprint (Splitter/Crossroad's "+" shape) can overtake several distinct
+            // conveyor instances at once across its footprint, not just the one at the clicked
+            // cell - scan every footprint cell, not just `cell` itself.
+            var previousOccupants = new HashSet<BuildingRuntime>();
+            if (gameRuntime.Construction.Selected != null)
+            {
+                foreach (Vector2Int offset in gameRuntime.Construction.Selected.FootprintCells)
+                {
+                    if (gameRuntime.Grid.GetOccupant(new GridCoord(cell.X + offset.x, cell.Y + offset.y)) is BuildingRuntime occupant)
+                    {
+                        previousOccupants.Add(occupant);
+                    }
+                }
+            }
 
             if (gameRuntime.Construction.TryPlace(cell, rotation, out BuildingRuntime placed))
             {
@@ -339,8 +455,13 @@ namespace Game.Presentation
                 gameRuntime.Transport.Register(placed);
                 if (gameRuntime.ItemVisuals != null) gameRuntime.ItemVisuals.Register(placed);
 
-                if (previousOccupant is BuildingRuntime previousBuilding && !ReferenceEquals(previousOccupant, placed))
+                foreach (BuildingRuntime previousBuilding in previousOccupants)
                 {
+                    if (ReferenceEquals(previousBuilding, placed)) continue;
+                    // SpawnView(placed) already replaced the view at placed.Cell if a previous
+                    // occupant shared that exact cell (the common 1x1-onto-1x1 conveyor overtake)
+                    // - only remove views for occupants at a genuinely different cell.
+                    if (previousBuilding.Cell != placed.Cell) _spawner.RemoveView(previousBuilding.Cell);
                     gameRuntime.Transport.Unregister(previousBuilding);
                     if (gameRuntime.ItemVisuals != null) gameRuntime.ItemVisuals.Unregister(previousBuilding);
                 }
@@ -354,6 +475,15 @@ namespace Game.Presentation
 
             if (mouse.rightButton.wasPressedThisFrame)
             {
+                // Right-click while a building/conveyor is armed for placement also cancels the
+                // ghost/construction tool - a right-click "cancel" gesture is the expected escape
+                // hatch mid-place - but demolition still happens underneath it regardless: right-
+                // click stays the one method to remove an existing building.
+                if (gameRuntime.Construction.Selected != null)
+                {
+                    gameRuntime.Construction.Cancel();
+                }
+
                 DemolishAt(cell);
                 _isDragDemolishing = true;
                 _lastDemolishedCell = cell;

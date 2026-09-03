@@ -3,7 +3,11 @@ using UnityEngine;
 
 namespace Game.Presentation
 {
-    /// <summary>Purely visual cell-boundary overlay covering the grid extent - no gameplay data.</summary>
+    /// <summary>
+    /// Purely visual cell-boundary overlay covering the grid extent - no gameplay data. Hidden
+    /// by default: the grid only reads as useful help while a building is actually being placed,
+    /// so its visibility is driven from construction state (see GameRuntime.Update).
+    /// </summary>
     public sealed class GridLineView : MonoBehaviour
     {
         const string ShaderName = "Custom/GridLinesOverlay";
@@ -24,6 +28,7 @@ namespace Game.Presentation
                 _renderer.sortingOrder = SortingOrder;
                 _material = new Material(Shader.Find(ShaderName)) { name = "GridLines (Instance)" };
                 _renderer.sharedMaterial = _material;
+                _renderer.enabled = false;
             }
 
             float worldSize = cellsWide * grid.CellSize;
@@ -33,6 +38,12 @@ namespace Game.Presentation
             _material.SetFloat("_CellSize", grid.CellSize);
             _material.SetFloat("_LineThickness", lineThickness);
             _material.SetColor("_LineColor", lineColor);
+        }
+
+        /// <summary>Shows/hides the overlay. Safe to call every frame and before Initialize.</summary>
+        public void SetVisible(bool visible)
+        {
+            if (_renderer != null) _renderer.enabled = visible;
         }
 
         static Sprite CreateUnitSprite()

@@ -16,6 +16,37 @@ MonoBehaviour:
   displayName: Conveyor Corner
   footprintSize: {x: 1, y: 1}
   placeholderColor: {r: 0.3, g: 0.6, b: 0.9, a: 1}
+  unlockResearch: {fileID: 0}
+  sprite: {fileID: 0}
+  animationFrames:
+  - {fileID: 8034552057565475545, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -5918657069850506806, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -961034726145623310, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -1280129963091262366, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -1292486740451784532, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -5282958870596215136, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: 4181617464683513084, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -5465274437562860977, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -8706789597494133398, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -4836826140111468438, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -8401779741826524591, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -3639448782962762627, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -6827580367203586612, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: 6848371261434174034, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -7265295570935704887, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -886448222351706898, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -4498832753001771089, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: 7836154822534507717, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: 6498068071625641718, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -5858272818637642146, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: 4669629731377789195, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: 281718336317842658, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: 6572390972167545787, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  - {fileID: -7232345791147969388, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  animationFps: 12
+  cost:
+  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+    amount: 1
   defaultShape: 1
-  overrideSprite: {fileID: 0}
-  artNativeDirection: 0
+  overrideSprite: {fileID: 8034552057565475545, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
+  artNativeDirection: 1

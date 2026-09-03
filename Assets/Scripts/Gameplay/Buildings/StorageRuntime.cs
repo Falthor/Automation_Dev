@@ -12,33 +12,33 @@ namespace Game.Gameplay.Buildings
     {
         readonly Inventory _inventory;
 
-        /// <summary>Public read contract for UI (e.g. the Storage panel) to enumerate contents.</summary>
-        public System.Collections.Generic.IReadOnlyDictionary<OreType, int> Contents => _inventory.Amounts;
+        /// <summary>Public read contract for UI (e.g. the Storage panel) to enumerate contents by slot.</summary>
+        public System.Collections.Generic.IReadOnlyList<InventorySlot> Slots => _inventory.Slots;
 
         public StorageRuntime(StorageDefinition definition, GridCoord cell, Direction facingRotation)
             : base(definition, cell, facingRotation)
         {
-            _inventory = new Inventory(definition.CapacityPerItem);
+            _inventory = new Inventory();
         }
 
-        public override bool CanAcceptInput(OreType itemType, int amount, Direction fromDirection)
+        public override bool CanAcceptInput(string itemId, int amount, Direction fromDirection)
         {
-            return _inventory.CanAccept(itemType, amount);
+            return _inventory.CanAccept(itemId, amount);
         }
 
-        public override void AddInput(OreType itemType, int amount, Direction fromDirection)
+        public override void AddInput(string itemId, int amount, Direction fromDirection)
         {
-            _inventory.Add(itemType, amount);
+            _inventory.Add(itemId, amount);
         }
 
-        public override int TakeInput(OreType itemType, int amount)
+        public override int TakeInput(string itemId, int amount)
         {
-            return _inventory.Take(itemType, amount);
+            return _inventory.Take(itemId, amount);
         }
 
-        public override int GetInputAmount(OreType itemType)
+        public override int GetInputAmount(string itemId)
         {
-            return _inventory.GetAmount(itemType);
+            return _inventory.GetAmount(itemId);
         }
     }
 }

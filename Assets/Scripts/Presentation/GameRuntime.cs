@@ -1,5 +1,10 @@
 using Game.Construction;
 using Game.Data;
+using Game.Gameplay.Compute;
+using Game.Gameplay.Items;
+using Game.Gameplay.Power;
+using Game.Gameplay.Research;
+using Game.Gameplay.Selection;
 using Game.Gameplay.Transport;
 using Game.Gameplay.WorldGeneration;
 using Game.Grid;
@@ -20,9 +25,14 @@ namespace Game.Presentation
         [SerializeField] TerrainView terrainView;
         [SerializeField] GridLineView gridLineView;
 
+        [Header("Item/Recipe registries")]
+        [SerializeField] ItemDatabase itemDatabase;
+        [SerializeField] RecipeDatabase recipeDatabase;
+
         [Header("World generation (Core + ore deposits, spawned once at game start)")]
         [SerializeField] WorldGenerationSettings worldGenerationSettings;
         [SerializeField] ActionRadiusView actionRadiusView;
+        [SerializeField] FogOfWarView fogOfWarView;
         [SerializeField] ItemVisualSync itemVisuals;
 
         public GridRuntime Grid { get; private set; }
@@ -30,25 +40,96 @@ namespace Game.Presentation
         public ConstructionService Construction { get; private set; }
         public WorldGenerator World { get; private set; }
         public TransportSystem Transport { get; private set; }
+        public SelectionRuntime Selection { get; private set; }
         public ItemVisualSync ItemVisuals => itemVisuals;
+        public ItemDatabase Items => itemDatabase;
+        public RecipeDatabase Recipes => recipeDatabase;
+        public PowerSystem Power { get; private set; }
+        public ComputeSystem Compute { get; private set; }
+        public ResearchSystem Research { get; private set; }
+
+        /// <summary>
+        /// The player's own item pool, seeded once at game start from
+        /// WorldGenerationSettings.StartingStock. It belongs to the player, not to any building -
+        /// construction costs draw from it first (ConstructionService), and the aggregate Storage
+        /// panel lists it alongside the placed Storage boxes.
+        /// </summary>
+        public PooledItemStock GlobalStock { get; private set; }
+
+        /// <summary>
+        /// True while a UI panel (Building menu, Storage panel, ...) is open and should own
+        /// mouse input exclusively. World input adapters (construction, storage selection) must
+        /// skip their own click handling while this is set, otherwise a click that selects a
+        /// menu item or closes a panel also leaks through as a world click on the same frame.
+        /// Derived from Selection (both the named global panel and the currently inspected
+        /// building) - there is exactly one source of truth for "is a panel open" (CONTRACTS.md
+        /// §7), panels no longer track this themselves.
+        /// </summary>
+        public bool IsUIBlockingInput => Selection.ActiveGlobalPanel != null || Selection.SelectedBuilding != null;
+
+        /// <summary>
+        /// The frame a UI panel last closed. World input adapters also skip their click handling
+        /// during this exact frame, covering the case where the panel's close callback runs
+        /// after this frame's Update() already saw IsUIBlockingInput as false.
+        /// </summary>
+        public int LastMenuCloseFrame { get; private set; } = -1;
 
         void Awake()
         {
             Grid = new GridRuntime(cellSize);
             Terrain = new TerrainRuntime(terrainSettings.Size, terrainSettings.Seed, terrainSettings.TerrainScale, terrainSettings.Proportion);
-            Construction = new ConstructionService(Grid);
+            Power = new PowerSystem();
+            Compute = new ComputeSystem();
+            Research = new ResearchSystem();
             Transport = new TransportSystem(Grid);
+            GlobalStock = new PooledItemStock(int.MaxValue);
 
             if (worldGenerationSettings != null)
             {
-                World = new WorldGenerator();
-                World.Generate(Grid, Terrain.Size, worldGenerationSettings);
+                foreach (RecipeIngredient entry in worldGenerationSettings.StartingStock)
+                {
+                    if (entry.Item != null) GlobalStock.Add(entry.Item.Id, entry.Amount);
+                }
             }
+
+            // World generation (Core + deposits) must exist before ConstructionService, which
+            // needs the Core instance to check/deduct construction costs and its action radius.
+            if (worldGenerationSettings != null)
+            {
+                World = new WorldGenerator();
+                World.Generate(Grid, Terrain.Size, worldGenerationSettings, Compute, Power);
+            }
+
+            Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core, GlobalStock);
+            Selection = new SelectionRuntime();
+            Selection.GlobalPanelChanged += name =>
+            {
+                if (name == null) LastMenuCloseFrame = Time.frameCount;
+            };
+            Selection.SelectionChanged += building =>
+            {
+                if (building == null) LastMenuCloseFrame = Time.frameCount;
+            };
         }
 
         void Update()
         {
+            // Settle last frame's Power reports before this frame's buildings report new ones -
+            // the one-frame lag is intentional (CONTRACTS.md §9's report-then-settle contract),
+            // not an ordering bug. Compute has no such flow: its Tick only advances the window
+            // its displayed income rate is averaged over.
+            Power.Settle();
+            Compute.Tick(Time.deltaTime);
+
             Transport.Tick(Time.deltaTime);
+            Research.Tick(Time.deltaTime);
+
+            // The cell grid is a construction aid, not permanent decoration: it shows only while
+            // a building is armed for placement. Driven from here rather than from the
+            // construction input adapter because this object already owns the view's reference
+            // and lifecycle, and the adapter stops updating while a UI panel owns input - which
+            // would strand the lines on screen with a tool still armed behind the panel.
+            if (gridLineView != null) gridLineView.SetVisible(Construction.Selected != null);
         }
 
         void Start()
@@ -66,13 +147,14 @@ namespace Game.Presentation
 
             if (itemVisuals != null)
             {
-                itemVisuals.Initialize(Grid, new ProceduralSpriteFactory());
+                itemVisuals.Initialize(Grid, new ProceduralSpriteFactory(), itemDatabase);
             }
 
             if (World != null)
             {
                 var contentSpawner = new WorldContentSpawner(Grid, new ProceduralSpriteFactory());
                 contentSpawner.SpawnCore(World.Core);
+                Transport.Register(World.Core);
                 foreach (var deposit in World.OreDeposits)
                 {
                     contentSpawner.SpawnOreDeposit(deposit);
@@ -83,6 +165,11 @@ namespace Game.Presentation
                 if (actionRadiusView != null)
                 {
                     actionRadiusView.Initialize(coreCenter, World.ActionRadiusCells * Grid.CellSize);
+                }
+
+                if (fogOfWarView != null)
+                {
+                    fogOfWarView.Initialize(coreCenter, World.ActionRadiusCells * Grid.CellSize);
                 }
 
                 // Start the camera centered on the Core - otherwise its fixed scene position

@@ -2,6 +2,9 @@ using Game.Construction;
 using Game.Core;
 using Game.Data;
 using Game.Gameplay.Buildings;
+using Game.Gameplay.Compute;
+using Game.Gameplay.Power;
+using Game.Gameplay.Research;
 using Game.Grid;
 using NUnit.Framework;
 using UnityEngine;
@@ -15,10 +18,17 @@ namespace Game.Tests.EditMode.Construction
             return ScriptableObject.CreateInstance<ConveyorDefinition>();
         }
 
+        // Item/Recipe databases are only needed to place a Foundry - none of these tests do, so
+        // null is fine here (would throw only if a test actually selected a FoundryDefinition).
+        static ConstructionService NewService(GridRuntime grid)
+        {
+            return new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), new ResearchSystem());
+        }
+
         [Test]
         public void TryPlace_OnEmptyCell_Succeeds()
         {
-            var service = new ConstructionService(new GridRuntime(1f));
+            var service = NewService(new GridRuntime(1f));
             service.SelectBuilding(NewConveyorDefinition());
 
             bool result = service.TryPlace(new GridCoord(0, 0), Direction.North, out BuildingRuntime placed);
@@ -31,7 +41,7 @@ namespace Game.Tests.EditMode.Construction
         [Test]
         public void TryPlace_WithoutSelection_Fails()
         {
-            var service = new ConstructionService(new GridRuntime(1f));
+            var service = NewService(new GridRuntime(1f));
 
             bool result = service.TryPlace(new GridCoord(0, 0), Direction.North, out BuildingRuntime placed);
 
@@ -43,7 +53,7 @@ namespace Game.Tests.EditMode.Construction
         public void TryPlace_OntoExistingConveyor_OvertakesAndReplaces()
         {
             var grid = new GridRuntime(1f);
-            var service = new ConstructionService(grid);
+            var service = NewService(grid);
             var cell = new GridCoord(2, 2);
 
             service.SelectBuilding(NewConveyorDefinition());
@@ -61,7 +71,7 @@ namespace Game.Tests.EditMode.Construction
         public void CanPlace_MatchesTryPlaceOutcome_WithoutMutating()
         {
             var grid = new GridRuntime(1f);
-            var service = new ConstructionService(grid);
+            var service = NewService(grid);
             var cell = new GridCoord(1, 1);
             service.SelectBuilding(NewConveyorDefinition());
 
@@ -79,7 +89,7 @@ namespace Game.Tests.EditMode.Construction
         public void TryDemolish_OnOccupiedCell_Succeeds()
         {
             var grid = new GridRuntime(1f);
-            var service = new ConstructionService(grid);
+            var service = NewService(grid);
             var cell = new GridCoord(0, 0);
             service.SelectBuilding(NewConveyorDefinition());
             service.TryPlace(cell, Direction.North, out _);
@@ -94,7 +104,7 @@ namespace Game.Tests.EditMode.Construction
         [Test]
         public void TryDemolish_OnEmptyCell_Fails()
         {
-            var service = new ConstructionService(new GridRuntime(1f));
+            var service = NewService(new GridRuntime(1f));
 
             bool result = service.TryDemolish(new GridCoord(5, 5), out BuildingRuntime removed);
 
@@ -102,10 +112,61 @@ namespace Game.Tests.EditMode.Construction
             Assert.IsNull(removed);
         }
 
+        static StorageDefinition NewGatedStorageDefinition(ResearchDefinition unlockResearch)
+        {
+            var definition = ScriptableObject.CreateInstance<StorageDefinition>();
+            var so = new UnityEditor.SerializedObject(definition);
+            so.FindProperty("unlockResearch").objectReferenceValue = unlockResearch;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return definition;
+        }
+
+        [Test]
+        public void CanPlace_False_WhenUnlockResearchNotUnlocked()
+        {
+            var grid = new GridRuntime(1f);
+            var research = new ResearchSystem();
+            var service = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), research);
+            var definition = NewGatedStorageDefinition(MakeResearch("test_gate", 10f));
+            service.SelectBuilding(definition);
+
+            Assert.IsFalse(service.CanPlace(new GridCoord(0, 0)));
+        }
+
+        [Test]
+        public void CanPlace_True_AfterUnlockResearchIsUnlocked()
+        {
+            var grid = new GridRuntime(1f);
+            var research = new ResearchSystem();
+            var service = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), research);
+            var unlockResearch = MakeResearch("test_gate", 10f);
+            var definition = NewGatedStorageDefinition(unlockResearch);
+            service.SelectBuilding(definition);
+            Assert.IsFalse(service.CanPlace(new GridCoord(0, 0)));
+
+            research.AddRp(10f);
+            research.Start(unlockResearch);
+            research.ReportActiveLab();
+            research.Tick(60f);
+            Assert.IsTrue(research.IsUnlocked("test_gate"));
+
+            Assert.IsTrue(service.CanPlace(new GridCoord(0, 0)));
+        }
+
+        static ResearchDefinition MakeResearch(string id, float cost)
+        {
+            var research = ScriptableObject.CreateInstance<ResearchDefinition>();
+            var so = new UnityEditor.SerializedObject(research);
+            so.FindProperty("id").stringValue = id;
+            so.FindProperty("cost").floatValue = cost;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return research;
+        }
+
         [Test]
         public void SelectBuilding_Cancel_SetPreviewRotation_UpdateState()
         {
-            var service = new ConstructionService(new GridRuntime(1f));
+            var service = NewService(new GridRuntime(1f));
             var definition = NewConveyorDefinition();
 
             service.SelectBuilding(definition);

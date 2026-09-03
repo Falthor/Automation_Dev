@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c066c336084ad324aa88241708a951b1, type: 3}
+  m_Name: mechanical_component_Recipe
+  m_EditorClassIdentifier: Game.Data::Game.Data.RecipeDefinition
+  id: mechanical_component
+  ingredients:
+  - item: {fileID: 11400000, guid: 66ad6bf5a674bc443af836a21b003c70, type: 2}
+    amount: 1
+  - item: {fileID: 11400000, guid: 8730c0cf8fed9784a981b14f9e7722a6, type: 2}
+    amount: 1
+  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+    amount: 2
+  outputAmount: 1
+  timeSeconds: 6
+  computeCost: 600
+  unlockResearch: {fileID: 0}
