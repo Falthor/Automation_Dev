@@ -196,14 +196,14 @@ ingérable.
 et remet son timer à zéro **avant** d'appeler `TryExtract`, et ignore le résultat. Un
 extracteur posé sur un gisement vide prélève donc du CU indéfiniment sans rien produire.
 
-Anodin tant que le Core produit 3 000 CU toutes les 5 secondes. **Grave dès que la
-réserve est finie** : c'est une fuite silencieuse qui peut coûter la partie à un joueur
-qui n'a rien vu. À corriger, avec un test de régression.
+Ce bug disparaît de lui-même avec la suppression du modèle d'épuisement (§8) : sans
+quantité restante, `TryExtract` ne peut plus échouer. C'est la bonne façon de le traiter —
+retirer le mécanisme plutôt que corriger un défaut à l'intérieur.
 
-Et la correction seule ne suffit pas — il faut **rendre l'épuisement visible**. Le
-panneau de l'extracteur doit afficher la quantité restante du gisement, et un extracteur
-sur gisement vide doit se signaler comme tel dans le monde, au même titre qu'une machine
-bloquée.
+**Point de vigilance général** : le même schéma — payer puis agir sans vérifier — existe
+peut-être ailleurs. Avec une réserve finie, toute facturation qui ne débouche sur rien est
+une fuite silencieuse capable de coûter la partie à un joueur qui n'a rien vu. À vérifier
+sur chaque `Spend` du projet.
 
 ## 7. Recherches — `Assets/Data/Research/`
 
@@ -243,22 +243,45 @@ apprendre à ne pas le faire :
 Plus **au moins un groupe de fer visible hors du rayon d'action**, comme invitation
 permanente.
 
-### Épuisement
+### Les gisements sont illimités
 
-Chaque tuile de gisement contient **1 000 unités** (`initialQuantity`) et s'épuise
-réellement. À un minerai toutes les 4 secondes, un extracteur vide sa tuile en environ
-67 minutes.
+**Règle : un gisement ne s'épuise jamais.** Sa quantité est infinie, un extracteur posé
+dessus produit indéfiniment.
 
-L'introduction ne consomme que 958 minerais de fer et 965 de cuivre pour un stock
-disponible de 16 000 et 8 000 : l'épuisement n'est donc pas une contrainte de cette
-phase. Mais c'en est une, majeure, sur la durée d'une partie — et c'est une bonne
-nouvelle pour la conception. **L'épuisement est le moteur naturel de l'expansion
-territoriale.** Il donne une raison mécanique, et non narrative, d'étendre le rayon du
-Noyau, d'explorer et de restaurer des datacenters distants. Toute la progression
-d'après-introduction peut s'appuyer dessus sans qu'on ait à inventer un autre moteur.
+Le projet implémente aujourd'hui l'inverse — `OreDepositDefinition.InitialQuantity` vaut
+1 000 pour les trois types et `DepositRuntime.RemainingQuantity` décroît à chaque
+extraction. **Ce mécanisme est à supprimer**, pas à ajuster : retirer `InitialQuantity`,
+`RemainingQuantity` et `TryExtract`, et avec eux le test
+`deposit.RemainingQuantity > 0` de `ConstructionService.IsSameExploitableDeposit`.
 
-À chiffrer une fois l'introduction validée : la quantité par tuile est le levier qui
-détermine la vitesse à laquelle le joueur est poussé vers l'extérieur.
+Supprimer le mécanisme fait disparaître par construction le bug décrit en §6b, ce qui
+vaut mieux que de le corriger dans un système qu'on ne veut pas.
+
+Conséquence de conception : ce qui pousse le joueur à s'étendre n'est pas la raréfaction
+mais le **débit**. Une grappe n'offre que quatre emplacements d'extracteur ; produire
+davantage exige d'atteindre d'autres grappes, donc d'étendre le rayon du Noyau et
+d'explorer. Le moteur de l'expansion est le plafond de production, pas la pénurie.
+
+### Placement — état actuel et cible
+
+Le générateur place aujourd'hui **six grappes**, dans l'ordre fixe fer, fer, cuivre,
+cuivre, charbon, charbon, en coordonnées polaires aléatoires mais déterministes
+(`ResourceSeed`), entre 6 et 46 cellules du centre. **Toutes sont donc à l'intérieur du
+rayon d'action** : il n'existe aucune ressource hors de portée.
+
+| Élément | Actuel | Cible |
+|---|---|---|
+| Grappes de fer | 2 | **4** dans le rayon, **+1 hors rayon** |
+| Grappes de cuivre | 2 | **2** dans le rayon |
+| Grappes de charbon | 2 | **1** dans le rayon |
+| Placement | polaire aléatoire, 500 tentatives | **distances imposées** pour les grappes de départ |
+| `maxDistance` | `ActionRadiusCells − 4` | doit **autoriser un placement au-delà du rayon** |
+| Échec de placement | silencieux | **doit lever une erreur** — une grappe manquante rend l'introduction infaisable |
+
+Ce dernier point mérite attention : aujourd'hui, si les 500 tentatives échouent, la
+grappe n'est simplement pas placée et rien n'est signalé. Avec une introduction dont
+l'équilibrage suppose un nombre exact de grappes, un échec silencieux produit une partie
+injouable sans le moindre message.
 
 Le placement de ces gisements est **ancré à des distances imposées**, pas aléatoire.
 L'aléatoire ne s'exprime qu'au-delà du rayon initial.
