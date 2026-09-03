@@ -2385,9 +2385,9 @@ MonoBehaviour:
   showCloudShadows: 1
   cloudScale: 30
   cloudSpeed: {x: 1.5, y: 0.7}
-  cloudCoverage: 0.45
-  cloudSoftness: 0.25
-  cloudShadowOpacity: 0.35
+  cloudCoverage: 0.667
+  cloudSoftness: 0.107
+  cloudShadowOpacity: 0.642
   cloudShadowColor: {r: 0, g: 0, b: 0.05, a: 1}
 --- !u!4 &946204063
 Transform:
