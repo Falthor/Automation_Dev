@@ -15,18 +15,26 @@ namespace Game.Presentation
     /// sizes are kept small (a handful of world units) so several alternations are visible within
     /// a normal camera view, rather than a couple of map-spanning regions. Both layer counts can
     /// grow later (up to MaxBiomeTextures each) as more ground art is added, without further
-    /// shader changes. Lets the active look/layout be changed by reassigning one asset in the
+    /// shader changes. Each texture may optionally carry a matching normal map (baseNormals /
+    /// accentNormals) for TerrainView's fixed-direction relief lighting - purely cosmetic, no
+    /// gameplay dependency. Lets the active look/layout be changed by reassigning one asset in the
     /// Inspector instead of touching code or TerrainView's own serialized fields.
     /// </summary>
     [CreateAssetMenu(fileName = "GroundTextureProfile", menuName = "Terrain/Ground Texture Profile")]
     public sealed class GroundTextureProfile : ScriptableObject
     {
-        public const int MaxBiomeTextures = 6;
+        // Each layer needs 2 sampler slots per texture (diffuse + normal), and base+accent share
+        // the same shader: 4 * MaxBiomeTextures total samplers must stay under hardware/shader
+        // model limits (16 on the common ps_4_0 profile) - keep this at 3 (12 samplers) unless the
+        // shader is also updated to target a higher shader model.
+        public const int MaxBiomeTextures = 3;
 
         [Header("Base textures (dominant, tile the whole map)")]
         public Texture2D[] baseTextures = new Texture2D[0];
         [Tooltip("Relative pick weight per base texture, same length as baseTextures. Missing/zero entries fall back to an equal split.")]
         public float[] baseWeights = new float[0];
+        [Tooltip("Optional normal map per base texture, same length/order as baseTextures, for the relief lighting on TerrainView. A missing entry falls back to a flat (unbumped) normal.")]
+        public Texture2D[] baseNormals = new Texture2D[0];
         [Min(0.01f)] public float textureWorldSize = 22f;
 
         [Header("Base region layout (randomized noise field)")]
@@ -39,6 +47,8 @@ namespace Game.Presentation
         public Texture2D[] accentTextures = new Texture2D[0];
         [Tooltip("Relative pick weight per accent texture, same length as accentTextures. Missing/zero entries fall back to an equal split.")]
         public float[] accentWeights = new float[0];
+        [Tooltip("Optional normal map per accent texture, same length/order as accentTextures. A missing entry falls back to a flat (unbumped) normal.")]
+        public Texture2D[] accentNormals = new Texture2D[0];
         [Tooltip("Total map area share the accent layer covers, randomized within [Min, Max] each game (the base layer fills the rest).")]
         [Range(0f, 1f)] public float accentShareMin = 0.15f;
         [Range(0f, 1f)] public float accentShareMax = 0.25f;

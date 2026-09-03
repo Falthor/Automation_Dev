@@ -2378,6 +2378,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.TerrainView
   textureProfile: {fileID: 11400000, guid: f9f8a6318c30ad44fb63a1875d8e4f31, type: 2}
   tint: {r: 1, g: 1, b: 1, a: 1}
+  reliefLightDirection: {x: 0.5, y: 0.5}
+  reliefLightHeight: 0.4
+  reliefLightIntensity: 1.4
+  reliefAmbient: 0.3
   showCloudShadows: 1
   cloudScale: 30
   cloudSpeed: {x: 1.5, y: 0.7}

@@ -219,7 +219,7 @@ Examples:
 
 Presentation may read runtime state through approved contracts.
 
-Purely visual configuration (e.g. TerrainView's ground texture set and tiling) is exposed through a dedicated ScriptableObject preset (`GroundTextureProfile`) rather than inline fields, so the active look can be swapped by reassigning one asset instead of editing code. This is a presentation-only preset, not a Definition in the Definition → Runtime → View sense (§3.2): it has no corresponding Runtime type.
+Purely visual configuration (e.g. TerrainView's ground texture set and tiling) is exposed through a dedicated ScriptableObject preset (`GroundTextureProfile`) rather than inline fields, so the active look can be swapped by reassigning one asset instead of editing code. This is a presentation-only preset, not a Definition in the Definition → Runtime → View sense (§3.2): it has no corresponding Runtime type. See [`TERRAIN.md`](TERRAIN.md) for the full ground-rendering system (biome noise blend, relief lighting) and its constraints.
 
 Runtime must not depend on presentation classes.
 

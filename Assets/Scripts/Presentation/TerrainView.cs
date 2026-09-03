@@ -19,7 +19,10 @@ namespace Game.Presentation
     /// accent layer's total area share is itself randomized each run within
     /// [accentShareMin, accentShareMax] (GroundTextureProfile.seed drives all of it, or a fresh
     /// random seed each run if randomizeSeedEachRun is set). There is no per-cell brightness
-    /// modulation from TerrainType, only this large-scale texture variety.
+    /// modulation from TerrainType, only this large-scale texture variety. Each texture's optional
+    /// normal map (GroundTextureProfile.baseNormals/accentNormals) is lit by a single fixed
+    /// direction (reliefLightDirection/Height) - a cheap stand-in for a real Light2D, purely for a
+    /// bump/relief look; there is no dynamic lighting or shadow casting involved.
     /// </summary>
     public sealed class TerrainView : MonoBehaviour
     {
@@ -29,6 +32,12 @@ namespace Game.Presentation
         [Header("Texture")]
         [SerializeField] GroundTextureProfile textureProfile;
         [SerializeField] Color tint = Color.white;
+
+        [Header("Relief lighting (normal-mapped ground, fixed direction - no real Light2D)")]
+        [SerializeField] Vector2 reliefLightDirection = new Vector2(0.5f, 0.5f);
+        [SerializeField, Min(0.01f)] float reliefLightHeight = 0.7f;
+        [SerializeField, Range(0f, 2f)] float reliefLightIntensity = 1f;
+        [SerializeField, Range(0f, 1f)] float reliefAmbient = 0.55f;
 
         [Header("Cloud shadows (animated)")]
         [SerializeField] bool showCloudShadows = true;
@@ -61,6 +70,7 @@ namespace Game.Presentation
                 textureProfile != null ? textureProfile.baseTextures : null,
                 textureProfile != null ? textureProfile.baseWeights : null);
             _groundMaterial.SetFloat("_BiomeTexCount", baseCount);
+            SetNormalPalette(_groundMaterial, "_BiomeNormal", textureProfile != null ? textureProfile.baseNormals : null);
 
             _groundMaterial.SetFloat("_BiomeCellSize", textureProfile != null ? textureProfile.biomeCellSize : 12f);
             _groundMaterial.SetFloat("_BiomeEdgeSoftness", textureProfile != null ? textureProfile.biomeEdgeSoftness : 0.1f);
@@ -70,9 +80,15 @@ namespace Game.Presentation
                 textureProfile != null ? textureProfile.accentWeights : null);
             bool hasAccents = textureProfile != null && textureProfile.accentTextures != null && textureProfile.accentTextures.Length > 0;
             _groundMaterial.SetFloat("_AccentTexCount", hasAccents ? accentCount : 0);
+            SetNormalPalette(_groundMaterial, "_AccentNormal", textureProfile != null ? textureProfile.accentNormals : null);
 
             _groundMaterial.SetFloat("_AccentCellSize", textureProfile != null ? textureProfile.accentCellSize : 7f);
             _groundMaterial.SetFloat("_AccentEdgeSoftness", textureProfile != null ? textureProfile.accentEdgeSoftness : 0.1f);
+
+            Vector2 lightDir2D = reliefLightDirection.sqrMagnitude > 0.0001f ? reliefLightDirection.normalized : Vector2.right;
+            _groundMaterial.SetVector("_ReliefLightDir", new Vector4(lightDir2D.x, lightDir2D.y, reliefLightHeight, 0f));
+            _groundMaterial.SetFloat("_ReliefLightIntensity", reliefLightIntensity);
+            _groundMaterial.SetFloat("_ReliefAmbient", reliefAmbient);
 
             // Kept small (not a full int range): the shader's hash multiplies this by ~100-450
             // inside a frac(), and float32 only has ~7 significant digits - a huge seed would
@@ -123,6 +139,17 @@ namespace Game.Presentation
             }
 
             return usedCount;
+        }
+
+        /// <summary>Assigns a normal map per slot where the profile provides one, leaving the shader's own flat "bump" default for any slot without one (never Texture2D.whiteTexture - that is not a valid encoded normal).</summary>
+        static void SetNormalPalette(Material material, string prefix, Texture2D[] normals)
+        {
+            int count = normals != null ? normals.Length : 0;
+            for (int slot = 0; slot < GroundTextureProfile.MaxBiomeTextures; slot++)
+            {
+                Texture2D tex = slot < count ? normals[slot] : null;
+                if (tex != null) material.SetTexture($"{prefix}{slot}", tex);
+            }
         }
 
         (SpriteRenderer, Material) CreateLayer(string name, int sortingOrder, string shaderName)

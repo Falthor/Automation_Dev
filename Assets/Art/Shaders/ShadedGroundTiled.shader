@@ -5,31 +5,30 @@ Shader "Custom/ShadedGroundTiled"
         _BiomeTex0 ("Base Texture 0", 2D) = "white" {}
         _BiomeTex1 ("Base Texture 1", 2D) = "white" {}
         _BiomeTex2 ("Base Texture 2", 2D) = "white" {}
-        _BiomeTex3 ("Base Texture 3", 2D) = "white" {}
-        _BiomeTex4 ("Base Texture 4", 2D) = "white" {}
-        _BiomeTex5 ("Base Texture 5", 2D) = "white" {}
         _BiomeTexCount ("Base Texture Count", Float) = 1
         _BiomeWeight0 ("Base Weight 0", Float) = 1
         _BiomeWeight1 ("Base Weight 1", Float) = 1
         _BiomeWeight2 ("Base Weight 2", Float) = 1
-        _BiomeWeight3 ("Base Weight 3", Float) = 1
-        _BiomeWeight4 ("Base Weight 4", Float) = 1
-        _BiomeWeight5 ("Base Weight 5", Float) = 1
 
         _AccentTex0 ("Accent Texture 0", 2D) = "white" {}
         _AccentTex1 ("Accent Texture 1", 2D) = "white" {}
         _AccentTex2 ("Accent Texture 2", 2D) = "white" {}
-        _AccentTex3 ("Accent Texture 3", 2D) = "white" {}
-        _AccentTex4 ("Accent Texture 4", 2D) = "white" {}
-        _AccentTex5 ("Accent Texture 5", 2D) = "white" {}
         _AccentTexCount ("Accent Texture Count", Float) = 0
         _AccentWeight0 ("Accent Weight 0", Float) = 1
         _AccentWeight1 ("Accent Weight 1", Float) = 1
         _AccentWeight2 ("Accent Weight 2", Float) = 1
-        _AccentWeight3 ("Accent Weight 3", Float) = 1
-        _AccentWeight4 ("Accent Weight 4", Float) = 1
-        _AccentWeight5 ("Accent Weight 5", Float) = 1
         _AccentShare ("Accent Total Area Share", Range(0, 1)) = 0.2
+
+        _BiomeNormal0 ("Base Normal 0", 2D) = "bump" {}
+        _BiomeNormal1 ("Base Normal 1", 2D) = "bump" {}
+        _BiomeNormal2 ("Base Normal 2", 2D) = "bump" {}
+        _AccentNormal0 ("Accent Normal 0", 2D) = "bump" {}
+        _AccentNormal1 ("Accent Normal 1", 2D) = "bump" {}
+        _AccentNormal2 ("Accent Normal 2", 2D) = "bump" {}
+
+        _ReliefLightDir ("Relief Light Direction (xyz)", Vector) = (0.5, 0.5, 0.7, 0)
+        _ReliefLightIntensity ("Relief Light Intensity", Range(0, 2)) = 1
+        _ReliefAmbient ("Relief Ambient (shadow floor)", Range(0, 1)) = 0.55
 
         _VariationOrigin ("Variation Origin (world)", Vector) = (0, 0, 0, 0)
         _TextureWorldSize ("Texture World Size", Vector) = (4, 4, 0, 0)
@@ -74,31 +73,30 @@ Shader "Custom/ShadedGroundTiled"
             sampler2D _BiomeTex0;
             sampler2D _BiomeTex1;
             sampler2D _BiomeTex2;
-            sampler2D _BiomeTex3;
-            sampler2D _BiomeTex4;
-            sampler2D _BiomeTex5;
             float _BiomeTexCount;
             float _BiomeWeight0;
             float _BiomeWeight1;
             float _BiomeWeight2;
-            float _BiomeWeight3;
-            float _BiomeWeight4;
-            float _BiomeWeight5;
 
             sampler2D _AccentTex0;
             sampler2D _AccentTex1;
             sampler2D _AccentTex2;
-            sampler2D _AccentTex3;
-            sampler2D _AccentTex4;
-            sampler2D _AccentTex5;
             float _AccentTexCount;
             float _AccentWeight0;
             float _AccentWeight1;
             float _AccentWeight2;
-            float _AccentWeight3;
-            float _AccentWeight4;
-            float _AccentWeight5;
             float _AccentShare;
+
+            sampler2D _BiomeNormal0;
+            sampler2D _BiomeNormal1;
+            sampler2D _BiomeNormal2;
+            sampler2D _AccentNormal0;
+            sampler2D _AccentNormal1;
+            sampler2D _AccentNormal2;
+
+            float4 _ReliefLightDir;
+            float _ReliefLightIntensity;
+            float _ReliefAmbient;
 
             float4 _VariationOrigin;
             float4 _TextureWorldSize;
@@ -141,37 +139,44 @@ Shader "Custom/ShadedGroundTiled"
             {
                 if (idx <= 0) return tex2D(_BiomeTex0, uv);
                 if (idx == 1) return tex2D(_BiomeTex1, uv);
-                if (idx == 2) return tex2D(_BiomeTex2, uv);
-                if (idx == 3) return tex2D(_BiomeTex3, uv);
-                if (idx == 4) return tex2D(_BiomeTex4, uv);
-                return tex2D(_BiomeTex5, uv);
+                return tex2D(_BiomeTex2, uv);
             }
 
             fixed4 SampleAccent(int idx, float2 uv)
             {
                 if (idx <= 0) return tex2D(_AccentTex0, uv);
                 if (idx == 1) return tex2D(_AccentTex1, uv);
-                if (idx == 2) return tex2D(_AccentTex2, uv);
-                if (idx == 3) return tex2D(_AccentTex3, uv);
-                if (idx == 4) return tex2D(_AccentTex4, uv);
-                return tex2D(_AccentTex5, uv);
+                return tex2D(_AccentTex2, uv);
             }
 
-            int PickWeighted(float h, int count, float w0, float w1, float w2, float w3, float w4, float w5)
+            fixed4 SampleBaseNormal(int idx, float2 uv)
             {
-                float weights[6];
+                if (idx <= 0) return tex2D(_BiomeNormal0, uv);
+                if (idx == 1) return tex2D(_BiomeNormal1, uv);
+                return tex2D(_BiomeNormal2, uv);
+            }
+
+            fixed4 SampleAccentNormal(int idx, float2 uv)
+            {
+                if (idx <= 0) return tex2D(_AccentNormal0, uv);
+                if (idx == 1) return tex2D(_AccentNormal1, uv);
+                return tex2D(_AccentNormal2, uv);
+            }
+
+            int PickWeighted(float h, int count, float w0, float w1, float w2)
+            {
+                float weights[3];
                 weights[0] = w0; weights[1] = w1; weights[2] = w2;
-                weights[3] = w3; weights[4] = w4; weights[5] = w5;
 
                 float total = 0.0;
                 for (int k = 0; k < count; k++) total += max(weights[k], 0.0001);
 
                 float target = h * total;
                 float cumulative = 0.0;
-                for (int k = 0; k < count; k++)
+                for (int j = 0; j < count; j++)
                 {
-                    cumulative += max(weights[k], 0.0001);
-                    if (target <= cumulative) return k;
+                    cumulative += max(weights[j], 0.0001);
+                    if (target <= cumulative) return j;
                 }
                 return count - 1;
             }
@@ -181,11 +186,10 @@ Shader "Custom/ShadedGroundTiled"
             // that shared boundary (edgeDist, in field-value units) - used to drive the speckle
             // transition at that boundary. edgeDist is left huge when there is no neighboring band
             // on that side (single texture, or sitting at the very end of the range).
-            int PickBand(float fieldValue, int count, float w0, float w1, float w2, float w3, float w4, float w5, out int otherIdx, out float edgeDist)
+            int PickBand(float fieldValue, int count, float w0, float w1, float w2, out int otherIdx, out float edgeDist)
             {
-                float weights[6];
+                float weights[3];
                 weights[0] = w0; weights[1] = w1; weights[2] = w2;
-                weights[3] = w3; weights[4] = w4; weights[5] = w5;
 
                 float total = 0.0;
                 for (int k = 0; k < count; k++) total += max(weights[k], 0.0001);
@@ -194,12 +198,12 @@ Shader "Custom/ShadedGroundTiled"
                 int idx = count - 1;
                 float lower = 0.0;
                 float upper = 1.0;
-                for (int k = 0; k < count; k++)
+                for (int j = 0; j < count; j++)
                 {
-                    float next = cum + max(weights[k], 0.0001) / total;
-                    if (fieldValue < next || k == count - 1)
+                    float next = cum + max(weights[j], 0.0001) / total;
+                    if (fieldValue < next || j == count - 1)
                     {
-                        idx = k; lower = cum; upper = next;
+                        idx = j; lower = cum; upper = next;
                         break;
                     }
                     cum = next;
@@ -244,10 +248,19 @@ Shader "Custom/ShadedGroundTiled"
                 int baseCount = max((int)_BiomeTexCount, 1);
                 int baseOther;
                 float baseEdgeDist;
-                int baseNear = PickBand(baseField, baseCount, _BiomeWeight0, _BiomeWeight1, _BiomeWeight2, _BiomeWeight3, _BiomeWeight4, _BiomeWeight5, baseOther, baseEdgeDist);
+                int baseNear = PickBand(baseField, baseCount, _BiomeWeight0, _BiomeWeight1, _BiomeWeight2, baseOther, baseEdgeDist);
 
                 float baseT = 0.5 + 0.5 * smoothstep(0.0, max(_BiomeEdgeSoftness, 0.0001), baseEdgeDist);
                 fixed4 groundColor = lerp(SampleBase(baseOther, texUV), SampleBase(baseNear, texUV), baseT);
+
+                // Relief: blend the two candidate normal maps the same way as the diffuse colors
+                // (unpacked and renormalized, not raw packed bytes, so the blend stays a valid
+                // unit vector), then light it with a fixed direction - a cheap stand-in for a real
+                // Light2D, giving the flat ground a sense of bump/relief without needing one.
+                float3 normal = normalize(lerp(
+                    UnpackNormal(SampleBaseNormal(baseOther, texUV)),
+                    UnpackNormal(SampleBaseNormal(baseNear, texUV)),
+                    baseT));
 
                 // ---- Accent layer: sparse textures from an independent, smaller-scale noise
                 // field, overlaid wherever that field exceeds a threshold set so roughly
@@ -271,14 +284,24 @@ Shader "Custom/ShadedGroundTiled"
                     {
                         float2 chunk = floor(local / max(_AccentCellSize * 3.0, 0.0001));
                         float pickHash = Hash21(chunk + accentSeedOffset + float2(55.0, 77.0));
-                        accentIdx = PickWeighted(pickHash, accentCount, _AccentWeight0, _AccentWeight1, _AccentWeight2, _AccentWeight3, _AccentWeight4, _AccentWeight5);
+                        accentIdx = PickWeighted(pickHash, accentCount, _AccentWeight0, _AccentWeight1, _AccentWeight2);
                     }
                     fixed4 accentColor = SampleAccent(accentIdx, texUV);
 
                     fixed4 colorNear = nearIsAccent ? accentColor : groundColor;
                     fixed4 colorFar = nearIsAccent ? groundColor : accentColor;
                     groundColor = lerp(colorFar, colorNear, accentT);
+
+                    float3 accentNormalSample = UnpackNormal(SampleAccentNormal(accentIdx, texUV));
+                    float3 normalNear = nearIsAccent ? accentNormalSample : normal;
+                    float3 normalFar = nearIsAccent ? normal : accentNormalSample;
+                    normal = normalize(lerp(normalFar, normalNear, accentT));
                 }
+
+                float3 lightDir = normalize(_ReliefLightDir.xyz);
+                float ndotl = saturate(dot(normal, lightDir));
+                float lightTerm = _ReliefAmbient + (1.0 - _ReliefAmbient) * ndotl * _ReliefLightIntensity;
+                groundColor.rgb *= lightTerm;
 
                 return groundColor * i.color;
             }
