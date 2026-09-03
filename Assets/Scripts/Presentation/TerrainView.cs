@@ -4,13 +4,25 @@ using UnityEngine;
 namespace Game.Presentation
 {
     /// <summary>
-    /// Renders the authoritative TerrainRuntime data as a single shaded ground layer plus an
+    /// Renders the authoritative TerrainRuntime data as a single tiled ground layer plus an
     /// animated cloud-shadow overlay, reusing the technique validated in the TerrainTransition
-    /// prototype's single-texture shading mode (ShadedGroundTiled / CloudShadowOverlay shaders).
-    /// The rendered mask is derived from the same deterministic TerrainRuntime.SampleContinuous
-    /// function that produced the authoritative per-cell TerrainType, so the brightness
-    /// variation can never meaningfully disagree with gameplay data - it only adds cosmetic
-    /// sub-cell shading exactly where neighboring cells actually differ in type.
+    /// prototype (ShadedGroundTiled / CloudShadowOverlay shaders). The ground layer's texture
+    /// comes from two independent randomized single-octave noise fields (GroundTextureProfile) -
+    /// a base layer (dominant textures, splitting the whole map by weighted bands of one field at
+    /// biomeCellSize) and a sparser accent layer overlaid on top wherever a second,
+    /// independently-seeded field crosses its own threshold (accentCellSize), so accents read as
+    /// scattered small patches rather than nesting inside the base shapes. Both feature sizes are
+    /// kept small (a handful of world units) so several alternations are visible within a normal
+    /// camera view. Both layers use a plain smooth blend (smoothstep + lerp, no dithering) at that
+    /// small scale, which reads as soft continuous grain rather than a visible edge - dithering
+    /// and large blob-sized halos were both tried and rejected earlier for looking artificial. The
+    /// accent layer's total area share is itself randomized each run within
+    /// [accentShareMin, accentShareMax] (GroundTextureProfile.seed drives all of it, or a fresh
+    /// random seed each run if randomizeSeedEachRun is set). There is no per-cell brightness
+    /// modulation from TerrainType, only this large-scale texture variety. Each texture's optional
+    /// normal map (GroundTextureProfile.baseNormals/accentNormals) is lit by a single fixed
+    /// direction (reliefLightDirection/Height) - a cheap stand-in for a real Light2D, purely for a
+    /// bump/relief look; there is no dynamic lighting or shadow casting involved.
     /// </summary>
     public sealed class TerrainView : MonoBehaviour
     {
@@ -21,11 +33,11 @@ namespace Game.Presentation
         [SerializeField] GroundTextureProfile textureProfile;
         [SerializeField] Color tint = Color.white;
 
-        [Header("Rendering")]
-        [SerializeField, Range(1, 8)] int maskSupersample = 4;
-        [SerializeField, Range(0f, 1f)] float shadingIntensity = 0.25f;
-        [SerializeField] float shadingNoiseAmount = 0.20f;
-        [SerializeField] float noiseScale = 2.75f;
+        [Header("Relief lighting (normal-mapped ground, fixed direction - no real Light2D)")]
+        [SerializeField] Vector2 reliefLightDirection = new Vector2(0.5f, 0.5f);
+        [SerializeField, Min(0.01f)] float reliefLightHeight = 0.7f;
+        [SerializeField, Range(0f, 2f)] float reliefLightIntensity = 1f;
+        [SerializeField, Range(0f, 1f)] float reliefAmbient = 0.55f;
 
         [Header("Cloud shadows (animated)")]
         [SerializeField] bool showCloudShadows = true;
@@ -40,7 +52,6 @@ namespace Game.Presentation
         SpriteRenderer _cloudRenderer;
         Material _groundMaterial;
         Material _cloudMaterial;
-        Texture2D _maskTexture;
 
         public void Initialize(TerrainRuntime terrain, GridRuntime grid)
         {
@@ -48,28 +59,54 @@ namespace Game.Presentation
 
             float worldSize = terrain.Size * grid.CellSize;
             Vector3 origin = grid.CellToWorld(new Game.Core.GridCoord(0, 0));
-            var worldSizeVec = new Vector4(worldSize, worldSize, 0f, 0f);
 
             _groundRenderer.transform.localScale = new Vector3(worldSize, worldSize, 1f);
-            _maskTexture = BuildMask(terrain);
 
-            Texture2D groundTexture = textureProfile != null ? textureProfile.groundTexture : null;
-            Texture2D groundTexture2 = textureProfile != null ? textureProfile.groundTexture2 : null;
             float textureWorldSize = textureProfile != null ? textureProfile.textureWorldSize : 22f;
-
-            _groundMaterial.SetTexture("_GroundTex", groundTexture != null ? groundTexture : Texture2D.whiteTexture);
-            _groundMaterial.SetTexture("_GroundTex2", groundTexture2 != null ? groundTexture2 : Texture2D.whiteTexture);
-            _groundMaterial.SetFloat("_UseGroundTex2", groundTexture2 != null ? 1f : 0f);
-            _groundMaterial.SetFloat("_VariationScale", textureProfile != null ? textureProfile.variationScale : 0.15f);
-            _groundMaterial.SetFloat("_VariationSoftness", textureProfile != null ? textureProfile.variationSoftness : 0.35f);
-            _groundMaterial.SetTexture("_MaskTex", _maskTexture);
-            _groundMaterial.SetVector("_MaskOrigin", origin);
-            _groundMaterial.SetVector("_MaskWorldSize", worldSizeVec);
+            _groundMaterial.SetVector("_VariationOrigin", origin);
             _groundMaterial.SetVector("_TextureWorldSize", new Vector4(textureWorldSize, textureWorldSize, 0f, 0f));
-            _groundMaterial.SetFloat("_CellSize", grid.CellSize);
-            _groundMaterial.SetFloat("_ShadingIntensity", shadingIntensity);
-            _groundMaterial.SetFloat("_NoiseAmount", shadingNoiseAmount);
-            _groundMaterial.SetFloat("_NoiseScale", noiseScale);
+
+            int baseCount = SetTexturePalette(_groundMaterial, "_BiomeTex", "_BiomeWeight",
+                textureProfile != null ? textureProfile.baseTextures : null,
+                textureProfile != null ? textureProfile.baseWeights : null);
+            _groundMaterial.SetFloat("_BiomeTexCount", baseCount);
+            SetNormalPalette(_groundMaterial, "_BiomeNormal", textureProfile != null ? textureProfile.baseNormals : null);
+
+            _groundMaterial.SetFloat("_BiomeCellSize", textureProfile != null ? textureProfile.biomeCellSize : 12f);
+            _groundMaterial.SetFloat("_BiomeEdgeSoftness", textureProfile != null ? textureProfile.biomeEdgeSoftness : 0.1f);
+
+            int accentCount = SetTexturePalette(_groundMaterial, "_AccentTex", "_AccentWeight",
+                textureProfile != null ? textureProfile.accentTextures : null,
+                textureProfile != null ? textureProfile.accentWeights : null);
+            bool hasAccents = textureProfile != null && textureProfile.accentTextures != null && textureProfile.accentTextures.Length > 0;
+            _groundMaterial.SetFloat("_AccentTexCount", hasAccents ? accentCount : 0);
+            SetNormalPalette(_groundMaterial, "_AccentNormal", textureProfile != null ? textureProfile.accentNormals : null);
+
+            _groundMaterial.SetFloat("_AccentCellSize", textureProfile != null ? textureProfile.accentCellSize : 7f);
+            _groundMaterial.SetFloat("_AccentEdgeSoftness", textureProfile != null ? textureProfile.accentEdgeSoftness : 0.1f);
+
+            Vector2 lightDir2D = reliefLightDirection.sqrMagnitude > 0.0001f ? reliefLightDirection.normalized : Vector2.right;
+            _groundMaterial.SetVector("_ReliefLightDir", new Vector4(lightDir2D.x, lightDir2D.y, reliefLightHeight, 0f));
+            _groundMaterial.SetFloat("_ReliefLightIntensity", reliefLightIntensity);
+            _groundMaterial.SetFloat("_ReliefAmbient", reliefAmbient);
+
+            // Kept small (not a full int range): the shader's hash multiplies this by ~100-450
+            // inside a frac(), and float32 only has ~7 significant digits - a huge seed would
+            // swamp the noise field's position-dependent bits entirely, collapsing it to a
+            // constant.
+            bool randomizeSeed = textureProfile == null || textureProfile.randomizeSeedEachRun;
+            int seed = randomizeSeed ? UnityEngine.Random.Range(0, 10000) : textureProfile.seed;
+            _groundMaterial.SetFloat("_BiomeSeed", seed);
+
+            // The accent layer's total area share is itself randomized within the profile's
+            // configured range (rather than fixed), derived from the same seed so a fixed/testing
+            // seed still reproduces the exact same result.
+            var seededRng = new System.Random(seed);
+            float shareMin = textureProfile != null ? textureProfile.accentShareMin : 0.15f;
+            float shareMax = textureProfile != null ? textureProfile.accentShareMax : 0.25f;
+            float accentShare = shareMin + (float)seededRng.NextDouble() * Mathf.Max(shareMax - shareMin, 0f);
+            _groundMaterial.SetFloat("_AccentShare", hasAccents ? accentShare : 0f);
+
             _groundRenderer.color = tint;
 
             if (showCloudShadows)
@@ -83,6 +120,35 @@ namespace Game.Presentation
                 _cloudMaterial.SetFloat("_CloudSoftness", cloudSoftness);
                 _cloudMaterial.SetFloat("_ShadowOpacity", cloudShadowOpacity);
                 _cloudMaterial.SetColor("_ShadowColor", cloudShadowColor);
+            }
+        }
+
+        /// <summary>Fills a shader's fixed 0..MaxBiomeTextures-1 texture/weight slots from a profile array and returns how many entries were actually used (clamped to at least 1, so the shader always has a valid texture even with an empty palette).</summary>
+        static int SetTexturePalette(Material material, string texturePrefix, string weightPrefix, Texture2D[] textures, float[] weights)
+        {
+            int count = textures != null ? textures.Length : 0;
+            int usedCount = Mathf.Clamp(count, 1, GroundTextureProfile.MaxBiomeTextures);
+
+            for (int slot = 0; slot < GroundTextureProfile.MaxBiomeTextures; slot++)
+            {
+                Texture2D tex = slot < count ? textures[slot] : null;
+                material.SetTexture($"{texturePrefix}{slot}", tex != null ? tex : Texture2D.whiteTexture);
+
+                float weight = (weights != null && slot < weights.Length && weights[slot] > 0f) ? weights[slot] : 1f;
+                material.SetFloat($"{weightPrefix}{slot}", weight);
+            }
+
+            return usedCount;
+        }
+
+        /// <summary>Assigns a normal map per slot where the profile provides one, leaving the shader's own flat "bump" default for any slot without one (never Texture2D.whiteTexture - that is not a valid encoded normal).</summary>
+        static void SetNormalPalette(Material material, string prefix, Texture2D[] normals)
+        {
+            int count = normals != null ? normals.Length : 0;
+            for (int slot = 0; slot < GroundTextureProfile.MaxBiomeTextures; slot++)
+            {
+                Texture2D tex = slot < count ? normals[slot] : null;
+                if (tex != null) material.SetTexture($"{prefix}{slot}", tex);
             }
         }
 
@@ -111,34 +177,6 @@ namespace Game.Presentation
             texture.SetPixel(0, 0, Color.white);
             texture.Apply(false, false);
             return Sprite.Create(texture, new Rect(0, 0, 1, 1), new Vector2(0f, 0f), 1f);
-        }
-
-        Texture2D BuildMask(TerrainRuntime terrain)
-        {
-            int resolution = terrain.Size * maskSupersample;
-            var texture = new Texture2D(resolution, resolution, TextureFormat.RGBA32, false)
-            {
-                name = "TerrainMask",
-                wrapMode = TextureWrapMode.Clamp,
-                filterMode = FilterMode.Bilinear
-            };
-
-            var pixels = new Color[resolution * resolution];
-            for (int y = 0; y < resolution; y++)
-            {
-                for (int x = 0; x < resolution; x++)
-                {
-                    float cellX = (float)x / maskSupersample;
-                    float cellY = (float)y / maskSupersample;
-                    float value = terrain.SampleContinuous(cellX, cellY);
-                    float m = value < terrain.Proportion ? 1f : 0f;
-                    pixels[y * resolution + x] = new Color(m, m, m, 1f);
-                }
-            }
-
-            texture.SetPixels(pixels);
-            texture.Apply(false, false);
-            return texture;
         }
     }
 }
