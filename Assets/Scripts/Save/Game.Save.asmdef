@@ -1,0 +1,16 @@
+{
+    "name": "Game.Save",
+    "rootNamespace": "Game.Save",
+    "references": [
+        "Unity.Plugins.NewtonsoftJson"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

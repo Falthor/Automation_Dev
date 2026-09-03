@@ -1,0 +1,104 @@
+.main-menu-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+.main-menu-background {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    -unity-background-scale-mode: scale-and-crop;
+}
+
+.main-menu-panel {
+    align-items: center;
+    background-color: rgba(16, 20, 25, 0.85);
+    border-width: 2px;
+    border-color: rgb(48, 59, 66);
+    padding: 32px 40px;
+}
+
+.main-menu-title {
+    color: rgb(85, 221, 245);
+    font-size: 28px;
+    -unity-font-style: bold;
+    letter-spacing: 4px;
+    margin-bottom: 24px;
+}
+
+.main-menu-button {
+    width: 260px;
+    height: 44px;
+    margin-bottom: 12px;
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    color: rgb(220, 220, 220);
+    font-size: 14px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    -unity-text-align: middle-center;
+}
+
+.main-menu-button:hover {
+    border-color: rgb(85, 221, 245);
+    color: rgb(85, 221, 245);
+}
+
+.main-menu-button:disabled {
+    opacity: 0.4;
+}
+
+.confirm-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+.confirm-dialog {
+    width: 380px;
+    align-items: center;
+    background-color: rgb(16, 20, 25);
+    border-width: 2px;
+    border-color: rgb(232, 168, 61);
+    padding: 24px;
+}
+
+.confirm-message {
+    color: rgb(220, 220, 220);
+    font-size: 13px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    margin-bottom: 20px;
+}
+
+.confirm-button-row {
+    flex-direction: row;
+}
+
+.confirm-button {
+    width: 165px;
+    margin: 0 4px;
+}
+
+.confirm-button-danger {
+    border-color: rgb(222, 107, 74);
+    color: rgb(222, 107, 74);
+}
+
+.confirm-button-danger:hover {
+    border-color: rgb(242, 83, 83);
+    color: rgb(242, 83, 83);
+}

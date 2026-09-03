@@ -161,15 +161,46 @@ namespace Game.Construction
 
             PayCost(Selected);
 
-            if (Selected is ConveyorDefinition conveyorDefinition)
+            // Overtake exception: placing a conveyor/splitter/crossroad onto existing conveyor
+            // segments replaces them instead of being blocked by the normal occupancy check
+            // (see IsPlaceable) - lets the player drop a junction piece onto belts already laid.
+            if (Selected is ConveyorDefinition && _grid.GetOccupant(cell) is ConveyorRuntime)
             {
-                // Overtake exception: placing a conveyor onto an existing conveyor replaces it
-                // instead of being blocked by the normal occupancy check (see IsPlaceable).
-                if (_grid.GetOccupant(cell) is ConveyorRuntime)
-                {
-                    _grid.ClearOccupant(cell);
-                }
+                _grid.ClearOccupant(cell);
+            }
+            else if (Selected is SplitterDefinition || Selected is CrossroadDefinition)
+            {
+                ClearOvertakenConveyors(cell, Selected.FootprintCells);
+            }
 
+            placed = CreateAndRegister(Selected, cell, rotation);
+            return placed != null;
+        }
+
+        /// <summary>
+        /// Reconstructs a previously-placed building from a saved definition/cell/rotation, with
+        /// no cost deduction and no placement validity check - both already happened once, at the
+        /// original construction time the save captured (CONTRACTS.md §14). The only other caller
+        /// allowed to bypass TryPlace's gate; used exclusively by the save/load restore path
+        /// (Game.Save.SaveService). The caller is responsible for placing deposits/Core into
+        /// Game.Grid first, since an Extractor resolves its deposit from whatever already
+        /// occupies its cell, exactly like TryPlace does.
+        /// </summary>
+        public BuildingRuntime CreateForRestore(BuildingDefinition definition, GridCoord cell, Direction rotation)
+        {
+            return CreateAndRegister(definition, cell, rotation);
+        }
+
+        /// <summary>
+        /// Instantiates the concrete runtime type for a definition and registers it as the
+        /// occupant of its footprint in Game.Grid. The one place that maps a BuildingDefinition
+        /// to its BuildingRuntime subclass - shared by TryPlace (after cost/placement checks) and
+        /// CreateForRestore (after the save/load layer already knows placement was once valid).
+        /// </summary>
+        BuildingRuntime CreateAndRegister(BuildingDefinition definition, GridCoord cell, Direction rotation)
+        {
+            if (definition is ConveyorDefinition conveyorDefinition)
+            {
                 var conveyor = new ConveyorRuntime(conveyorDefinition, cell, rotation);
                 switch (conveyorDefinition.DefaultShape)
                 {
@@ -183,103 +214,91 @@ namespace Game.Construction
                 }
 
                 _grid.SetOccupant(cell, conveyor);
-                placed = conveyor;
-                return true;
+                return conveyor;
             }
 
-            if (Selected is SplitterDefinition splitterDefinition)
+            if (definition is SplitterDefinition splitterDefinition)
             {
-                ClearOvertakenConveyors(cell, splitterDefinition.FootprintCells);
                 var splitter = new SplitterRuntime(splitterDefinition, cell, rotation);
                 _grid.SetOccupantFootprint(cell, splitterDefinition.FootprintCells, splitter);
-                placed = splitter;
-                return true;
+                return splitter;
             }
 
-            if (Selected is CrossroadDefinition crossroadDefinition)
+            if (definition is CrossroadDefinition crossroadDefinition)
             {
-                ClearOvertakenConveyors(cell, crossroadDefinition.FootprintCells);
                 var crossroad = new CrossroadRuntime(crossroadDefinition, cell, rotation);
                 _grid.SetOccupantFootprint(cell, crossroadDefinition.FootprintCells, crossroad);
-                placed = crossroad;
-                return true;
+                return crossroad;
             }
 
-            if (Selected is ExtractorDefinition extractorDefinition)
+            if (definition is ExtractorDefinition extractorDefinition)
             {
-                // Guaranteed by IsPlaceable: only reachable when the whole footprint is the same exploitable deposit.
-                var deposit = (DepositRuntime)_grid.GetOccupant(cell);
+                // Guaranteed by IsPlaceable during interactive TryPlace: only reachable when the
+                // whole footprint is the same exploitable deposit. During restore the caller has
+                // already placed the matching deposit at this cell before calling us.
+                var deposit = _grid.GetOccupant(cell) as DepositRuntime;
                 var extractor = new ExtractorRuntime(extractorDefinition, cell, rotation, deposit, _computeSystem, _powerSystem);
                 _grid.SetOccupantFootprint(cell, extractorDefinition.FootprintSize, extractor);
-                placed = extractor;
-                return true;
+                return extractor;
             }
 
-            if (Selected is StorageDefinition storageDefinition)
+            if (definition is StorageDefinition storageDefinition)
             {
                 var storage = new StorageRuntime(storageDefinition, cell, rotation);
                 _grid.SetOccupantFootprint(cell, storageDefinition.FootprintSize, storage);
-                placed = storage;
-                return true;
+                return storage;
             }
 
-            if (Selected is FoundryDefinition foundryDefinition)
+            if (definition is FoundryDefinition foundryDefinition)
             {
                 var foundry = new FoundryRuntime(foundryDefinition, cell, rotation, _recipeDatabase, _itemDatabase, _computeSystem, _powerSystem, _researchSystem);
                 _grid.SetOccupantFootprint(cell, foundryDefinition.FootprintSize, foundry);
-                placed = foundry;
-                return true;
+                return foundry;
             }
 
-            if (Selected is FactoryDefinition factoryDefinition)
+            if (definition is FactoryDefinition factoryDefinition)
             {
                 var factory = new FactoryRuntime(factoryDefinition, cell, rotation, _recipeDatabase, _computeSystem, _powerSystem, _researchSystem);
                 _grid.SetOccupantFootprint(cell, factoryDefinition.FootprintSize, factory);
-                placed = factory;
-                return true;
+                return factory;
             }
 
-            if (Selected is AdvancedFoundryDefinition advancedFoundryDefinition)
+            if (definition is AdvancedFoundryDefinition advancedFoundryDefinition)
             {
                 var advancedFoundry = new AdvancedFoundryRuntime(advancedFoundryDefinition, cell, rotation, _recipeDatabase, _computeSystem, _powerSystem, _researchSystem);
                 _grid.SetOccupantFootprint(cell, advancedFoundryDefinition.FootprintSize, advancedFoundry);
-                placed = advancedFoundry;
-                return true;
+                return advancedFoundry;
             }
 
-            if (Selected is AssemblerDefinition assemblerDefinition)
+            if (definition is AssemblerDefinition assemblerDefinition)
             {
                 var assembler = new AssemblerRuntime(assemblerDefinition, cell, rotation, _recipeDatabase, _computeSystem, _powerSystem, _researchSystem);
                 _grid.SetOccupantFootprint(cell, assemblerDefinition.FootprintSize, assembler);
-                placed = assembler;
-                return true;
+                return assembler;
             }
 
-            if (Selected is PowerplantGazDefinition powerplantGazDefinition)
+            if (definition is PowerplantGazDefinition powerplantGazDefinition)
             {
                 var powerplant = new PowerplantGazRuntime(powerplantGazDefinition, cell, rotation, _computeSystem, _powerSystem);
                 _grid.SetOccupantFootprint(cell, powerplantGazDefinition.FootprintSize, powerplant);
-                placed = powerplant;
-                return true;
+                return powerplant;
             }
 
-            if (Selected is LaboratoryDefinition laboratoryDefinition)
+            if (definition is LaboratoryDefinition laboratoryDefinition)
             {
                 var laboratory = new LaboratoryRuntime(laboratoryDefinition, cell, rotation, _computeSystem, _powerSystem, _researchSystem);
                 _grid.SetOccupantFootprint(cell, laboratoryDefinition.FootprintSize, laboratory);
-                placed = laboratory;
-                return true;
+                return laboratory;
             }
 
-            if (Selected is DataCenterDefinition dataCenterDefinition)
+            if (definition is DataCenterDefinition dataCenterDefinition)
             {
                 var dataCenter = new DataCenterRuntime(dataCenterDefinition, cell, rotation, _itemDatabase, _computeSystem, _powerSystem, _researchSystem);
                 _grid.SetOccupantFootprint(cell, dataCenterDefinition.FootprintSize, dataCenter);
-                placed = dataCenter;
-                return true;
+                return dataCenter;
             }
 
-            return false;
+            return null;
         }
 
         /// <summary>

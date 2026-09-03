@@ -4,7 +4,8 @@
     "references": [
         "Game.Core",
         "Game.Data",
-        "Game.Grid"
+        "Game.Grid",
+        "Unity.Plugins.NewtonsoftJson"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

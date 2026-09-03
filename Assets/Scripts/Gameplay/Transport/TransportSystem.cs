@@ -51,6 +51,15 @@ namespace Game.Gameplay.Transport
         /// <summary>Every registered Storage in the world, for UI that needs to aggregate across all of them (e.g. the global Storage panel).</summary>
         public IReadOnlyList<StorageRuntime> Storages => _storages;
 
+        /// <summary>Every registered building across every internal list (CONTRACTS.md §14) - used only by the save/load system to enumerate every placed building at once; no other consumer should need this.</summary>
+        public IEnumerable<BuildingRuntime> GetAllBuildings()
+        {
+            foreach (BuildingRuntime building in _conveyors) yield return building;
+            foreach (BuildingRuntime building in _splitters) yield return building;
+            foreach (BuildingRuntime building in _crossroads) yield return building;
+            foreach (BuildingRuntime building in _allOthers) yield return building;
+        }
+
         public TransportSystem(GridRuntime grid)
         {
             _grid = grid;

@@ -3,6 +3,7 @@ using Game.Data;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Power;
 using Game.Gameplay.Research;
+using Newtonsoft.Json.Linq;
 
 namespace Game.Gameplay.Buildings
 {
@@ -46,6 +47,19 @@ namespace Game.Gameplay.Buildings
         protected override void OnBeforeProductionTick(float effectiveDeltaTime)
         {
             if (_intakeCooldown > 0f) _intakeCooldown -= effectiveDeltaTime;
+        }
+
+        public override JObject CaptureState()
+        {
+            JObject state = base.CaptureState();
+            state["intakeCooldown"] = _intakeCooldown;
+            return state;
+        }
+
+        public override void RestoreState(JObject state)
+        {
+            base.RestoreState(state);
+            _intakeCooldown = state.Value<float?>("intakeCooldown") ?? 0f;
         }
     }
 }

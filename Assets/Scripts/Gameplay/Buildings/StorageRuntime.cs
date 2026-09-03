@@ -1,6 +1,7 @@
 using Game.Core;
 using Game.Data;
 using Game.Gameplay.Items;
+using Newtonsoft.Json.Linq;
 
 namespace Game.Gameplay.Buildings
 {
@@ -39,6 +40,28 @@ namespace Game.Gameplay.Buildings
         public override int GetInputAmount(string itemId)
         {
             return _inventory.GetAmount(itemId);
+        }
+
+        public override JObject CaptureState()
+        {
+            var slots = new JArray();
+            foreach (InventorySlot slot in _inventory.Slots)
+            {
+                if (slot.IsEmpty) continue;
+                slots.Add(new JObject { ["itemId"] = slot.ItemId, ["amount"] = slot.Amount });
+            }
+            return new JObject { ["slots"] = slots };
+        }
+
+        public override void RestoreState(JObject state)
+        {
+            if (!(state["slots"] is JArray slots)) return;
+            foreach (JToken entry in slots)
+            {
+                string itemId = entry.Value<string>("itemId");
+                int amount = entry.Value<int?>("amount") ?? 0;
+                if (!string.IsNullOrEmpty(itemId) && amount > 0) _inventory.Add(itemId, amount);
+            }
         }
     }
 }

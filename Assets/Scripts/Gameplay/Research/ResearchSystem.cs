@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Data;
 
 namespace Game.Gameplay.Research
@@ -39,6 +40,9 @@ namespace Game.Gameplay.Research
 
         public bool IsUnlocked(string researchId) => researchId != null && _unlocked.Contains(researchId);
 
+        /// <summary>Every unlocked research id, for the save/load system (CONTRACTS.md §14). No other consumer should need to enumerate this - query IsUnlocked(id) instead.</summary>
+        public IEnumerable<string> GetUnlockedIds() => _unlocked;
+
         /// <summary>Whether this research's prerequisite (if it has one) is already completed. Always true for a research with no prerequisite.</summary>
         public bool ArePrerequisitesMet(ResearchDefinition research)
         {
@@ -72,6 +76,23 @@ namespace Game.Gameplay.Research
             ActiveResearch = null;
             Progress = 0f;
             ResearchCompleted?.Invoke(completedId);
+        }
+
+        /// <summary>Restores a previously-captured snapshot (CONTRACTS.md §14). Used only by the save/load system - never by gameplay code, which drives state through AddRp/Start/Tick instead.</summary>
+        public void RestoreState(float rp, ResearchDefinition activeResearch, float progress, IEnumerable<string> unlockedIds)
+        {
+            Rp = rp;
+            ActiveResearch = activeResearch;
+            Progress = progress;
+            _pendingActiveLabs = 0;
+            _settledActiveLabs = 0;
+
+            _unlocked.Clear();
+            if (unlockedIds == null) return;
+            foreach (string id in unlockedIds)
+            {
+                if (!string.IsNullOrEmpty(id)) _unlocked.Add(id);
+            }
         }
     }
 }

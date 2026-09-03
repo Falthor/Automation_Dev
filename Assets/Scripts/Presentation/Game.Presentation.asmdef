@@ -7,7 +7,9 @@
         "Game.Grid",
         "Game.Gameplay",
         "Game.Construction",
-        "Unity.InputSystem"
+        "Game.Save",
+        "Unity.InputSystem",
+        "Unity.Plugins.NewtonsoftJson"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -3,6 +3,7 @@ using Game.Data;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Power;
 using Game.Grid;
+using Newtonsoft.Json.Linq;
 
 namespace Game.Gameplay.Buildings
 {
@@ -104,6 +105,23 @@ namespace Game.Gameplay.Buildings
             {
                 _bufferedAmount -= 1;
             }
+        }
+
+        public override JObject CaptureState()
+        {
+            return new JObject
+            {
+                ["productionTimer"] = _productionTimer,
+                ["bufferedAmount"] = _bufferedAmount,
+                ["cycleCharged"] = _cycleCharged
+            };
+        }
+
+        public override void RestoreState(JObject state)
+        {
+            _productionTimer = state.Value<float?>("productionTimer") ?? 0f;
+            _bufferedAmount = state.Value<int?>("bufferedAmount") ?? 0;
+            _cycleCharged = state.Value<bool?>("cycleCharged") ?? false;
         }
     }
 }

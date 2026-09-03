@@ -2,6 +2,7 @@ using Game.Core;
 using Game.Data;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Power;
+using Newtonsoft.Json.Linq;
 
 namespace Game.Gameplay.Buildings
 {
@@ -75,6 +76,23 @@ namespace Game.Gameplay.Buildings
             _fuelAmount -= 1;
             _burnCharged = false;
             _fuelTimer = !HasFuel ? 0f : _fuelTimer - _definition.FuelCycleTimeSeconds;
+        }
+
+        public override JObject CaptureState()
+        {
+            return new JObject
+            {
+                ["fuelAmount"] = _fuelAmount,
+                ["fuelTimer"] = _fuelTimer,
+                ["burnCharged"] = _burnCharged
+            };
+        }
+
+        public override void RestoreState(JObject state)
+        {
+            _fuelAmount = state.Value<int?>("fuelAmount") ?? 0;
+            _fuelTimer = state.Value<float?>("fuelTimer") ?? 0f;
+            _burnCharged = state.Value<bool?>("burnCharged") ?? false;
         }
     }
 }

@@ -1,5 +1,6 @@
 using Game.Core;
 using Game.Data;
+using Newtonsoft.Json.Linq;
 
 namespace Game.Gameplay.Buildings
 {
@@ -72,6 +73,30 @@ namespace Game.Gameplay.Buildings
             _itemB = null;
             HasItemB = false;
             _progressB = 0f;
+        }
+
+        public override JObject CaptureState()
+        {
+            return new JObject
+            {
+                ["hasItemA"] = HasItemA,
+                ["itemA"] = _itemA as string,
+                ["progressA"] = _progressA,
+                ["hasItemB"] = HasItemB,
+                ["itemB"] = _itemB as string,
+                ["progressB"] = _progressB
+            };
+        }
+
+        public override void RestoreState(JObject state)
+        {
+            HasItemA = state.Value<bool?>("hasItemA") ?? false;
+            _itemA = HasItemA ? state.Value<string>("itemA") : null;
+            _progressA = state.Value<float?>("progressA") ?? 0f;
+
+            HasItemB = state.Value<bool?>("hasItemB") ?? false;
+            _itemB = HasItemB ? state.Value<string>("itemB") : null;
+            _progressB = state.Value<float?>("progressB") ?? 0f;
         }
     }
 }
