@@ -12,8 +12,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4d7330c298104784d89d16d20bff3004, type: 3}
   m_Name: GroundProfile_Yughues
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.GroundTextureProfile
-  groundTexture: {fileID: 2800000, guid: 0a0f38ada3f3ea049a821baab2758c2f, type: 3}
-  groundTexture2: {fileID: 2800000, guid: b29afc39cae886b4ca1931cdb9f5e068, type: 3}
-  textureWorldSize: 4
-  variationScale: 0.15
-  variationSoftness: 0.35
+  baseTextures:
+  - {fileID: 2800000, guid: 89101dc700039b842bba61c2b4376af9, type: 3}
+  - {fileID: 2800000, guid: 01ce50ca5cda8d8489f2723684f0a796, type: 3}
+  baseWeights:
+  - 1
+  - 1
+  textureWorldSize: 3
+  biomeCellSize: 40
+  biomeEdgeSoftness: 0.2
+  accentTextures:
+  - {fileID: 2800000, guid: b29afc39cae886b4ca1931cdb9f5e068, type: 3}
+  accentWeights:
+  - 1
+  accentShareMin: 0.15
+  accentShareMax: 0.25
+  accentCellSize: 7
+  accentEdgeSoftness: 0.2
+  randomizeSeedEachRun: 1
+  seed: 0
