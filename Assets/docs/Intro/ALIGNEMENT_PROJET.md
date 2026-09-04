@@ -7,6 +7,20 @@ dépôt et sa valeur cible. Toutes les valeurs cibles sont des valeurs de test.
 
 ---
 
+## État d'application
+
+- **§1 (Items), §2 (Recettes), §3 (Bâtiments/Core)** — appliquées
+  (`TASK_01_REBALANCE_DATA.md`), à l'exception du verrou `unlockResearch` de
+  `AdvancedFoundryDefinition` vers la recherche *Fonderie avancée* : cette recherche
+  n'existe pas encore et sa création sort du périmètre d'une tâche de données. Le champ
+  reste `null`.
+- **§6 (`ComputeSystem.ReserveCap`)** — appliquée.
+- **§4 (Data Center), §5 (Usure des composants), §6 (refonte recherche, plafond de
+  bâtiments), §7 (Recherches), §8 (génération de monde), §9, §10 (brouillard de guerre)**
+  — non appliquées, hors périmètre de la tâche 01.
+
+---
+
 ## 1. Items — `Assets/Data/Items/`
 
 | Asset | Champ | Actuel | Cible |

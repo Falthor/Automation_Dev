@@ -273,7 +273,7 @@ public void Spend(float cost)
 public void Tick(float deltaTime)
 ```
 
-CU is a **currency, not a flow**. There is one mechanism: a pooled reserve (`Reserve`, capped at `ReserveCap` = 25000) credited by `Grant` and spent in one-shot chunks via `CanSpend`/`Spend`. Nothing draws CU per second, nothing is throttled by a CU ratio: a building either affords the cycle it is about to start, or waits at 0 progress until the reserve can pay for it.
+CU is a **currency, not a flow**. There is one mechanism: a pooled reserve (`Reserve`, capped at `ReserveCap` = 60000, starting full) credited by `Grant` and spent in one-shot chunks via `CanSpend`/`Spend`. Nothing draws CU per second, nothing is throttled by a CU ratio: a building either affords the cycle it is about to start, or waits at 0 progress until the reserve can pay for it.
 
 Two kinds of spender, both charged in full at the instant a cycle starts:
 
@@ -282,7 +282,7 @@ Two kinds of spender, both charged in full at the instant a cycle starts:
 
 Two sources credit the reserve:
 
-- the **Core**, which grants `CuOutput` in one go every `CuOutputIntervalSeconds` (3000 CU / 5s today) - no cable or network needed;
+- the **Core**, whose `CuOutput` is 0 in the current data - it produces no CU (the `CuOutputIntervalSeconds` mechanism remains in code but has no effect at this value);
 - a **Data Center**, which credits its installed components' output for the duration of each tick, and only while powered.
 
 `Tick(deltaTime)` (called once per `GameRuntime.Update()`) only advances the window `IncomePerSecond` is averaged over - the credited-CU-per-second figure the UI shows. Anything granted above the cap is discarded, and `IncomePerSecond` counts only what was really credited.

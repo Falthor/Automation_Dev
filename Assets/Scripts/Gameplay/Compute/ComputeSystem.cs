@@ -9,7 +9,7 @@ namespace Game.Gameplay.Compute
     /// </summary>
     public sealed class ComputeSystem
     {
-        public const float ReserveCap = 25000f;
+        public const float ReserveCap = 60000f;
 
         /// <summary>Length of the window IncomePerSecond is averaged over - long enough that a Core grant arriving every few seconds reads as a steady rate rather than a spike.</summary>
         const float IncomeWindowSeconds = 5f;

@@ -15,11 +15,12 @@ MonoBehaviour:
   id: cpu_mkI
   ingredients:
   - item: {fileID: 11400000, guid: 65d78e7c331fda945b089ab7a130f97c, type: 2}
-    amount: 5
-  - item: {fileID: 11400000, guid: d5be11fa9d151e345a38f4254d3f1430, type: 2}
     amount: 3
+  - item: {fileID: 11400000, guid: d5be11fa9d151e345a38f4254d3f1430, type: 2}
+    amount: 2
   - item: {fileID: 11400000, guid: 0ff6217112897ef44ae6bdf7d7d711de, type: 2}
-    amount: 6
+    amount: 3
   outputAmount: 2
-  timeSeconds: 5
-  computeCost: 2000
+  timeSeconds: 6
+  computeCost: 80
+  unlockResearch: {fileID: 0}

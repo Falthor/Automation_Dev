@@ -33,7 +33,7 @@ MonoBehaviour:
   - {fileID: -955268259036638798, guid: b04c0bc61e7037b49ab5aa32eff28a87, type: 3}
   animationFps: 18
   cost: []
-  actionRadiusCells: 50
-  cuOutput: 3000
+  actionRadiusCells: 22
+  cuOutput: 0
   cuOutputIntervalSeconds: 5
   powerOutputKw: 20

@@ -15,10 +15,10 @@ MonoBehaviour:
   id: Steel
   ingredients:
   - item: {fileID: 11400000, guid: 929b7f451c0471e4792a67bdfa782512, type: 2}
-    amount: 3
-  - item: {fileID: 11400000, guid: 5e06ac222b66b1543b7ac815dd074e68, type: 2}
     amount: 2
+  - item: {fileID: 11400000, guid: 5e06ac222b66b1543b7ac815dd074e68, type: 2}
+    amount: 1
   outputAmount: 1
-  timeSeconds: 6
-  computeCost: 600
+  timeSeconds: 4
+  computeCost: 12
   unlockResearch: {fileID: 0}
