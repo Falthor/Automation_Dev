@@ -1,11 +1,13 @@
 namespace Game.Gameplay.Compute
 {
     /// <summary>
-    /// Global compute pool (CONTRACTS.md §10). CU is a currency, not a flow: it is credited into
-    /// a capped reserve - the Core grants a fixed amount at a fixed interval, a Data Center
-    /// credits its own output as it produces it - and spent in one-shot chunks the moment a
-    /// production cycle starts. There is no continuous per-second draw, and therefore no
-    /// throttling ratio: a building either can afford the cycle it is about to start or waits.
+    /// Global compute pool (CONTRACTS.md §10). CU is a currency, not a flow for every spender but
+    /// one: a production cycle (recipe-based building, Extractor, Laboratory-successor, Gas
+    /// Powerplant) still pays in a single one-shot chunk the moment it starts, via
+    /// CanSpend/Spend - there is no throttling ratio for those, a cycle either can afford itself
+    /// or waits. Research absorption (Game.Gameplay.Research) is the one continuous per-second
+    /// draw, via SpendUpTo - it never takes more than the reserve currently holds, so it floors
+    /// at zero instead of going negative.
     /// </summary>
     public sealed class ComputeSystem
     {
@@ -36,6 +38,23 @@ namespace Game.Gameplay.Compute
 
         /// <summary>Deducts cost from the reserve. Caller must have checked CanSpend first.</summary>
         public void Spend(float cost) => Reserve -= cost;
+
+        /// <summary>
+        /// Withdraws up to maxAmount from the reserve - less if the reserve holds less - and
+        /// returns how much was actually taken. The one continuous per-second draw CONTRACTS.md
+        /// §10 allows (research absorption); every other spender still uses the one-shot
+        /// CanSpend/Spend pair above. Never drives the reserve below zero and never throws when
+        /// there isn't enough - the caller (ResearchSystem) treats a partial or zero return as
+        /// the research simply progressing slower, or pausing, that tick.
+        /// </summary>
+        public float SpendUpTo(float maxAmount)
+        {
+            if (maxAmount <= 0f) return 0f;
+
+            float taken = System.Math.Min(maxAmount, Reserve);
+            Reserve -= taken;
+            return taken;
+        }
 
         /// <summary>Advances the income-rate window. Call once per frame from GameRuntime.Update().</summary>
         public void Tick(float deltaTime)

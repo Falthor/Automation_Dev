@@ -25,9 +25,9 @@ namespace Game.Save
 
         public float ComputeReserve;
 
-        public float ResearchRp;
         public string ResearchActiveId;
         public float ResearchProgress;
+        public List<string> ResearchQueue = new List<string>();
         public List<string> ResearchUnlocked = new List<string>();
 
         public Dictionary<string, int> GlobalStock = new Dictionary<string, int>();

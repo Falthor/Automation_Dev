@@ -10,8 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72c3c39fefc96e1488e1fdd7ff1eb525, type: 3}
-  m_Name: screw
+  m_Name: assembler
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
-  id: screw
-  displayName: Vis
-  cost: 10
+  id: assembler
+  displayName: Assembleur
+  description: Assemble des composants a partir de pieces produites en usine.
+  icon: {fileID: 0}
+  cuCost: 2500
+  prerequisites:
+  - {fileID: 11400000, guid: 6d2e1b8c5f4a49b3c7dae1f2a3b4c5d6, type: 2}
+  absorptionRatePerSecond: 45
+  tier: 1

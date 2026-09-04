@@ -110,7 +110,7 @@ namespace Game.Data
         /// entry arrow (construction ghost and built view alike), and - since an arrow marks a
         /// real intake point - restrict where transport may hand this building items
         /// (BuildingRuntime.GetInputCells). Independent of HasOutputArrow: a building can take
-        /// deliveries without producing anything physical (Laboratory). False by default; the
+        /// deliveries without producing anything physical (DataCenter). False by default; the
         /// recipe-based production buildings override it, and Extractor keeps the default since
         /// it accepts no input at all.
         /// </summary>

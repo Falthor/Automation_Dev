@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: circuit_board
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: circuit_board
-  displayName: Circuit Imprime
-  cost: 50
-  requiresResearch: {fileID: 11400000, guid: 5c1f0a7b4e3d48a2b6c9d0e1f2a3b4c5, type: 2}
+  displayName: Circuit imprime
+  description: Recette du circuit imprime.
+  icon: {fileID: 0}
+  cuCost: 1500
+  prerequisites: []
+  absorptionRatePerSecond: 35
+  tier: 0

@@ -194,7 +194,7 @@ namespace Game.Presentation
             (bool rotateSprite, Direction artNativeDirection) = ResolveGhostRotation(selected);
 
             // Output and entry arrows are independent: a building can take deliveries without
-            // producing anything physical (Laboratory), so each side is previewed on its own.
+            // producing anything physical (DataCenter), so each side is previewed on its own.
             Sprite outputArrowSprite = null;
             Vector3? outputArrowWorldPos = null;
             if (selected.HasOutputArrow)

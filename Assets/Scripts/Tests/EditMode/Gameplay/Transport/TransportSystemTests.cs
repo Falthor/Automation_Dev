@@ -35,9 +35,9 @@ namespace Game.Tests.EditMode.Gameplay.Transport
 
             var conveyorCell = new GridCoord(5, 5);
             // North of the conveyor, entry pointing South at it.
-            var factoryA = new FactoryRuntime(definitionA, new GridCoord(5, 6), Direction.North, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem());
+            var factoryA = new FactoryRuntime(definitionA, new GridCoord(5, 6), Direction.North, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
             // West of the conveyor, entry pointing East at it.
-            var factoryB = new FactoryRuntime(definitionB, new GridCoord(4, 5), Direction.West, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem());
+            var factoryB = new FactoryRuntime(definitionB, new GridCoord(4, 5), Direction.West, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
             factoryA.SetSelectedRecipe("iron_ore_sink");
             factoryB.SetSelectedRecipe("iron_ore_sink");
             transport.Register(factoryA);

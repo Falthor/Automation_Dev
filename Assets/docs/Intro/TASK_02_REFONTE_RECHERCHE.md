@@ -1,5 +1,12 @@
 # Tâche 02 — Refonte du système de recherche
 
+> **État : réalisée.**
+> Date : 2026-09-04. Commit : `17f1ca13d1dd76c11aeb9e1781d14827eb9d6bab`.
+>
+> Cinq recherches créées dans `ResearchDatabase` : `circuit_board`, `assembler`,
+> `compute_modules`, `datacenter`, `storage_box`. Laboratoire et Data Card supprimés
+> entièrement. Les huit recherches reportées (section 12) n'ont pas été créées.
+
 **Objectif : remplacer le modèle RP/laboratoire par le modèle CU/absorption, rendre
 l'arbre pilotable par les données, et supprimer la Data Card et le Laboratoire.**
 

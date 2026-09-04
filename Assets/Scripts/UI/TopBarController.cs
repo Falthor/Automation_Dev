@@ -209,18 +209,16 @@ namespace Game.UI
             {
                 ResearchDefinition active = research.GetActiveResearch();
                 float progress = research.GetProgress();
-                int labs = research.GetActiveLabCount();
 
                 _researchCard.Value.text = active.DisplayName;
                 _researchCard.Lines[0].text = $"{Mathf.RoundToInt(progress * 100f)}%";
-                _researchCard.Lines[1].text = labs > 0
-                    ? $"Temps restant  {FormatTime((1f - progress) * 60f / labs)}"
-                    : "Temps restant  --:--";
+                _researchCard.Lines[1].text = $"Temps restant  {FormatTime(research.GetEstimatedSecondsRemaining())}";
                 _researchCard.BarFill.style.width = new StyleLength(Length.Percent(Mathf.Clamp01(progress) * 100f));
             }
             else
             {
-                _researchCard.Value.text = $"{Mathf.RoundToInt(research.Rp)} RP";
+                int queued = research.GetQueue().Count;
+                _researchCard.Value.text = queued > 0 ? $"{queued} en file" : "Aucune";
                 _researchCard.Lines[0].text = "0%";
                 _researchCard.Lines[1].text = "Temps restant  --:--";
                 _researchCard.BarFill.style.width = new StyleLength(Length.Percent(0f));

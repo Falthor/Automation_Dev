@@ -45,7 +45,6 @@ MonoBehaviour:
   - Screw
   - Iron_Plate
   - Printed_Circuit_Board
-  - Data_Card
   - Memory_MK1
   acceptedItemIds:
   - Iron_Ingot

@@ -15,6 +15,15 @@ dépôt et sa valeur cible. Toutes les valeurs cibles sont des valeurs de test.
   n'existe pas encore et sa création sort du périmètre d'une tâche de données. Le champ
   reste `null`.
 - **§6 (`ComputeSystem.ReserveCap`)** — appliquée.
+- **§6 (`ResearchSystem` — refonte CU/absorption, `ResearchDefinition.RequiresResearch` →
+  `Prerequisites`, flux CU par seconde autorisé pour la recherche)** — appliquée
+  (`TASK_02_REFONTE_RECHERCHE.md`). Le Laboratoire et la Data Card sont supprimés. Le
+  plafond de bâtiments (même paragraphe) reste hors périmètre.
+- **§7 (Recherches)** — appliquée pour les cinq recherches de l'introduction obligatoire/
+  optionnelle atteignables sans mécanique manquante : `circuit_board`, `assembler`,
+  `compute_modules`, `datacenter`, `storage_box` (`ResearchDatabase`,
+  `Assets/Data/Research/`). Les huit autres lignes du tableau §7 restent non créées —
+  chacune attend la mécanique qu'elle débloque (voir `TASK_02_REFONTE_RECHERCHE.md` §12).
 - **§8, sous-section « Placement — état actuel et cible »** — appliquée
   (`WorldGenerator.cs`) : une grappe garantie par ressource (fer, cuivre, charbon) dans
   le rayon — 4 emplacements chacune, échec = exception —, plus une grappe d'invitation
@@ -22,9 +31,8 @@ dépôt et sa valeur cible. Toutes les valeurs cibles sont des valeurs de test.
   pour les grappes dans le rayon.
 - **§8, reste (« Les gisements sont illimités », suppression de `InitialQuantity`/
   `RemainingQuantity`/`TryExtract`)** — non appliqué.
-- **§4 (Data Center), §5 (Usure des composants), §6 (refonte recherche, plafond de
-  bâtiments), §7 (Recherches), §9, §10 (brouillard de guerre)** — non appliquées, hors
-  périmètre.
+- **§4 (Data Center), §5 (Usure des composants), §6 (plafond de bâtiments), §9, §10
+  (brouillard de guerre)** — non appliquées, hors périmètre.
 
 ---
 
