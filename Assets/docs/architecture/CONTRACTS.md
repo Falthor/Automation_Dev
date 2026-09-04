@@ -80,6 +80,10 @@ Reads current input quantity.
 
 Returns a read-only `IReadOnlyDictionary<string,int>` snapshot of everything currently held in output. Empty by default; only a building with a real pooled output (`ProductionBuildingRuntime`) overrides it. Exists so a generic caller (the transport push step) can enumerate what a building's output holds without knowing its concrete type - `AddOutput`/`TakeOutput` alone are write/consume operations, not an enumeration.
 
+### `ProductionBuildingRuntime.GetInputContents()`
+
+Not part of the base `BuildingRuntime` contract (only `ProductionBuildingRuntime` and its subclasses have a pooled input to enumerate). Returns a read-only `IReadOnlyDictionary<string,int>` snapshot of everything currently held in input - mirrors `GetOutputContents()` for the other side of the same building. Used by the aggregate Storage panel (`Game.UI`) to include a Factory's own internal stock alongside the player's global stock and every placed Storage box.
+
 The pooled inventory model must not be mixed with the belt lane model. Two pooled-inventory shapes coexist under this same contract: `Inventory` (`Game.Gameplay.Items`, used by `StorageRuntime`) is slot-based - a fixed `SlotCount` of distinct item ids, each slot capped at `CapacityPerSlot`. `PooledItemStock` (`Game.Gameplay.Items`, used by `ProductionBuildingRuntime`'s input and output) has unlimited distinct item ids, each capped independently at a `MaxStackPerItem`. Which one a building uses is an internal representation choice; both satisfy the same public methods above.
 
 ## 3a. Generic transport push/pull

@@ -146,6 +146,25 @@ namespace Game.UI
                 }
             }
 
+            // A Factory's own internal stock (raw materials waiting on a cycle, finished goods
+            // waiting to be pushed out) counts as the player's spendable inventory too, exactly
+            // like a Storage box's contents - hiding it here would show less than they actually own.
+            foreach (BuildingRuntime building in gameRuntime.Transport.GetAllBuildings())
+            {
+                if (!(building is FactoryRuntime factory)) continue;
+
+                foreach (var entry in factory.GetInputContents())
+                {
+                    if (entry.Value <= 0) continue;
+                    totals[entry.Key] = (totals.TryGetValue(entry.Key, out int existing) ? existing : 0) + entry.Value;
+                }
+                foreach (var entry in factory.GetOutputContents())
+                {
+                    if (entry.Value <= 0) continue;
+                    totals[entry.Key] = (totals.TryGetValue(entry.Key, out int existing) ? existing : 0) + entry.Value;
+                }
+            }
+
             if (totals.Count == 0)
             {
                 _grid.Clear();
