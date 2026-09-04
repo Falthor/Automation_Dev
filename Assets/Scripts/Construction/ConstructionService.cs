@@ -2,22 +2,30 @@ using Game.Core;
 using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
-using Game.Gameplay.Items;
 using Game.Gameplay.Power;
 using Game.Gameplay.Research;
+using Game.Gameplay.Sites;
 using Game.Gameplay.Transport;
 using Game.Grid;
 using UnityEngine;
 
 namespace Game.Construction
 {
-    /// <summary>Why a placement is refused - CONTRACTS.md §8's CanPlace/TryPlace stay a plain bool for ghost tinting; this is the explanatory read GetPlacementRefusalReason exposes for player-facing messaging (TASK_04_PLAFOND_RAYON.md §3.2).</summary>
+    /// <summary>
+    /// Why a placement is refused - CONTRACTS.md §8's CanPlace/TryPlace stay a plain bool for
+    /// ghost tinting; this is the explanatory read GetPlacementRefusalReason exposes for
+    /// player-facing messaging (TASK_04_PLAFOND_RAYON.md §3.2).
+    ///
+    /// There is deliberately no CannotAfford case (TASK_05_ROBOT_CONSTRUCTEUR.md): placing a
+    /// building no longer pays for it, it opens a construction site that reserves whatever is
+    /// available and waits for the rest. Affordability is therefore a state of the site (which
+    /// names its missing materials), never a reason to refuse the placement itself.
+    /// </summary>
     public enum PlacementRefusalReason
     {
         None,
         NotUnlocked,
         OutOfActionRadius,
-        CannotAfford,
         BuildingCapReached,
         CellOccupied
     }
@@ -41,7 +49,7 @@ namespace Game.Construction
         readonly ResearchSystem _researchSystem;
         readonly TransportSystem _transport;
         readonly CoreRuntime _core;
-        readonly PooledItemStock _globalStock;
+        readonly ConstructionSiteSystem _constructionSites;
 
         public BuildingDefinition Selected { get; private set; }
         public Direction PreviewRotation { get; private set; } = Direction.North;
@@ -55,24 +63,32 @@ namespace Game.Construction
         public int BuildingCap { get; private set; } = DefaultBuildingCap;
 
         /// <summary>
-        /// How many currently-placed buildings count against BuildingCap right now - every
-        /// registered building except the Core (placed by world generation, not a player decision)
-        /// and Conveyor/Splitter/Crossroad (transport pieces, never slot-limited). Computed live
-        /// from TransportSystem's registry rather than tracked as a separate counter, so placing
-        /// and demolishing can never drift out of sync with it. 0 when there is no TransportSystem
-        /// (e.g. a headless test that never registers anything) - no restriction without data,
-        /// same convention IsWithinActionRadius already uses for a missing Core.
+        /// How many building slots are taken against BuildingCap right now - every registered
+        /// building except the Core (placed by world generation, not a player decision) and
+        /// Conveyor/Splitter/Crossroad (transport pieces, never slot-limited), plus every pending
+        /// construction site of a slot-consuming type. A site counts from the moment it is placed
+        /// rather than only once its materials arrive (TASK_05_ROBOT_CONSTRUCTEUR.md): otherwise
+        /// the cap could be walked straight past by queueing sites faster than robots can serve
+        /// them. Computed live from TransportSystem's registry plus the site queue rather than
+        /// tracked as a separate counter, so placing/cancelling/demolishing can never drift out of
+        /// sync with it. 0 when there is no TransportSystem (e.g. a headless test that never
+        /// registers anything) - no restriction without data, the same convention
+        /// IsWithinActionRadius already uses for a missing Core.
         /// </summary>
         public int OccupiedBuildingSlots
         {
             get
             {
-                if (_transport == null) return 0;
+                int count = _constructionSites?.OccupiedSiteSlots ?? 0;
+                if (_transport == null) return count;
 
-                int count = 0;
                 foreach (BuildingRuntime building in _transport.GetAllBuildings())
                 {
                     if (ReferenceEquals(building, _core)) continue;
+                    // The Core chest is a world-generated fixture like the Core itself, never a
+                    // player decision (TASK_05_ROBOT_CONSTRUCTEUR.md §1b) - a player-built Storage
+                    // Box still counts.
+                    if (building.Definition.Id == CoreStorageDefinitionId) continue;
                     if (building is ConveyorRuntime || building is SplitterRuntime || building is CrossroadRuntime) continue;
                     count++;
                 }
@@ -80,9 +96,9 @@ namespace Game.Construction
             }
         }
 
-        public ConstructionService(GridRuntime grid, ItemDatabase itemDatabase, RecipeDatabase recipeDatabase, ComputeSystem computeSystem, PowerSystem powerSystem, ResearchSystem researchSystem, TransportSystem transport = null, CoreRuntime core = null, PooledItemStock globalStock = null)
+        public ConstructionService(GridRuntime grid, ItemDatabase itemDatabase, RecipeDatabase recipeDatabase, ComputeSystem computeSystem, PowerSystem powerSystem, ResearchSystem researchSystem, TransportSystem transport = null, CoreRuntime core = null, ConstructionSiteSystem constructionSites = null)
         {
-            _globalStock = globalStock;
+            _constructionSites = constructionSites;
             _grid = grid;
             _itemDatabase = itemDatabase;
             _recipeDatabase = recipeDatabase;
@@ -131,10 +147,11 @@ namespace Game.Construction
         }
 
         /// <summary>
-        /// Whether every item in definition.Cost is currently available from the player's global
-        /// stock + Core + every placed Storage combined. Public so the Building menu can show the
-        /// same affordability the placement check itself enforces (CONTRACTS.md §12), without
-        /// duplicating the aggregation logic.
+        /// Whether every item in definition.Cost is available right now across the aggregate a
+        /// robot could actually draw from. Informational only since TASK_05_ROBOT_CONSTRUCTEUR.md:
+        /// it drives the Building menu's "you can/cannot pay for this yet" styling, but it is NOT
+        /// a placement gate any more - placing an unaffordable building opens a site that waits
+        /// for its materials instead of being refused (see PlacementRefusalReason).
         /// </summary>
         public bool CanAfford(BuildingDefinition definition)
         {
@@ -146,115 +163,41 @@ namespace Game.Construction
             return true;
         }
 
-        /// <summary>Total of one item id currently held by the player's global stock, the Core, every placed Storage and every production building's internal stock (input+output) - the same pool a construction cost draws from.</summary>
+        /// <summary>
+        /// How much of one item id is still unreserved across the Core chest, every placed Storage
+        /// and every production building's output - i.e. GlobalStock's new read-only aggregate
+        /// (TASK_05_ROBOT_CONSTRUCTEUR.md §1), the single source of truth for what a robot could
+        /// still be sent to fetch. This service no longer aggregates that itself: it asks
+        /// ConstructionSiteSystem, which also owns the reservations that must be subtracted.
+        /// </summary>
         public int GetAvailableAmount(string itemId)
         {
-            int total = (_globalStock?.GetAmount(itemId) ?? 0) + (_core?.GetInputAmount(itemId) ?? 0);
-            if (_transport != null)
-            {
-                foreach (StorageRuntime storage in _transport.Storages)
-                {
-                    total += storage.GetInputAmount(itemId);
-                }
-
-                foreach (BuildingRuntime building in _transport.GetAllBuildings())
-                {
-                    if (!(building is ProductionBuildingRuntime production)) continue;
-                    total += production.GetInputAmount(itemId);
-                    if (production.GetOutputContents().TryGetValue(itemId, out int outputAmount)) total += outputAmount;
-                }
-            }
-            return total;
-        }
-
-        /// <summary>Deducts a definition's cost from the player's global stock first, then Core, then every Storage in turn (arbitrary but deterministic order). Caller must have checked CanAfford first.</summary>
-        void PayCost(BuildingDefinition definition)
-        {
-            foreach (RecipeIngredient ingredient in definition.Cost)
-            {
-                if (ingredient.Item == null) continue;
-
-                int remaining = ingredient.Amount;
-                if (_globalStock != null)
-                {
-                    remaining -= _globalStock.Take(ingredient.Item.Id, remaining);
-                }
-
-                if (_core != null)
-                {
-                    int fromCore = Mathf.Min(remaining, _core.GetInputAmount(ingredient.Item.Id));
-                    if (fromCore > 0)
-                    {
-                        _core.TakeInput(ingredient.Item.Id, fromCore);
-                        remaining -= fromCore;
-                    }
-                }
-
-                if (_transport == null) continue;
-
-                foreach (StorageRuntime storage in _transport.Storages)
-                {
-                    if (remaining <= 0) break;
-
-                    int fromStorage = Mathf.Min(remaining, storage.GetInputAmount(ingredient.Item.Id));
-                    if (fromStorage <= 0) continue;
-
-                    storage.TakeInput(ingredient.Item.Id, fromStorage);
-                    remaining -= fromStorage;
-                }
-
-                if (remaining <= 0) continue;
-
-                foreach (BuildingRuntime building in _transport.GetAllBuildings())
-                {
-                    if (remaining <= 0) break;
-                    if (!(building is ProductionBuildingRuntime production)) continue;
-
-                    int fromInput = Mathf.Min(remaining, production.GetInputAmount(ingredient.Item.Id));
-                    if (fromInput > 0)
-                    {
-                        production.TakeInput(ingredient.Item.Id, fromInput);
-                        remaining -= fromInput;
-                    }
-
-                    if (remaining <= 0) break;
-                    if (!production.GetOutputContents().TryGetValue(ingredient.Item.Id, out int outputAmount)) continue;
-
-                    int fromOutput = Mathf.Min(remaining, outputAmount);
-                    if (fromOutput <= 0) continue;
-
-                    production.TakeOutput(ingredient.Item.Id, fromOutput);
-                    remaining -= fromOutput;
-                }
-            }
-        }
-
-        /// <summary>Gives a demolished building's construction cost back to the player's global stock (no-op when there is no stock, e.g. a headless test).</summary>
-        void RefundCost(BuildingDefinition definition)
-        {
-            if (_globalStock == null) return;
-
-            foreach (RecipeIngredient ingredient in definition.Cost)
-            {
-                if (ingredient.Item == null || ingredient.Amount <= 0) continue;
-                _globalStock.Add(ingredient.Item.Id, ingredient.Amount);
-            }
+            if (_constructionSites == null) return 0;
+            return _constructionSites.GetAvailableAggregate().TryGetValue(itemId, out int amount) ? amount : 0;
         }
 
         /// <summary>
-        /// Places the currently selected building at the requested cell/rotation.
+        /// Opens a construction site for the currently selected building at the requested
+        /// cell/rotation (TASK_05_ROBOT_CONSTRUCTEUR.md §3/§7). Nothing is paid here and nothing
+        /// becomes functional: the BuildingRuntime is instantiated and occupies its grid cells
+        /// immediately (so nothing else can be placed on top of it, and a conveyor drag can keep
+        /// reshaping its anchor exactly as before), but it is deliberately NOT registered with
+        /// TransportSystem and has no view - it neither ticks, transports nor produces until
+        /// ConstructionSiteSystem materializes it, once robots have delivered its full cost.
+        ///
+        /// Passing an existing conveyorRunSite appends this cell to that site instead of opening a
+        /// new one - a whole conveyor drag is one single chantier, not one per segment (§3).
+        ///
         /// Only mutates grid/runtime state - never creates a GameObject.
         /// </summary>
-        public bool TryPlace(GridCoord cell, Direction rotation, out BuildingRuntime placed)
+        public bool TryPlace(GridCoord cell, Direction rotation, out ConstructionSiteRuntime site, ConstructionSiteRuntime conveyorRunSite = null)
         {
-            placed = null;
+            site = null;
 
-            if (Selected == null || !IsPlaceable(cell))
+            if (Selected == null || _constructionSites == null || !IsPlaceable(cell))
             {
                 return false;
             }
-
-            PayCost(Selected);
 
             // Overtake exception: placing a conveyor/splitter/crossroad onto existing conveyor
             // segments replaces them instead of being blocked by the normal occupancy check
@@ -268,8 +211,30 @@ namespace Game.Construction
                 ClearOvertakenConveyors(cell, Selected.FootprintCells);
             }
 
-            placed = CreateAndRegister(Selected, cell, rotation);
-            return placed != null;
+            BuildingRuntime segment = CreateAndRegister(Selected, cell, rotation);
+            if (segment == null) return false;
+
+            if (conveyorRunSite != null)
+            {
+                _constructionSites.AppendSegment(conveyorRunSite, segment);
+                site = conveyorRunSite;
+            }
+            else
+            {
+                site = _constructionSites.CreateSite(segment);
+            }
+
+            return true;
+        }
+
+        /// <summary>Cancels the pending construction site occupying a cell, if any (TASK_05_ROBOT_CONSTRUCTEUR.md §4) - releases its reservations and frees the cells its unbuilt segments held. Returns the segments whose grid cells were freed so the caller can clean up any view it had spawned for them.</summary>
+        public bool TryCancelSiteAt(GridCoord cell)
+        {
+            if (_constructionSites == null) return false;
+            if (!(_grid.GetOccupant(cell) is BuildingRuntime occupant)) return false;
+            if (!_constructionSites.TryGetSiteContaining(occupant, out ConstructionSiteRuntime site)) return false;
+
+            return _constructionSites.CancelSite(site);
         }
 
         /// <summary>
@@ -396,8 +361,12 @@ namespace Game.Construction
         /// of leaving the cells empty: ore deposits are world/terrain entities, not buildings,
         /// and outlive whatever gets built and later removed on top of them.
         ///
-        /// The building's full construction cost is refunded into the player's global stock -
-        /// the pool PayCost draws from first - so building and removing is cost-neutral.
+        /// The building disappears immediately - the player wants the space back, which is usually
+        /// the whole point of demolishing - but its materials are no longer refunded anywhere on
+        /// the spot: a robot must physically haul them back to the Core chest or a Storage
+        /// (TASK_05_ROBOT_CONSTRUCTEUR.md §5). A still-pending construction site is never
+        /// demolished through here (its building was never paid for); the caller routes that to
+        /// TryCancelSiteAt instead.
         /// </summary>
         public bool TryDemolish(GridCoord cell, out BuildingRuntime removed)
         {
@@ -408,7 +377,13 @@ namespace Game.Construction
                 return false;
             }
 
-            RefundCost(removed.Definition);
+            if (_constructionSites != null && _constructionSites.TryGetSiteContaining(removed, out _))
+            {
+                removed = null;
+                return false;
+            }
+
+            _constructionSites?.EnqueueRepatriation(removed.Cell, removed.Definition.Cost);
 
             Vector2Int footprint = removed.Definition.FootprintSize;
 
@@ -458,10 +433,9 @@ namespace Game.Construction
                 return PlacementRefusalReason.OutOfActionRadius;
             }
 
-            if (!CanAfford(Selected))
-            {
-                return PlacementRefusalReason.CannotAfford;
-            }
+            // No affordability gate (TASK_05_ROBOT_CONSTRUCTEUR.md): placing opens a site that
+            // reserves what exists and waits for the rest, so "I cannot pay for this right now" is
+            // a state the site displays, never a reason to refuse the placement.
 
             bool countsAgainstCap = !(Selected is ConveyorDefinition || Selected is SplitterDefinition || Selected is CrossroadDefinition);
             if (countsAgainstCap && OccupiedBuildingSlots >= BuildingCap)

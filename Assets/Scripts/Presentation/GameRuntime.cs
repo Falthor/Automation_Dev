@@ -4,10 +4,11 @@ using Game.Core;
 using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
-using Game.Gameplay.Items;
+using Game.Gameplay.Notifications;
 using Game.Gameplay.Power;
 using Game.Gameplay.Research;
 using Game.Gameplay.Selection;
+using Game.Gameplay.Sites;
 using Game.Gameplay.Transport;
 using Game.Gameplay.WorldGeneration;
 using Game.Grid;
@@ -119,12 +120,20 @@ namespace Game.Presentation
         public ResearchSystem Research { get; private set; }
 
         /// <summary>
-        /// The player's own item pool, seeded once at game start from
-        /// WorldGenerationSettings.StartingStock. It belongs to the player, not to any building -
-        /// construction costs draw from it first (ConstructionService), and the aggregate Storage
-        /// panel lists it alongside the placed Storage boxes.
+        /// GlobalStock keeps its name but its contract is inverted since TASK_05_ROBOT_CONSTRUCTEUR.md:
+        /// it holds nothing at all any more. It is a read-only aggregated view over the Core chest,
+        /// every placed Storage and every production building's output, minus everything already
+        /// reserved by a construction site - i.e. exactly what a builder robot could still be sent
+        /// to fetch (CONTRACTS.md §15). Recomputed on every read; never serialized.
         /// </summary>
-        public PooledItemStock GlobalStock { get; private set; }
+        public IReadOnlyDictionary<string, int> GlobalStock =>
+            ConstructionSites != null ? ConstructionSites.GetAvailableAggregate() : new Dictionary<string, int>();
+
+        /// <summary>Construction sites + the two builder robots (TASK_05_ROBOT_CONSTRUCTEUR.md), ticked from this object's central Update() like every other simulation system.</summary>
+        public ConstructionSiteSystem ConstructionSites { get; private set; }
+
+        /// <summary>Generic notification banner feed (TASK_05_ROBOT_CONSTRUCTEUR.md §6) - a robot unable to unload is its first user, not its only intended one.</summary>
+        public NotificationSystem Notifications { get; private set; }
 
         /// <summary>
         /// True while a UI panel (Building menu, Storage panel, ...) is open and should own
@@ -154,7 +163,7 @@ namespace Game.Presentation
             Compute = new ComputeSystem();
             Research = new ResearchSystem(Compute);
             Transport = new TransportSystem(Grid);
-            GlobalStock = new PooledItemStock(int.MaxValue);
+            Notifications = new NotificationSystem();
 
             SaveData loadedSave = PendingGameStart.LoadedSave;
             PendingGameStart.RequestNewGame(); // consume immediately - never read a second time this session
@@ -162,7 +171,6 @@ namespace Game.Presentation
             if (loadedSave != null)
             {
                 Terrain = new TerrainRuntime(loadedSave.TerrainSize, loadedSave.TerrainSeed, loadedSave.TerrainScale, loadedSave.TerrainProportion);
-                GlobalStock.RestoreContents(loadedSave.GlobalStock);
                 Compute.RestoreReserve(loadedSave.ComputeReserve);
 
                 var restoredQueue = new List<ResearchDefinition>();
@@ -179,21 +187,21 @@ namespace Game.Presentation
             {
                 Terrain = new TerrainRuntime(terrainSettings.Size, terrainSettings.Seed, terrainSettings.TerrainScale, terrainSettings.Proportion);
 
-                // The player's starting resources are no longer seeded into a building-less
-                // GlobalStock pool - WorldGenerator.Generate places a real Storage Box fixture
-                // (WorldGenerationSettings.CoreStorageDefinition) one cell south of the Core and
-                // seeds it directly from StartingStock instead, so they show up as a real,
-                // counted Storage box rather than double-counted against it.
+                // The player's starting resources live in the Core chest fixture placed by
+                // WorldGenerator.Generate (WorldGenerationSettings.CoreStorageDefinition), one cell
+                // south of the Core and seeded from StartingStock - never in a building-less pool.
 
-                // World generation (Core + deposits) must exist before ConstructionService, which
-                // needs the Core instance to check/deduct construction costs and its action radius.
+                // World generation (Core + deposits) must exist before ConstructionSiteSystem and
+                // ConstructionService: the former parks its robots next to the Core, the latter
+                // needs the Core instance for the action radius.
                 if (worldGenerationSettings != null)
                 {
                     World = new WorldGenerator();
                     World.Generate(Grid, Terrain.Size, worldGenerationSettings, Compute, Power, Research);
                 }
 
-                Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core, GlobalStock);
+                ConstructionSites = new ConstructionSiteSystem(Transport, Grid, Notifications, RobotParkOrigin());
+                Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core, ConstructionSites);
             }
 
             Selection = new SelectionRuntime();
@@ -246,7 +254,8 @@ namespace Game.Presentation
                 World.RestoreState(core, coreCell, deposits);
             }
 
-            Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core, GlobalStock);
+            ConstructionSites = new ConstructionSiteSystem(Transport, Grid, Notifications, RobotParkOrigin());
+            Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core, ConstructionSites);
             Construction.RestoreBuildingCap(save.BuildingCap);
 
             foreach (BuildingSaveData buildingSave in save.Buildings)
@@ -263,6 +272,19 @@ namespace Game.Presentation
                 Transport.Register(runtime);
                 _restoredBuildings.Add(runtime);
             }
+
+            // Sites/robots restore last: their segments are rebuilt with the same factory the
+            // buildings above used (no cost, no placement check), and their reservations/containers
+            // are re-resolved by cell, so every real building must already sit in Game.Grid first.
+            ConstructionSites.RestoreState(save.ConstructionSites, Construction.CreateForRestore, FindBuildingDefinition);
+        }
+
+        /// <summary>Where the two builder robots park when idle (TASK_05_ROBOT_CONSTRUCTEUR.md §2) - just south of the Core, next to the Core chest. Grid-space, like BuilderRobotRuntime.Position.</summary>
+        Vector2 RobotParkOrigin()
+        {
+            if (World?.Core == null) return Vector2.zero;
+            Vector2Int footprint = World.Core.Definition.FootprintSize;
+            return new Vector2(World.Core.Cell.X + footprint.x / 2f, World.Core.Cell.Y - 2f);
         }
 
         BuildingDefinition FindBuildingDefinition(string id)
@@ -301,8 +323,8 @@ namespace Game.Presentation
                 ResearchProgress = Research.AbsorbedCu,
                 ResearchQueue = BuildResearchQueueIds(),
                 ResearchUnlocked = new List<string>(Research.GetUnlockedIds()),
-                GlobalStock = new Dictionary<string, int>(GlobalStock.Contents),
-                BuildingCap = Construction.BuildingCap
+                BuildingCap = Construction.BuildingCap,
+                ConstructionSites = ConstructionSites?.CaptureState()
             };
 
             if (World?.Core != null)
@@ -359,6 +381,15 @@ namespace Game.Presentation
             Compute.Tick(Time.deltaTime);
 
             Transport.Tick(Time.deltaTime);
+
+            // After Transport so reservations and robot pickups see this frame's settled container
+            // contents (a production building's output has already been pushed/pulled by now), and
+            // so a segment materialized this frame is registered before the next frame's transport
+            // pass. Robots and construction sites are driven from here and only from here - never
+            // from an individual Update() (PROJECT_ARCHITECTURE.md §17).
+            ConstructionSites?.Tick(Time.deltaTime);
+            Notifications?.Tick(Time.deltaTime);
+
             Research.Tick(Time.deltaTime);
 
             // The cell grid is a construction aid, not permanent decoration: it shows only while

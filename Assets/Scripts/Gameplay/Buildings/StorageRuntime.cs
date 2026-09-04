@@ -43,6 +43,7 @@ namespace Game.Gameplay.Buildings
 
         public override bool CanAcceptInput(string itemId, int amount, Direction fromDirection)
         {
+            if (_definition.RejectsConveyorInput) return false;
             if (_intakeCooldown > 0f) return false;
             return _inventory.CanAccept(itemId, amount);
         }
@@ -52,6 +53,17 @@ namespace Game.Gameplay.Buildings
             _intakeCooldown = _definition.IntakeIntervalSeconds;
             _inventory.Add(itemId, amount);
         }
+
+        /// <summary>
+        /// A builder robot's delivery/repatriation (Game.Gameplay.Sites.ConstructionSiteSystem) is
+        /// a distinct path from the transport contract above: it bypasses both the intake cooldown
+        /// (a conveyor-throughput throttle that has no bearing on a robot's much slower delivery
+        /// cadence) and RejectsConveyorInput (which exists specifically to keep a conveyor out, not
+        /// a robot). Only real slot capacity gates a robot's delivery.
+        /// </summary>
+        public bool CanAcceptFromRobot(string itemId, int amount) => _inventory.CanAccept(itemId, amount);
+
+        public void AddFromRobot(string itemId, int amount) => _inventory.Add(itemId, amount);
 
         public override void Tick(float deltaTime)
         {

@@ -3,6 +3,7 @@ using Game.Construction;
 using Game.Core;
 using Game.Data;
 using Game.Gameplay.Buildings;
+using Game.Gameplay.Sites;
 using Game.Grid;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -71,6 +72,16 @@ namespace Game.Presentation
         Direction? _dragAxis;
         Direction? _pendingCornerEntry;
 
+        /// <summary>
+        /// The single construction site every cell of the current conveyor/splitter drag is
+        /// appended to - a whole gesture is one chantier, not one per segment
+        /// (TASK_05_ROBOT_CONSTRUCTEUR.md §3), so a fifty-belt line is seven robot waves rather
+        /// than fifty separate sites. Cleared on mouse-up: the next drag opens a new site.
+        /// </summary>
+        ConstructionSiteRuntime _activeConveyorSite;
+
+        bool _subscribedToMaterialization;
+
         bool _isDragDemolishing;
         GridCoord _lastDemolishedCell;
 
@@ -98,6 +109,14 @@ namespace Game.Presentation
             if (_spawner == null)
             {
                 _spawner = new BuildingSpawner(gameRuntime.Grid, _spriteFactory, straightConveyorForDragContinuation, cornerConveyorForReshape, gameRuntime.GroundSlabSettings, gameRuntime.GroundSlabNeighborLinker);
+            }
+
+            // Subscribed here rather than in Start() for the same reason _spawner is built lazily:
+            // it needs the fully-configured spawner (conveyor art definitions included) to exist.
+            if (!_subscribedToMaterialization && gameRuntime.ConstructionSites != null)
+            {
+                gameRuntime.ConstructionSites.SegmentMaterialized += OnSegmentMaterialized;
+                _subscribedToMaterialization = true;
             }
 
             // A UI panel (Building menu, Storage panel, ...) owns mouse/keyboard input while
@@ -265,6 +284,7 @@ namespace Game.Presentation
                     : null;
                 Direction rotation = entryDirection.HasValue ? entryDirection.Value.Opposite() : gameRuntime.Construction.PreviewRotation;
 
+                _activeConveyorSite = null; // a new gesture always opens its own chantier
                 PlaceAt(cell, rotation);
                 _isDragPlacing = true;
                 _dragAnchorCell = cell;
@@ -283,6 +303,7 @@ namespace Game.Presentation
                 _isDragPlacing = false;
                 _dragAxis = null;
                 _pendingCornerEntry = null;
+                _activeConveyorSite = null;
             }
         }
 
@@ -422,6 +443,12 @@ namespace Game.Presentation
             return delta.Y >= 0 ? Direction.North : Direction.South;
         }
 
+        // Both reshapes mutate the anchor's ConveyorRuntime in place exactly as before - it is a
+        // real runtime object occupying its cell from the moment it was placed, whether or not its
+        // construction site has delivered it yet. No view is spawned here any more: a segment
+        // still under construction shows the blue site overlay (ConstructionSiteVisualSync), and
+        // its real view only appears when the site materializes it. A segment already materialized
+        // (a drag continued over a finished belt) still refreshes its view, since it has one.
         void ReshapeAnchorAsCorner(GridCoord anchorCell, Direction entry, Direction exit)
         {
             if (gameRuntime.Grid.GetOccupant(anchorCell) is ConveyorRuntime conveyor)
@@ -429,7 +456,7 @@ namespace Game.Presentation
                 try
                 {
                     conveyor.ConfigureAsCorner(entry, exit);
-                    _spawner.SpawnView(conveyor);
+                    RefreshViewIfMaterialized(conveyor);
                 }
                 catch (System.ArgumentException)
                 {
@@ -443,7 +470,32 @@ namespace Game.Presentation
             if (gameRuntime.Grid.GetOccupant(anchorCell) is ConveyorRuntime conveyor)
             {
                 conveyor.ConfigureAsStraight(exit);
-                _spawner.SpawnView(conveyor);
+                RefreshViewIfMaterialized(conveyor);
+            }
+        }
+
+        void RefreshViewIfMaterialized(BuildingRuntime runtime)
+        {
+            if (gameRuntime.ConstructionSites != null && gameRuntime.ConstructionSites.TryGetSiteContaining(runtime, out _)) return;
+            _spawner.SpawnView(runtime);
+        }
+
+        /// <summary>
+        /// A construction site just delivered a segment's full cost: it is now a real, registered
+        /// building (ConstructionSiteSystem already called Transport.Register) and needs the same
+        /// view/item-visual wiring an immediate placement used to do inline.
+        /// </summary>
+        void OnSegmentMaterialized(BuildingRuntime runtime)
+        {
+            _spawner?.SpawnView(runtime);
+            if (gameRuntime.ItemVisuals != null) gameRuntime.ItemVisuals.Register(runtime);
+        }
+
+        void OnDestroy()
+        {
+            if (_subscribedToMaterialization && gameRuntime != null && gameRuntime.ConstructionSites != null)
+            {
+                gameRuntime.ConstructionSites.SegmentMaterialized -= OnSegmentMaterialized;
             }
         }
 
@@ -467,19 +519,27 @@ namespace Game.Presentation
                 }
             }
 
-            if (gameRuntime.Construction.TryPlace(cell, rotation, out BuildingRuntime placed))
+            // Overtaking a cell that belongs to another still-pending site cancels that whole site
+            // first (releasing its reservations and freeing its cells) - half a chantier cannot be
+            // overtaken and left behind with segments that no longer own their ground.
+            foreach (BuildingRuntime previousBuilding in previousOccupants)
             {
-                _spawner.SpawnView(placed);
-                gameRuntime.Transport.Register(placed);
-                if (gameRuntime.ItemVisuals != null) gameRuntime.ItemVisuals.Register(placed);
+                gameRuntime.Construction.TryCancelSiteAt(previousBuilding.Cell);
+            }
+
+            bool placingIntoConveyorRun = _isDragPlacing && _activeConveyorSite != null && IsConveyorRunDefinition(gameRuntime.Construction.Selected);
+
+            if (gameRuntime.Construction.TryPlace(cell, rotation, out ConstructionSiteRuntime site, placingIntoConveyorRun ? _activeConveyorSite : null))
+            {
+                // Nothing is spawned or registered here any more: the segment exists as runtime
+                // state occupying its cells, but stays inert (no view, not in TransportSystem)
+                // until robots have delivered its full cost - OnSegmentMaterialized does that part.
+                if (IsConveyorRunDefinition(gameRuntime.Construction.Selected)) _activeConveyorSite = site;
 
                 foreach (BuildingRuntime previousBuilding in previousOccupants)
                 {
-                    if (ReferenceEquals(previousBuilding, placed)) continue;
-                    // SpawnView(placed) already replaced the view at placed.Cell if a previous
-                    // occupant shared that exact cell (the common 1x1-onto-1x1 conveyor overtake)
-                    // - only remove views for occupants at a genuinely different cell.
-                    if (previousBuilding.Cell != placed.Cell) _spawner.RemoveView(previousBuilding.Cell);
+                    if (site.Segments.Count > 0 && ReferenceEquals(previousBuilding, site.Segments[site.Segments.Count - 1])) continue;
+                    _spawner.RemoveView(previousBuilding.Cell);
                     gameRuntime.Transport.Unregister(previousBuilding);
                     if (gameRuntime.ItemVisuals != null) gameRuntime.ItemVisuals.Unregister(previousBuilding);
                 }
@@ -490,6 +550,9 @@ namespace Game.Presentation
                 PlacementRefusedAtBuildingCap?.Invoke("Plafond de batiments atteint");
             }
         }
+
+        static bool IsConveyorRunDefinition(BuildingDefinition definition) =>
+            definition is ConveyorDefinition || definition is SplitterDefinition || definition is CrossroadDefinition;
 
         void HandleDemolition(GridCoord cell)
         {
@@ -547,6 +610,11 @@ namespace Game.Presentation
 
         void DemolishAt(GridCoord cell)
         {
+            // A still-pending chantier was never paid for and has no view: right-clicking it
+            // cancels it (releasing its reservations) rather than demolishing a building that does
+            // not exist yet (TASK_05_ROBOT_CONSTRUCTEUR.md §4).
+            if (gameRuntime.Construction.TryCancelSiteAt(cell)) return;
+
             if (gameRuntime.Construction.TryDemolish(cell, out BuildingRuntime removed))
             {
                 // removed.Cell (the footprint's origin) may differ from the clicked cell for a

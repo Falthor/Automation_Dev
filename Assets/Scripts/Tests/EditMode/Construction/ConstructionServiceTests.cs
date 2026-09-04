@@ -4,7 +4,9 @@ using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Power;
+using Game.Gameplay.Notifications;
 using Game.Gameplay.Research;
+using Game.Gameplay.Sites;
 using Game.Gameplay.Transport;
 using Game.Grid;
 using Game.Tests.EditMode.TestSupport;
@@ -22,22 +24,29 @@ namespace Game.Tests.EditMode.Construction
 
         // Item/Recipe databases are only needed to place a Foundry - none of these tests do, so
         // null is fine here (would throw only if a test actually selected a FoundryDefinition).
+        // Since TASK_05_ROBOT_CONSTRUCTEUR.md, placing opens a construction site rather than
+        // building instantly, so a ConstructionSiteSystem is now part of the minimal setup.
         static ConstructionService NewService(GridRuntime grid)
         {
-            return new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            var transport = new TransportSystem(grid);
+            var sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
+            return new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()), transport, null, sites);
         }
 
+        /// <summary>The building a site was opened for. Cost-free definitions (used throughout these tests) materialize on the spot, so this is also the finished building.</summary>
+        static BuildingRuntime FirstSegment(ConstructionSiteRuntime site) => site?.Segments[0];
+
         [Test]
-        public void TryPlace_OnEmptyCell_Succeeds()
+        public void TryPlace_OnEmptyCell_OpensASiteForThatBuilding()
         {
             var service = NewService(new GridRuntime(1f));
             service.SelectBuilding(NewConveyorDefinition());
 
-            bool result = service.TryPlace(new GridCoord(0, 0), Direction.North, out BuildingRuntime placed);
+            bool result = service.TryPlace(new GridCoord(0, 0), Direction.North, out ConstructionSiteRuntime site);
 
             Assert.IsTrue(result);
-            Assert.IsNotNull(placed);
-            Assert.IsInstanceOf<ConveyorRuntime>(placed);
+            Assert.IsNotNull(site);
+            Assert.IsInstanceOf<ConveyorRuntime>(FirstSegment(site));
         }
 
         [Test]
@@ -45,10 +54,10 @@ namespace Game.Tests.EditMode.Construction
         {
             var service = NewService(new GridRuntime(1f));
 
-            bool result = service.TryPlace(new GridCoord(0, 0), Direction.North, out BuildingRuntime placed);
+            bool result = service.TryPlace(new GridCoord(0, 0), Direction.North, out ConstructionSiteRuntime site);
 
             Assert.IsFalse(result);
-            Assert.IsNull(placed);
+            Assert.IsNull(site);
         }
 
         [Test]
@@ -59,14 +68,14 @@ namespace Game.Tests.EditMode.Construction
             var cell = new GridCoord(2, 2);
 
             service.SelectBuilding(NewConveyorDefinition());
-            service.TryPlace(cell, Direction.North, out BuildingRuntime first);
+            service.TryPlace(cell, Direction.North, out ConstructionSiteRuntime firstSite);
 
             service.SelectBuilding(NewConveyorDefinition());
-            bool result = service.TryPlace(cell, Direction.East, out BuildingRuntime second);
+            bool result = service.TryPlace(cell, Direction.East, out ConstructionSiteRuntime secondSite);
 
             Assert.IsTrue(result);
-            Assert.AreNotSame(first, second);
-            Assert.AreSame(second, grid.GetOccupant(cell));
+            Assert.AreNotSame(FirstSegment(firstSite), FirstSegment(secondSite));
+            Assert.AreSame(FirstSegment(secondSite), grid.GetOccupant(cell));
         }
 
         [Test]
@@ -128,11 +137,18 @@ namespace Game.Tests.EditMode.Construction
         {
             var grid = new GridRuntime(1f);
             var research = new ResearchSystem(new ComputeSystem());
-            var service = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), research);
+            var service = NewServiceWithResearch(grid, research);
             var definition = NewGatedStorageDefinition(TestDataFactory.NewResearch("test_gate", 10f));
             service.SelectBuilding(definition);
 
             Assert.IsFalse(service.CanPlace(new GridCoord(0, 0)));
+        }
+
+        static ConstructionService NewServiceWithResearch(GridRuntime grid, ResearchSystem research)
+        {
+            var transport = new TransportSystem(grid);
+            var sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
+            return new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), research, transport, null, sites);
         }
 
         [Test]
@@ -140,7 +156,7 @@ namespace Game.Tests.EditMode.Construction
         {
             var grid = new GridRuntime(1f);
             var research = new ResearchSystem(new ComputeSystem());
-            var service = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), research);
+            var service = NewServiceWithResearch(grid, research);
             var unlockResearch = TestDataFactory.NewResearch("test_gate", 10f);
             var definition = NewGatedStorageDefinition(unlockResearch);
             service.SelectBuilding(definition);
@@ -170,17 +186,18 @@ namespace Game.Tests.EditMode.Construction
         }
 
         [Test]
-        public void CanAfford_And_TryPlace_DrawFromProductionBuildingInternalStock()
+        public void TryPlace_ReservesFromProductionOutput_WithoutTakingAnythingYet()
         {
-            // Reproduces the reported bug: the Storage panel counts a production building's own
-            // input+output stock as spendable, so ConstructionService must draw from the exact
-            // same pool - otherwise the Building menu shows an item as unaffordable (red) even
-            // though the Storage panel reports enough of it.
+            // Since TASK_05_ROBOT_CONSTRUCTEUR.md, placing never deducts: it reserves. The items
+            // stay physically in the production building's output until a robot picks them up, but
+            // stop counting as available (GlobalStock's invariant: what it shows is exactly what a
+            // robot could still be sent to fetch).
             var grid = new GridRuntime(1f);
             var ironPlate = TestDataFactory.NewItem("iron_plate", ItemType.Component);
             var recipeDatabase = TestDataFactory.NewRecipeDatabase();
             var transport = new TransportSystem(grid);
-            var service = new ConstructionService(grid, null, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()), transport);
+            var sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
+            var service = new ConstructionService(grid, null, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()), transport, null, sites);
 
             var factoryDefinition = TestDataFactory.NewFactory(50, 0f, System.Array.Empty<string>(), System.Array.Empty<string>());
             var factory = new FactoryRuntime(factoryDefinition, new GridCoord(5, 5), Direction.North, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
@@ -193,12 +210,30 @@ namespace Game.Tests.EditMode.Construction
             Assert.AreEqual(10, service.GetAvailableAmount("iron_plate"));
             Assert.IsTrue(service.CanAfford(definition));
 
-            bool placed = service.TryPlace(new GridCoord(0, 0), Direction.North, out BuildingRuntime result);
+            bool placed = service.TryPlace(new GridCoord(0, 0), Direction.North, out ConstructionSiteRuntime site);
 
             Assert.IsTrue(placed);
-            Assert.IsNotNull(result);
-            factory.GetOutputContents().TryGetValue("iron_plate", out int remaining);
-            Assert.AreEqual(0, remaining);
+            Assert.IsNotNull(site);
+            factory.GetOutputContents().TryGetValue("iron_plate", out int stillInOutput);
+            Assert.AreEqual(10, stillInOutput, "Reserved items stay physically where they are until a robot loads them.");
+            Assert.AreEqual(0, service.GetAvailableAmount("iron_plate"), "Reserved items are no longer available to anything else.");
+        }
+
+        [Test]
+        public void TryPlace_WithNothingAvailable_StillOpensASite()
+        {
+            // The affordability gate is gone (TASK_05_ROBOT_CONSTRUCTEUR.md): an unaffordable
+            // placement opens a chantier that waits for its materials instead of being refused.
+            var grid = new GridRuntime(1f);
+            var ironPlate = TestDataFactory.NewItem("iron_plate", ItemType.Component);
+            var service = NewService(grid);
+            var definition = NewStorageDefinitionWithCost((ironPlate, 10));
+            service.SelectBuilding(definition);
+
+            Assert.IsFalse(service.CanAfford(definition));
+            Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(new GridCoord(0, 0)));
+            Assert.IsTrue(service.TryPlace(new GridCoord(0, 0), Direction.North, out ConstructionSiteRuntime site));
+            Assert.IsFalse(site.IsComplete);
         }
 
         [Test]
@@ -229,16 +264,17 @@ namespace Game.Tests.EditMode.Construction
             grid.SetOccupantFootprint(core.Cell, coreDefinition.FootprintSize, core);
             var transport = new TransportSystem(grid);
             transport.Register(core);
-            var service = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), research, transport, core);
+            var sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
+            var service = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), research, transport, core, sites);
             return (service, transport, research, core);
         }
 
+        /// <summary>Places a cost-free building: its site materializes immediately (nothing owed), and ConstructionSiteSystem registers it with Transport itself - no manual Register here any more.</summary>
         static BuildingRuntime PlaceAndRegister(ConstructionService service, TransportSystem transport, BuildingDefinition definition, GridCoord cell)
         {
             service.SelectBuilding(definition);
-            Assert.IsTrue(service.TryPlace(cell, Direction.North, out BuildingRuntime placed), $"Expected placement to succeed at {cell}");
-            transport.Register(placed);
-            return placed;
+            Assert.IsTrue(service.TryPlace(cell, Direction.North, out ConstructionSiteRuntime site), $"Expected placement to succeed at {cell}");
+            return FirstSegment(site);
         }
 
         static StorageDefinition NewFreeStorageDefinition() => ScriptableObject.CreateInstance<StorageDefinition>();
@@ -257,8 +293,8 @@ namespace Game.Tests.EditMode.Construction
             service.SelectBuilding(NewFreeStorageDefinition());
 
             Assert.AreEqual(PlacementRefusalReason.BuildingCapReached, service.GetPlacementRefusalReason(cell));
-            Assert.IsFalse(service.TryPlace(cell, Direction.North, out BuildingRuntime placed));
-            Assert.IsNull(placed);
+            Assert.IsFalse(service.TryPlace(cell, Direction.North, out ConstructionSiteRuntime site));
+            Assert.IsNull(site);
         }
 
         [Test]
@@ -334,8 +370,8 @@ namespace Game.Tests.EditMode.Construction
             research.Tick(60f);
 
             Assert.IsTrue(service.CanPlace(farCell), "A cell at 27 cells from the Core must become placeable once the radius extends to 32 - this is the exact promise the invitation ore clusters make.");
-            Assert.IsTrue(service.TryPlace(farCell, Direction.North, out BuildingRuntime placed));
-            Assert.IsNotNull(placed);
+            Assert.IsTrue(service.TryPlace(farCell, Direction.North, out ConstructionSiteRuntime site));
+            Assert.IsNotNull(FirstSegment(site));
         }
 
         [Test]
