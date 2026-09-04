@@ -4800,7 +4800,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.ConstructionSiteVisualSync
   gameRuntime: {fileID: 2103112250}
-  siteTint: {r: 0.25, g: 0.55, b: 1, a: 0.55}
+  siteTint: {r: 0.35, g: 0.6, b: 1, a: 0.6}
 --- !u!1 &2117863649
 GameObject:
   m_ObjectHideFlags: 0
