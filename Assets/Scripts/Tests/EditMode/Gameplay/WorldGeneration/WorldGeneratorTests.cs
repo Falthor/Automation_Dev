@@ -30,7 +30,7 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
         }
 
         [Test]
-        public void Generate_WithRoomyRadius_PlacesGuaranteedAndSurplusClusters_PlusOneInvitationOutsideRadius()
+        public void Generate_WithRoomyRadius_PlacesOneGuaranteedClusterAndOneInvitationClusterPerResource()
         {
             var settings = NewSettings(actionRadiusCells: 22);
             var grid = new GridRuntime(1f);
@@ -38,10 +38,10 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
 
             generator.Generate(grid, MapSizeCells, settings, new ComputeSystem(), new PowerSystem());
 
-            // 4 in-radius + 1 invitation iron clusters, 2 copper, 1 coal - 4 deposits per cluster.
-            Assert.AreEqual(20, generator.OreDeposits.Count(d => d.ItemId == "iron_ore"));
+            // One in-radius cluster + one invitation cluster per resource - 4 deposits each.
+            Assert.AreEqual(8, generator.OreDeposits.Count(d => d.ItemId == "iron_ore"));
             Assert.AreEqual(8, generator.OreDeposits.Count(d => d.ItemId == "copper_ore"));
-            Assert.AreEqual(4, generator.OreDeposits.Count(d => d.ItemId == "Coal_ore"));
+            Assert.AreEqual(8, generator.OreDeposits.Count(d => d.ItemId == "Coal_ore"));
 
             Vector2 coreCenter = new Vector2(generator.CoreOrigin.X + 2f, generator.CoreOrigin.Y + 2f);
             bool InRadius(DepositRuntime deposit)
@@ -51,12 +51,12 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
                 return Mathf.Sqrt(dx * dx + dy * dy) <= generator.ActionRadiusCells;
             }
 
-            var ironDeposits = generator.OreDeposits.Where(d => d.ItemId == "iron_ore").ToList();
-            Assert.AreEqual(16, ironDeposits.Count(InRadius), "4 in-radius iron clusters x 4 deposits");
-            Assert.AreEqual(4, ironDeposits.Count(d => !InRadius(d)), "1 invitation iron cluster x 4 deposits, outside the radius");
-
-            Assert.IsTrue(generator.OreDeposits.Where(d => d.ItemId == "copper_ore").All(InRadius));
-            Assert.IsTrue(generator.OreDeposits.Where(d => d.ItemId == "Coal_ore").All(InRadius));
+            foreach (string itemId in new[] { "iron_ore", "copper_ore", "Coal_ore" })
+            {
+                var deposits = generator.OreDeposits.Where(d => d.ItemId == itemId).ToList();
+                Assert.AreEqual(4, deposits.Count(InRadius), $"{itemId}: one in-radius cluster x 4 deposits");
+                Assert.AreEqual(4, deposits.Count(d => !InRadius(d)), $"{itemId}: one invitation cluster x 4 deposits, outside the radius");
+            }
         }
 
         [Test]

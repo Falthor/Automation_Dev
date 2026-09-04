@@ -16,9 +16,10 @@ dépôt et sa valeur cible. Toutes les valeurs cibles sont des valeurs de test.
   reste `null`.
 - **§6 (`ComputeSystem.ReserveCap`)** — appliquée.
 - **§8, sous-section « Placement — état actuel et cible »** — appliquée
-  (`WorldGenerator.cs`) : 4 grappes de fer + 1 grappe d'invitation, 2 de cuivre, 1 de
-  charbon dans le rayon garanti chacune (échec = exception), `minDistance` à 10,
-  grappe d'invitation entre 28 et 34 cellules hors rayon.
+  (`WorldGenerator.cs`) : une grappe garantie par ressource (fer, cuivre, charbon) dans
+  le rayon — 4 emplacements chacune, échec = exception —, plus une grappe d'invitation
+  par ressource entre 28 et 34 cellules hors rayon (best-effort). `minDistance` à 10
+  pour les grappes dans le rayon.
 - **§8, reste (« Les gisements sont illimités », suppression de `InitialQuantity`/
   `RemainingQuantity`/`TryExtract`)** — non appliqué.
 - **§4 (Data Center), §5 (Usure des composants), §6 (refonte recherche, plafond de

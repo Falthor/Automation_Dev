@@ -54,32 +54,22 @@ namespace Game.Gameplay.WorldGeneration
                 CoreOrigin.X + coreDefinition.FootprintSize.x / 2f,
                 CoreOrigin.Y + coreDefinition.FootprintSize.y / 2f);
 
-            // The three guaranteed clusters (one iron, one copper, one coal) placed first: the
-            // introduction is not playable without at least one of each resource, so a failure
-            // to place any of them throws rather than silently producing an amputated world
-            // (ALIGNEMENT_PROJET.md §8 - today's 500-attempts-then-silent-skip is the exact bug
-            // this guards against).
+            // One guaranteed cluster per resource (one iron, one copper, one coal), placed first
+            // and inside the radius - 4 deposit slots each, exactly covering the 4/4/2 extractors
+            // the introduction needs (coal uses only 2 of its 4). The introduction is not
+            // playable without at least one of each resource, so a failure to place any of them
+            // throws rather than silently producing an amputated world (ALIGNEMENT_PROJET.md §8 -
+            // today's 500-attempts-then-silent-skip is the exact bug this guards against).
             PlaceGuaranteedCluster(grid, random, coreCenter, settings.IronOreDefinition, "fer");
             PlaceGuaranteedCluster(grid, random, coreCenter, settings.CopperOreDefinition, "cuivre");
             PlaceGuaranteedCluster(grid, random, coreCenter, settings.CoalOreDefinition, "charbon");
 
-            // Extra in-radius clusters beyond the guaranteed one per resource - deliberately
-            // over-provisioned so the player can over-build and learn not to, best-effort like
-            // before (a miss here shrinks the field, it doesn't break the game).
-            OreDepositDefinition[] extraInRadius =
-            {
-                settings.IronOreDefinition, settings.IronOreDefinition, settings.IronOreDefinition,
-                settings.CopperOreDefinition
-            };
-            foreach (OreDepositDefinition definition in extraInRadius)
-            {
-                TryPlaceCluster(grid, random, coreCenter, definition, InRadiusMinDistanceCells, InRadiusMaxDistance(definition));
-            }
-
-            // One extra iron cluster placed just outside the action radius: visible (once fog
-            // of war reveals that far) but not yet exploitable - a standing invitation to expand
-            // the radius later. Best-effort, not part of the three-resource guarantee above.
+            // One "invitation" cluster per resource, placed just outside the action radius:
+            // visible (once fog of war reveals that far) but not yet exploitable - a standing
+            // invitation to expand the radius later. Best-effort, not part of the guarantee above.
             TryPlaceCluster(grid, random, coreCenter, settings.IronOreDefinition, InvitationMinDistanceCells, InvitationMaxDistanceCells);
+            TryPlaceCluster(grid, random, coreCenter, settings.CopperOreDefinition, InvitationMinDistanceCells, InvitationMaxDistanceCells);
+            TryPlaceCluster(grid, random, coreCenter, settings.CoalOreDefinition, InvitationMinDistanceCells, InvitationMaxDistanceCells);
         }
 
         float InRadiusMaxDistance(OreDepositDefinition definition)
