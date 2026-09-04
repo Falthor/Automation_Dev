@@ -104,7 +104,9 @@ public (GridCoord cell, Direction fromMySide)[] GetInputCells()
 `TransportSystem` (`Game.Gameplay.Transport`) runs one generic push and one generic pull for every registered building that is not itself belt-driven (Storage, and every `ProductionBuildingRuntime`):
 
 - **Push**, at the building's own `PushIntervalSeconds` (`BuildingRuntime`, default 1s): walks `GetOutputCells()`; for the first neighbor whose `CanAcceptInput` accepts one unit of something in `GetOutputContents()`, transfers it via `TakeOutput`/`AddInput`.
-- **Pull**, every tick: walks `GetInputCells()` (regardless of that neighbor's own facing); for the first neighbor exposing a `PeekPullableItem()` this building's own `CanAcceptInput` accepts, transfers it via `ConsumePulledItem`/`AddInput`. How fast a building may actually absorb what it reads stays its own concern (e.g. `FoundryRuntime`'s intake cooldown), not a side effect of transport's polling rate.
+- **Pull**, every tick: walks `GetInputCells()` (regardless of that neighbor's own facing); for the first neighbor exposing a `PeekPullableItem()` this building's own `CanAcceptInput` accepts, transfers it via `ConsumePulledItem`/`AddInput`. How fast a building may actually absorb what it reads is otherwise its own concern (e.g. `FoundryRuntime`'s or `StorageRuntime`'s own intake cooldown), not a side effect of transport's polling rate - **except** for one structural rule transport itself enforces on top of that, described next.
+
+  **`TransportSystem.RawOutputPullIntervalSeconds`** (1s, matching the fastest conveyor today - 60 items/min): a pull *source* that is not itself belt-gated (not a `ConveyorRuntime`/`SplitterRuntime`/`CrossroadRuntime`) may hand off at most one item per interval via this generic pull path, no matter which or how many consumers want it. A `ProductionBuildingRuntime`'s raw pooled output has no throughput cap of its own - only a conveyor's progress meter naturally throttles delivery - so without this, any consumer sitting flush against one (no conveyor in between) could drain its entire backlog in a single tick. Living here rather than as a per-building intake cooldown makes it immutable: no current or future building type can bypass it by simply omitting one. It does not slow down a conveyor pulling from the same kind of source - `ConveyorRuntime.HasRoomForNewItem` already caps that at the belt's own physical throughput, via the separate belt-specific pull loop below, not this one.
 
   When two different buildings both include the exact same physical source cell among their own `GetInputCells()` - e.g. two Factories placed on adjacent sides of one conveyor cell, both facing it as their entry - only one can actually take that source's single pullable item on a given tick. Rather than always favoring whichever consumer happens to be registered first (the earlier bug), the pull step resolves this per source with round-robin: it remembers the last consumer served by each source and, when more than one of today's contenders wants that same source, gives it to whichever contender was not served last time. This is unrelated to the different, still-valid upstream/downstream priority described below for two machines reading two different points along one belt line.
 
@@ -157,6 +159,10 @@ A caller must not depend on an internal conveyor enum/type or directly manipulat
 Configures a splitter to replace a conveyor while preserving the intended receiving side.
 
 The splitter owns the translation from conveyor orientation semantics to splitter orientation semantics.
+
+### Candidate exit connectivity
+
+`TransportSystem.TryDeliverFromSplitter` only considers a non-entry side a candidate exit when some `BuildingRuntime` occupies its neighbor cell - any concrete type, not a fixed whitelist. A splitter wired directly into a production building (Factory, Foundry, ...) with no conveyor in between delivers to it exactly like it would to a Storage box or another belt piece; `TryDeliverItem`'s own `CanAcceptInput` check is what actually gates whether delivery succeeds.
 
 ## 6. ProductionBuilding
 
@@ -250,7 +256,9 @@ public int OccupiedBuildingSlots { get; }    // live count against BuildingCap
 public void RestoreBuildingCap(int? cap)
 ```
 
-`TryPlace` deducts the definition's cost (player's global stock first, then Core, then every Storage, then every production building's own internal stock - input before output); `TryDemolish` refunds that same cost in full into the global stock, so placing and removing a building is cost-neutral.
+`TryPlace` deducts the definition's cost (player's global stock first, then Core, then every Storage, then every production building's own internal stock - input before output); `TryDemolish` refunds that same cost in full into the global stock, so placing and removing a building is cost-neutral. The Core is still listed as a cost source for an older save that had items in it, but `CoreRuntime.CanAcceptInput` always refuses now (design decision: the Core must never receive anything), so on a fresh game it always contributes 0 - the player's starting resources instead live in a real Storage Box fixture (`WorldGenerator.CoreStorage`, seeded from `WorldGenerationSettings.StartingStock`) placed one cell south of the Core at world generation, counted like any other placed Storage.
+
+`TryDemolish` refuses (returns `false`, `removed` stays `null`) for the Core and for that Core Storage fixture (matched by definition id `core_storage`, since a restored instance is just an ordinary entry in the save's building list, not a tracked reference) - both are world-generated fixtures the player never placed and must never be able to remove, the Storage box especially since its contents would otherwise be lost for good (only the construction *cost* is ever refunded, never a building's own held contents).
 
 `TryPlace`/`TryDemolish` only mutate `Game.Grid`/runtime state and return the affected `BuildingRuntime` via `out`; they never create or destroy GameObjects. The caller (a Presentation-layer input adapter) is responsible for the corresponding view, which is what keeps `Game.Construction` free of a dependency on `Game.Presentation`. `CanPlace` is a non-mutating query used for ghost-preview valid/invalid tinting.
 

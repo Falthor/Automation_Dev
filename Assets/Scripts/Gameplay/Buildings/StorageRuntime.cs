@@ -11,7 +11,16 @@ namespace Game.Gameplay.Buildings
     /// </summary>
     public sealed class StorageRuntime : BuildingRuntime
     {
+        readonly StorageDefinition _definition;
         readonly Inventory _inventory;
+
+        /// <summary>
+        /// Time remaining before another delivery can be accepted (StorageDefinition.
+        /// IntakeIntervalSeconds) - caps absorption at the fastest conveyor's throughput so a
+        /// Storage placed straight against a production building's output can't drain it faster
+        /// than a belt ever could.
+        /// </summary>
+        float _intakeCooldown;
 
         /// <summary>Public read contract for UI (e.g. the Storage panel) to enumerate contents by slot.</summary>
         public System.Collections.Generic.IReadOnlyList<InventorySlot> Slots => _inventory.Slots;
@@ -19,17 +28,34 @@ namespace Game.Gameplay.Buildings
         public StorageRuntime(StorageDefinition definition, GridCoord cell, Direction facingRotation)
             : base(definition, cell, facingRotation)
         {
-            _inventory = new Inventory();
+            _definition = definition;
+            int slotCount = definition.SlotCountOverride > 0 ? definition.SlotCountOverride : Inventory.DefaultSlotCount;
+            int capacityPerSlot = definition.CapacityPerSlotOverride > 0 ? definition.CapacityPerSlotOverride : Inventory.DefaultCapacityPerSlot;
+            _inventory = new Inventory(slotCount, capacityPerSlot);
         }
+
+        /// <summary>
+        /// Seeds contents directly, bypassing the intake cooldown - for world-generation fixtures
+        /// (the Core's starting-resources box) initialized once before the game actually starts,
+        /// not a real delivery that should count against the absorption rate.
+        /// </summary>
+        public void SeedInitialContents(string itemId, int amount) => _inventory.Add(itemId, amount);
 
         public override bool CanAcceptInput(string itemId, int amount, Direction fromDirection)
         {
+            if (_intakeCooldown > 0f) return false;
             return _inventory.CanAccept(itemId, amount);
         }
 
         public override void AddInput(string itemId, int amount, Direction fromDirection)
         {
+            _intakeCooldown = _definition.IntakeIntervalSeconds;
             _inventory.Add(itemId, amount);
+        }
+
+        public override void Tick(float deltaTime)
+        {
+            if (_intakeCooldown > 0f) _intakeCooldown -= deltaTime;
         }
 
         public override int TakeInput(string itemId, int amount)
@@ -50,11 +76,13 @@ namespace Game.Gameplay.Buildings
                 if (slot.IsEmpty) continue;
                 slots.Add(new JObject { ["itemId"] = slot.ItemId, ["amount"] = slot.Amount });
             }
-            return new JObject { ["slots"] = slots };
+            return new JObject { ["slots"] = slots, ["intakeCooldown"] = _intakeCooldown };
         }
 
         public override void RestoreState(JObject state)
         {
+            _intakeCooldown = state.Value<float?>("intakeCooldown") ?? 0f;
+
             if (!(state["slots"] is JArray slots)) return;
             foreach (JToken entry in slots)
             {

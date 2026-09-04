@@ -179,13 +179,11 @@ namespace Game.Presentation
             {
                 Terrain = new TerrainRuntime(terrainSettings.Size, terrainSettings.Seed, terrainSettings.TerrainScale, terrainSettings.Proportion);
 
-                if (worldGenerationSettings != null)
-                {
-                    foreach (RecipeIngredient entry in worldGenerationSettings.StartingStock)
-                    {
-                        if (entry.Item != null) GlobalStock.Add(entry.Item.Id, entry.Amount);
-                    }
-                }
+                // The player's starting resources are no longer seeded into a building-less
+                // GlobalStock pool - WorldGenerator.Generate places a real Storage Box fixture
+                // (WorldGenerationSettings.CoreStorageDefinition) one cell south of the Core and
+                // seeds it directly from StartingStock instead, so they show up as a real,
+                // counted Storage box rather than double-counted against it.
 
                 // World generation (Core + deposits) must exist before ConstructionService, which
                 // needs the Core instance to check/deduct construction costs and its action radius.
@@ -397,6 +395,17 @@ namespace Game.Presentation
                 var contentSpawner = new WorldContentSpawner(Grid, new ProceduralSpriteFactory(), GroundSlabSettings, GroundSlabNeighborLinker);
                 contentSpawner.SpawnCore(World.Core);
                 Transport.Register(World.Core);
+
+                // CoreStorage is only set on a fresh game (WorldGenerator.Generate) - a restored
+                // game's copy comes back through the ordinary restored-building path below
+                // instead, already registered and viewed like any other placed Storage box.
+                if (World.CoreStorage != null)
+                {
+                    var coreStorageSpawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker);
+                    coreStorageSpawner.SpawnView(World.CoreStorage);
+                    Transport.Register(World.CoreStorage);
+                }
+
                 foreach (var deposit in World.OreDeposits)
                 {
                     contentSpawner.SpawnOreDeposit(deposit);

@@ -114,7 +114,7 @@ namespace Game.UI
             _title.text = "STORAGE BOX";
             _root.EnableInClassList("overlay-root-right", true);
 
-            var cards = new List<VisualElement>(Inventory.SlotCount);
+            var cards = new List<VisualElement>(storage.Slots.Count);
             foreach (InventorySlot slot in storage.Slots)
             {
                 cards.Add(slot.IsEmpty ? BuildEmptyCard() : BuildCard(slot.ItemId, slot.Amount));

@@ -66,5 +66,53 @@ namespace Game.Tests.EditMode.Gameplay.Transport
             Assert.AreEqual(3, aWins, "Factory A should win exactly half of the contested pulls.");
             Assert.AreEqual(3, bWins, "Factory B should win exactly half of the contested pulls.");
         }
+
+        [Test]
+        public void TickSplitters_DeliversDirectlyIntoAFactory_WithNoConveyorBetween()
+        {
+            // Reproduces the reported bug: a splitter's exit wired straight into a production
+            // building (no belt in between) never delivered - TryDeliverFromSplitter only
+            // considered a direction "connected" when the neighbor was a Conveyor/Splitter/
+            // Crossroad/Storage, silently excluding every production building.
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+
+            var ironOre = TestDataFactory.NewItem("iron_ore", ItemType.Ore);
+            var recipe = TestDataFactory.NewRecipe("iron_ore_sink", 100f, 0f, 1, (ironOre, 1000));
+            var recipeDatabase = TestDataFactory.NewRecipeDatabase(recipe);
+            var factoryDefinition = TestDataFactory.NewFactory(50, 0f, new[] { "iron_ore_sink" }, System.Array.Empty<string>());
+
+            var splitterDefinition = ScriptableObject.CreateInstance<SplitterDefinition>();
+            var splitterOrigin = new GridCoord(5, 5);
+            var splitter = new SplitterRuntime(splitterDefinition, splitterOrigin, Direction.North); // entry side North
+            transport.Register(splitter);
+
+            // East arm's neighbor cell - one of the splitter's non-entry candidate exits.
+            GridCoord factoryCell = CrossFootprint_NeighborCellForTest(splitterOrigin, Direction.East);
+            var factory = new FactoryRuntime(factoryDefinition, factoryCell, Direction.North, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            factory.SetSelectedRecipe("iron_ore_sink");
+            grid.SetOccupant(factoryCell, factory);
+            transport.Register(factory);
+
+            splitter.AddInput("iron_ore", 1, Direction.North);
+            Assert.IsTrue(splitter.HasItem);
+
+            transport.Tick(0.016f);
+
+            Assert.IsFalse(splitter.HasItem, "The splitter should have handed its item to the factory.");
+            Assert.AreEqual(1, factory.GetInputAmount("iron_ore"));
+        }
+
+        static GridCoord CrossFootprint_NeighborCellForTest(GridCoord origin, Direction direction)
+        {
+            // Mirrors the internal (non-public) CrossFootprint math used by SplitterRuntime/CrossroadRuntime.
+            switch (direction)
+            {
+                case Direction.North: return new GridCoord(origin.X + 1, origin.Y + 3);
+                case Direction.South: return new GridCoord(origin.X + 1, origin.Y - 1);
+                case Direction.East: return new GridCoord(origin.X + 3, origin.Y + 1);
+                default: return new GridCoord(origin.X - 1, origin.Y + 1); // West
+            }
+        }
     }
 }

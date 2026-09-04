@@ -327,7 +327,7 @@ Core is a special world entity and is unique.
 
 Its gameplay behavior must remain consistent with the source project's accepted behavior when migrated, including its role as the starting power/compute source where those systems are implemented.
 
-The game's starting items are not part of it: they belong to the player, seeded once at game start into a global stock (`GameRuntime.GlobalStock`, from `WorldGenerationSettings.StartingStock`) that no building owns. The Core keeps its own pooled inventory for what transport actually delivers to it, and starts empty.
+The game's starting items are not part of it, and the Core never receives anything at all - `CoreRuntime.CanAcceptInput` always refuses, by design (no conveyor or building may ever deliver to it). The player's starting items instead live in a real, world-generated Storage Box fixture (`WorldGenerator.CoreStorage`) placed one cell south of the Core and seeded from `WorldGenerationSettings.StartingStock`, counted like any other placed Storage rather than in a building-less pool. Both the Core and this fixture are protected from demolition (`ConstructionService.IsProtectedFromDemolition`).
 
 ### Ore deposits
 

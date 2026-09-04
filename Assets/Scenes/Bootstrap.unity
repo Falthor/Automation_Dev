@@ -2276,6 +2276,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 01ef087dd5e6cd340bb14b98d32ca909, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.CameraZoomController
+  gameRuntime: {fileID: 2103112250}
   zoomSpeed: 4
   minOrthographicSize: 2
   maxOrthographicSize: 30
@@ -4721,6 +4722,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: e2d760110358f57448f69bdb863e1670, type: 2}
   - {fileID: 11400000, guid: f26aadcc0be4300409425bd96d390f50, type: 2}
   - {fileID: 11400000, guid: 236d03fb6a80953469db3eb917b43016, type: 2}
+  - {fileID: 11400000, guid: b32fa419afa8927e913cf91edff080bb, type: 2}
   researchDatabase: {fileID: 11400000, guid: 225538095e214a39811378724843599a, type: 2}
 --- !u!4 &2103112251
 Transform:
