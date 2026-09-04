@@ -14,15 +14,30 @@ namespace Game.Presentation
     public sealed class WorldContentSpawner
     {
         const int CoreSortingOrder = 10;
+        const int GroundSlabSortingOrder = 5;
         const int OreDepositSortingOrder = 9;
+
+        // How far the concrete slab bleeds past the Core's true footprint on each side, so it
+        // reads as sitting on top of the ground rather than stopping exactly at the grid line -
+        // matches BuildingSpawner.GroundSlabOverscanMargin.
+        const float GroundSlabOverscanMargin = 0.3f;
 
         readonly GridRuntime _grid;
         readonly ProceduralSpriteFactory _spriteFactory;
+        readonly GroundSlabSettings _groundSlabSettings;
+        readonly GroundSlabNeighborLinker _groundSlabNeighborLinker;
 
-        public WorldContentSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory)
+        /// <summary>
+        /// groundSlabSettings is optional; null (or its diffuse/normal being null) means the Core
+        /// spawns with no concrete pad. groundSlabNeighborLinker is optional too; null means the
+        /// Core's slab (if any) never reacts to buildings placed next to it later.
+        /// </summary>
+        public WorldContentSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory, GroundSlabSettings groundSlabSettings = null, GroundSlabNeighborLinker groundSlabNeighborLinker = null)
         {
             _grid = grid;
             _spriteFactory = spriteFactory;
+            _groundSlabSettings = groundSlabSettings;
+            _groundSlabNeighborLinker = groundSlabNeighborLinker;
         }
 
         public void SpawnCore(BuildingRuntime core)
@@ -31,14 +46,46 @@ namespace Game.Presentation
             var go = new GameObject("Core");
             go.transform.position = _grid.FootprintCenterToWorld(core.Cell, definition.FootprintSize);
 
-            var renderer = go.AddComponent<SpriteRenderer>();
+            Vector2 footprintWorldSize = WorldFootprintSize(definition.FootprintSize);
+
+            if (_groundSlabSettings != null && _groundSlabSettings.HasSlabTextures)
+            {
+                var slabGo = new GameObject("GroundSlab");
+                slabGo.transform.SetParent(go.transform, false);
+                var slabRenderer = slabGo.AddComponent<SpriteRenderer>();
+                slabRenderer.sortingOrder = GroundSlabSortingOrder;
+                slabRenderer.sharedMaterial = _spriteFactory.GetGroundSlabMaterial(_groundSlabSettings);
+
+                Vector2 slabWorldSize = footprintWorldSize + Vector2.one * (GroundSlabOverscanMargin * 2f);
+                SetSpriteToWorldSize(slabRenderer, _spriteFactory.GetGroundSlabUnitSprite(), slabWorldSize);
+
+                var random = new System.Random(core.Cell.GetHashCode());
+                var propertyBlock = new MaterialPropertyBlock();
+                propertyBlock.SetVector("_UVOffset", new Vector4((float)random.NextDouble() * 10f, (float)random.NextDouble() * 10f, 0f, 0f));
+                propertyBlock.SetVector("_FootprintWorldSize", new Vector4(slabWorldSize.x, slabWorldSize.y, 0f, 0f));
+                slabRenderer.SetPropertyBlock(propertyBlock);
+
+                _groundSlabNeighborLinker?.Register(core.Cell, definition.FootprintSize, slabRenderer);
+            }
+
+            // The building's own sprite gets its own child (not the root) so fitting it to the
+            // footprint only scales this child - the root stays unscaled, which GroundSlab (also
+            // parented to the root, sized independently) relies on to avoid inheriting this scale.
+            var spriteGo = new GameObject("Sprite");
+            spriteGo.transform.SetParent(go.transform, false);
+            var renderer = spriteGo.AddComponent<SpriteRenderer>();
             renderer.sortingOrder = CoreSortingOrder;
 
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
 
-            SetSpriteToWorldSize(renderer, sprite, WorldFootprintSize(definition.FootprintSize));
+            SetSpriteToWorldSize(renderer, sprite, footprintWorldSize);
+
+            if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
+            {
+                renderer.gameObject.AddComponent<SpriteFlipbook>().Initialize(definition.AnimationFrames, definition.AnimationFps);
+            }
         }
 
         public void SpawnOreDeposit(DepositRuntime deposit)

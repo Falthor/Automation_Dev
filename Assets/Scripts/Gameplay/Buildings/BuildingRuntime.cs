@@ -53,11 +53,26 @@ namespace Game.Gameplay.Buildings
         public virtual float PushIntervalSeconds => 1f;
 
         /// <summary>
-        /// The single cell this building hands its output to for a 1-wide output edge. Equal to
-        /// GetOutputCells()[0]; kept as a convenience for callers (ghost preview, transport pull
-        /// alignment) that only ever deal with a 1-cell-wide edge.
+        /// The single representative cell for this building's output side - the middle cell of
+        /// the output edge (so a straight conveyor lines up with it visually), or the only cell
+        /// for a 1-wide edge. Kept as a convenience for callers (output arrow placement, ghost
+        /// preview, transport pull alignment) that only need one canonical cell rather than the
+        /// whole edge (GetOutputCells(), which is what actual item transport pushes across).
         /// </summary>
-        public GridCoord GetOutputCell() => GetOutputCells()[0];
+        public GridCoord GetOutputCell()
+        {
+            GridCoord[] cells = GetOutputCells();
+            return cells[MiddleIndex(cells.Length)];
+        }
+
+        /// <summary>
+        /// The middle index of a side of the given length - the exact center for an odd length,
+        /// the cell just past center for an even one (no single exact center exists then). Shared
+        /// by every "one representative cell per side" computation (output arrow, input arrows)
+        /// so a multi-cell building's connection points sit centered on each side instead of
+        /// biased toward one corner.
+        /// </summary>
+        static int MiddleIndex(int length) => length / 2;
 
         /// <summary>
         /// Every cell immediately outside this building along its output edge - width/height
@@ -125,18 +140,18 @@ namespace Game.Gameplay.Buildings
 
         /// <summary>
         /// The one input cell per side (other than the output side) a directional-input building
-        /// accepts on, without a BuildingRuntime instance - so the construction ghost draws its
-        /// entry arrows on exactly the cells the placed building will read from.
+        /// accepts on - the middle cell of that side (matching GetOutputCell()'s own centering),
+        /// without a BuildingRuntime instance - so the construction ghost draws its entry arrows
+        /// on exactly the cells the placed building will read from.
         /// </summary>
         public static (GridCoord cell, Direction fromMySide)[] ComputeInputCells(GridCoord cell, UnityEngine.Vector2Int footprintSize, Direction exitDirection)
         {
             var result = new List<(GridCoord, Direction)>(3);
-            var sides = new HashSet<Direction>();
-            foreach ((GridCoord edgeCell, Direction fromMySide) in ComputeEdgeCells(cell, footprintSize))
+            foreach (Direction side in AllDirections)
             {
-                if (fromMySide == exitDirection) continue;
-                if (!sides.Add(fromMySide)) continue;
-                result.Add((edgeCell, fromMySide));
+                if (side == exitDirection) continue;
+                GridCoord[] sideCells = ComputeOutputCells(cell, footprintSize, side);
+                result.Add((sideCells[MiddleIndex(sideCells.Length)], side));
             }
             return result.ToArray();
         }

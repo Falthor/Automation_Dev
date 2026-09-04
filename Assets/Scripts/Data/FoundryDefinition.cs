@@ -22,5 +22,11 @@ namespace Game.Data
 
         public override bool HasOutputArrow => true;
         public override bool HasInputArrows => true;
+
+        // The art's opaque content only fills ~92% of its square canvas (measured on
+        // Building_Foundry_v3.png), so at the default scale it visibly falls short of the
+        // footprint's cell edges - matches ConveyorDefinition/CrossroadDefinition/SplitterDefinition's
+        // own RenderOverscan overrides for the same reason.
+        public override float RenderOverscan => 1.09f;
     }
 }
