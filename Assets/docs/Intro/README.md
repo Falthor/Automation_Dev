@@ -26,7 +26,7 @@ un par un avec objectif, disponibilité, cible, durée, récompense et mode d'é
 lancement, machine à états, résolution, temps forts scénarisés. La section 10 liste
 explicitement les onze points encore ouverts.
 
-**4. `TASK_01_REBALANCE_DATA.md`** — la première tâche.
+**4. `TASK_01_REBALANCE_DATA.md`** — la première tâche. **Réalisée.**
 
 Ticket prêt à passer à Claude Code : rendre l'introduction mesurable avec des changements
 de données uniquement. Périmètre explicite, critères d'acceptation, protocole de mesure.

@@ -1,5 +1,19 @@
 # Tâche 01 — Rééquilibrage par les données
 
+> **État : réalisée.**
+> Date : 2026-09-04. Commit : `f3b20278d855c7950b96a6036757f6a207a5b061`.
+>
+> `unlockResearch` neutralisé (section 3) sur cinq assets :
+>
+> - `Screw_Recipe.asset` — **neutralisation permanente**, à ne pas restaurer.
+> - `Printed_Circuit_Board_Recipe.asset` — temporaire.
+> - `Memory_MK1_Recipe.asset` — temporaire.
+> - `AssemblerDefinition.asset` — temporaire.
+> - `DataCenterDefinition.asset` — temporaire.
+>
+> Les quatre neutralisations temporaires devront être restaurées à la tâche suivante ;
+> `Screw_Recipe` ne doit pas l'être.
+
 **Objectif : rendre l'introduction mesurable sans construire aucun système nouveau.**
 
 Toutes les valeurs de ce ticket viennent de `Assets/docs/Intro/ALIGNEMENT_PROJET.md`, qui
