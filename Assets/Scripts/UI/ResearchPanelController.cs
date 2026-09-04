@@ -17,10 +17,11 @@ namespace Game.UI
     ///
     /// Five states, never distinguished by color alone - each also gets its own glyph:
     /// acquis (check), en cours (progress ring), disponible et payable / CU insuffisant (diamond,
-    /// filled vs hollow), verrouille (lock). Clicking a row calls ResearchSystem.Enqueue, which is
-    /// a safe no-op for a row that is locked/active/queued/completed (CanQueue's own guard) - so
-    /// every row shares one click handler. Clicking a locked row additionally highlights its
-    /// missing prerequisites instead of doing nothing.
+    /// filled vs hollow), verrouille (lock). Clicking a row only selects it for inspection in the
+    /// detail panel - it never itself starts or queues anything, including a locked row (whose
+    /// missing prerequisites get highlighted instead). Only the detail panel's own action button
+    /// (OnDetailActionClicked) calls ResearchSystem.Enqueue/Dequeue/CancelActive, so committing
+    /// CU to a research is always a deliberate second click, never a side effect of browsing.
     /// </summary>
     public sealed class ResearchPanelController : MonoBehaviour
     {
@@ -169,11 +170,15 @@ namespace Game.UI
             }
         }
 
-        /// <summary>The only place that mutates ResearchSystem state from this panel's main list. Safe to call unconditionally on any row - ResearchSystem.Enqueue's own CanQueue guard makes it a no-op for a locked/active/already-queued/completed research.</summary>
+        /// <summary>
+        /// Selects a row for inspection only - it must never itself start or queue anything.
+        /// Committing to a research is a deliberate act via the detail panel's own action button
+        /// (OnDetailActionClicked), so a player browsing the tree can click around freely without
+        /// accidentally spending CU on the wrong one.
+        /// </summary>
         void OnRowClicked(ResearchDefinition definition)
         {
             _inspected = definition;
-            gameRuntime.Research.Enqueue(definition);
         }
 
         void OnDetailActionClicked()
