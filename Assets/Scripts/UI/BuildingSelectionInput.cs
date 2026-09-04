@@ -93,10 +93,6 @@ namespace Game.UI
             {
                 gameRuntime.Selection.Select(powerplantGaz);
             }
-            else if (occupant is LaboratoryRuntime laboratory)
-            {
-                gameRuntime.Selection.Select(laboratory);
-            }
             else if (occupant is DataCenterRuntime dataCenter)
             {
                 gameRuntime.Selection.Select(dataCenter);

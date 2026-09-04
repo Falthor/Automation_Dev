@@ -28,7 +28,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             _compute = new ComputeSystem();
             _power = new PowerSystem();
-            _research = new ResearchSystem();
+            _research = new ResearchSystem(_compute);
         }
 
         static void SetCuPower(ItemDefinition item, float cu, float pw)
@@ -113,9 +113,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         {
             DataCenterRuntime dataCenter = NewDataCenter();
             ResearchDefinition extraSlot = TestDataFactory.NewResearch("extra_cpu_slot", 20f);
-            _research.AddRp(20f);
-            _research.Start(extraSlot);
-            _research.ReportActiveLab();
+            _research.Enqueue(extraSlot);
 
             _research.Tick(60f);
 
@@ -127,9 +125,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         public void NewDataCenter_StartsWithExtraSlot_IfAlreadyUnlockedAtConstruction()
         {
             ResearchDefinition extraSlot = TestDataFactory.NewResearch("extra_cpu_slot", 20f);
-            _research.AddRp(20f);
-            _research.Start(extraSlot);
-            _research.ReportActiveLab();
+            _research.Enqueue(extraSlot);
             _research.Tick(60f);
             Assert.IsTrue(_research.IsUnlocked("extra_cpu_slot"));
 
@@ -145,9 +141,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             dataCenter.OnUnregistered();
 
             ResearchDefinition extraSlot = TestDataFactory.NewResearch("extra_cpu_slot", 20f);
-            _research.AddRp(20f);
-            _research.Start(extraSlot);
-            _research.ReportActiveLab();
+            _research.Enqueue(extraSlot);
             _research.Tick(60f);
 
             Assert.AreEqual(4, dataCenter.CpuSlots.Count);

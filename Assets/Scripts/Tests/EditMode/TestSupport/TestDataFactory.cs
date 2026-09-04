@@ -62,12 +62,26 @@ namespace Game.Tests.EditMode.TestSupport
             return recipe;
         }
 
-        public static ResearchDefinition NewResearch(string id, float cost)
+        /// <summary>
+        /// absorptionRatePerSecond defaults to an effectively unlimited ceiling, so a caller that
+        /// only cares about unlocking this research as a precondition (not about the absorption
+        /// mechanic itself) can complete it with a single generous Tick(deltaTime) regardless of
+        /// cuCost, exactly like the old RP model's callers used to.
+        /// </summary>
+        public static ResearchDefinition NewResearch(string id, float cuCost, float absorptionRatePerSecond = 1_000_000f, params ResearchDefinition[] prerequisites)
         {
             var research = ScriptableObject.CreateInstance<ResearchDefinition>();
             var so = new SerializedObject(research);
             so.FindProperty("id").stringValue = id;
-            so.FindProperty("cost").floatValue = cost;
+            so.FindProperty("cuCost").floatValue = cuCost;
+            so.FindProperty("absorptionRatePerSecond").floatValue = absorptionRatePerSecond;
+
+            SerializedProperty array = so.FindProperty("prerequisites");
+            array.arraySize = prerequisites.Length;
+            for (int i = 0; i < prerequisites.Length; i++)
+            {
+                array.GetArrayElementAtIndex(i).objectReferenceValue = prerequisites[i];
+            }
             so.ApplyModifiedPropertiesWithoutUndo();
             return research;
         }
@@ -163,20 +177,6 @@ namespace Game.Tests.EditMode.TestSupport
             so.FindProperty("fuelCycleTimeSeconds").floatValue = fuelCycleTimeSeconds;
             so.ApplyModifiedPropertiesWithoutUndo();
             return powerplant;
-        }
-
-        public static LaboratoryDefinition NewLaboratory(ItemDefinition cardItem, int maxCardStack, float powerDemandKw, float cuCostPerCycle, float cardConvertIntervalSeconds, float rpPerCard)
-        {
-            var laboratory = ScriptableObject.CreateInstance<LaboratoryDefinition>();
-            var so = new SerializedObject(laboratory);
-            so.FindProperty("cardItem").objectReferenceValue = cardItem;
-            so.FindProperty("maxCardStack").intValue = maxCardStack;
-            so.FindProperty("powerDemandKw").floatValue = powerDemandKw;
-            so.FindProperty("cuCostPerCycle").floatValue = cuCostPerCycle;
-            so.FindProperty("cardConvertIntervalSeconds").floatValue = cardConvertIntervalSeconds;
-            so.FindProperty("rpPerCard").floatValue = rpPerCard;
-            so.ApplyModifiedPropertiesWithoutUndo();
-            return laboratory;
         }
 
         public static CoreDefinition NewCore(int actionRadiusCells, Vector2Int footprintSize)

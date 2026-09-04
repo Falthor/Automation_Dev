@@ -31,6 +31,12 @@ explicitement les onze points encore ouverts.
 Ticket prêt à passer à Claude Code : rendre l'introduction mesurable avec des changements
 de données uniquement. Périmètre explicite, critères d'acceptation, protocole de mesure.
 
+**5. `TASK_02_REFONTE_RECHERCHE.md`** — la deuxième tâche. **Réalisée.**
+
+Remplace le modèle RP/laboratoire par le modèle CU/absorption, crée le `ResearchDatabase`,
+supprime le Laboratoire et la Data Card, et livre les cinq recherches de l'introduction
+(circuit imprimé, assembleur, modules de calcul, Datacenter MK1, boîte de stockage).
+
 ---
 
 ## Maquettes

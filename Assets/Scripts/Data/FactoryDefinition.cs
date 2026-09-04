@@ -11,7 +11,7 @@ namespace Game.Data
     {
         [SerializeField, Min(1)] int maxStackPerItem = 100;
         [SerializeField, Min(0f)] float powerDemandKw = 3f;
-        [SerializeField] string[] recipeIds = { "copper_wire", "Gear", "Screw", "Iron_Plate", "Printed_Circuit_Board", "Data_Card", "Memory_MK1" };
+        [SerializeField] string[] recipeIds = { "copper_wire", "Gear", "Screw", "Iron_Plate", "Printed_Circuit_Board", "Memory_MK1" };
         [SerializeField] string[] acceptedItemIds = { "Iron_Ingot", "copper_Ingot", "Iron_Plate", "copper_wire" };
 
         public int MaxStackPerItem => maxStackPerItem;

@@ -36,7 +36,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             _compute = new ComputeSystem();
             _power = new PowerSystem();
-            _research = new ResearchSystem();
+            _research = new ResearchSystem(_compute);
         }
 
         FactoryRuntime NewFactory()
@@ -61,9 +61,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         public void GetRecipeIds_IncludesGatedRecipe_OnceUnlocked()
         {
             FactoryRuntime factory = NewFactory();
-            _research.AddRp(100f);
-            _research.Start(_memoireResearch);
-            _research.ReportActiveLab();
+            _research.Enqueue(_memoireResearch);
             _research.Tick(60f);
             Assert.IsTrue(_research.IsUnlocked("memoire"));
 

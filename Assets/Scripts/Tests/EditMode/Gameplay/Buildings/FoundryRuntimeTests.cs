@@ -34,7 +34,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             _compute = new ComputeSystem();
             _power = new PowerSystem();
-            _research = new ResearchSystem();
+            _research = new ResearchSystem(_compute);
         }
 
         FoundryRuntime NewFoundry(int maxStackPerItem = 20, float powerDemandKw = 2f, float intakeIntervalSeconds = 2f)

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Data Center
   footprintSize: {x: 4, y: 4}
   placeholderColor: {r: 0.4, g: 0.85, b: 0.4, a: 1}
-  unlockResearch: {fileID: 0}
+  unlockResearch: {fileID: 11400000, guid: 8e7a78127efaea543854b4afb8011b8f, type: 2}
   sprite: {fileID: -6622863259242664493, guid: 4980729cfeaf8cd4894ecaf287691744, type: 3}
   animationFrames:
   - {fileID: -6622863259242664493, guid: 4980729cfeaf8cd4894ecaf287691744, type: 3}

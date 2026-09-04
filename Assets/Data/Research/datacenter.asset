@@ -13,5 +13,11 @@ MonoBehaviour:
   m_Name: datacenter
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: datacenter
-  displayName: Data Center
-  cost: 200
+  displayName: Datacenter MK1
+  description: Le batiment cible de l'introduction.
+  icon: {fileID: 0}
+  cuCost: 5000
+  prerequisites:
+  - {fileID: 11400000, guid: fa419e54f5704ee1a217b98290259090, type: 2}
+  absorptionRatePerSecond: 60
+  tier: 3

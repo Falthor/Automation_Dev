@@ -72,7 +72,9 @@ namespace Game.Presentation
 
         [Header("Save/Load id -> asset resolution (CONTRACTS.md §14)")]
         [SerializeField] BuildingDefinition[] buildingCatalog = System.Array.Empty<BuildingDefinition>();
-        [SerializeField] ResearchDefinition[] researchCatalog = System.Array.Empty<ResearchDefinition>();
+
+        [Header("Research (CONTRACTS.md §11)")]
+        [SerializeField] ResearchDatabase researchDatabase;
 
         public GridRuntime Grid { get; private set; }
         public TerrainRuntime Terrain { get; private set; }
@@ -100,6 +102,7 @@ namespace Game.Presentation
         public GroundSlabNeighborLinker GroundSlabNeighborLinker { get; private set; }
 
         public RecipeDatabase Recipes => recipeDatabase;
+        public ResearchDatabase Researches => researchDatabase;
         public PowerSystem Power { get; private set; }
         public ComputeSystem Compute { get; private set; }
         public ResearchSystem Research { get; private set; }
@@ -138,7 +141,7 @@ namespace Game.Presentation
             Grid = new GridRuntime(cellSize);
             Power = new PowerSystem();
             Compute = new ComputeSystem();
-            Research = new ResearchSystem();
+            Research = new ResearchSystem(Compute);
             Transport = new TransportSystem(Grid);
             GlobalStock = new PooledItemStock(int.MaxValue);
 
@@ -149,8 +152,15 @@ namespace Game.Presentation
             {
                 Terrain = new TerrainRuntime(loadedSave.TerrainSize, loadedSave.TerrainSeed, loadedSave.TerrainScale, loadedSave.TerrainProportion);
                 GlobalStock.RestoreContents(loadedSave.GlobalStock);
-                Research.RestoreState(loadedSave.ResearchRp, FindResearchDefinition(loadedSave.ResearchActiveId), loadedSave.ResearchProgress, loadedSave.ResearchUnlocked);
                 Compute.RestoreReserve(loadedSave.ComputeReserve);
+
+                var restoredQueue = new List<ResearchDefinition>();
+                foreach (string queuedId in loadedSave.ResearchQueue)
+                {
+                    ResearchDefinition queuedResearch = FindResearchDefinition(queuedId);
+                    if (queuedResearch != null) restoredQueue.Add(queuedResearch);
+                }
+                Research.RestoreState(FindResearchDefinition(loadedSave.ResearchActiveId), loadedSave.ResearchProgress, restoredQueue, loadedSave.ResearchUnlocked);
 
                 RestoreWorldAndBuildings(loadedSave);
             }
@@ -255,14 +265,16 @@ namespace Game.Presentation
             return null;
         }
 
-        ResearchDefinition FindResearchDefinition(string id)
+        ResearchDefinition FindResearchDefinition(string id) => researchDatabase != null ? researchDatabase.Get(id) : null;
+
+        List<string> BuildResearchQueueIds()
         {
-            if (string.IsNullOrEmpty(id)) return null;
-            foreach (ResearchDefinition definition in researchCatalog)
+            var ids = new List<string>();
+            foreach (ResearchDefinition queued in Research.GetQueue())
             {
-                if (definition != null && definition.Id == id) return definition;
+                ids.Add(queued.Id);
             }
-            return null;
+            return ids;
         }
 
         /// <summary>Captures every system's current state into a SaveData and writes it to the single save file (CONTRACTS.md §14). Called by New Game (initial state) and OnApplicationQuit (current progress).</summary>
@@ -275,9 +287,9 @@ namespace Game.Presentation
                 TerrainScale = terrainSettings.TerrainScale,
                 TerrainProportion = terrainSettings.Proportion,
                 ComputeReserve = Compute.Reserve,
-                ResearchRp = Research.Rp,
                 ResearchActiveId = Research.ActiveResearch != null ? Research.ActiveResearch.Id : null,
-                ResearchProgress = Research.Progress,
+                ResearchProgress = Research.AbsorbedCu,
+                ResearchQueue = BuildResearchQueueIds(),
                 ResearchUnlocked = new List<string>(Research.GetUnlockedIds()),
                 GlobalStock = new Dictionary<string, int>(GlobalStock.Contents)
             };

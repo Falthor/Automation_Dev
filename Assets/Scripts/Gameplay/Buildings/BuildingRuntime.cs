@@ -213,7 +213,7 @@ namespace Game.Gameplay.Buildings
         /// registered building except conveyors (which have their own dedicated lane-advance
         /// loop needing direct GridRuntime access). No-op by default - only a building with its
         /// own timers/state machine (Extractor, ProductionBuildingRuntime, PowerplantGaz,
-        /// Laboratory, DataCenter) overrides this.
+        /// DataCenter) overrides this.
         /// </summary>
         public virtual void Tick(float deltaTime)
         {
