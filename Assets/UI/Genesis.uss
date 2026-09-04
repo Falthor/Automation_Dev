@@ -1,0 +1,50 @@
+.genesis-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgb(0, 0, 0);
+    justify-content: center;
+    padding: 60px;
+}
+
+.boot-log {
+    align-items: flex-start;
+}
+
+.boot-line {
+    color: rgb(64, 255, 64);
+    font-size: 18px;
+    letter-spacing: 1px;
+    white-space: normal;
+    margin-bottom: 6px;
+}
+
+.boot-line-header {
+    margin-bottom: 24px;
+}
+
+.boot-line-section-gap {
+    margin-top: 20px;
+}
+
+.boot-line-emphasis {
+    color: rgb(140, 255, 140);
+    font-size: 24px;
+    -unity-font-style: bold;
+    letter-spacing: 3px;
+}
+
+.hidden {
+    display: none;
+}
+
+.tv-tune-in-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    -unity-background-scale-mode: scale-and-crop;
+}

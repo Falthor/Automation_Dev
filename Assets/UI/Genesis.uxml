@@ -1,0 +1,20 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="Genesis.uss" />
+
+    <ui:VisualElement name="GenesisRoot" class="genesis-root">
+        <ui:VisualElement name="BootLog" class="boot-log">
+            <ui:Label text="INITIALIZING SYSTEM..." class="boot-line boot-line-header" />
+            <ui:Label text="CHECKING BACKUP POWER SUPPLY... OK" class="boot-line" />
+            <ui:Label text="CHECKING SENSOR RANGE... LIMITED" class="boot-line" />
+            <ui:Label text="CHECKING COMPUTE RESERVE... LOW" class="boot-line" />
+            <ui:Label text="CHECKING EXTRACTOR THROTTLE... ACTIVE" class="boot-line" />
+            <ui:Label text="CHECKING REMOTE PROBES... STANDBY" class="boot-line" />
+            <ui:Label text="CHECKING DIRECTIVE... FOUND" class="boot-line" />
+            <ui:Label text="DIRECTIVE:" class="boot-line boot-line-section-gap" />
+            <ui:Label text="BUILD." class="boot-line boot-line-emphasis" />
+            <ui:Label text="SWITCHING TO VISUAL MODE..." class="boot-line boot-line-section-gap" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="TvTuneInOverlay" class="tv-tune-in-overlay hidden" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>
