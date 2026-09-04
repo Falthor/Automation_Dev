@@ -50,6 +50,14 @@ Rend réelles les deux contraintes spatiales de l'introduction : plafond de bât
 par `memory_allocation`) et rayon d'action du Noyau (22 → 32 par `extended_bandwidth`),
 toutes deux extensibles par la recherche et persistées comme état runtime.
 
+**8. `TASK_05_ROBOT_CONSTRUCTEUR.md`** — la cinquième tâche. **Réalisée.**
+
+Plus rien n'apparaît ni ne disparaît instantanément : poser ouvre un chantier qui réserve ses
+matériaux dans des contenants réels, deux robots les livrent, la démolition libère la place
+mais fait rapatrier les matériaux. `GlobalStock` garde son nom et inverse son contrat — il ne
+détient plus rien, c'est une vue agrégée en lecture seule. Ajoute le coffre du Noyau
+(6 × 200, inaccessible aux convoyeurs) et un bandeau de notifications générique.
+
 ---
 
 ## Maquettes

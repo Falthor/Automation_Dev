@@ -90,12 +90,41 @@ namespace Game.Gameplay.Sites
             return result;
         }
 
-        /// <summary>Records a new earmark against a container - does not move anything physically yet.</summary>
+        /// <summary>
+        /// Records a new earmark against a container - does not move anything physically yet.
+        /// Merged into an existing earmark for the same container and item rather than appended:
+        /// a conveyor drag reserves one plate per segment as it grows, and 55 separate one-unit
+        /// entries would have a robot fetch a single plate per trip instead of filling its
+        /// 4-unit capacity - fifty-five trips where the design calls for seven waves.
+        /// </summary>
         public void AddReservation(object container, string itemId, int amount)
         {
             if (amount <= 0) return;
+
+            for (int i = 0; i < _reservations.Count; i++)
+            {
+                Reservation existingReservation = _reservations[i];
+                if (!ReferenceEquals(existingReservation.Container, container) || existingReservation.ItemId != itemId) continue;
+
+                existingReservation.Amount += amount;
+                _reservations[i] = existingReservation;
+                _committed[itemId] = (_committed.TryGetValue(itemId, out int committed) ? committed : 0) + amount;
+                return;
+            }
+
             _reservations.Add(new Reservation { Container = container, ItemId = itemId, Amount = amount });
             _committed[itemId] = (_committed.TryGetValue(itemId, out int existing) ? existing : 0) + amount;
+        }
+
+        /// <summary>How much of one item this site has earmarked in one specific container - what a robot can pick up there in a single trip, up to its own capacity.</summary>
+        public int ReservedIn(object container, string itemId)
+        {
+            int total = 0;
+            foreach (Reservation reservation in _reservations)
+            {
+                if (ReferenceEquals(reservation.Container, container) && reservation.ItemId == itemId) total += reservation.Amount;
+            }
+            return total;
         }
 
         /// <summary>

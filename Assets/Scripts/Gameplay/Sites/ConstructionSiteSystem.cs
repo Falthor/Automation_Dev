@@ -371,8 +371,12 @@ namespace Game.Gameplay.Sites
             ConstructionSiteRuntime site = FindActiveSite();
             if (site != null && site.Reservations.Count > 0)
             {
+                // One source container per round trip, filled to the robot's capacity - a robot
+                // never leaves with one unit when four of the same item are earmarked in the same
+                // chest (that is the difference between seven waves and fifty-five for a belt run).
                 Reservation chosen = site.Reservations[0];
-                int amount = Mathf.Min(BuilderRobotRuntime.Capacity, chosen.Amount);
+                int available = site.ReservedIn(chosen.Container, chosen.ItemId);
+                int amount = Mathf.Min(BuilderRobotRuntime.Capacity, available);
                 site.ReleaseReservationForPickup(chosen.Container, chosen.ItemId, amount);
 
                 robot.TargetSite = site;

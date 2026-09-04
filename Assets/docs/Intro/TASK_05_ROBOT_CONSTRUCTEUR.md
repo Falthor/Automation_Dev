@@ -1,5 +1,25 @@
 # Tâche 05 — Robots constructeurs et logistique physique
 
+> **État : réalisée, avec deux règles ajoutées au ticket.**
+>
+> Chantiers (`ConstructionSiteRuntime`), deux robots (`BuilderRobotRuntime`), réservation
+> localisée par couples contenant-quantité, rapatriement à la démolition avec destruction de
+> cargaison après 20 s, bandeau de notifications générique, et inversion du contrat
+> `GlobalStock` (vue agrégée en lecture seule, plus jamais un contenant) — voir
+> `CONTRACTS.md` §15.
+>
+> **Règle ajoutée n°1 — le refus de pose pour cause de coût disparaît.** Tel qu'écrit, le
+> ticket décrivait deux comportements (§3 plusieurs chantiers en attente, §4 état d'échec
+> nommant les matériaux manquants) inatteignables tant que la pose exigeait de pouvoir payer.
+> `PlacementRefusalReason.CannotAfford` est donc retiré : poser réussit toujours sous réserve
+> du verrou de recherche, du rayon d'action, du plafond de bâtiments et de la cellule libre.
+>
+> **Règle ajoutée n°2 — un chantier bloqué est sauté, jamais bloquant.** « Un seul chantier à
+> la fois » porte sur l'exécution simultanée (les deux robots servent le même chantier), pas
+> sur l'ordre strict de la file : les robots servent le chantier le plus ancien qui a de quoi
+> être servi, et reviennent au précédent dès que ses pièces manquantes apparaissent. Sans
+> cela, un chantier attendant un circuit imprimé gèlerait un extracteur posé derrière lui.
+
 **Objectif : plus rien n'apparaît ni ne disparaît instantanément. Tout objet a un lieu, et
 deux robots font la navette entre les contenants et les chantiers.**
 
