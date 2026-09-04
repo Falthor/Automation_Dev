@@ -48,21 +48,21 @@ Trois fichiers HTML autonomes, à ouvrir dans un navigateur. Ce sont des maquett
 d'intention, pas des spécifications d'implémentation : elles fixent la structure et le
 langage visuel, pas les dimensions exactes.
 
-**`maquettes/01-menu-recherche-intro.html`** — avant l'amorçage du Datacenter.
+**`01-menu-recherche-intro.html`** — avant l'amorçage du Datacenter.
 
 Le menu classique et linéaire de la phase de survie : quatre recherches obligatoires en
 chaîne, deux optionnelles, un nœud inconnu. Montre les cinq états, la barre de progression
 avec le temps restant au débit courant, le débit d'absorption, et la top bar en mode survie
 avec son autonomie.
 
-**`maquettes/02-menu-recherche-apres-amorcage.html`** — après l'amorçage.
+**`02-menu-recherche-apres-amorcage.html`** — après l'amorçage.
 
 Le même menu transformé en réseau neuronal à trois noyaux, dont l'Armement reste éteint
 jusqu'à la découverte du premier nid. Les recherches de l'introduction y sont acquises et
 rattachées à leur noyau. Le vocabulaire visuel est strictement le même que dans la
 maquette 01 — seule la mise en page change, et c'est le point à préserver absolument.
 
-**`maquettes/03-ecran-lancement-mission.html`**
+**`03-ecran-lancement-mission.html`**
 
 L'écran de lancement d'expédition : carte dézoomée, rayon d'action, brouillard, infobulle
 au survol d'un secteur, panneau de dimensionnement d'escouade avec sa jauge qualitative.

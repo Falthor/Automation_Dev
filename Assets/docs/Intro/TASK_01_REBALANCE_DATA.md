@@ -9,6 +9,12 @@ raisonnement derrière chacune.
 Cette tâche ne touche **ni au système de recherche, ni au Data Center, ni aux
 expéditions**. Elle prépare une mesure, pas une fonctionnalité.
 
+> **Préalable obligatoire.** Les versions de `gdd-intro-recherche-expeditions.md` et
+> `ALIGNEMENT_PROJET.md` présentes sur la branche doivent être à jour avant de lancer
+> cette tâche. Une version périmée conduirait à implémenter des règles contradictoires —
+> notamment sur la combustion des centrales gaz, sur le plafond de bâtiments et sur les
+> gisements illimités.
+
 ---
 
 ## 1. Périmètre
@@ -83,6 +89,10 @@ Passe `unlockResearch` à `null` sur :
 
 Note ces cinq assets dans ton rapport final pour qu'on les restaure sans en oublier un.
 
+**Exception** : `Screw_Recipe` est un cas différent. Les vis sont disponibles dès le début
+de partie dans la conception définitive, donc son `unlockResearch` reste à `null` **de
+façon permanente**. Ne pas le restaurer.
+
 ---
 
 ## 4. Ce que la tâche ne fait pas
@@ -111,6 +121,14 @@ Aucun n'est nécessaire pour mesurer.
 4. Un extracteur produit un minerai toutes les 4 secondes et coûte 2 CU par extraction.
 5. Une centrale gaz fournit 25 kW et coûte 8 CU par unité de charbon brûlée.
 6. Aucun test ne référence encore une ancienne valeur de `computeCost`.
+7. **Les six grappes de gisements sont effectivement présentes** en début de partie.
+
+Ce dernier point demande une vérification explicite. Le rayon d'action passe de 50 à 22,
+donc `maxDistance` tombe de 46 à 18 et l'anneau de placement se réduit de 6 600 à 900
+cellules. Le générateur y place 6 grappes de 16 cellules, soit 11 % d'occupation : les 500
+tentatives devraient suffire, mais **un échec de placement est aujourd'hui silencieux**.
+Une partie amputée d'une grappe de charbon serait injouable sans le moindre message.
+Compter les grappes au démarrage plutôt que de le supposer.
 
 ---
 
@@ -126,6 +144,7 @@ Relever :
 | Nombre de bâtiments posés, hors convoyeurs | **~32** |
 | Extracteurs de fer / cuivre / charbon | 4 / 4 / 2 |
 | Une ligne est-elle restée à l'arrêt faute d'entrées ? | à noter |
+| Le rayon de 22 cellules a-t-il semblé à l'étroit ? | à noter |
 
 Lecture des écarts :
 
