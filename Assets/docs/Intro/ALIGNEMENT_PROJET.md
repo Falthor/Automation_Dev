@@ -10,20 +10,22 @@ dépôt et sa valeur cible. Toutes les valeurs cibles sont des valeurs de test.
 ## État d'application
 
 - **§1 (Items), §2 (Recettes), §3 (Bâtiments/Core)** — appliquées
-  (`TASK_01_REBALANCE_DATA.md`), à l'exception du verrou `unlockResearch` de
-  `AdvancedFoundryDefinition` vers la recherche *Fonderie avancée* : cette recherche
-  n'existe pas encore et sa création sort du périmètre d'une tâche de données. Le champ
-  reste `null`.
+  (`TASK_01_REBALANCE_DATA.md`), y compris depuis `TASK_03_DATACENTER.md` le verrou
+  `unlockResearch` de `AdvancedFoundryDefinition` vers *Fonderie avancée*
+  (`advanced_foundry`), impossible à appliquer en tâche 01 faute d'asset existant.
 - **§6 (`ComputeSystem.ReserveCap`)** — appliquée.
 - **§6 (`ResearchSystem` — refonte CU/absorption, `ResearchDefinition.RequiresResearch` →
   `Prerequisites`, flux CU par seconde autorisé pour la recherche)** — appliquée
   (`TASK_02_REFONTE_RECHERCHE.md`). Le Laboratoire et la Data Card sont supprimés. Le
   plafond de bâtiments (même paragraphe) reste hors périmètre.
-- **§7 (Recherches)** — appliquée pour les cinq recherches de l'introduction obligatoire/
-  optionnelle atteignables sans mécanique manquante : `circuit_board`, `assembler`,
-  `compute_modules`, `datacenter`, `storage_box` (`ResearchDatabase`,
-  `Assets/Data/Research/`). Les huit autres lignes du tableau §7 restent non créées —
-  chacune attend la mécanique qu'elle débloque (voir `TASK_02_REFONTE_RECHERCHE.md` §12).
+- **§7 (Recherches)** — appliquée pour les huit recherches atteignables sans mécanique
+  manquante : `circuit_board`, `assembler`, `compute_modules`, `datacenter`,
+  `storage_box` (`TASK_02_REFONTE_RECHERCHE.md`), plus `datacenter_bay_1`,
+  `datacenter_bay_2` et `advanced_foundry` (`TASK_03_DATACENTER.md`)
+  (`ResearchDatabase`, `Assets/Data/Research/`). Restent non créées : Allocation
+  mémoire, Bande passante étendue, Extraction renforcée, Optimisation de fabrication,
+  Convoyeur MK2 et Forge d'unités — chacune attend la mécanique qu'elle débloque (voir
+  `TASK_02_REFONTE_RECHERCHE.md` §12).
 - **§8, sous-section « Placement — état actuel et cible »** — appliquée
   (`WorldGenerator.cs`) : une grappe garantie par ressource (fer, cuivre, charbon) dans
   le rayon — 4 emplacements chacune, échec = exception —, plus une grappe d'invitation
@@ -31,8 +33,12 @@ dépôt et sa valeur cible. Toutes les valeurs cibles sont des valeurs de test.
   pour les grappes dans le rayon.
 - **§8, reste (« Les gisements sont illimités », suppression de `InitialQuantity`/
   `RemainingQuantity`/`TryExtract`)** — non appliqué.
-- **§4 (Data Center), §5 (Usure des composants), §6 (plafond de bâtiments), §9, §10
-  (brouillard de guerre)** — non appliquées, hors périmètre.
+- **§4 (Data Center — baies, amorçage, répartition par axe) et §5 (Usure des
+  composants — usure pilotant stabilité et fluctuation, décroissance accélérée, durée
+  de vie dispersée par générateur seedé, seuil de remplacement configurable par type)**
+  — appliquées (`TASK_03_DATACENTER.md`).
+- **§6 (plafond de bâtiments), §9, §10 (brouillard de guerre)** — non appliquées, hors
+  périmètre.
 
 ---
 

@@ -19,3 +19,4 @@ MonoBehaviour:
   fallbackColor: {r: 0.85, g: 0.2, b: 0.2, a: 1}
   cuOutput: 15
   powerKw: 2
+  nominalLifetimeSeconds: 120

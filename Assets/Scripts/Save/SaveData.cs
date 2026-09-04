@@ -15,7 +15,18 @@ namespace Game.Save
     [Serializable]
     public sealed class SaveData
     {
-        public int Version = 1;
+        /// <summary>
+        /// Bumped whenever a change to this format (or to what a per-building CaptureState blob
+        /// is expected to contain) would make an older save meaningfully different to interpret -
+        /// TASK_03_DATACENTER.md's decision: SaveService.Load refuses a save whose Version
+        /// doesn't match this exactly, rather than attempting to load it with defaults filled in.
+        /// A per-building blob missing an individual key still falls back gracefully (CONTRACTS.md
+        /// §14) - Version is a coarser, all-or-nothing gate for changes too structural for that,
+        /// like this task's Data Center Capture/Restore reshaping and Research's RP-to-CU switch.
+        /// </summary>
+        public const int CurrentVersion = 2;
+
+        public int Version = CurrentVersion;
         public string SavedAtUtc;
 
         public int TerrainSeed;

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Advanced Foundry
   footprintSize: {x: 3, y: 3}
   placeholderColor: {r: 0.7, g: 0.45, b: 0.15, a: 1}
-  unlockResearch: {fileID: 0}
+  unlockResearch: {fileID: 11400000, guid: d480d6f5dc814760a79619c05471ba5c, type: 2}
   sprite: {fileID: 21300000, guid: 71bf25a4db8328048a34fc864865c752, type: 3}
   animationFrames: []
   animationFps: 8

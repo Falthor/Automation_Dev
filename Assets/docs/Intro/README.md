@@ -37,6 +37,13 @@ Remplace le modèle RP/laboratoire par le modèle CU/absorption, crée le `Resea
 supprime le Laboratoire et la Data Card, et livre les cinq recherches de l'introduction
 (circuit imprimé, assembleur, modules de calcul, Datacenter MK1, boîte de stockage).
 
+**6. `TASK_03_DATACENTER.md`** — la troisième tâche. **Réalisée.**
+
+Fait du Datacenter le bâtiment décrit par le GDD : baies extensibles à 2+2 puis 4+4 par
+recherche, usure pilotant la stabilité et la fluctuation au lieu de vivre à côté,
+séquence d'amorçage, et répartition de la production entre les axes recherche et
+bâtiments.
+
 ---
 
 ## Maquettes

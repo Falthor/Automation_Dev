@@ -1,5 +1,15 @@
 # Tâche 03 — Datacenter : baies, usure, amorçage et répartition
 
+> **État : réalisée.**
+> Date : 2026-09-04. Commit : `2e0a87598eeabdab62f1720a1db1d6f3e2000a0c`.
+>
+> Dette soldée : `storage_box` n'ajoute aucune baie (test dédié, vert avant toute
+> autre modification). Baies à 2+2, extensibles à 4+4 par `datacenter_bay_1` et
+> `datacenter_bay_2`. Amorçage (1 500 CU/90 s), répartition par axe, seuils de
+> remplacement par type, et durée de vie dispersée par générateur seedé livrés.
+> `AdvancedFoundryDefinition.unlockResearch` pointe vers `advanced_foundry`.
+> Sauvegarde : `Version` incompatible refusée explicitement (voir rapport).
+
 **Objectif : faire du Datacenter le bâtiment décrit par le GDD — deux baies de chaque type
 extensibles par la recherche, une usure qui se voit avant de tuer, une séquence
 d'amorçage, et un curseur de répartition entre axes.**
