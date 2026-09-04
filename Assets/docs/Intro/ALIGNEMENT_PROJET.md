@@ -15,9 +15,15 @@ dépôt et sa valeur cible. Toutes les valeurs cibles sont des valeurs de test.
   n'existe pas encore et sa création sort du périmètre d'une tâche de données. Le champ
   reste `null`.
 - **§6 (`ComputeSystem.ReserveCap`)** — appliquée.
+- **§8, sous-section « Placement — état actuel et cible »** — appliquée
+  (`WorldGenerator.cs`) : 4 grappes de fer + 1 grappe d'invitation, 2 de cuivre, 1 de
+  charbon dans le rayon garanti chacune (échec = exception), `minDistance` à 10,
+  grappe d'invitation entre 28 et 34 cellules hors rayon.
+- **§8, reste (« Les gisements sont illimités », suppression de `InitialQuantity`/
+  `RemainingQuantity`/`TryExtract`)** — non appliqué.
 - **§4 (Data Center), §5 (Usure des composants), §6 (refonte recherche, plafond de
-  bâtiments), §7 (Recherches), §8 (génération de monde), §9, §10 (brouillard de guerre)**
-  — non appliquées, hors périmètre de la tâche 01.
+  bâtiments), §7 (Recherches), §9, §10 (brouillard de guerre)** — non appliquées, hors
+  périmètre.
 
 ---
 

@@ -179,6 +179,39 @@ namespace Game.Tests.EditMode.TestSupport
             return laboratory;
         }
 
+        public static CoreDefinition NewCore(int actionRadiusCells, Vector2Int footprintSize)
+        {
+            var core = ScriptableObject.CreateInstance<CoreDefinition>();
+            var so = new SerializedObject(core);
+            so.FindProperty("actionRadiusCells").intValue = actionRadiusCells;
+            so.FindProperty("footprintSize").vector2IntValue = footprintSize;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return core;
+        }
+
+        public static OreDepositDefinition NewOreDeposit(ItemDefinition item, Vector2Int footprintSize)
+        {
+            var deposit = ScriptableObject.CreateInstance<OreDepositDefinition>();
+            var so = new SerializedObject(deposit);
+            so.FindProperty("item").objectReferenceValue = item;
+            so.FindProperty("footprintSize").vector2IntValue = footprintSize;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return deposit;
+        }
+
+        public static WorldGenerationSettings NewWorldGenerationSettings(CoreDefinition coreDefinition, OreDepositDefinition ironOreDefinition, OreDepositDefinition copperOreDefinition, OreDepositDefinition coalOreDefinition, int resourceSeed)
+        {
+            var settings = ScriptableObject.CreateInstance<WorldGenerationSettings>();
+            var so = new SerializedObject(settings);
+            so.FindProperty("coreDefinition").objectReferenceValue = coreDefinition;
+            so.FindProperty("ironOreDefinition").objectReferenceValue = ironOreDefinition;
+            so.FindProperty("copperOreDefinition").objectReferenceValue = copperOreDefinition;
+            so.FindProperty("coalOreDefinition").objectReferenceValue = coalOreDefinition;
+            so.FindProperty("resourceSeed").intValue = resourceSeed;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return settings;
+        }
+
         public static DataCenterDefinition NewDataCenter(int maxStackPerItem, string[] acceptedItemIds, ResearchDefinition unlockResearch)
         {
             var dataCenter = ScriptableObject.CreateInstance<DataCenterDefinition>();

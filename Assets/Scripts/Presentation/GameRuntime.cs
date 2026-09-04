@@ -172,7 +172,6 @@ namespace Game.Presentation
                 {
                     World = new WorldGenerator();
                     World.Generate(Grid, Terrain.Size, worldGenerationSettings, Compute, Power);
-                    VerifyDepositClusters(worldGenerationSettings);
                 }
 
                 Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core, GlobalStock);
@@ -243,43 +242,6 @@ namespace Game.Presentation
                 runtime.RestoreState(buildingSave.State ?? new JObject());
                 Transport.Register(runtime);
                 _restoredBuildings.Add(runtime);
-            }
-        }
-
-        /// <summary>
-        /// TASK_01_REBALANCE_DATA.md acceptance criterion 7: CoreDefinition.ActionRadiusCells
-        /// dropping from 50 to 22 shrinks WorldGenerator's placement ring enough that its
-        /// existing 500-attempt-then-silently-skip behavior (WorldGenerator.cs is out of scope
-        /// for this task and is not modified) could plausibly drop a cluster. Six clusters (2
-        /// iron, 2 copper, 2 coal) are expected; verified explicitly here rather than assumed, by
-        /// counting placed deposits per resource type in fours - WorldGenerator places each
-        /// cluster atomically (its own 4x4 area check succeeds or fails as a whole), so a
-        /// successful cluster always contributes exactly 4 DepositRuntime of that type.
-        /// </summary>
-        void VerifyDepositClusters(WorldGenerationSettings settings)
-        {
-            int CountFor(OreDepositDefinition definition)
-            {
-                int count = 0;
-                foreach (DepositRuntime deposit in World.OreDeposits)
-                {
-                    if (ReferenceEquals(deposit.Definition, definition)) count++;
-                }
-                return count;
-            }
-
-            int ironClusters = CountFor(settings.IronOreDefinition) / 4;
-            int copperClusters = CountFor(settings.CopperOreDefinition) / 4;
-            int coalClusters = CountFor(settings.CoalOreDefinition) / 4;
-            int totalClusters = ironClusters + copperClusters + coalClusters;
-
-            if (totalClusters < 6)
-            {
-                throw new System.InvalidOperationException(
-                    $"World generation placed only {totalClusters}/6 resource clusters " +
-                    $"(iron={ironClusters}/2, copper={copperClusters}/2, coal={coalClusters}/2). " +
-                    "A world missing a resource cluster is not a valid game start " +
-                    "(TASK_01_REBALANCE_DATA.md acceptance criterion 7).");
             }
         }
 
