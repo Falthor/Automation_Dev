@@ -17,8 +17,11 @@ namespace Game.Data
         [SerializeField] OreDepositDefinition coalOreDefinition;
         [SerializeField] int resourceSeed;
 
-        [Header("Player starting stock (global, not held by any building)")]
+        [Header("Player starting stock - held physically in the Core Storage fixture below, not a building-less pool")]
         [SerializeField] RecipeIngredient[] startingStock = System.Array.Empty<RecipeIngredient>();
+
+        [Header("Core Storage - a fixture placed one cell south of the Core at world generation, holding StartingStock")]
+        [SerializeField] StorageDefinition coreStorageDefinition;
 
         public CoreDefinition CoreDefinition => coreDefinition;
         public OreDepositDefinition IronOreDefinition => ironOreDefinition;
@@ -26,7 +29,10 @@ namespace Game.Data
         public OreDepositDefinition CoalOreDefinition => coalOreDefinition;
         public int ResourceSeed => resourceSeed;
 
-        /// <summary>Items the player owns at game start, seeded into GameRuntime's global stock - not into any building's inventory.</summary>
+        /// <summary>Items the player owns at game start, seeded into the Core Storage fixture (CoreStorageDefinition), not into a building-less pool - the Core itself never accepts anything.</summary>
         public RecipeIngredient[] StartingStock => startingStock;
+
+        /// <summary>Definition for the fixture WorldGenerator places one cell south of the Core and seeds with StartingStock. Null skips creating it (e.g. an older settings asset, or a test that doesn't need it).</summary>
+        public StorageDefinition CoreStorageDefinition => coreStorageDefinition;
     }
 }

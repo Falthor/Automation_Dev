@@ -12,12 +12,17 @@ namespace Game.Gameplay.Buildings
     /// <summary>
     /// The unique, world-generated Core: a permanent Power source (unconditional per-tick report)
     /// and the game's CU source (a fixed grant into the global reserve at a fixed interval), no
-    /// cable/network needed for either, plus a pooled, uncapped inventory - one of the sources
-    /// ConstructionService draws construction costs from (alongside the player's global starting
-    /// stock and every placed Storage). It starts empty: the game's starting resources belong to
-    /// the player, not to this building (WorldGenerationSettings.StartingStock). Never placed by
-    /// the player (see WorldGenerator); accepts input from every side, like Storage, since it has
-    /// no output direction of its own.
+    /// cable/network needed for either. Never placed by the player (see WorldGenerator).
+    ///
+    /// The Core no longer accepts any item deliveries at all (design decision: a conveyor or any
+    /// other building must never be able to hand it resources) - CanAcceptInput always refuses,
+    /// which is the single chokepoint every transport path (generic pull/push, splitter/crossroad
+    /// delivery) already checks before calling AddInput. The starting resources that used to live
+    /// in a global, building-less pool now live in a real, dedicated Storage Box world-generated
+    /// just south of the Core instead (WorldGenerator.CoreStorage) - see
+    /// ConstructionService.GetAvailableAmount/PayCost, which still list the Core as a cost source
+    /// for backward compatibility with an older save that had items in it, but it can never gain
+    /// new ones from here on.
     ///
     /// Also the sole owner of the action radius as runtime state (TASK_04_PLAFOND_RAYON.md §4):
     /// CoreDefinition.ActionRadiusCells is only the starting value. ActionRadiusCells here is what
@@ -75,10 +80,11 @@ namespace Game.Gameplay.Buildings
             _researchSystem.ResearchCompleted -= _onResearchCompleted;
         }
 
-        /// <summary>Read-only snapshot for the Core inspector panel (CONTRACTS.md §12).</summary>
+        /// <summary>Read-only snapshot for the Core inspector panel (CONTRACTS.md §12) - always empty from here on, kept for an older save that had items in it.</summary>
         public IReadOnlyDictionary<string, int> GetContents() => _inventory.Contents;
 
-        public override bool CanAcceptInput(string itemId, int amount, Direction fromDirection) => _inventory.CanAccept(itemId, amount);
+        /// <summary>Always refuses: the Core no longer receives anything, by design - see the class doc comment.</summary>
+        public override bool CanAcceptInput(string itemId, int amount, Direction fromDirection) => false;
         public override void AddInput(string itemId, int amount, Direction fromDirection) => _inventory.Add(itemId, amount);
         public override int TakeInput(string itemId, int amount) => _inventory.Take(itemId, amount);
         public override int GetInputAmount(string itemId) => _inventory.GetAmount(itemId);

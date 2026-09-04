@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Game.Gameplay.Items
 {
-    /// <summary>One inventory slot: empty, or up to CapacityPerSlot of a single item id.</summary>
+    /// <summary>One inventory slot: empty, or up to the owning Inventory's CapacityPerSlot of a single item id.</summary>
     public struct InventorySlot
     {
         public string ItemId;
@@ -17,13 +17,28 @@ namespace Game.Gameplay.Items
     /// ScriptableObject. The public surface (GetAmount/CanAccept/Add/Take) still matches
     /// CONTRACTS.md §3's pooled-inventory shape; slots are an internal storage strategy, not a
     /// new contract.
+    ///
+    /// SlotCount/CapacityPerSlot are per-instance (constructor parameters), not fixed constants:
+    /// the standard Storage Box uses DefaultSlotCount/DefaultCapacityPerSlot, but a special
+    /// fixture (e.g. the Core's starting-resources box) may need a different shape - see
+    /// StorageDefinition's slotCountOverride/capacityPerSlotOverride.
     /// </summary>
     public sealed class Inventory
     {
-        public const int SlotCount = 8;
-        public const int CapacityPerSlot = 100;
+        public const int DefaultSlotCount = 2;
+        public const int DefaultCapacityPerSlot = 100;
 
-        readonly InventorySlot[] _slots = new InventorySlot[SlotCount];
+        public int SlotCount { get; }
+        public int CapacityPerSlot { get; }
+
+        readonly InventorySlot[] _slots;
+
+        public Inventory(int slotCount = DefaultSlotCount, int capacityPerSlot = DefaultCapacityPerSlot)
+        {
+            SlotCount = slotCount;
+            CapacityPerSlot = capacityPerSlot;
+            _slots = new InventorySlot[slotCount];
+        }
 
         /// <summary>Read-only view of the slots for UI (CONTRACTS.md §12: UI reads the public contract, never a private field).</summary>
         public IReadOnlyList<InventorySlot> Slots => _slots;

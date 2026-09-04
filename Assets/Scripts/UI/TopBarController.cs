@@ -1,3 +1,4 @@
+using System.Linq;
 using Game.Data;
 using Game.Gameplay.Compute;
 using Game.Presentation;
@@ -172,6 +173,13 @@ namespace Game.UI
 
         void Update()
         {
+            // Same gesture as the Pause button (GLOBAL_UI.md's Top Bar) - not gated on
+            // IsUIBlockingInput, since pausing/resuming from behind an open panel is expected.
+            if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
+            {
+                TogglePause();
+            }
+
             RefreshWidths();
             RefreshPower();
             RefreshCompute();
@@ -252,7 +260,11 @@ namespace Game.UI
             else
             {
                 int queued = research.GetQueue().Count;
-                _researchCard.Value.text = queued > 0 ? $"{queued} en file" : "Aucune";
+                // "Aucune" only when nothing has ever been researched - once at least one
+                // completes with nothing queued next, the top bar should confirm that instead
+                // of reading as if research had never started.
+                string idleText = research.GetUnlockedIds().Any() ? "Recherche finie" : "Aucune";
+                _researchCard.Value.text = queued > 0 ? $"{queued} en file" : idleText;
                 _researchCard.Lines[0].text = "0%";
                 _researchCard.Lines[1].text = "Temps restant  --:--";
                 _researchCard.BarFill.style.width = new StyleLength(Length.Percent(0f));

@@ -741,6 +741,7 @@
 .research-row-name {
     font-size: 11px;
     -unity-font-style: bold;
+    color: rgb(220, 220, 220);
 }
 
 .research-row-sub {
@@ -758,9 +759,14 @@
 .research-state-locked .research-row-status,
 .research-state-locked .research-row-sub { color: rgb(107, 114, 128); }
 
-.research-state-payable { border-color: rgb(237, 147, 177); }
-.research-state-payable .research-row-icon { background-color: rgb(51, 23, 42); border-color: rgb(237, 147, 177); color: rgb(244, 192, 209); }
-.research-state-payable .research-row-status { color: rgb(244, 192, 209); }
+/* Payable: blue, with a soft halo around the row so it reads as "ready to go" at a glance
+   (feedback: was pink before, indistinguishable in intent from the other states' warm colors). */
+.research-state-payable {
+    border-color: rgb(90, 170, 255);
+    box-shadow: 0 0 8px 2px rgba(90, 170, 255, 0.35);
+}
+.research-state-payable .research-row-icon { background-color: rgb(18, 34, 56); border-color: rgb(90, 170, 255); color: rgb(160, 205, 255); }
+.research-state-payable .research-row-status { color: rgb(160, 205, 255); }
 
 .research-state-unaffordable .research-row-icon { background-color: rgb(26, 30, 38); border-color: rgb(107, 114, 128); color: rgb(154, 162, 177); }
 .research-state-unaffordable .research-row-status { color: rgb(139, 147, 161); }
@@ -853,6 +859,9 @@
 }
 
 .research-detail-progress-track {
+    /* Overrides extractor-progress-track's 220px - wider than this panel itself (210px),
+       which pushed the bar past the panel's edge (feedback: "sort du menu"). */
+    width: 190px;
     margin-bottom: 4px;
 }
 

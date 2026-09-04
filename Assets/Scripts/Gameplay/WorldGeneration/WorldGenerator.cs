@@ -12,8 +12,9 @@ namespace Game.Gameplay.WorldGeneration
 {
     /// <summary>
     /// Deterministic world-content placement run once at game start: the Core building at the
-    /// map center, and its resource deposits scattered within its action radius. Not part of
-    /// Game.Construction - this is world generation (like TerrainRuntime), not a player action.
+    /// map center, its starting-resources Storage Box fixture one cell south of it, and its
+    /// resource deposits scattered within its action radius. Not part of Game.Construction -
+    /// this is world generation (like TerrainRuntime), not a player action.
     /// </summary>
     public sealed class WorldGenerator
     {
@@ -41,6 +42,17 @@ namespace Game.Gameplay.WorldGeneration
         public CoreRuntime Core { get; private set; }
         public GridCoord CoreOrigin { get; private set; }
 
+        /// <summary>
+        /// A Storage Box fixture placed one cell south of the Core and seeded with
+        /// WorldGenerationSettings.StartingStock at world generation - the Core itself never
+        /// accepts any delivery (see CoreRuntime), so the player's starting resources live here
+        /// instead, as a real, counted Storage box rather than a building-less pool. Only set by
+        /// Generate() (a fresh game); null after RestoreState (a loaded game) - the fixture is
+        /// then just one more entry in the save's regular building list, restored generically like
+        /// any other placed Storage box, so there is nothing extra for this class to redo.
+        /// </summary>
+        public StorageRuntime CoreStorage { get; private set; }
+
         /// <summary>Pass-through to Core.ActionRadiusCells (TASK_04_PLAFOND_RAYON.md §4) - Core is the sole owner of the current radius, this is just a convenience for callers that only hold a WorldGenerator reference.</summary>
         public int ActionRadiusCells => Core?.ActionRadiusCells ?? 0;
 
@@ -58,6 +70,18 @@ namespace Game.Gameplay.WorldGeneration
 
             Core = new CoreRuntime(coreDefinition, CoreOrigin, Direction.North, computeSystem, powerSystem, researchSystem);
             grid.SetOccupantFootprint(CoreOrigin, coreDefinition.FootprintSize, Core);
+
+            if (settings.CoreStorageDefinition != null)
+            {
+                var storageCell = new GridCoord(CoreOrigin.X + coreDefinition.FootprintSize.x / 2, CoreOrigin.Y - 1);
+                CoreStorage = new StorageRuntime(settings.CoreStorageDefinition, storageCell, Direction.North);
+                grid.SetOccupantFootprint(storageCell, settings.CoreStorageDefinition.FootprintSize, CoreStorage);
+
+                foreach (RecipeIngredient ingredient in settings.StartingStock)
+                {
+                    if (ingredient.Item != null) CoreStorage.SeedInitialContents(ingredient.Item.Id, ingredient.Amount);
+                }
+            }
 
             var random = new System.Random(settings.ResourceSeed);
             Vector2 coreCenter = new Vector2(
