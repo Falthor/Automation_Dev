@@ -17,9 +17,21 @@ MonoBehaviour:
   footprintSize: {x: 3, y: 3}
   placeholderColor: {r: 0.85, g: 0.6, b: 0.1, a: 1}
   unlockResearch: {fileID: 0}
-  sprite: {fileID: 21300000, guid: 6b5900976a1079a44a7ff896cedca8c3, type: 3}
-  animationFrames: []
-  animationFps: 8
+  sprite: {fileID: -6622863259242664493, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
+  animationFrames:
+  - {fileID: -6622863259242664493, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
+  - {fileID: 4138848172959368440, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
+  - {fileID: 5823024787834327110, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
+  - {fileID: -5429809939435209488, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
+  - {fileID: -7409573511083393705, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
+  - {fileID: 2402639969742374697, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
+  - {fileID: 368041112877095050, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
+  - {fileID: -3326688003119052452, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
+  - {fileID: 9209089764030810201, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
+  - {fileID: 7800090583882032772, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
+  - {fileID: -7160256121808793437, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
+  - {fileID: -955268259036638798, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
+  animationFps: 12
   cost:
   - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
     amount: 10

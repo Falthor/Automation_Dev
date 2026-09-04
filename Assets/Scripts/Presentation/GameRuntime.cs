@@ -35,6 +35,31 @@ namespace Game.Presentation
         [SerializeField] TerrainView terrainView;
         [SerializeField] GridLineView gridLineView;
 
+        /// <summary>
+        /// Tileable diffuse/normal pair for the concrete pad shown under every placed building
+        /// (BuildingSpawner) and the Core (WorldContentSpawner), sampled by Custom/BuildingGroundSlab.
+        /// Optional; either being null disables the slab entirely rather than falling back to a
+        /// placeholder.
+        /// </summary>
+        [Header("Ground slab")]
+        [SerializeField] Texture2D groundSlabDiffuse;
+        [SerializeField] Texture2D groundSlabNormal;
+
+        /// <summary>1 = texture's own colors unchanged; lower values darken it (simple RGB multiply, applied in Custom/BuildingGroundSlab).</summary>
+        [SerializeField, Range(0f, 1f)] float groundSlabDarken = 1f;
+
+        /// <summary>How far inward from the footprint edge the ground's real Mars/Gravel04 texture starts showing through the still-mostly-opaque slab ("taille de la zone de transition").</summary>
+        [SerializeField, Min(0f)] float groundSlabSandBandWidth = 1f;
+
+        /// <summary>World-unit width of the final alpha fade past the sand band, before the slab's own geometry ends ("vitesse de transparence" - a narrower value fades faster/sooner).</summary>
+        [SerializeField, Min(0f)] float groundSlabEdgeSoftness = 0.6f;
+
+        /// <summary>World-unit patch size of the noise that makes the sand-encroachment boundary jagged rather than a perfect rounded rectangle ("forme" - larger values = bigger, blobbier patches).</summary>
+        [SerializeField, Min(0.1f)] float groundSlabSandNoiseScale = 1.2f;
+
+        /// <summary>How far (world units) the noise can perturb the sand-encroachment boundary in or out ("forme" - 0 = a perfectly smooth ring, larger = more jagged/irregular).</summary>
+        [SerializeField, Min(0f)] float groundSlabSandNoiseAmplitude = 0.5f;
+
         [Header("Item/Recipe registries")]
         [SerializeField] ItemDatabase itemDatabase;
         [SerializeField] RecipeDatabase recipeDatabase;
@@ -57,6 +82,23 @@ namespace Game.Presentation
         public SelectionRuntime Selection { get; private set; }
         public ItemVisualSync ItemVisuals => itemVisuals;
         public ItemDatabase Items => itemDatabase;
+
+        /// <summary>
+        /// Built once in Start() (after TerrainView.Initialize has populated its ground material)
+        /// from this component's own slab options plus TerrainView.GroundMaterial's live biome
+        /// values - see BuildingGroundSlab.shader for why the two must match formula-for-formula.
+        /// Null until Start() runs; ConstructionInputAdapter reads this lazily from Update() (not
+        /// its own Start()) specifically to avoid depending on Start() order between components.
+        /// </summary>
+        public GroundSlabSettings GroundSlabSettings { get; private set; }
+
+        /// <summary>
+        /// Built once in Start() alongside GroundSlabSettings; keeps every placed slab's edge
+        /// mask (Custom/BuildingGroundSlab._EdgeMask) in sync as buildings are placed/demolished
+        /// next to each other or the Core. See GroundSlabNeighborLinker.
+        /// </summary>
+        public GroundSlabNeighborLinker GroundSlabNeighborLinker { get; private set; }
+
         public RecipeDatabase Recipes => recipeDatabase;
         public PowerSystem Power { get; private set; }
         public ComputeSystem Compute { get; private set; }
@@ -312,6 +354,9 @@ namespace Game.Presentation
                 terrainView.Initialize(Terrain, Grid);
             }
 
+            GroundSlabSettings = BuildGroundSlabSettings();
+            GroundSlabNeighborLinker = new GroundSlabNeighborLinker(Grid);
+
             if (gridLineView != null)
             {
                 gridLineView.Initialize(Grid, Terrain.Size);
@@ -324,7 +369,7 @@ namespace Game.Presentation
 
             if (World != null)
             {
-                var contentSpawner = new WorldContentSpawner(Grid, new ProceduralSpriteFactory());
+                var contentSpawner = new WorldContentSpawner(Grid, new ProceduralSpriteFactory(), GroundSlabSettings, GroundSlabNeighborLinker);
                 contentSpawner.SpawnCore(World.Core);
                 Transport.Register(World.Core);
                 foreach (var deposit in World.OreDeposits)
@@ -366,6 +411,44 @@ namespace Game.Presentation
                     if (itemVisuals != null) itemVisuals.Register(building);
                 }
             }
+        }
+
+        /// <summary>
+        /// Reads TerrainView.GroundMaterial's live _Biome* values (set by TerrainView.Initialize,
+        /// called just before this) so the slab shader can recompute the exact same Mars/Gravel04
+        /// base layer at a given world position - see BuildingGroundSlab.shader's frag() comment.
+        /// Falls back to the shader's own Properties-block defaults (an all-white single texture,
+        /// no visible sand encroachment) when there is no TerrainView, rather than erroring.
+        /// </summary>
+        GroundSlabSettings BuildGroundSlabSettings()
+        {
+            var settings = new GroundSlabSettings
+            {
+                SlabDiffuse = groundSlabDiffuse,
+                SlabNormal = groundSlabNormal,
+                SlabDarken = groundSlabDarken,
+                SandBandWidth = groundSlabSandBandWidth,
+                EdgeSoftness = groundSlabEdgeSoftness,
+                SandNoiseScale = groundSlabSandNoiseScale,
+                SandNoiseAmplitude = groundSlabSandNoiseAmplitude,
+            };
+
+            Material groundMaterial = terrainView != null ? terrainView.GroundMaterial : null;
+            if (groundMaterial != null)
+            {
+                settings.BiomeTextures = new[] { groundMaterial.GetTexture("_BiomeTex0"), groundMaterial.GetTexture("_BiomeTex1"), groundMaterial.GetTexture("_BiomeTex2") };
+                settings.BiomeWeights = new[] { groundMaterial.GetFloat("_BiomeWeight0"), groundMaterial.GetFloat("_BiomeWeight1"), groundMaterial.GetFloat("_BiomeWeight2") };
+                settings.BiomeTexCount = groundMaterial.GetFloat("_BiomeTexCount");
+                settings.BiomeCellSize = groundMaterial.GetFloat("_BiomeCellSize");
+                settings.BiomeEdgeSoftness = groundMaterial.GetFloat("_BiomeEdgeSoftness");
+                settings.BiomeSeed = groundMaterial.GetFloat("_BiomeSeed");
+                Vector4 origin = groundMaterial.GetVector("_VariationOrigin");
+                settings.VariationOrigin = new Vector2(origin.x, origin.y);
+                Vector4 textureWorldSize = groundMaterial.GetVector("_TextureWorldSize");
+                settings.TextureWorldSize = new Vector2(textureWorldSize.x, textureWorldSize.y);
+            }
+
+            return settings;
         }
     }
 }

@@ -73,14 +73,23 @@ namespace Game.Presentation
             // GameRuntime and this adapter is not guaranteed, but Start always runs after
             // every object's Awake, so gameRuntime.Grid is guaranteed to be initialized here.
             if (worldCamera == null) worldCamera = Camera.main;
-            _spawner = new BuildingSpawner(gameRuntime.Grid, _spriteFactory, straightConveyorForDragContinuation, cornerConveyorForReshape);
             if (hoverHighlightView != null) hoverHighlightView.Initialize(gameRuntime.Grid);
             if (depositHoverGlowView != null) depositHoverGlowView.Initialize(gameRuntime.Grid, _spriteFactory);
+
+            // _spawner is NOT built here: it needs gameRuntime.GroundSlabSettings, which
+            // GameRuntime only populates partway through its own Start() (after TerrainView.
+            // Initialize runs) - and Unity does not guarantee Start() order between different
+            // components (unlike Awake, which gameRuntime.Grid above already relies on). Built
+            // lazily on first Update() instead, by which point every object's Start() has run.
         }
 
         void Update()
         {
-            if (worldCamera == null || gameRuntime == null || _spawner == null) return;
+            if (worldCamera == null || gameRuntime == null) return;
+            if (_spawner == null)
+            {
+                _spawner = new BuildingSpawner(gameRuntime.Grid, _spriteFactory, straightConveyorForDragContinuation, cornerConveyorForReshape, gameRuntime.GroundSlabSettings, gameRuntime.GroundSlabNeighborLinker);
+            }
 
             // A UI panel (Building menu, Storage panel, ...) owns mouse/keyboard input while
             // open, and for one extra frame after it closes - otherwise the same click that

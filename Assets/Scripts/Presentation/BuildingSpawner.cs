@@ -16,6 +16,11 @@ namespace Game.Presentation
     public sealed class BuildingSpawner
     {
         const int StandardSortingOrder = 10;
+        const int GroundSlabSortingOrder = 5;
+
+        // How far the concrete slab bleeds past the building's true footprint on each side, so it
+        // reads as sitting on top of the ground rather than stopping exactly at the grid line.
+        const float GroundSlabOverscanMargin = 0.3f;
 
         // Splitter/Crossroad's RenderOverscan deliberately makes their arms overlap the
         // neighboring conveyor's sprite bounds at the seam (to close the visual gap). With an
@@ -39,6 +44,8 @@ namespace Game.Presentation
         readonly ProceduralSpriteFactory _spriteFactory;
         readonly ConveyorDefinition _straightConveyorArt;
         readonly ConveyorDefinition _cornerConveyorArt;
+        readonly GroundSlabSettings _groundSlabSettings;
+        readonly GroundSlabNeighborLinker _groundSlabNeighborLinker;
         readonly Dictionary<GridCoord, GameObject> _views = new Dictionary<GridCoord, GameObject>();
 
         /// <summary>
@@ -46,13 +53,19 @@ namespace Game.Presentation
         /// when a conveyor's own Definition no longer matches its current Orientation.Shape
         /// (reshaped via a drag turn) - see ResolveConveyorArtDefinition. Null is fine wherever
         /// conveyors are never reshaped (e.g. EditMode tests spawning other building types).
+        /// groundSlabSettings is optional; null (or its diffuse/normal being null) means no
+        /// concrete slab is spawned under buildings (e.g. EditMode tests with no such art
+        /// configured). groundSlabNeighborLinker is optional too; null means slabs never react
+        /// to neighboring buildings being placed/demolished.
         /// </summary>
-        public BuildingSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory, ConveyorDefinition straightConveyorArt = null, ConveyorDefinition cornerConveyorArt = null)
+        public BuildingSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory, ConveyorDefinition straightConveyorArt = null, ConveyorDefinition cornerConveyorArt = null, GroundSlabSettings groundSlabSettings = null, GroundSlabNeighborLinker groundSlabNeighborLinker = null)
         {
             _grid = grid;
             _spriteFactory = spriteFactory;
             _straightConveyorArt = straightConveyorArt;
             _cornerConveyorArt = cornerConveyorArt;
+            _groundSlabSettings = groundSlabSettings;
+            _groundSlabNeighborLinker = groundSlabNeighborLinker;
         }
 
         public void SpawnView(BuildingRuntime runtime)
@@ -127,6 +140,13 @@ namespace Game.Presentation
             var root = new GameObject($"{definition.DisplayName} {runtime.Cell}");
             root.transform.position = _grid.FootprintCenterToWorld(runtime.Cell, definition.FootprintSize);
 
+            // An Extractor sits on its ore deposit, not open ground - a concrete pad under it
+            // would cover the deposit's own art/terrain instead of the building's real footing.
+            if (!(runtime is ExtractorRuntime))
+            {
+                SpawnGroundSlab(root.transform, runtime.Cell, definition.FootprintSize);
+            }
+
             var spriteGo = new GameObject("Sprite");
             spriteGo.transform.SetParent(root.transform, false);
             var renderer = spriteGo.AddComponent<SpriteRenderer>();
@@ -163,6 +183,47 @@ namespace Game.Presentation
             }
 
             return root;
+        }
+
+        /// <summary>
+        /// Concrete pad shown under a standard building, exactly matching its footprint - a
+        /// tiled Custom/BuildingGroundSlab material with a per-cell random UV phase so adjacent
+        /// buildings don't tile in visible lockstep, and a soft alpha fade at the footprint edge
+        /// instead of a hard cutoff. No-op when no slab texture pair is configured (e.g. EditMode
+        /// tests). Not used by conveyors/Splitter/Crossroad - see BuildingSpawner class docs on
+        /// SpawnStandardView for why the transport family is excluded.
+        /// </summary>
+        void SpawnGroundSlab(Transform parent, GridCoord cell, Vector2Int footprintSize)
+        {
+            if (_groundSlabSettings == null || !_groundSlabSettings.HasSlabTextures) return;
+
+            var slabGo = new GameObject("GroundSlab");
+            slabGo.transform.SetParent(parent, false);
+            var renderer = slabGo.AddComponent<SpriteRenderer>();
+            renderer.sortingOrder = GroundSlabSortingOrder;
+            renderer.sharedMaterial = _spriteFactory.GetGroundSlabMaterial(_groundSlabSettings);
+
+            Vector2 footprintWorldSize = new Vector2(_grid.CellSize, _grid.CellSize) * footprintSize;
+            Vector2 slabWorldSize = footprintWorldSize + Vector2.one * (GroundSlabOverscanMargin * 2f);
+            SetSpriteToWorldSize(renderer, _spriteFactory.GetGroundSlabUnitSprite(), slabWorldSize);
+            ApplyGroundSlabPropertyBlock(renderer, cell, slabWorldSize);
+
+            _groundSlabNeighborLinker?.Register(cell, footprintSize, renderer);
+        }
+
+        /// <summary>
+        /// Per-instance shader inputs that the shared GetGroundSlabMaterial can't carry itself:
+        /// a random UV phase (seeded by cell, so it's stable across a view rebuild) so adjacent
+        /// slabs don't tile in visible lockstep, and the footprint's own world size so the
+        /// shader's edge fade reads as the same physical width regardless of footprint size.
+        /// </summary>
+        static void ApplyGroundSlabPropertyBlock(SpriteRenderer renderer, GridCoord cell, Vector2 footprintWorldSize)
+        {
+            var random = new System.Random(cell.GetHashCode());
+            var propertyBlock = new MaterialPropertyBlock();
+            propertyBlock.SetVector("_UVOffset", new Vector4((float)random.NextDouble() * 10f, (float)random.NextDouble() * 10f, 0f, 0f));
+            propertyBlock.SetVector("_FootprintWorldSize", new Vector4(footprintWorldSize.x, footprintWorldSize.y, 0f, 0f));
+            renderer.SetPropertyBlock(propertyBlock);
         }
 
         /// <summary>
@@ -236,6 +297,9 @@ namespace Game.Presentation
                 Object.Destroy(go);
                 _views.Remove(cell);
             }
+
+            // No-op if cell was never registered (e.g. a conveyor/Splitter/Crossroad, which never gets a slab).
+            _groundSlabNeighborLinker?.Unregister(cell);
         }
     }
 }

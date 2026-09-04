@@ -53,6 +53,13 @@ namespace Game.Presentation
         Material _groundMaterial;
         Material _cloudMaterial;
 
+        /// <summary>
+        /// Read-only access to the live ground material's shader values (_BiomeTex0 etc.), so
+        /// GameRuntime can build a GroundSlabSettings that reproduces the exact same base-layer
+        /// texture the ground itself shows, instead of duplicating this computation.
+        /// </summary>
+        public Material GroundMaterial => _groundMaterial;
+
         public void Initialize(TerrainRuntime terrain, GridRuntime grid)
         {
             (_groundRenderer, _groundMaterial) = CreateLayer("Ground", 0, GroundShaderName);
