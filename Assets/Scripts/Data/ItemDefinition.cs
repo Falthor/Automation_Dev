@@ -17,6 +17,7 @@ namespace Game.Data
         [SerializeField] Color fallbackColor = Color.magenta;
         [SerializeField, Min(0f)] float cuOutput;
         [SerializeField, Min(0f)] float powerKw;
+        [SerializeField, Min(0f)] float nominalLifetimeSeconds;
 
         public string Id => id;
         public ItemType Type => type;
@@ -29,5 +30,8 @@ namespace Game.Data
 
         /// <summary>kW drawn while installed and active as a Data Center component. 0 for every non-installable item.</summary>
         public float PowerKw => powerKw;
+
+        /// <summary>Nominal lifetime (seconds) once installed as a Data Center component, before the ±25% per-instance dispersion (ComponentInstance). 0 for every non-installable item.</summary>
+        public float NominalLifetimeSeconds => nominalLifetimeSeconds;
     }
 }

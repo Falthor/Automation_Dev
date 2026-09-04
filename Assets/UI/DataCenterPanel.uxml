@@ -7,6 +7,15 @@
                 <ui:Label text="DATA CENTER" class="title" />
                 <ui:Button name="DataCenterCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
+
+            <ui:VisualElement name="DataCenterPrimingSection" class="datacenter-priming-section hidden">
+                <ui:Label text="AMORCAGE" class="extractor-section-label" />
+                <ui:VisualElement class="extractor-progress-track">
+                    <ui:VisualElement name="DataCenterPrimingFill" class="extractor-progress-fill" />
+                </ui:VisualElement>
+                <ui:Label name="DataCenterPrimingLabel" text="" class="datacenter-priming-label" />
+            </ui:VisualElement>
+
             <ui:VisualElement class="inline-icon-row">
                 <ui:VisualElement name="DataCenterComputeIcon" class="inline-icon" />
                 <ui:Label name="DataCenterComputeLabel" text="Compute produit: 0 CU/s" class="extractor-section-label" />
@@ -15,6 +24,26 @@
                 <ui:VisualElement name="DataCenterPowerIcon" class="inline-icon" />
                 <ui:Label name="DataCenterPowerLabel" text="Power consommee: 0 kW" class="extractor-section-label" />
             </ui:VisualElement>
+
+            <ui:Label text="REPARTITION PAR AXE" class="extractor-section-label" />
+            <ui:VisualElement class="datacenter-axis-row">
+                <ui:Label name="DataCenterResearchAxisLabel" text="Recherche: 0 CU/s" class="datacenter-axis-value" />
+                <ui:Label name="DataCenterBuildingsAxisLabel" text="Batiments: 0 CU/s" class="datacenter-axis-value" />
+            </ui:VisualElement>
+            <ui:Slider name="DataCenterAxisSlider" low-value="0" high-value="100" value="50" class="datacenter-slider" />
+
+            <ui:Label text="SEUIL DE REMPLACEMENT" class="extractor-section-label" />
+            <ui:VisualElement class="datacenter-threshold-row">
+                <ui:Label text="CPU" class="datacenter-threshold-name" />
+                <ui:Slider name="DataCenterCpuThresholdSlider" low-value="5" high-value="60" value="25" class="datacenter-slider" />
+                <ui:Label name="DataCenterCpuThresholdValue" text="25%" class="datacenter-threshold-value" />
+            </ui:VisualElement>
+            <ui:VisualElement class="datacenter-threshold-row">
+                <ui:Label text="Memoire" class="datacenter-threshold-name" />
+                <ui:Slider name="DataCenterMemoryThresholdSlider" low-value="5" high-value="60" value="25" class="datacenter-slider" />
+                <ui:Label name="DataCenterMemoryThresholdValue" text="25%" class="datacenter-threshold-value" />
+            </ui:VisualElement>
+
             <ui:Label text="CPU" class="extractor-section-label" />
             <ui:VisualElement name="DataCenterCpuList" class="datacenter-slot-list" />
             <ui:Label text="MEMOIRE" class="extractor-section-label" />

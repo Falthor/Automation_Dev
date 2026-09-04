@@ -280,19 +280,19 @@ public float SpendUpTo(float maxAmount)
 public void Tick(float deltaTime)
 ```
 
-CU is a pooled reserve (`Reserve`, capped at `ReserveCap` = 60000, starting full) credited by `Grant`. It is a **currency, not a flow** for every spender but one:
+CU is a pooled reserve (`Reserve`, capped at `ReserveCap` = 60000, starting full) credited by `Grant`. It is a **currency, not a flow** for every spender but two:
 
 - Every production cycle - a recipe-based production building (its recipe's `ComputeCost`, §6), Extractor, and Gas Powerplant (their own `BuildingDefinition.CuCostPerCycle`, per extraction/per unit of fuel burned respectively) - still pays in a **single one-shot chunk the instant the cycle starts**, via `CanSpend`/`Spend`. There is no throttling ratio for these: a cycle either affords itself in full or waits at 0 progress. A powerplant that cannot pay does not light its fuel, and therefore supplies no Power that tick.
-- **Research** (`Game.Gameplay.Research.ResearchSystem`, §11) is the one continuous per-second draw, via `SpendUpTo(maxAmount)`: it withdraws up to `maxAmount`, less if the reserve holds less, and returns how much was actually taken - it never goes negative and never throws. This is a deliberate, documented exception to "CU is a currency, not a flow" (CONTRACTS.md §13 contract evolution, TASK_02_REFONTE_RECHERCHE.md): the research absorption model needs a real per-second rate, capped by both the research's own `AbsorptionRatePerSecond` and whatever the reserve can currently give. `SpendUpTo` has exactly one caller; every other spender keeps using `CanSpend`/`Spend`.
+- **Research** (`Game.Gameplay.Research.ResearchSystem`, §11) and **Data Center priming** (`Game.Gameplay.Buildings.DataCenterRuntime`, TASK_03_DATACENTER.md) are the two continuous per-second draws, both via `SpendUpTo(maxAmount)`: it withdraws up to `maxAmount`, less if the reserve holds less, and returns how much was actually taken - it never goes negative and never throws. This is a deliberate, documented exception to "CU is a currency, not a flow" (CONTRACTS.md §13 contract evolution, first for research in TASK_02_REFONTE_RECHERCHE.md, extended to priming in TASK_03_DATACENTER.md): a freshly placed Data Center spends 90s absorbing 1500 CU at a fixed rate before producing anything, and pauses at zero CU exactly like research - progress is a running total that is never rolled back. `SpendUpTo` has exactly these two callers; every other spender keeps using `CanSpend`/`Spend`.
 
 Two sources credit the reserve:
 
 - the **Core**, whose `CuOutput` is 0 in the current data - it produces no CU (the `CuOutputIntervalSeconds` mechanism remains in code but has no effect at this value);
-- a **Data Center**, which credits its installed components' output for the duration of each tick, and only while powered.
+- a **Data Center**, which credits its installed components' output for the duration of each tick, only while powered, and only once primed (`DataCenterRuntime.IsPriming`) - split across its research/buildings axes by a concentration-based yield curve (see the Data Center's own subsystem behavior for the exact formula), though both axes currently credit this same single reserve.
 
 `Tick(deltaTime)` (called once per `GameRuntime.Update()`) only advances the window `IncomePerSecond` is averaged over - the credited-CU-per-second figure the UI shows. Anything granted above the cap is discarded, and `IncomePerSecond` counts only what was really credited.
 
-The UI reads `Reserve`/`IncomePerSecond` through this contract for the general CU display; it must not show a continuous consumption figure there, because outside of research there is none. The one legitimate continuous-rate figure is research's own absorption ceiling and estimated time remaining (§11), which the UI reads from `ResearchSystem`, not from `ComputeSystem`.
+The UI reads `Reserve`/`IncomePerSecond` through this contract for the general CU display; it must not show a continuous consumption figure there, because outside of research and priming there is none. The two legitimate continuous-rate figures are research's own absorption ceiling/estimated time remaining (§11) and the Data Center's priming progress, which the UI reads from `ResearchSystem`/`DataCenterRuntime` respectively, not from `ComputeSystem`.
 
 ## 11. Research
 
@@ -360,6 +360,8 @@ When a contract changes:
 ## 14. Save / Restore
 
 Mono-save (`Game.Save`, `Assets/Scripts/Save/`): one fixed file (`SaveService.SavePath`, `Application.persistentDataPath/save.json`), always overwritten in place - no save slots, no multi-file history.
+
+`SaveService.Load` refuses a save whose `Version` does not equal `SaveData.CurrentVersion`, returning `null` exactly like a read/parse failure (TASK_03_DATACENTER.md's decision) - it does not attempt to load an old-format save with defaults filled in. A per-building blob missing an individual key still falls back gracefully (see below); `Version` is the coarser, all-or-nothing gate for a change too structural for that.
 
 `Game.Save` has no dependency on any other `Game.*` assembly (only on the JSON library) - it never reads private state itself. Every system capable of holding meaningful runtime state exposes a `Capture`/`Restore` pair as a public member of that system, and only `GameRuntime` (`Game.Presentation`) calls them, assembling/consuming a `Game.Save.SaveData`:
 

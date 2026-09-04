@@ -2,12 +2,13 @@ namespace Game.Gameplay.Compute
 {
     /// <summary>
     /// Global compute pool (CONTRACTS.md §10). CU is a currency, not a flow for every spender but
-    /// one: a production cycle (recipe-based building, Extractor, Laboratory-successor, Gas
-    /// Powerplant) still pays in a single one-shot chunk the moment it starts, via
-    /// CanSpend/Spend - there is no throttling ratio for those, a cycle either can afford itself
-    /// or waits. Research absorption (Game.Gameplay.Research) is the one continuous per-second
-    /// draw, via SpendUpTo - it never takes more than the reserve currently holds, so it floors
-    /// at zero instead of going negative.
+    /// two: a production cycle (recipe-based building, Extractor, Gas Powerplant) still pays in a
+    /// single one-shot chunk the moment it starts, via CanSpend/Spend - there is no throttling
+    /// ratio for those, a cycle either can afford itself or waits. Research absorption
+    /// (Game.Gameplay.Research.ResearchSystem) and Data Center priming
+    /// (Game.Gameplay.Buildings.DataCenterRuntime) are the two continuous per-second draws, both
+    /// via SpendUpTo - it never takes more than the reserve currently holds, so it floors at zero
+    /// instead of going negative.
     /// </summary>
     public sealed class ComputeSystem
     {

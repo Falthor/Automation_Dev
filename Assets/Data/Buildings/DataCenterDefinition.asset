@@ -49,3 +49,5 @@ MonoBehaviour:
   acceptedItemIds:
   - cpu_mkI
   - Memory_MK1
+  axisYieldFloor: 0.2
+  componentLifetimeSeed: 12345

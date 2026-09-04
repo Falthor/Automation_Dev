@@ -1057,7 +1057,56 @@
 /* Data Center / Core inspectors */
 
 .datacenter-panel {
-    width: 260px;
+    width: 300px;
+}
+
+.datacenter-priming-section {
+    margin-bottom: 8px;
+}
+
+.datacenter-priming-label {
+    color: rgb(250, 199, 117);
+    font-size: 10px;
+    margin-top: 3px;
+}
+
+.datacenter-axis-row {
+    flex-direction: row;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+
+.datacenter-axis-value {
+    color: rgb(159, 225, 203);
+    font-size: 10px;
+}
+
+.datacenter-slider {
+    margin: 2px 0 8px;
+}
+
+.datacenter-threshold-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.datacenter-threshold-name {
+    width: 55px;
+    color: rgb(200, 210, 218);
+    font-size: 10px;
+}
+
+.datacenter-threshold-row .datacenter-slider {
+    flex-grow: 1;
+    margin: 0 6px;
+}
+
+.datacenter-threshold-value {
+    width: 32px;
+    color: rgb(200, 210, 218);
+    font-size: 10px;
+    -unity-text-align: middle-right;
 }
 
 .datacenter-slot-list {

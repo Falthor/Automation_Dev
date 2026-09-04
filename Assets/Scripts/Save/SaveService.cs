@@ -38,7 +38,14 @@ namespace Game.Save
             }
         }
 
-        /// <summary>Returns null if no save file exists, or if it exists but fails to read/parse - callers must handle null rather than assume a save is always present/valid.</summary>
+        /// <summary>
+        /// Returns null if no save file exists, if it exists but fails to read/parse, or if its
+        /// Version doesn't match SaveData.CurrentVersion - callers must handle null rather than
+        /// assume a save is always present/valid. A Version mismatch is refused outright rather
+        /// than tolerated with defaults filled in (TASK_03_DATACENTER.md's decision): silently
+        /// loading a structurally different save just postpones the incompatibility to wherever
+        /// it happens to surface next, in a form far harder to diagnose than a clear refusal here.
+        /// </summary>
         public static SaveData Load()
         {
             if (!SaveExists()) return null;
@@ -46,7 +53,13 @@ namespace Game.Save
             try
             {
                 string json = File.ReadAllText(SavePath);
-                return JsonConvert.DeserializeObject<SaveData>(json);
+                SaveData data = JsonConvert.DeserializeObject<SaveData>(json);
+                if (data != null && data.Version != SaveData.CurrentVersion)
+                {
+                    Debug.LogError($"SaveService.Load refused: save Version {data.Version} does not match the current format (expected {SaveData.CurrentVersion}). This save predates an incompatible change and cannot be loaded.");
+                    return null;
+                }
+                return data;
             }
             catch (Exception e)
             {
