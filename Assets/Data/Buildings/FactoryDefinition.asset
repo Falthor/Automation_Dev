@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.FactoryDefinition
   id: factory
   displayName: Factory
-  footprintSize: {x: 4, y: 4}
+  footprintSize: {x: 3, y: 3}
   placeholderColor: {r: 0.5, g: 0.5, b: 0.55, a: 1}
   unlockResearch: {fileID: 0}
   sprite: {fileID: -6622863259242664493, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}

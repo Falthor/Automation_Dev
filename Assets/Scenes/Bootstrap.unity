@@ -2300,7 +2300,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.CameraZoomController
   zoomSpeed: 4
-  minOrthographicSize: 10
+  minOrthographicSize: 2
   maxOrthographicSize: 30
   smoothing: 12
 --- !u!114 &885634529
@@ -4713,8 +4713,13 @@ MonoBehaviour:
   terrainSettings: {fileID: 11400000, guid: d4c6d8c08994537488ef3d30d5f2124f, type: 2}
   terrainView: {fileID: 946204062}
   gridLineView: {fileID: 1063010149}
-  groundSlabDiffuse: {fileID: 2800000, guid: cfbe25bb9e750c642a259a4f0ac25d97, type: 3}
-  groundSlabNormal: {fileID: 2800000, guid: b0ff0088a3294214dbfb0127807381a5, type: 3}
+  groundSlabDiffuse: {fileID: 2800000, guid: adb16d05b797af74e8df484ad1762356, type: 3}
+  groundSlabNormal: {fileID: 2800000, guid: db1031b4a217ae7478df55171c585fd1, type: 3}
+  groundSlabDarken: 0.348
+  groundSlabSandBandWidth: 1.2
+  groundSlabEdgeSoftness: 0.5
+  groundSlabSandNoiseScale: 1.2
+  groundSlabSandNoiseAmplitude: 0.5
   itemDatabase: {fileID: 11400000, guid: e293367a8c57e9742b5e998dfa2732a0, type: 2}
   recipeDatabase: {fileID: 11400000, guid: 6e1c6652c14736c4abd9665bd5eee4fd, type: 2}
   worldGenerationSettings: {fileID: 11400000, guid: 592ff7fb40a07364995fc0c9a5f6d49b, type: 2}

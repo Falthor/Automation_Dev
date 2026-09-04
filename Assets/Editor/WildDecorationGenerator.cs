@@ -7,6 +7,46 @@ using Game.Core;
 using Game.Gameplay.Buildings;
 
 /// <summary>
+/// Runs WildDecorationGenerator.RegenerateAll() once, automatically, every time Play Mode is
+/// entered - so the wild scatter is always present without having to remember the manual
+/// "Tools/Wild Decoration/Regenerate All" menu command. Polls on EditorApplication.update
+/// rather than acting directly on the EnteredPlayMode callback because RegenerateAll needs the
+/// live Ground material + WorldGenerator deposits, which only exist once GameRuntime's own
+/// Awake()/Start() has run - timing that isn't guaranteed relative to this callback.
+/// </summary>
+[InitializeOnLoad]
+public static class WildDecorationAutoRegenerate
+{
+    static WildDecorationAutoRegenerate()
+    {
+        EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+    }
+
+    static void OnPlayModeStateChanged(PlayModeStateChange state)
+    {
+        if (state == PlayModeStateChange.EnteredPlayMode)
+        {
+            EditorApplication.update += WaitForWorldThenRegenerate;
+        }
+    }
+
+    static void WaitForWorldThenRegenerate()
+    {
+        if (!Application.isPlaying)
+        {
+            EditorApplication.update -= WaitForWorldThenRegenerate;
+            return;
+        }
+
+        var gameRuntime = Object.FindFirstObjectByType<GameRuntime>();
+        if (gameRuntime == null || gameRuntime.World == null || gameRuntime.Grid == null) return; // keep polling until GameRuntime.Start() has run
+
+        EditorApplication.update -= WaitForWorldThenRegenerate;
+        WildDecorationGenerator.RegenerateAll();
+    }
+}
+
+/// <summary>
 /// Play Mode only: every 0.3s, destroys any wild-decoration sprite whose grid cell has become
 /// occupied by a real BuildingRuntime. Installed automatically by WildDecorationGenerator.
 /// </summary>
@@ -479,7 +519,8 @@ public static class WildDecorationGenerator
                     Vector2 rpos = anchor + RandomOffsetInDisc(rng, 2.0f, 0.5f);
                     if (inDeposit(rpos)) continue;
                     Sprite rockSprite = rockOrder[r % rockOrder.Count];
-                    Spawn(group.transform, "ClearBush_" + anchorsPlaced.ToString("000") + "_SmallRock" + r, rpos, RandRange(rng, 0.8f, 1.2f) * ReduceFactor, rockSprite, 7, RockTint(biome, rockSprite));
+                    // Small Rock keeps its own authored color (no RockTint) - unlike Large Rock, not muted to match the ground.
+                    Spawn(group.transform, "ClearBush_" + anchorsPlaced.ToString("000") + "_SmallRock" + r, rpos, RandRange(rng, 0.8f, 1.2f) * ReduceFactor, rockSprite, 7);
                 }
             }
 
@@ -569,7 +610,7 @@ public static class WildDecorationGenerator
     {
         var rng = new System.Random(90210);
         int outcropsMade = 0, attempts = 0;
-        while (outcropsMade < 45 && attempts < 50000)
+        while (outcropsMade < 59 && attempts < 50000) // 45 * 1.3, per user request for 30% more Small Rock on the map
         {
             attempts++;
             Vector2 anchor = RandomPos(rng, min, max);
@@ -583,7 +624,8 @@ public static class WildDecorationGenerator
                 Vector2 mpos = anchor + RandomOffsetInDisc(rng, 1.2f);
                 if (inDeposit(mpos)) continue;
                 Sprite rockSprite = order[m];
-                Spawn(group.transform, "SmallRock_Outcrop" + outcropsMade.ToString("000") + "_" + m, mpos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, rockSprite, 7, RockTint(biome, rockSprite));
+                // Small Rock keeps its own authored color (no RockTint) - unlike Large Rock, not muted to match the ground.
+                Spawn(group.transform, "SmallRock_Outcrop" + outcropsMade.ToString("000") + "_" + m, mpos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, rockSprite, 7);
             }
         }
     }
@@ -609,7 +651,8 @@ public static class WildDecorationGenerator
                     Vector2 cpos = pos + RandomOffsetInDisc(rng, 1.8f, 0.8f);
                     if (inDeposit(cpos)) continue;
                     Sprite companionSprite = smallRockSprites[rng.Next(smallRockSprites.Count)];
-                    Spawn(smallRockGroup.transform, "LargeRock_" + (placed - 1).ToString("000") + "_Companion" + c, cpos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, companionSprite, 7, RockTint(biome, companionSprite));
+                    // Small Rock keeps its own authored color (no RockTint) - unlike Large Rock, not muted to match the ground.
+                    Spawn(smallRockGroup.transform, "LargeRock_" + (placed - 1).ToString("000") + "_Companion" + c, cpos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, companionSprite, 7);
                 }
             }
         }
