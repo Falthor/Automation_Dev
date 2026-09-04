@@ -177,7 +177,7 @@ Already implemented as specified (`scripts/ui/storage_panel.gd`) — this sectio
 - Aggregates exactly two sources: `Core`'s own pooled inventory, and every placed Storage Box's contents (`Building.get_contents()` on each).
 - Excludes every production building's pooled inventory (Foundry, Factory, Advanced Foundry, Assembler, Laboratory) and the Data Center's installed-component slots — none of those are "storage" in this sense.
 - Identical item ids are merged into one row (quantities summed) across Core + every box.
-- Storage Box capacity (8 distinct item ids per box, 100 units per item id per box, `Buildings.max_stack("storage_box")`) is a Storage Box implementation detail (see `PROJECT_ARCHITECTURE.md`'s `StorageBox` entry), not something the Storage panel itself enforces or re-implements — it only reads already-capped contents.
+- Storage Box capacity (2 distinct item ids per box, 100 units per item id per box) is a Storage Box implementation detail (see `PROJECT_ARCHITECTURE.md`'s `StorageBox` entry), not something the Storage panel itself enforces or re-implements — it only reads already-capped contents.
 - Visual style: same `ChamferPanel`/`panel_theme.tres` language as every other panel (§14) — already matches.
 
 ---

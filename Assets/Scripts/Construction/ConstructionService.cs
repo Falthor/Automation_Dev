@@ -402,8 +402,9 @@ namespace Game.Construction
         public bool TryDemolish(GridCoord cell, out BuildingRuntime removed)
         {
             removed = _grid.GetOccupant(cell) as BuildingRuntime;
-            if (removed == null)
+            if (removed == null || IsProtectedFromDemolition(removed))
             {
+                removed = null;
                 return false;
             }
 
@@ -422,6 +423,20 @@ namespace Game.Construction
 
             return true;
         }
+
+        /// <summary>
+        /// World-generated fixtures the player never placed and must never be able to remove: the
+        /// Core itself, and the Storage Box holding the starting resources one cell south of it
+        /// (WorldGenerator.CoreStorage). Matched by definition id rather than a tracked instance
+        /// reference for the Storage box, so the guard still holds after a save/load - it comes
+        /// back as an ordinary entry in the restored building list, and this service never gets a
+        /// fresh reference to it then. Demolishing the Core was already unreachable in practice,
+        /// but nothing previously stopped it explicitly.
+        /// </summary>
+        static bool IsProtectedFromDemolition(BuildingRuntime building) =>
+            building is CoreRuntime || building.Definition.Id == CoreStorageDefinitionId;
+
+        const string CoreStorageDefinitionId = "core_storage";
 
         bool IsPlaceable(GridCoord cell) => GetPlacementRefusalReason(cell) == PlacementRefusalReason.None;
 

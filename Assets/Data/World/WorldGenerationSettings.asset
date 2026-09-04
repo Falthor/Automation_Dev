@@ -24,3 +24,4 @@ MonoBehaviour:
     amount: 50
   - item: {fileID: 11400000, guid: d5be11fa9d151e345a38f4254d3f1430, type: 2}
     amount: 30
+  coreStorageDefinition: {fileID: 11400000, guid: b32fa419afa8927e913cf91edff080bb, type: 2}

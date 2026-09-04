@@ -32,6 +32,22 @@ namespace Game.Gameplay.Transport
 
         const float ConveyorSpeedCellsPerSecond = 1.5f;
 
+        /// <summary>
+        /// Immutable rule, enforced here rather than by each building type: a source that isn't
+        /// itself belt-gated (a Conveyor's progress meter, a Splitter/Crossroad's own one-item-at-
+        /// a-time transit) can hand off at most one item per RawOutputPullIntervalSeconds via the
+        /// generic pull path (RunGenericPulls) - regardless of which building pulls it. Without
+        /// this, any consumer sitting flush against a production building's raw pooled output (no
+        /// conveyor in between) could drain its entire backlog in a single tick, since that raw
+        /// output has no throughput cap of its own. Living at the transport layer means no current
+        /// or future building type can bypass it by simply omitting its own intake cooldown - it
+        /// is not an opt-in a building author could forget. 1 second matches our fastest conveyor
+        /// today (60 items/min); retune when a faster conveyor tier ships. A conveyor pulling from
+        /// the same kind of source is unaffected - HasRoomForNewItem already caps it at the belt's
+        /// own physical throughput, which this must not slow down further.
+        /// </summary>
+        public const float RawOutputPullIntervalSeconds = 1f;
+
         readonly GridRuntime _grid;
         readonly List<ConveyorRuntime> _conveyors = new List<ConveyorRuntime>();
         readonly List<SplitterRuntime> _splitters = new List<SplitterRuntime>();
@@ -50,6 +66,9 @@ namespace Game.Gameplay.Transport
 
         /// <summary>Last consumer served by a given pull source, keyed by the source building itself - lets two consumers sharing one input point (e.g. two Factories both facing the same conveyor cell) alternate instead of the earlier-registered one always winning (see RunGenericPulls).</summary>
         readonly Dictionary<BuildingRuntime, BuildingRuntime> _lastPullServedBy = new Dictionary<BuildingRuntime, BuildingRuntime>();
+
+        /// <summary>Seconds remaining before a given non-belt-gated source may hand off another item via the generic pull path - see RawOutputPullIntervalSeconds.</summary>
+        readonly Dictionary<BuildingRuntime, float> _rawOutputPullCooldown = new Dictionary<BuildingRuntime, float>();
 
         /// <summary>Every registered Storage in the world, for UI that needs to aggregate across all of them (e.g. the global Storage panel).</summary>
         public IReadOnlyList<StorageRuntime> Storages => _storages;
@@ -96,6 +115,7 @@ namespace Game.Gameplay.Transport
         {
             building.OnUnregistered();
             _lastPullServedBy.Remove(building);
+            _rawOutputPullCooldown.Remove(building);
 
             if (building is ConveyorRuntime conveyor)
             {
@@ -144,6 +164,9 @@ namespace Game.Gameplay.Transport
             // Buildings read their input cells every tick (not at PushIntervalSeconds like the
             // push side): how fast a building may absorb what it reads is its own business - e.g.
             // FoundryRuntime's intake cooldown - not a side effect of how often transport looks.
+            // RunGenericPulls itself still enforces RawOutputPullIntervalSeconds against a
+            // non-belt-gated source, independently of any per-building cooldown.
+            TickRawOutputPullCooldowns(deltaTime);
             RunGenericPulls();
 
             for (int i = 0; i < _conveyors.Count; i++)
@@ -257,7 +280,7 @@ namespace Game.Gameplay.Transport
             var connected = new List<Direction>(3);
             foreach (Direction direction in SplitterRuntime.CandidateExits(splitter.EntrySide))
             {
-                if (IsBeltOrStorage(splitter.NeighborCell(direction))) connected.Add(direction);
+                if (HasBuildingNeighbor(splitter.NeighborCell(direction))) connected.Add(direction);
             }
             if (connected.Count == 0) return;
 
@@ -276,11 +299,16 @@ namespace Game.Gameplay.Transport
             }
         }
 
-        bool IsBeltOrStorage(GridCoord cell)
-        {
-            object occupant = _grid.GetOccupant(cell);
-            return occupant is ConveyorRuntime || occupant is SplitterRuntime || occupant is CrossroadRuntime || occupant is StorageRuntime;
-        }
+        /// <summary>
+        /// Whether some building at all sits at that cell - a candidate exit for the splitter to
+        /// consider, regardless of concrete type. Actual delivery is still gated by
+        /// TryDeliverItem's own CanAcceptInput check; this only decides which directions are
+        /// worth trying instead of being skipped outright. Previously restricted to
+        /// Conveyor/Splitter/Crossroad/Storage, which silently excluded every production building
+        /// (Factory, Foundry, Assembler, AdvancedFoundry, DataCenter) - a splitter wired directly
+        /// into one, with no belt in between, never delivered.
+        /// </summary>
+        bool HasBuildingNeighbor(GridCoord cell) => _grid.GetOccupant(cell) is BuildingRuntime;
 
         /// <summary>
         /// Hands the splitter's held item to whatever sits at the given exit's neighbor cell. A
@@ -437,6 +465,12 @@ namespace Game.Gameplay.Transport
                 BuildingRuntime source = kvp.Key;
                 var contenders = kvp.Value;
 
+                // RawOutputPullIntervalSeconds: a source whose own pullable item isn't already
+                // belt-gated (Conveyor/Splitter/Crossroad) can hand off at most one item per
+                // interval here, no matter which/how many consumers want it.
+                bool sourceIsBeltGated = IsBeltGated(source);
+                if (!sourceIsBeltGated && _rawOutputPullCooldown.ContainsKey(source)) continue;
+
                 // A source exposes only one pullable item at a time, so only one contender can
                 // actually take it this tick - pick round-robin among today's contenders rather
                 // than always the first one found, so two consumers sharing one source alternate.
@@ -454,6 +488,30 @@ namespace Game.Gameplay.Transport
                 source.ConsumePulledItem(item);
                 chosen.consumer.AddInput(itemId, 1, chosen.fromSide);
                 _lastPullServedBy[source] = chosen.consumer;
+                if (!sourceIsBeltGated) _rawOutputPullCooldown[source] = RawOutputPullIntervalSeconds;
+            }
+        }
+
+        static bool IsBeltGated(BuildingRuntime building) =>
+            building is ConveyorRuntime || building is SplitterRuntime || building is CrossroadRuntime;
+
+        /// <summary>Decrements every source's RawOutputPullIntervalSeconds cooldown, dropping it once it reaches zero (see _rawOutputPullCooldown).</summary>
+        void TickRawOutputPullCooldowns(float deltaTime)
+        {
+            if (_rawOutputPullCooldown.Count == 0) return;
+
+            var expired = new List<BuildingRuntime>();
+            var keys = new List<BuildingRuntime>(_rawOutputPullCooldown.Keys);
+            foreach (BuildingRuntime source in keys)
+            {
+                float remaining = _rawOutputPullCooldown[source] - deltaTime;
+                if (remaining <= 0f) expired.Add(source);
+                else _rawOutputPullCooldown[source] = remaining;
+            }
+
+            foreach (BuildingRuntime source in expired)
+            {
+                _rawOutputPullCooldown.Remove(source);
             }
         }
 
