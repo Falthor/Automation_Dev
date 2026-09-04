@@ -48,6 +48,15 @@ namespace Game.Save
         public int CoreCellY;
         public JObject CoreState = new JObject();
 
+        /// <summary>
+        /// Current building slot cap (TASK_04_PLAFOND_RAYON.md §3/§6) - nullable so an absent key
+        /// (a save from before this task) is distinguishable from an explicit value and falls back
+        /// to ConstructionService.DefaultBuildingCap, never to 0. The Core's own current action
+        /// radius is not a separate field here - it already round-trips through CoreState via
+        /// CoreRuntime.CaptureState/RestoreState, alongside cuTimer and inventory contents.
+        /// </summary>
+        public int? BuildingCap;
+
         public List<DepositSaveData> Deposits = new List<DepositSaveData>();
         public List<BuildingSaveData> Buildings = new List<BuildingSaveData>();
     }

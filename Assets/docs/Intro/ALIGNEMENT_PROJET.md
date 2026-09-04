@@ -37,8 +37,13 @@ dépôt et sa valeur cible. Toutes les valeurs cibles sont des valeurs de test.
   composants — usure pilotant stabilité et fluctuation, décroissance accélérée, durée
   de vie dispersée par générateur seedé, seuil de remplacement configurable par type)**
   — appliquées (`TASK_03_DATACENTER.md`).
-- **§6 (plafond de bâtiments), §9, §10 (brouillard de guerre)** — non appliquées, hors
-  périmètre.
+- **§6 (plafond de bâtiments) et §9 (rayon d'action)** — appliquées
+  (`TASK_04_PLAFOND_RAYON.md`) : plafond et rayon sont de l'état runtime extensible par
+  recherche (`memory_allocation`, `extended_bandwidth`).
+- **§10 (brouillard de guerre)** — partiellement appliquée : la règle « zone révélée au
+  départ = rayon d'action + marge » l'est (`TASK_04_PLAFOND_RAYON.md`'s correction), pas le
+  découpage en secteurs, qui reste hors périmètre tant que le système de missions n'existe
+  pas.
 
 ---
 
@@ -281,8 +286,13 @@ Total obligatoire : **12 500 CU**. Optionnel : 3 500 CU.
 | `extra_cpu_slot` | **Extension de baies I** | **2 000** | 30 CU/s | +1 baie CPU, +1 baie mémoire |
 | — | **Extension de baies II** | **2 000** | 30 CU/s | +1 baie CPU, +1 baie mémoire |
 | — | **Allocation mémoire** | **2 500** | 40 CU/s | plafond de bâtiments 40 → 52 |
-| — | **Bande passante étendue** | **3 000** | 45 CU/s | rayon d'action 22 → 30 cellules |
+| — | **Bande passante étendue** | **3 000** | 45 CU/s | rayon d'action 22 → 32 cellules |
 | — | **Convoyeur MK2** | **3 500** | 50 CU/s | débit doublé |
+
+`extended_bandwidth` cible 32, pas 30 : les grappes d'invitation réellement générées
+(`WorldGenerator`, seed fixe) s'étendent jusqu'à environ 32 cellules du Noyau, pas 25-28 comme
+supposé initialement — un rayon de 30 n'aurait rendu chaque grappe que partiellement
+exploitable (TASK_04_PLAFOND_RAYON.md).
 
 ### Branche armement
 
@@ -359,8 +369,15 @@ rayon d'action** : il n'existe aucune ressource hors de portée.
 | Garantie | aucune | **une grappe de fer, une de cuivre et une de charbon dans le rayon**, quoi qu'il arrive |
 | `minDistance` | 6 cellules | **10 cellules** — laisser de la place pour bâtir autour du Noyau |
 | `maxDistance` (dans le rayon) | `ActionRadiusCells − 4` | inchangé, soit 18 avec un rayon de 22 |
-| Grappes d'invitation | impossible | une par ressource, placée **entre 28 et 34 cellules**, hors rayon, visible mais inexploitable |
+| Grappes d'invitation | impossible | une par ressource, placée **entre 26 et 29 cellules**, hors rayon, visible mais inexploitable |
 | Échec de placement | silencieux | **doit lever une erreur pour les trois grappes garanties** — une grappe manquante rend l'introduction infaisable ; les grappes d'invitation restent best-effort |
+
+La bande 26-29 (corrigée depuis 28-34, TASK_04_PLAFOND_RAYON.md) tient entièrement au-delà du
+rayon de départ (22) et en-deçà du rayon étendu par `extended_bandwidth` (32, avec marge) :
+une grappe tirée dans l'ancienne bande pouvait dépasser 32 et devenir définitivement
+inatteignable. Le rayon du brouillard de guerre (§10) suit désormais `ActionRadiusCells + 10`,
+pas `ActionRadiusCells` — sans quoi les grappes d'invitation resteraient masquées avant même
+d'être exploitables.
 
 Deux points méritent attention.
 

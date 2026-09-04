@@ -68,6 +68,17 @@ namespace Game.Presentation
         [SerializeField] WorldGenerationSettings worldGenerationSettings;
         [SerializeField] ActionRadiusView actionRadiusView;
         [SerializeField] FogOfWarView fogOfWarView;
+
+        /// <summary>
+        /// Cells the fog reveal extends beyond the Core's current action radius
+        /// (TASK_04_PLAFOND_RAYON.md's follow-up correction) - the invitation ore clusters
+        /// WorldGenerator places just outside the constructible radius must be visible before
+        /// extended_bandwidth makes them constructible, or the whole invitation never gets seen.
+        /// A named, tunable value rather than a buried literal: likely to be retouched once the
+        /// invitation band (WorldGenerator.InvitationMinDistanceCells/MaxDistanceCells) itself is.
+        /// </summary>
+        [SerializeField, Min(0)] int fogRadiusMarginCells = 10;
+
         [SerializeField] ItemVisualSync itemVisuals;
 
         [Header("Save/Load id -> asset resolution (CONTRACTS.md §14)")]
@@ -181,7 +192,7 @@ namespace Game.Presentation
                 if (worldGenerationSettings != null)
                 {
                     World = new WorldGenerator();
-                    World.Generate(Grid, Terrain.Size, worldGenerationSettings, Compute, Power);
+                    World.Generate(Grid, Terrain.Size, worldGenerationSettings, Compute, Power, Research);
                 }
 
                 Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core, GlobalStock);
@@ -218,7 +229,7 @@ namespace Game.Presentation
             if (worldGenerationSettings != null && FindBuildingDefinition(save.CoreDefinitionId) is CoreDefinition coreDefinition)
             {
                 var coreCell = new GridCoord(save.CoreCellX, save.CoreCellY);
-                var core = new CoreRuntime(coreDefinition, coreCell, Direction.North, Compute, Power);
+                var core = new CoreRuntime(coreDefinition, coreCell, Direction.North, Compute, Power, Research);
                 core.RestoreState(save.CoreState ?? new JObject());
                 Grid.SetOccupantFootprint(coreCell, coreDefinition.FootprintSize, core);
 
@@ -234,10 +245,11 @@ namespace Game.Presentation
                 }
 
                 World = new WorldGenerator();
-                World.RestoreState(core, coreCell, coreDefinition.ActionRadiusCells, deposits);
+                World.RestoreState(core, coreCell, deposits);
             }
 
             Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core, GlobalStock);
+            Construction.RestoreBuildingCap(save.BuildingCap);
 
             foreach (BuildingSaveData buildingSave in save.Buildings)
             {
@@ -291,7 +303,8 @@ namespace Game.Presentation
                 ResearchProgress = Research.AbsorbedCu,
                 ResearchQueue = BuildResearchQueueIds(),
                 ResearchUnlocked = new List<string>(Research.GetUnlockedIds()),
-                GlobalStock = new Dictionary<string, int>(GlobalStock.Contents)
+                GlobalStock = new Dictionary<string, int>(GlobalStock.Contents),
+                BuildingCap = Construction.BuildingCap
             };
 
             if (World?.Core != null)
@@ -394,11 +407,26 @@ namespace Game.Presentation
                 if (actionRadiusView != null)
                 {
                     actionRadiusView.Initialize(coreCenter, World.ActionRadiusCells * Grid.CellSize);
+
+                    // Re-initializing is idempotent (just recomputes the ring's transform/material
+                    // from the current radius), so refreshing on every completion rather than only
+                    // extended_bandwidth keeps this generic - the view reflects whatever
+                    // World.ActionRadiusCells (Core.ActionRadiusCells) is right now, live, with no
+                    // reload (TASK_04_PLAFOND_RAYON.md §4.3).
+                    Research.ResearchCompleted += _ => actionRadiusView.Initialize(coreCenter, World.ActionRadiusCells * Grid.CellSize);
                 }
 
                 if (fogOfWarView != null)
                 {
-                    fogOfWarView.Initialize(coreCenter, World.ActionRadiusCells * Grid.CellSize);
+                    // fogRadiusMarginCells beyond the constructible radius, not the same value as
+                    // ActionRadiusView: the invitation ore clusters WorldGenerator places just
+                    // outside the constructible radius must already be visible before
+                    // extended_bandwidth makes them constructible, or the player never sees the
+                    // invitation at all. Refreshed on every research completion for the same
+                    // reason as actionRadiusView above - this was wrongly left out of scope in
+                    // TASK_04_PLAFOND_RAYON.md and is corrected here, not a new feature.
+                    fogOfWarView.Initialize(coreCenter, (World.ActionRadiusCells + fogRadiusMarginCells) * Grid.CellSize);
+                    Research.ResearchCompleted += _ => fogOfWarView.Initialize(coreCenter, (World.ActionRadiusCells + fogRadiusMarginCells) * Grid.CellSize);
                 }
 
                 // Start the camera centered on the Core - otherwise its fixed scene position

@@ -44,6 +44,12 @@ recherche, usure pilotant la stabilité et la fluctuation au lieu de vivre à c�
 séquence d'amorçage, et répartition de la production entre les axes recherche et
 bâtiments.
 
+**7. `TASK_04_PLAFOND_RAYON.md`** — la quatrième tâche. **Réalisée.**
+
+Rend réelles les deux contraintes spatiales de l'introduction : plafond de bâtiments (40 → 52
+par `memory_allocation`) et rayon d'action du Noyau (22 → 32 par `extended_bandwidth`),
+toutes deux extensibles par la recherche et persistées comme état runtime.
+
 ---
 
 ## Maquettes

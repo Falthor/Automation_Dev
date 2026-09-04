@@ -21,22 +21,35 @@ namespace Game.UI
         const float ReferenceWidth = 1920f;
         const float CollapsedHeight = 28f;
 
+        /// <summary>Occupied slots within this many of the cap turn the counter's alert color on (TASK_04_PLAFOND_RAYON.md §3.2/§5) - an arbitrary but reasonable "approaching the limit" band, not a value the ticket pins down.</summary>
+        const int BuildingCapAlertMargin = 5;
+
+        /// <summary>How long a refusal message (ShowRefusalMessage) stays visible before auto-hiding.</summary>
+        const float RefusalMessageSeconds = 2.5f;
+
         [SerializeField] UIDocument uiDocument;
         [SerializeField] VisualTreeAsset visualTree;
         [SerializeField] GameRuntime gameRuntime;
+
+        /// <summary>Optional - when assigned, its PlacementRefusedAtBuildingCap event drives ShowRefusalMessage (TASK_04_PLAFOND_RAYON.md §3.2). UI may depend on Presentation (PROJECT_ARCHITECTURE.md §4), so the reference lives here, not on the adapter.</summary>
+        [SerializeField] ConstructionInputAdapter constructionInputAdapter;
 
         [Header("Top Bar icons (placeholder - swap later)")]
         [SerializeField] Sprite powerIcon;
         [SerializeField] Sprite computeIcon;
         [SerializeField] Sprite researchIcon;
+        [SerializeField] Sprite buildingIcon;
 
         VisualElement _cardsRow;
         Label _pauseOverlay;
+        Label _refusalMessage;
+        float _refusalMessageHideAt = -1f;
         bool _paused;
 
         Card _powerCard;
         Card _computeCard;
         Card _researchCard;
+        Card _buildingCard;
 
         /// <summary>One built card's live widgets, plus the responsive-width bounds it was configured with.</summary>
         sealed class Card
@@ -59,6 +72,7 @@ namespace Game.UI
 
             _cardsRow = panelRoot.Q<VisualElement>("TopBarCardsRow");
             _pauseOverlay = panelRoot.Q<Label>("TopBarPauseOverlay");
+            _refusalMessage = panelRoot.Q<Label>("TopBarRefusalMessage");
 
             // Menu is a reserved, non-functional placeholder (GLOBAL_UI.md §3) - no handler.
             panelRoot.Q<Button>("TopBarPauseButton").clicked += TogglePause;
@@ -68,6 +82,18 @@ namespace Game.UI
             _powerCard = BuildCard(powerIcon, PowerPanelController.PanelName, 170f, 130f, 210f, 66f, 3, "top-bar-card-bar-fill-power");
             _computeCard = BuildCard(computeIcon, ComputePanelController.PanelName, 190f, 145f, 230f, 56f, 2, "top-bar-card-bar-fill-compute");
             _researchCard = BuildCard(researchIcon, ResearchPanelController.PanelName, 170f, 130f, 210f, 56f, 2, "top-bar-card-bar-fill-research");
+            _buildingCard = BuildCard(buildingIcon, BuildingMenuController.PanelName, 150f, 115f, 190f, 40f, 1, "top-bar-card-bar-fill-buildings");
+
+            if (constructionInputAdapter != null) constructionInputAdapter.PlacementRefusedAtBuildingCap += ShowRefusalMessage;
+        }
+
+        /// <summary>Flashes an explicit refusal reason (e.g. the building cap) near the cards row for RefusalMessageSeconds, then auto-hides (TASK_04_PLAFOND_RAYON.md §3.2). Re-showing while already visible just resets the timer.</summary>
+        public void ShowRefusalMessage(string text)
+        {
+            if (_refusalMessage == null) return;
+            _refusalMessage.text = text;
+            _refusalMessage.EnableInClassList("hidden", false);
+            _refusalMessageHideAt = Time.unscaledTime + RefusalMessageSeconds;
         }
 
         Card BuildCard(Sprite icon, string panelName, float refWidth, float minWidth, float maxWidth, float detailHeight, int lineCount, string barFillClass)
@@ -150,6 +176,13 @@ namespace Game.UI
             RefreshPower();
             RefreshCompute();
             RefreshResearch();
+            RefreshBuildings();
+
+            if (_refusalMessageHideAt >= 0f && Time.unscaledTime >= _refusalMessageHideAt)
+            {
+                _refusalMessage.EnableInClassList("hidden", true);
+                _refusalMessageHideAt = -1f;
+            }
         }
 
         void RefreshWidths()
@@ -158,6 +191,7 @@ namespace Game.UI
             _powerCard.Root.style.width = ClampedWidth(_powerCard, widthScale);
             _computeCard.Root.style.width = ClampedWidth(_computeCard, widthScale);
             _researchCard.Root.style.width = ClampedWidth(_researchCard, widthScale);
+            _buildingCard.Root.style.width = ClampedWidth(_buildingCard, widthScale);
         }
 
         static float ClampedWidth(Card card, float widthScale)
@@ -223,6 +257,25 @@ namespace Game.UI
                 _researchCard.Lines[1].text = "Temps restant  --:--";
                 _researchCard.BarFill.style.width = new StyleLength(Length.Percent(0f));
             }
+        }
+
+        /// <summary>Occupied/cap counter (TASK_04_PLAFOND_RAYON.md §5) - the second Top Bar figure the survival-phase UI shows, alongside CU. Turns alert-colored within BuildingCapAlertMargin slots of the cap; the cap itself is read live from ConstructionService, so memory_allocation's 40->52 jump shows immediately.</summary>
+        void RefreshBuildings()
+        {
+            var construction = gameRuntime.Construction;
+            if (construction == null) return;
+
+            int occupied = construction.OccupiedBuildingSlots;
+            int cap = construction.BuildingCap;
+            bool approaching = occupied >= cap - BuildingCapAlertMargin;
+
+            _buildingCard.Value.text = $"{occupied} / {cap}";
+            _buildingCard.Value.EnableInClassList("top-bar-card-value-deficit", approaching);
+
+            _buildingCard.Lines[0].text = $"Batiments: {occupied} / {cap}";
+            _buildingCard.Lines[0].EnableInClassList("top-bar-card-detail-line-deficit", approaching);
+
+            _buildingCard.BarFill.style.width = new StyleLength(Length.Percent(cap > 0 ? Mathf.Clamp01((float)occupied / cap) * 100f : 0f));
         }
 
         static string FormatTime(float seconds)

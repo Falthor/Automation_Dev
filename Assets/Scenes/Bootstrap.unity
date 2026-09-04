@@ -657,9 +657,11 @@ MonoBehaviour:
   uiDocument: {fileID: 60635889}
   visualTree: {fileID: 9197481963319205126, guid: 075d017e3f09703408e89838e7868f38, type: 3}
   gameRuntime: {fileID: 2103112250}
+  constructionInputAdapter: {fileID: 134080687}
   powerIcon: {fileID: 21300000, guid: c5fadfe822770ae419fc331a29a9f908, type: 3}
   computeIcon: {fileID: 21300000, guid: c1148f9bf137438429b11c466e80c86b, type: 3}
   researchIcon: {fileID: 8189402887507919899, guid: c997547e9d9b83340bd6a4e53e9a8e10, type: 3}
+  buildingIcon: {fileID: 597411320055623791, guid: 010eeacec31baf84887f268a78c928dd, type: 3}
 --- !u!114 &60635899
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4700,6 +4702,7 @@ MonoBehaviour:
   worldGenerationSettings: {fileID: 11400000, guid: 592ff7fb40a07364995fc0c9a5f6d49b, type: 2}
   actionRadiusView: {fileID: 1305087340}
   fogOfWarView: {fileID: 1659034849}
+  fogRadiusMarginCells: 10
   itemVisuals: {fileID: 2103112252}
   buildingCatalog:
   - {fileID: 11400000, guid: 81fc98426c6cbeb46b62f0f51a99c00b, type: 2}
