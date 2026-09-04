@@ -261,6 +261,9 @@ namespace Game.Gameplay.Buildings
         public override int TakeOutput(string itemId, int amount) => _output.Take(itemId, amount);
         public override IReadOnlyDictionary<string, int> GetOutputContents() => _output.Contents;
 
+        /// <summary>Read-only snapshot of everything currently held in input (raw materials waiting on a cycle to start) - mirrors GetOutputContents() (CONTRACTS.md §3), for a caller that needs to display or enumerate a building's whole internal stock rather than a single item's amount (GetInputAmount).</summary>
+        public IReadOnlyDictionary<string, int> GetInputContents() => _input.Contents;
+
         // ---- Building/Flow contract (CONTRACTS.md §2) - lets an existing conveyor placed
         // behind this building pull its output exactly like it already pulls from an Extractor. ----
 
