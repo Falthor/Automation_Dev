@@ -316,6 +316,61 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         }
 
         [Test]
+        public void HigherReplacementThreshold_ConsumesMoreSpareComponents_OverTheSameDuration()
+        {
+            _power.ReportSupply(9999f);
+            _power.Settle();
+
+            DataCenterRuntime lowThreshold = NewDataCenter(maxStackPerItem: 1000);
+            lowThreshold.SetCpuReplacementThreshold(DataCenterRuntime.MinReplacementThresholdPercent);
+            FinishPriming(lowThreshold);
+            lowThreshold.AddInput("cpu_mkI", 500, Direction.South);
+
+            DataCenterRuntime highThreshold = NewDataCenter(maxStackPerItem: 1000);
+            highThreshold.SetCpuReplacementThreshold(DataCenterRuntime.MaxReplacementThresholdPercent);
+            FinishPriming(highThreshold);
+            highThreshold.AddInput("cpu_mkI", 500, Direction.South);
+
+            const float duration = 400f;
+            const float step = 0.1f;
+            for (float elapsed = 0f; elapsed < duration; elapsed += step)
+            {
+                lowThreshold.Tick(step);
+                highThreshold.Tick(step);
+            }
+
+            int lowConsumed = 500 - lowThreshold.GetInputAmount("cpu_mkI");
+            int highConsumed = 500 - highThreshold.GetInputAmount("cpu_mkI");
+
+            Assert.Greater(highConsumed, lowConsumed, "A higher replacement threshold must burn through more spare CPUs over the same wall-clock duration - it stops each component earlier in its life.");
+        }
+
+        [Test]
+        public void ComponentEntersReplacement_AtWearMatchingTheConfiguredThreshold()
+        {
+            _power.ReportSupply(9999f);
+            _power.Settle();
+
+            DataCenterRuntime dataCenter = NewDataCenter();
+            dataCenter.SetCpuReplacementThreshold(40f);
+            FinishPriming(dataCenter);
+            dataCenter.AddInput("cpu_mkI", 1, Direction.South);
+            dataCenter.Tick(0f); // installs
+
+            const float step = 0.05f;
+            float elapsed = 0f;
+            while (dataCenter.CpuSlots[0] != null && !dataCenter.CpuSlots[0].IsReplacing && elapsed < 500f)
+            {
+                dataCenter.Tick(step);
+                elapsed += step;
+            }
+
+            Assert.IsNotNull(dataCenter.CpuSlots[0], "Should have entered replacement well before being hard-removed at 0% wear.");
+            Assert.IsTrue(dataCenter.CpuSlots[0].IsReplacing);
+            Assert.AreEqual(40f, dataCenter.CpuSlots[0].Wear, 1f, "Wear at the moment replacement starts must match the configured threshold.");
+        }
+
+        [Test]
         public void CaptureAndRestore_RoundTripsFullState()
         {
             _power.ReportSupply(9999f);

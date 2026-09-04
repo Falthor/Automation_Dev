@@ -7,8 +7,6 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 {
     public class ComponentInstanceTests
     {
-        const float DefaultThreshold = 25f;
-
         static ItemDatabase NewCpuDatabase(float cuOutput, float powerKw, float nominalLifetimeSeconds = 120f)
         {
             ItemDefinition cpu = TestDataFactory.NewItem("cpu_mkI", ItemType.Component);
@@ -20,9 +18,9 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             return TestDataFactory.NewItemDatabase(cpu);
         }
 
-        static ComponentInstance NewComponent(ItemDatabase db, int seed = 1, float threshold = DefaultThreshold)
+        static ComponentInstance NewComponent(ItemDatabase db, int seed = 1)
         {
-            return new ComponentInstance("cpu_mkI", db, new System.Random(seed), threshold);
+            return new ComponentInstance("cpu_mkI", db, new System.Random(seed));
         }
 
         [Test]
@@ -89,8 +87,8 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         {
             ItemDatabase db = NewCpuDatabase(1000f, 2f, nominalLifetimeSeconds: 120f);
 
-            var a = new ComponentInstance("cpu_mkI", db, new System.Random(42), DefaultThreshold);
-            var b = new ComponentInstance("cpu_mkI", db, new System.Random(42), DefaultThreshold);
+            var a = new ComponentInstance("cpu_mkI", db, new System.Random(42));
+            var b = new ComponentInstance("cpu_mkI", db, new System.Random(42));
 
             Assert.AreEqual(a.NominalLifetimeSeconds, b.NominalLifetimeSeconds, "Same seed, same parameters, same drawn lifetime.");
         }
@@ -102,17 +100,17 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             for (int seed = 0; seed < 100; seed++)
             {
-                var component = new ComponentInstance("cpu_mkI", db, new System.Random(seed), DefaultThreshold);
+                var component = new ComponentInstance("cpu_mkI", db, new System.Random(seed));
                 Assert.GreaterOrEqual(component.NominalLifetimeSeconds, 90f);
                 Assert.LessOrEqual(component.NominalLifetimeSeconds, 150f);
             }
         }
 
         [Test]
-        public void BaseLossPerSecond_CalibratedSoWearReachesThreshold_AtExactlyTheDrawnLifetime()
+        public void BaseLossPerSecond_CalibratedSoWearReaches5Percent_AtExactlyTheDrawnLifetime_RegardlessOfReplacementThreshold()
         {
             ItemDatabase db = NewCpuDatabase(1000f, 2f, nominalLifetimeSeconds: 120f);
-            var component = new ComponentInstance("cpu_mkI", db, new System.Random(7), 25f);
+            var component = new ComponentInstance("cpu_mkI", db, new System.Random(7));
             float lifetime = component.NominalLifetimeSeconds;
 
             // Fine-grained numerical integration (matches how DataCenterRuntime.Tick calls this every frame).
@@ -124,7 +122,46 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
                 elapsed += step;
             }
 
-            Assert.AreEqual(25f, component.Wear, 0.5f, "Integrating the accelerated decay curve for the drawn lifetime must land on the threshold in effect at install.");
+            // The calibration target is a fixed 5%, not any replacement threshold - a threshold is
+            // where the runtime chooses to stop reading this same curve (TASK_03_DATACENTER.md §4.4).
+            Assert.AreEqual(5f, component.Wear, 0.5f, "Integrating the accelerated decay curve for the drawn lifetime must land on the fixed 5% floor.");
+        }
+
+        [Test]
+        public void BaseLossPerSecond_DoesNotDependOnReplacementThreshold()
+        {
+            ItemDatabase db = NewCpuDatabase(1000f, 2f, nominalLifetimeSeconds: 120f);
+            var a = new ComponentInstance("cpu_mkI", db, new System.Random(3));
+            var b = new ComponentInstance("cpu_mkI", db, new System.Random(3));
+
+            Assert.AreEqual(a.NominalLifetimeSeconds, b.NominalLifetimeSeconds);
+            Assert.AreEqual(a.BaseLossPerSecond, b.BaseLossPerSecond, "There is no threshold parameter left to vary - same seed must give the same decay curve.");
+        }
+
+        [Test]
+        public void SameDrawnLifetime_CrossesAHigherThreshold_SoonerThanALowerOne()
+        {
+            ItemDatabase db = NewCpuDatabase(1000f, 2f, nominalLifetimeSeconds: 120f);
+            var low = new ComponentInstance("cpu_mkI", db, new System.Random(9));
+            var high = new ComponentInstance("cpu_mkI", db, new System.Random(9));
+            Assert.AreEqual(low.NominalLifetimeSeconds, high.NominalLifetimeSeconds, "Same seed - identical drawn lifetime and decay curve, only the threshold read against it differs.");
+
+            const float step = 0.01f;
+            float lowElapsed = TimeUntilCrossed(low, 5f, step);
+            float highElapsed = TimeUntilCrossed(high, 60f, step);
+
+            Assert.Greater(lowElapsed, highElapsed * 1.2f, "A 60% threshold must trip noticeably sooner than a 5% threshold on the identical curve - if it didn't, the threshold would have no effect on time-to-replacement.");
+        }
+
+        static float TimeUntilCrossed(ComponentInstance component, float thresholdPercent, float step)
+        {
+            float elapsed = 0f;
+            while (!component.HasCrossedReplacementThreshold(thresholdPercent) && elapsed < 10000f)
+            {
+                component.DecayWear(step);
+                elapsed += step;
+            }
+            return elapsed;
         }
 
         [Test]
