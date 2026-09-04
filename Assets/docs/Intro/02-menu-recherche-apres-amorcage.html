@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Maquette 02 — Menu de recherche, après l'amorçage</title>
+<style>
+  body { margin:0; padding:28px; background:#0a0b0e; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .note { max-width:700px; margin:0 auto 18px; color:#8b93a1; font-size:13px; line-height:1.65; }
+  .note h1 { color:#e2e5eb; font-size:16px; font-weight:500; margin:0 0 8px; }
+  .note b { color:#c3c9d3; font-weight:500; }
+  .frame { max-width:700px; margin:0 auto; }
+</style>
+</head>
+<body>
+<div class="note">
+  <h1>Maquette 02 — Menu de recherche après l'amorçage du Datacenter</h1>
+  <b>Chaque nœud est relié à son prérequis réel.</b> La chaîne de l'introduction monte depuis
+  le bas à gauche — Circuit imprimé, Assembleur, Modules de calcul — jusqu'au Datacenter MK1,
+  qui devient le centre de l'arbre. C'est lui qui fait naître les trois noyaux, et chaque noyau
+  est le prérequis de sa propre branche : une recherche Bâtiments exige que le noyau Bâtiments
+  soit alimenté.<br><br>
+  Le rayon encode le palier, chaque noyau occupe un secteur angulaire exclusif et ses enfants
+  restent dedans — c'est ce qui garantit qu'aucune synapse n'en croise une autre. Les liens sont
+  courbes. Un lien plein et coloré signifie que le parent est acquis ; un lien en pointillé
+  sombre, que la branche n'est pas alimentée. Le panneau de détail est identique à la maquette 01.
+</div>
+<div class="frame">
+<div style="background:rgba(0,0,0,0.5);border-radius:12px;padding:14px;">
+<div style="background:#12141a;border:0.5px solid #2b313c;border-radius:12px;overflow:hidden;">
+
+<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:0.5px solid #2b313c;">
+<span style="font-size:13px;font-weight:500;color:#e2e5eb;letter-spacing:0.04em;">Cortex — architecture neuronale</span>
+<span style="font-size:12px;color:#8b93a1;">CU <span style="color:#ED93B1;font-weight:500;">12 480</span> · <span style="color:#5DCAA5;">+38/min</span> &nbsp;·&nbsp; Recherche 50 / Bâtiments 50 &nbsp;·&nbsp; Bâtiments 27/40</span>
+</div>
+
+<svg width="100%" viewBox="0 0 720 570" role="img"><title>Arbre neuronal radial avec chaîne de prérequis</title><desc>La chaîne de l'introduction remonte du bas à gauche jusqu'au Datacenter central, qui alimente trois noyaux ; chaque noyau porte ses propres recherches sur un anneau extérieur.</desc>
+
+<circle cx="390" cy="285" r="160" fill="none" stroke="#1c2029" stroke-width="1"/>
+<circle cx="390" cy="285" r="270" fill="none" stroke="#1c2029" stroke-width="1"/>
+
+<path d="M80 398 Q 128 410 178 408" stroke="#5DCAA5" stroke-width="2" fill="none"/>
+<path d="M178 408 Q 222 405 267 388" stroke="#5DCAA5" stroke-width="2" fill="none"/>
+<path d="M267 388 Q 322 352 390 285" stroke="#5DCAA5" stroke-width="2" fill="none"/>
+
+<path d="M390 285 Q 320 212 287 162" stroke="#ED93B1" stroke-width="2" fill="none"/>
+<path d="M390 285 Q 460 212 493 162" stroke="#ED93B1" stroke-width="2" fill="none"/>
+<path d="M390 285 Q 480 288 548 313" stroke="#2a303a" stroke-width="1.5" stroke-dasharray="5 6" fill="none"/>
+
+<path d="M287 162 Q 215 143 156 150" stroke="#ED93B1" stroke-width="2" fill="none"/>
+<path d="M156 150 Q 200 68 276 40" stroke="#3d434f" stroke-width="1.5" stroke-dasharray="4 3" fill="none"/>
+
+<path d="M493 162 Q 562 141 624 150" stroke="#ED93B1" stroke-width="2" fill="none"/>
+<path d="M493 162 Q 492 100 504 40" stroke="#ED93B1" stroke-width="2" fill="none"/>
+
+<path d="M548 313 Q 615 285 656 238" stroke="#242932" stroke-width="1.2" stroke-dasharray="3 5" fill="none"/>
+<path d="M548 313 Q 615 325 651 355" stroke="#242932" stroke-width="1.2" stroke-dasharray="3 5" fill="none"/>
+<path d="M548 313 Q 588 395 597 459" stroke="#242932" stroke-width="1.2" stroke-dasharray="3 5" fill="none"/>
+
+<circle cx="80" cy="398" r="19" fill="#12352c" stroke="#5DCAA5" stroke-width="1.5"/>
+<text x="80" y="403" text-anchor="middle" style="font-size:13px;fill:#5DCAA5;">✓</text>
+<text x="80" y="431" text-anchor="middle" style="font-size:11px;fill:#9FE1CB;">Circuit imprimé</text>
+
+<circle cx="178" cy="408" r="19" fill="#12352c" stroke="#5DCAA5" stroke-width="1.5"/>
+<text x="178" y="413" text-anchor="middle" style="font-size:13px;fill:#5DCAA5;">✓</text>
+<text x="178" y="441" text-anchor="middle" style="font-size:11px;fill:#9FE1CB;">Assembleur</text>
+
+<circle cx="267" cy="388" r="19" fill="#12352c" stroke="#5DCAA5" stroke-width="1.5"/>
+<text x="267" y="393" text-anchor="middle" style="font-size:13px;fill:#5DCAA5;">✓</text>
+<text x="267" y="421" text-anchor="middle" style="font-size:11px;fill:#9FE1CB;">Modules de calcul</text>
+
+<circle cx="390" cy="285" r="30" fill="#12352c" stroke="#5DCAA5" stroke-width="2"/>
+<text x="390" y="282" text-anchor="middle" style="font-size:10px;fill:#9FE1CB;">Datacenter</text>
+<text x="390" y="294" text-anchor="middle" style="font-size:10px;fill:#9FE1CB;">MK1 ✓</text>
+
+<circle cx="287" cy="162" r="26" fill="#1d2531" stroke="#ED93B1" stroke-width="1.5"/>
+<text x="287" y="160" text-anchor="middle" style="font-size:9.5px;fill:#ED93B1;">Noyau</text>
+<text x="287" y="171" text-anchor="middle" style="font-size:9.5px;fill:#ED93B1;">Recherche</text>
+
+<circle cx="493" cy="162" r="26" fill="#1d2531" stroke="#ED93B1" stroke-width="1.5"/>
+<text x="493" y="160" text-anchor="middle" style="font-size:9.5px;fill:#ED93B1;">Noyau</text>
+<text x="493" y="171" text-anchor="middle" style="font-size:9.5px;fill:#ED93B1;">Bâtiments</text>
+
+<circle cx="548" cy="313" r="26" fill="#14161b" stroke="#39404c" stroke-width="1.5" stroke-dasharray="5 4"/>
+<text x="548" y="311" text-anchor="middle" style="font-size:9.5px;fill:#5c6371;">Noyau</text>
+<text x="548" y="322" text-anchor="middle" style="font-size:9.5px;fill:#5c6371;">Armement</text>
+<text x="548" y="356" text-anchor="middle" style="font-size:10px;fill:#4e5563;">non alimenté</text>
+
+<circle cx="156" cy="150" r="21" fill="#33172a" stroke="#ED93B1" stroke-width="2.5"/>
+<text x="156" y="155" text-anchor="middle" style="font-size:13px;fill:#F4C0D1;">◆</text>
+<text x="156" y="120" text-anchor="middle" style="font-size:11px;fill:#F4C0D1;">Extension de baies I</text>
+
+<circle cx="276" cy="40" r="19" fill="#161920" stroke="#3d434f" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="276" y="45" text-anchor="middle" style="font-size:12px;fill:#5c6371;">🔒</text>
+<text x="276" y="76" text-anchor="middle" style="font-size:11px;fill:#6b7280;">Extension de baies II</text>
+
+<circle cx="624" cy="150" r="21" fill="#33172a" stroke="#ED93B1" stroke-width="2.5"/>
+<text x="624" y="155" text-anchor="middle" style="font-size:13px;fill:#F4C0D1;">◆</text>
+<text x="624" y="120" text-anchor="middle" style="font-size:11px;fill:#F4C0D1;">Fonderie avancée</text>
+
+<circle cx="504" cy="40" r="21" fill="#33172a" stroke="#ED93B1" stroke-width="2.5"/>
+<text x="504" y="45" text-anchor="middle" style="font-size:13px;fill:#F4C0D1;">◆</text>
+<text x="504" y="76" text-anchor="middle" style="font-size:11px;fill:#F4C0D1;">Allocation mémoire</text>
+
+<circle cx="656" cy="238" r="17" fill="#16181d" stroke="#2f3540" stroke-width="1.2" stroke-dasharray="3 4"/>
+<text x="656" y="243" text-anchor="middle" style="font-size:12px;fill:#454c58;">?</text>
+<circle cx="651" cy="355" r="17" fill="#16181d" stroke="#2f3540" stroke-width="1.2" stroke-dasharray="3 4"/>
+<text x="651" y="360" text-anchor="middle" style="font-size:12px;fill:#454c58;">?</text>
+<circle cx="597" cy="459" r="17" fill="#16181d" stroke="#2f3540" stroke-width="1.2" stroke-dasharray="3 4"/>
+<text x="597" y="464" text-anchor="middle" style="font-size:12px;fill:#454c58;">?</text>
+
+<text x="200" y="530" text-anchor="middle" style="font-size:10.5px;fill:#3f4653;">chaîne d'introduction — acquise</text>
+<text x="390" y="556" text-anchor="middle" style="font-size:10.5px;fill:#3f4653;">le rayon encode le palier · un secteur angulaire par noyau · aucun câble n'en croise un autre</text>
+</svg>
+
+<div style="display:flex;gap:14px;flex-wrap:wrap;padding:9px 14px;border-top:0.5px solid #2b313c;font-size:11px;color:#8b93a1;">
+<span style="color:#5DCAA5;">✓ acquis</span><span style="color:#EF9F27;">◷ en cours</span><span style="color:#ED93B1;">◆ disponible</span><span style="color:#9aa2b1;">◆ CU insuffisant</span><span style="color:#6b7280;">🔒 verrouillé</span><span style="color:#5c6371;">? inconnu</span>
+</div>
+</div>
+</div>
+</div>
+</body>
+</html>

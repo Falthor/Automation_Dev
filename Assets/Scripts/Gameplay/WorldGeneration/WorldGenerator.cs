@@ -81,6 +81,21 @@ namespace Game.Gameplay.WorldGeneration
             }
         }
 
+        /// <summary>
+        /// Rebuilds this generator's state from a previously-saved snapshot instead of running
+        /// procedural generation (CONTRACTS.md §14). Used only by the save/load restore path -
+        /// the caller has already reconstructed Core and every DepositRuntime and placed them
+        /// into Game.Grid at their saved cells.
+        /// </summary>
+        public void RestoreState(CoreRuntime core, GridCoord coreOrigin, int actionRadiusCells, IEnumerable<DepositRuntime> deposits)
+        {
+            Core = core;
+            CoreOrigin = coreOrigin;
+            ActionRadiusCells = actionRadiusCells;
+            _oreDeposits.Clear();
+            _oreDeposits.AddRange(deposits);
+        }
+
         bool TryFindFreeSpot(GridRuntime grid, System.Random random, Vector2 coreCenter, Vector2Int coreFootprint, Vector2Int depositFootprint, out GridCoord origin)
         {
             float minDistance = Mathf.Max(coreFootprint.x, coreFootprint.y) * 0.5f + Mathf.Max(depositFootprint.x, depositFootprint.y);

@@ -36,5 +36,11 @@ namespace Game.Grid
             RemainingQuantity -= extracted;
             return true;
         }
+
+        /// <summary>Restores a previously-captured remaining quantity (CONTRACTS.md §14). Used only by the save/load system - GridRuntime.PlaceDeposit always creates a fresh deposit at full InitialQuantity, which this then corrects to the saved value.</summary>
+        public void RestoreState(int remainingQuantity)
+        {
+            RemainingQuantity = remainingQuantity;
+        }
     }
 }

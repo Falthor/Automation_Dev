@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Maquette 03 — Écran de lancement de mission</title>
+<style>
+  body { margin:0; padding:28px; background:#0a0b0e; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .note { max-width:700px; margin:0 auto 18px; color:#8b93a1; font-size:13px; line-height:1.6; }
+  .note h1 { color:#e2e5eb; font-size:16px; font-weight:500; margin:0 0 8px; }
+  .frame { max-width:700px; margin:0 auto; }
+</style>
+</head>
+<body>
+<div class="note">
+  <h1>Maquette 03 — Écran de lancement de mission</h1>
+  Carte fortement dézoomée, Noyau au centre avec son rayon d'action, brouillard autour.
+  Le survol d'un secteur affiche son risque estimé et les types de mission disponibles.
+  Aucun pourcentage de réussite n'est jamais affiché : seule une jauge qualitative se
+  déplace avec l'effectif engagé.
+</div>
+<div class="frame">
+<div style="background:rgba(0,0,0,0.5);border-radius:12px;padding:14px;">
+<div style="background:#12141a;border:0.5px solid #2b313c;border-radius:12px;overflow:hidden;">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:0.5px solid #2b313c;">
+<span style="font-size:13px;font-weight:500;color:#e2e5eb;letter-spacing:0.04em;">Expéditions</span>
+<span style="font-size:12px;color:#8b93a1;">Sondes <span style="color:#ED93B1;">2</span> · autonomie 7 et 9 missions</span>
+</div>
+<div style="display:flex;">
+<div style="flex:1;min-width:0;">
+<svg width="100%" viewBox="0 0 400 330" role="img"><title>Carte dézoomée</title><desc>Le Noyau au centre, une zone révélée autour, quatre secteurs en lisière du brouillard.</desc>
+<rect x="0" y="0" width="400" height="330" fill="#0d0f13"/>
+<circle cx="200" cy="170" r="98" fill="#191d25"/>
+<circle cx="200" cy="170" r="98" fill="none" stroke="#252b35" stroke-width="1"/>
+<circle cx="200" cy="170" r="52" fill="none" stroke="#5a3448" stroke-width="1" stroke-dasharray="4 5"/>
+<circle cx="200" cy="170" r="13" fill="#33172a" stroke="#ED93B1" stroke-width="1.5"/>
+<text x="200" y="199" text-anchor="middle" style="font-size:10px;fill:#ED93B1;">Noyau</text>
+<circle cx="96" cy="88" r="17" fill="#1a1e26" stroke="#5DCAA5" stroke-width="1.5"/>
+<text x="96" y="93" text-anchor="middle" style="font-size:12px;fill:#5DCAA5;">◎</text>
+<text x="96" y="119" text-anchor="middle" style="font-size:10px;fill:#7f8794;">Secteur 02 · bas</text>
+<circle cx="306" cy="96" r="19" fill="#2e2409" stroke="#EF9F27" stroke-width="2.5"/>
+<text x="306" y="101" text-anchor="middle" style="font-size:12px;fill:#FAC775;">◈</text>
+<rect x="214" y="18" width="176" height="56" rx="7" fill="#1b2029" stroke="#39404c" stroke-width="0.5"/>
+<text x="226" y="36" style="font-size:11px;fill:#e2e5eb;">Secteur 04 — Crête nord</text>
+<text x="226" y="52" style="font-size:10px;fill:#FAC775;">Risque estimé : moyen</text>
+<text x="226" y="66" style="font-size:10px;fill:#8b93a1;">Reconnaissance · Récupération</text>
+<circle cx="322" cy="252" r="17" fill="#1a1e26" stroke="#5DCAA5" stroke-width="1.5"/>
+<text x="322" y="257" text-anchor="middle" style="font-size:12px;fill:#5DCAA5;">◎</text>
+<text x="322" y="283" text-anchor="middle" style="font-size:10px;fill:#7f8794;">Secteur 07 · bas</text>
+<circle cx="112" cy="268" r="17" fill="#221a2b" stroke="#9d7fd4" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="112" y="273" text-anchor="middle" style="font-size:12px;fill:#b79ce4;">?</text>
+<text x="112" y="299" text-anchor="middle" style="font-size:10px;fill:#9d8fc0;">Signal anormal</text>
+</svg>
+</div>
+<div style="width:238px;flex:none;border-left:0.5px solid #2b313c;padding:13px;">
+<div style="font-size:14px;font-weight:500;color:#e8ebf0;margin-bottom:10px;">Secteur 04 — Crête nord</div>
+<div style="font-size:11px;color:#8b93a1;margin-bottom:5px;">Type de mission</div>
+<div style="display:flex;gap:6px;margin-bottom:12px;">
+<span style="font-size:11px;color:#8b93a1;background:#1a1e26;border:0.5px solid #2f3540;border-radius:5px;padding:4px 8px;">Reconnaissance</span>
+<span style="font-size:11px;color:#12141a;background:#ED93B1;border-radius:5px;padding:4px 8px;">Récupération</span>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:11px;color:#8b93a1;margin-bottom:12px;">
+<span>Risque estimé</span><span style="color:#FAC775;">● ● ○ &nbsp;Moyen</span>
+</div>
+<div style="font-size:11px;color:#8b93a1;margin-bottom:6px;">Escouade — 3 sur 5</div>
+<div style="display:flex;gap:5px;margin-bottom:12px;">
+<span style="width:26px;height:26px;border-radius:5px;background:#33172a;border:1.5px solid #ED93B1;"></span>
+<span style="width:26px;height:26px;border-radius:5px;background:#33172a;border:1.5px solid #ED93B1;"></span>
+<span style="width:26px;height:26px;border-radius:5px;background:#33172a;border:1.5px solid #ED93B1;"></span>
+<span style="width:26px;height:26px;border-radius:5px;background:#1a1e26;border:1px solid #2f3540;"></span>
+<span style="width:26px;height:26px;border-radius:5px;background:#1a1e26;border:1px dashed #3d434f;"></span>
+</div>
+<div style="height:5px;border-radius:3px;background:#252a34;margin-bottom:6px;overflow:hidden;display:flex;">
+<div style="flex:1;background:#C1526E;"></div><div style="flex:1;background:#EF9F27;"></div><div style="flex:1;background:#5DCAA5;"></div><div style="flex:1;background:#3a4250;"></div>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:10px;color:#6b7280;margin-bottom:4px;">
+<span>Téméraire</span><span style="color:#5DCAA5;font-weight:500;">Prudent</span><span>Surdimensionné</span>
+</div>
+<div style="font-size:11px;color:#9aa2b1;margin:12px 0 14px;">Durée estimée <span style="color:#e2e5eb;">6 min</span> · une unité de plus ajoute environ 1 min</div>
+<div style="text-align:center;font-size:12px;font-weight:500;color:#12141a;background:#ED93B1;border-radius:6px;padding:8px;">Lancer l'expédition</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body>
+</html>

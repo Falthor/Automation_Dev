@@ -3,6 +3,7 @@ using Game.Data;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Power;
 using Game.Gameplay.Research;
+using Newtonsoft.Json.Linq;
 
 namespace Game.Gameplay.Buildings
 {
@@ -77,6 +78,23 @@ namespace Game.Gameplay.Buildings
             _researchSystem.AddRp(_definition.RpPerCard);
             _conversionCharged = false;
             _cardTimer = _cardAmount <= 0 ? 0f : _cardTimer - _definition.CardConvertIntervalSeconds;
+        }
+
+        public override JObject CaptureState()
+        {
+            return new JObject
+            {
+                ["cardAmount"] = _cardAmount,
+                ["cardTimer"] = _cardTimer,
+                ["conversionCharged"] = _conversionCharged
+            };
+        }
+
+        public override void RestoreState(JObject state)
+        {
+            _cardAmount = state.Value<int?>("cardAmount") ?? 0;
+            _cardTimer = state.Value<float?>("cardTimer") ?? 0f;
+            _conversionCharged = state.Value<bool?>("conversionCharged") ?? false;
         }
     }
 }

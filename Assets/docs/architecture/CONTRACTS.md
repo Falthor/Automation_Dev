@@ -344,3 +344,40 @@ When a contract changes:
 3. update affected tests;
 4. verify dependency direction;
 5. report any behavior change explicitly.
+
+## 14. Save / Restore
+
+Mono-save (`Game.Save`, `Assets/Scripts/Save/`): one fixed file (`SaveService.SavePath`, `Application.persistentDataPath/save.json`), always overwritten in place - no save slots, no multi-file history.
+
+`Game.Save` has no dependency on any other `Game.*` assembly (only on the JSON library) - it never reads private state itself. Every system capable of holding meaningful runtime state exposes a `Capture`/`Restore` pair as a public member of that system, and only `GameRuntime` (`Game.Presentation`) calls them, assembling/consuming a `Game.Save.SaveData`:
+
+```csharp
+public JObject CaptureState()          // BuildingRuntime and every override
+public void RestoreState(JObject state)
+
+public void RestoreContents(IReadOnlyDictionary<string,int> contents)   // PooledItemStock
+public void RestoreReserve(float reserve)                               // ComputeSystem
+public void RestoreState(float rp, ResearchDefinition active,
+    float progress, IEnumerable<string> unlockedIds)                    // ResearchSystem
+public IEnumerable<string> GetUnlockedIds()                             // ResearchSystem
+public void RestoreState(CoreRuntime core, GridCoord coreOrigin,
+    int actionRadiusCells, IEnumerable<DepositRuntime> deposits)        // WorldGenerator
+public void RestoreState(int remainingQuantity)                         // DepositRuntime
+public IEnumerable<BuildingRuntime> GetAllBuildings()                   // TransportSystem
+public BuildingRuntime CreateForRestore(BuildingDefinition definition,
+    GridCoord cell, Direction rotation)                                 // ConstructionService
+```
+
+`BuildingRuntime.CaptureState()`/`RestoreState(JObject)` are virtual, empty by default; each subclass with real mutable state overrides both (`ProductionBuildingRuntime` and its subclasses, `StorageRuntime`, `ConveyorRuntime`, `CoreRuntime`, `ExtractorRuntime`, `LaboratoryRuntime`, `PowerplantGazRuntime`, `DataCenterRuntime`, `SplitterRuntime`, `CrossroadRuntime`). A building's envelope (`Definition.Id`, `Cell`, `FacingRotation`) is captured generically by `GameRuntime`, not by the building itself - only its type-specific payload goes through `CaptureState()`.
+
+`ConstructionService.CreateForRestore` is the one other caller of the definition→runtime factory besides `TryPlace`: same instantiation switch, but with no cost deduction and no placement validity check (both already happened once, at the original construction the save captured). It relies on the caller having already placed any deposit a restored Extractor sits on, exactly like `TryPlace` relies on `IsPlaceable` having checked that beforehand.
+
+`GameRuntime` resolves a saved `BuildingDefinition`/`ResearchDefinition` id back to its asset via two small serialized catalogs (`buildingCatalog`, `researchCatalog`) populated in the Inspector, following the same "id → asset" registry pattern as `ItemDatabase`/`RecipeDatabase` - there is no separate `BuildingDatabase` elsewhere in the project.
+
+Trigger points (both in `GameRuntime`, `Game.Presentation`):
+
+- **New Game** (`MainMenu.unity` → `Bootstrap.unity` with `PendingGameStart.LoadedSave == null`): generates the world exactly as before, then writes the save immediately - "New Game generates a save" per the menu's own contract.
+- **Quit** (`OnApplicationQuit`): recaptures every system's current state and overwrites the save - this is what makes a later Load reflect real progress, not just the New Game snapshot.
+- **Load** (`MainMenu.unity` → `Bootstrap.unity` with `PendingGameStart.LoadedSave != null`): `GameRuntime.Awake()` restores every system from the save instead of generating a new world, in dependency order (Core → deposits → every other building, since an Extractor resolves its deposit from whatever already occupies its cell).
+
+`Game.Save.PendingGameStart` carries the player's New Game/Load choice across the `MainMenu.unity → Bootstrap.unity` scene load. It is the one deliberately mutable static field the save system introduces (DEVELOPMENT_RULES.md §5): a single field, consumed and cleared at the very start of `GameRuntime.Awake()`, never read anywhere else.

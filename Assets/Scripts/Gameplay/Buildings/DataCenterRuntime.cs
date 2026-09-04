@@ -5,6 +5,7 @@ using Game.Gameplay.Compute;
 using Game.Gameplay.Items;
 using Game.Gameplay.Power;
 using Game.Gameplay.Research;
+using Newtonsoft.Json.Linq;
 
 namespace Game.Gameplay.Buildings
 {
@@ -204,6 +205,74 @@ namespace Game.Gameplay.Buildings
             foreach (ComponentInstance slot in _cpuSlots) if (slot != null) total += slot.ActivePowerKw();
             foreach (ComponentInstance slot in _memorySlots) if (slot != null) total += slot.ActivePowerKw();
             return total;
+        }
+
+        public override JObject CaptureState()
+        {
+            return new JObject
+            {
+                ["stabilityTimer"] = _stabilityTimer,
+                ["wearTimer"] = _wearTimer,
+                ["previousPowerDemand"] = _previousPowerDemand,
+                ["input"] = JObject.FromObject(_input.Contents),
+                ["cpuSlots"] = CaptureSlots(_cpuSlots),
+                ["memorySlots"] = CaptureSlots(_memorySlots)
+            };
+        }
+
+        static JArray CaptureSlots(List<ComponentInstance> slots)
+        {
+            var array = new JArray();
+            foreach (ComponentInstance slot in slots)
+            {
+                if (slot == null)
+                {
+                    array.Add(JValue.CreateNull());
+                    continue;
+                }
+
+                array.Add(new JObject
+                {
+                    ["itemId"] = slot.ItemId,
+                    ["wear"] = slot.Wear,
+                    ["effectivePerformance"] = slot.EffectivePerformance,
+                    ["isReplacing"] = slot.IsReplacing,
+                    ["replacementElapsed"] = slot.ReplacementElapsed
+                });
+            }
+            return array;
+        }
+
+        public override void RestoreState(JObject state)
+        {
+            _stabilityTimer = state.Value<float?>("stabilityTimer") ?? 0f;
+            _wearTimer = state.Value<float?>("wearTimer") ?? 0f;
+            _previousPowerDemand = state.Value<float?>("previousPowerDemand") ?? 0f;
+            _input.RestoreContents(state["input"]?.ToObject<Dictionary<string, int>>());
+            RestoreSlots(_cpuSlots, state["cpuSlots"] as JArray);
+            RestoreSlots(_memorySlots, state["memorySlots"] as JArray);
+        }
+
+        void RestoreSlots(List<ComponentInstance> slots, JArray saved)
+        {
+            slots.Clear();
+            if (saved == null) return;
+
+            foreach (JToken entry in saved)
+            {
+                if (entry.Type == JTokenType.Null)
+                {
+                    slots.Add(null);
+                    continue;
+                }
+
+                string itemId = entry.Value<string>("itemId");
+                var component = new ComponentInstance(itemId, _itemDatabase);
+                component.RestoreWearAndPerformance(entry.Value<float?>("wear") ?? 100f, entry.Value<float?>("effectivePerformance") ?? 1f);
+                component.IsReplacing = entry.Value<bool?>("isReplacing") ?? false;
+                component.ReplacementElapsed = entry.Value<float?>("replacementElapsed") ?? 0f;
+                slots.Add(component);
+            }
         }
     }
 }

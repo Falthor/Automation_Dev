@@ -4719,6 +4719,31 @@ MonoBehaviour:
   actionRadiusView: {fileID: 1305087340}
   fogOfWarView: {fileID: 1659034849}
   itemVisuals: {fileID: 2103112252}
+  buildingCatalog:
+  - {fileID: 11400000, guid: 81fc98426c6cbeb46b62f0f51a99c00b, type: 2}
+  - {fileID: 11400000, guid: 24f3c4c440f22c14cb72e74f072b099c, type: 2}
+  - {fileID: 11400000, guid: e9cd37ecbc57c35419a77ff9115d78ad, type: 2}
+  - {fileID: 11400000, guid: 19683784cfd38ce41924c33986e91b77, type: 2}
+  - {fileID: 11400000, guid: ffff9edcd441e594f93f7a9402beaea4, type: 2}
+  - {fileID: 11400000, guid: db7b2dad0db37bc4d9e07b5a2efd6fcf, type: 2}
+  - {fileID: 11400000, guid: be14a42a9fda93c4b977cdd42f273a58, type: 2}
+  - {fileID: 11400000, guid: 8210b580053bf8643bc763cb2195c291, type: 2}
+  - {fileID: 11400000, guid: 3ca8ee134be91e141af7553e129403bc, type: 2}
+  - {fileID: 11400000, guid: db6ded6afa7616a4d9718ba430803476, type: 2}
+  - {fileID: 11400000, guid: b8f5a41bb3ae49b488dbb71936ae4a0a, type: 2}
+  - {fileID: 11400000, guid: 7299f6153f5d334489ff55f326560677, type: 2}
+  - {fileID: 11400000, guid: 85cc813140bf25e49a3ac14c51b44f29, type: 2}
+  - {fileID: 11400000, guid: fdd231806cbceea448655e3174bd4797, type: 2}
+  - {fileID: 11400000, guid: e2d760110358f57448f69bdb863e1670, type: 2}
+  - {fileID: 11400000, guid: f26aadcc0be4300409425bd96d390f50, type: 2}
+  - {fileID: 11400000, guid: 236d03fb6a80953469db3eb917b43016, type: 2}
+  researchCatalog:
+  - {fileID: 11400000, guid: 6d2e1b8c5f4a49b3c7dae1f2a3b4c5d6, type: 2}
+  - {fileID: 11400000, guid: 044697c9013e7824e93bafe53e0ddb6f, type: 2}
+  - {fileID: 11400000, guid: 8e7a78127efaea543854b4afb8011b8f, type: 2}
+  - {fileID: 11400000, guid: 3aa72951c40a75e4aa2254d3f9f05d29, type: 2}
+  - {fileID: 11400000, guid: 876b69fc3c5662542a4b0797dffca515, type: 2}
+  - {fileID: 11400000, guid: 5c1f0a7b4e3d48a2b6c9d0e1f2a3b4c5, type: 2}
 --- !u!4 &2103112251
 Transform:
   m_ObjectHideFlags: 0

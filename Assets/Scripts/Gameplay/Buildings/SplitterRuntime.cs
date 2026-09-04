@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Core;
 using Game.Data;
+using Newtonsoft.Json.Linq;
 
 namespace Game.Gameplay.Buildings
 {
@@ -75,6 +76,24 @@ namespace Game.Gameplay.Buildings
                 if (direction != entrySide) result.Add(direction);
             }
             return result;
+        }
+
+        public override JObject CaptureState()
+        {
+            return new JObject
+            {
+                ["cursor"] = _cursor,
+                ["heldItemId"] = HeldItemId,
+                ["assignedExit"] = AssignedExit.HasValue ? (int)AssignedExit.Value : (int?)null
+            };
+        }
+
+        public override void RestoreState(JObject state)
+        {
+            _cursor = state.Value<int?>("cursor") ?? 0;
+            HeldItemId = state.Value<string>("heldItemId");
+            int? exit = state.Value<int?>("assignedExit");
+            AssignedExit = exit.HasValue ? (Direction?)exit.Value : null;
         }
     }
 }

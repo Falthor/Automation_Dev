@@ -1,0 +1,23 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="MainMenu.uss" />
+
+    <ui:VisualElement name="MainMenuRoot" class="main-menu-root">
+        <ui:VisualElement name="MainMenuBackground" class="main-menu-background" picking-mode="Ignore" />
+
+        <ui:VisualElement name="MainMenuPanel" class="main-menu-panel">
+            <ui:Label text="FALTHOR" class="main-menu-title" />
+            <ui:Button name="NewGameButton" text="NOUVELLE PARTIE" class="main-menu-button" />
+            <ui:Button name="LoadButton" text="CHARGER" class="main-menu-button" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="ConfirmOverlay" class="confirm-overlay hidden">
+            <ui:VisualElement class="confirm-dialog">
+                <ui:Label text="Une sauvegarde existe déjà. Commencer une nouvelle partie l'écrasera définitivement." class="confirm-message" />
+                <ui:VisualElement class="confirm-button-row">
+                    <ui:Button name="ConfirmCancelButton" text="ANNULER" class="main-menu-button confirm-button" />
+                    <ui:Button name="ConfirmAcceptButton" text="ECRASER" class="main-menu-button confirm-button confirm-button-danger" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

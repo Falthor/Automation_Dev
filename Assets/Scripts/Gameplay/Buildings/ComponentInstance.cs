@@ -60,5 +60,12 @@ namespace Game.Gameplay.Buildings
 
         /// <summary>Flat draw (unlike EffectiveCu, not scaled by stability) - 0 while being replaced, same rule as EffectiveCu().</summary>
         public float ActivePowerKw() => IsReplacing ? 0f : PowerKw;
+
+        /// <summary>Restores Wear/EffectivePerformance to a previously-captured value. Used only by the save/load system (CONTRACTS.md §14) - IsReplacing/ReplacementElapsed already have public setters and don't need this.</summary>
+        public void RestoreWearAndPerformance(float wear, float effectivePerformance)
+        {
+            Wear = wear;
+            EffectivePerformance = effectivePerformance;
+        }
     }
 }

@@ -8,6 +8,7 @@
         "Game.Gameplay",
         "Game.Construction",
         "Game.Presentation",
+        "Game.Save",
         "Unity.InputSystem"
     ],
     "includePlatforms": [],

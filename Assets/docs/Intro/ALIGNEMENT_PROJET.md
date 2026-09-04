@@ -219,22 +219,57 @@ moment d'équilibrer, ce n'est pas un bug.
 
 ## 7. Recherches — `Assets/Data/Research/`
 
-Les coûts passent de RP à CU et gagnent un débit d'absorption.
+Les coûts passent de RP à CU et gagnent un débit d'absorption. Le tableau ci-dessous est
+l'inventaire complet des recherches définies à ce jour.
 
-| Asset actuel | Coût actuel | Devient | Coût cible | Absorption |
+### Introduction — menu linéaire
+
+| Asset actuel | Coût actuel | Devient | Coût cible | Absorption | Statut |
+|---|---|---|---|---|---|
+| `screw` | 10 RP | **supprimée** — vis disponibles dès le départ | — | — | — |
+| `circuit_board` | 50 RP | Circuit imprimé | **1 500** | 35 CU/s | obligatoire |
+| `cpu_assembler` | 100 RP | Assembleur (+ composant mécanique) | **2 500** | 45 CU/s | obligatoire |
+| `memoire` | 100 RP | fusionnée dans Modules de calcul | — | — | — |
+| — | — | **Modules de calcul** (CPU MkI + Memory MK1) | **3 500** | 50 CU/s | obligatoire |
+| `datacenter` | 200 RP | Datacenter MK1 | **5 000** | 60 CU/s | obligatoire |
+| — | — | **Optimisation de fabrication** — −10 % de CU par objet | **1 500** | 40 CU/s | optionnelle |
+| — | — | **Extraction renforcée** — lève le bridage, débit ×2 | **2 000** | 40 CU/s | optionnelle |
+| — | — | **???** — troisième sonde | gratuite | — | via expédition |
+
+Total obligatoire : **12 500 CU**. Optionnel : 3 500 CU.
+
+### Après l'amorçage
+
+| Asset actuel | Devient | Coût cible | Absorption | Effet |
 |---|---|---|---|---|
-| `screw` | 10 RP | **supprimée** — vis disponibles dès le départ | — | — |
-| `circuit_board` | 50 RP | Circuit imprimé | **1 500** | 35 CU/s |
-| `cpu_assembler` | 100 RP | Assembleur (+ composant mécanique) | **2 500** | 45 CU/s |
-| `memoire` | 100 RP | fusionnée dans Modules de calcul | — | — |
-| — | — | **Modules de calcul** (CPU + mémoire) | **3 500** | 50 CU/s |
-| `datacenter` | 200 RP | Datacenter MK1 | **5 000** | 60 CU/s |
-| `extra_cpu_slot` | 20 RP | Extension de baies I (+1 CPU, +1 mémoire) | **2 000** | 30 CU/s |
-| — | — | **Extension de baies II** | **2 000** | 30 CU/s |
-| — | — | **Optimisation de fabrication** (optionnelle) | **1 500** | 40 CU/s |
-| — | — | **Extraction renforcée** (optionnelle) | **2 000** | 40 CU/s |
-| — | — | **Fonderie avancée** (après amorçage) | **2 000** | 40 CU/s |
-| — | — | **Forge d'unités** (branche armement) | **6 000** | 70 CU/s |
+| — | **Fonderie avancée** | **2 000** | 40 CU/s | bâtiment + recette acier |
+| `extra_cpu_slot` | **Extension de baies I** | **2 000** | 30 CU/s | +1 baie CPU, +1 baie mémoire |
+| — | **Extension de baies II** | **2 000** | 30 CU/s | +1 baie CPU, +1 baie mémoire |
+| — | **Allocation mémoire** | **2 500** | 40 CU/s | plafond de bâtiments 40 → 52 |
+| — | **Bande passante étendue** | **3 000** | 45 CU/s | rayon d'action 22 → 30 cellules |
+| — | **Convoyeur MK2** | **3 500** | 50 CU/s | débit doublé |
+
+### Branche armement
+
+Elle s'allume à la découverte du premier nid et ne contient **qu'une recherche définie**.
+
+| Recherche | Coût | Absorption | Effet |
+|---|---|---|---|
+| **Forge d'unités** | **6 000** | 70 CU/s | bâtiment de production d'unités |
+
+### Ce qui reste indéfini
+
+Nommé dans le GDD mais volontairement non chiffré, parce que ces éléments dépendent de
+systèmes qui n'existent pas encore :
+
+- **Tourelle** et **Centre de réparation** — branche défense statique, à définir avec le
+  système de combat
+- **Unités mobiles** au-delà de la Forge — types, coûts, entretien
+- Tout ce qui relève du **second Datacenter**, des **Agents IA**, des **Répéteurs** et des
+  signaux au-delà du premier
+
+Ne pas les inventer au moment de l'implémentation : la branche armement doit rester à un
+seul nœud tant que le combat n'est pas conçu.
 
 ## 8. Génération de monde — `WorldGenerationSettings`
 

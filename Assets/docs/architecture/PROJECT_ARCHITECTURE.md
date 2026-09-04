@@ -82,6 +82,7 @@ Game.Data
 Game.Grid
 Game.Gameplay
 Game.Construction
+Game.Save
 Game.Presentation
 Game.UI
 Game.Tests
@@ -103,6 +104,8 @@ Game.Presentation
    ↑
 Game.UI
 ```
+
+`Game.Save` (§21) is a standalone leaf assembly with no dependency on any other `Game.*` assembly - only on the save format's own serialization needs. `Game.Presentation` and `Game.UI` depend on it; nothing lower depends on it, and it depends on nothing higher.
 
 `Game.Tests` references the assemblies required by the tests.
 
@@ -499,11 +502,13 @@ Important source behaviors include:
 
 These behaviors belong in `CONTRACTS.md` or subsystem-specific documents once implemented in Unity.
 
-## 21. No save system yet
+## 21. Save system
 
-The source project documented no save system. The Unity architecture therefore does not introduce a save system as part of the initial migration baseline.
+A mono-save system exists (`Game.Save`, detailed in `CONTRACTS.md` §14): a single fixed save file on disk, always overwritten in place, no save slots.
 
-When saving becomes a real requirement, it must be designed as a separate architectural decision.
+The entry point is no longer `Bootstrap.unity` directly - `MainMenu.unity` is scene index 0 in Build Settings and loads first, with `Bootstrap.unity` at index 1. `MainMenu.unity` presents New Game / Load; both write `Game.Save.PendingGameStart.LoadedSave` and load `Bootstrap.unity`, which `GameRuntime.Awake()` reads to decide between generating a new world and restoring one from the save file. New Game writes the save immediately (its initial state); the save is rewritten with current progress on `OnApplicationQuit`.
+
+Every runtime system capable of holding meaningful state (`GridRuntime` via the buildings placed on it, `ComputeSystem`, `ResearchSystem`, `TransportSystem`'s registered buildings, `WorldGenerator`, and every `BuildingRuntime`) exposes a `Capture`/`Restore` pair used only by the save layer - this is a public contract addition (CONTRACTS.md §14), not a private-field bypass (§1/§12 still hold).
 
 
 ## 22. Accepted architectural decisions
@@ -544,6 +549,7 @@ Game.Data
 Game.Grid
 Game.Gameplay
 Game.Construction
+Game.Save
 Game.Presentation
 Game.UI
 Game.Tests

@@ -4,6 +4,7 @@ using Game.Data;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Items;
 using Game.Gameplay.Power;
+using Newtonsoft.Json.Linq;
 
 namespace Game.Gameplay.Buildings
 {
@@ -55,6 +56,21 @@ namespace Game.Gameplay.Buildings
             }
 
             _powerSystem.ReportSupply(_definition.PowerOutputKw);
+        }
+
+        public override JObject CaptureState()
+        {
+            return new JObject
+            {
+                ["cuTimer"] = _cuTimer,
+                ["contents"] = JObject.FromObject(_inventory.Contents)
+            };
+        }
+
+        public override void RestoreState(JObject state)
+        {
+            _cuTimer = state.Value<float?>("cuTimer") ?? 0f;
+            _inventory.RestoreContents(state["contents"]?.ToObject<Dictionary<string, int>>());
         }
     }
 }

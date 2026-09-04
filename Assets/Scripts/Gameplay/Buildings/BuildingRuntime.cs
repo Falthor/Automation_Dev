@@ -3,6 +3,7 @@ using Game.Core;
 using Game.Data;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Power;
+using Newtonsoft.Json.Linq;
 
 namespace Game.Gameplay.Buildings
 {
@@ -210,6 +211,20 @@ namespace Game.Gameplay.Buildings
         /// needs to override this.
         /// </summary>
         public virtual void OnUnregistered()
+        {
+        }
+
+        /// <summary>
+        /// Type-specific runtime state for the save/load system (CONTRACTS.md §14) - everything
+        /// beyond Definition/Cell/FacingRotation, which the save layer already captures generically
+        /// for every building. Empty by default; only a building with real mutable state (recipe
+        /// progress, pooled contents, belt items, ...) overrides this and RestoreState. The save
+        /// layer never reads a building's private fields directly - only through this pair.
+        /// </summary>
+        public virtual JObject CaptureState() => new JObject();
+
+        /// <summary>Restores state previously produced by CaptureState(). No-op by default.</summary>
+        public virtual void RestoreState(JObject state)
         {
         }
 

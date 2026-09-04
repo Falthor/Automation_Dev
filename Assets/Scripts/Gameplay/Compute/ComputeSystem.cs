@@ -47,5 +47,11 @@ namespace Game.Gameplay.Compute
             _grantedInWindow = 0f;
             _windowTimer = 0f;
         }
+
+        /// <summary>Restores a previously-captured reserve (CONTRACTS.md §14), clamped to ReserveCap. Used only by the save/load system.</summary>
+        public void RestoreReserve(float reserve)
+        {
+            Reserve = System.Math.Min(System.Math.Max(reserve, 0f), ReserveCap);
+        }
     }
 }

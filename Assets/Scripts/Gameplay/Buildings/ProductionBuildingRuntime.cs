@@ -6,6 +6,7 @@ using Game.Gameplay.Compute;
 using Game.Gameplay.Items;
 using Game.Gameplay.Power;
 using Game.Gameplay.Research;
+using Newtonsoft.Json.Linq;
 
 namespace Game.Gameplay.Buildings
 {
@@ -275,6 +276,32 @@ namespace Game.Gameplay.Buildings
         public override void ConsumePulledItem(object item)
         {
             if (item is string itemId) _output.Take(itemId, 1);
+        }
+
+        // ---- Save/Restore (CONTRACTS.md §14) ----
+
+        public override JObject CaptureState()
+        {
+            return new JObject
+            {
+                ["recipeId"] = _selectedRecipeId ?? string.Empty,
+                ["crafting"] = _crafting,
+                ["timer"] = _timer,
+                ["state"] = (int)_state,
+                ["input"] = JObject.FromObject(_input.Contents),
+                ["output"] = JObject.FromObject(_output.Contents)
+            };
+        }
+
+        public override void RestoreState(JObject state)
+        {
+            string recipeId = state.Value<string>("recipeId");
+            _selectedRecipeId = string.IsNullOrEmpty(recipeId) ? null : recipeId;
+            _crafting = state.Value<bool?>("crafting") ?? false;
+            _timer = state.Value<float?>("timer") ?? 0f;
+            _state = (ProductionState)(state.Value<int?>("state") ?? 0);
+            _input.RestoreContents(state["input"]?.ToObject<Dictionary<string, int>>());
+            _output.RestoreContents(state["output"]?.ToObject<Dictionary<string, int>>());
         }
     }
 }

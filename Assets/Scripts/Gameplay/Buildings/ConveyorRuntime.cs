@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Core;
 using Game.Data;
+using Newtonsoft.Json.Linq;
 
 namespace Game.Gameplay.Buildings
 {
@@ -153,6 +154,43 @@ namespace Game.Gameplay.Buildings
             if (_slots.Count > 0 && Equals(_slots[0].Item, item))
             {
                 _slots.RemoveAt(0);
+            }
+        }
+
+        public override JObject CaptureState()
+        {
+            var items = new JArray();
+            foreach (ConveyorItemSlot slot in _slots)
+            {
+                items.Add(new JObject { ["itemId"] = slot.Item as string, ["progress"] = slot.Progress });
+            }
+            return new JObject
+            {
+                ["shape"] = (int)Orientation.Shape,
+                ["rotation"] = (int)Orientation.Rotation,
+                ["mirrored"] = Orientation.Mirrored,
+                ["items"] = items
+            };
+        }
+
+        public override void RestoreState(JObject state)
+        {
+            var shape = (ConveyorShapeKind)(state.Value<int?>("shape") ?? (int)Orientation.Shape);
+            var rotation = (Direction)(state.Value<int?>("rotation") ?? (int)Orientation.Rotation);
+            bool mirrored = state.Value<bool?>("mirrored") ?? false;
+            Orientation = new ConveyorOrientation(shape, rotation, mirrored);
+            FacingRotation = rotation;
+
+            _slots.Clear();
+            if (state["items"] is JArray items)
+            {
+                foreach (JToken entry in items)
+                {
+                    string itemId = entry.Value<string>("itemId");
+                    float progress = entry.Value<float?>("progress") ?? 0f;
+                    if (string.IsNullOrEmpty(itemId)) continue;
+                    _slots.Add(new ConveyorItemSlot(itemId) { Progress = progress });
+                }
             }
         }
     }

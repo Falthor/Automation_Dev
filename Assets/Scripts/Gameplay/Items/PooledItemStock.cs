@@ -42,5 +42,16 @@ namespace Game.Gameplay.Items
             else _amounts[itemId] = remaining;
             return taken;
         }
+
+        /// <summary>Replaces all contents wholesale. Used only by the save/load system (CONTRACTS.md §14) to restore a previously-captured snapshot - never by gameplay code.</summary>
+        public void RestoreContents(IReadOnlyDictionary<string, int> contents)
+        {
+            _amounts.Clear();
+            if (contents == null) return;
+            foreach (var kvp in contents)
+            {
+                if (kvp.Value > 0) _amounts[kvp.Key] = kvp.Value;
+            }
+        }
     }
 }
