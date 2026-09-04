@@ -5,7 +5,9 @@ using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Power;
 using Game.Gameplay.Research;
+using Game.Gameplay.Transport;
 using Game.Grid;
+using Game.Tests.EditMode.TestSupport;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -161,6 +163,54 @@ namespace Game.Tests.EditMode.Construction
             so.FindProperty("cost").floatValue = cost;
             so.ApplyModifiedPropertiesWithoutUndo();
             return research;
+        }
+
+        static StorageDefinition NewStorageDefinitionWithCost(params (ItemDefinition item, int amount)[] cost)
+        {
+            var definition = ScriptableObject.CreateInstance<StorageDefinition>();
+            var so = new UnityEditor.SerializedObject(definition);
+            UnityEditor.SerializedProperty array = so.FindProperty("cost");
+            array.arraySize = cost.Length;
+            for (int i = 0; i < cost.Length; i++)
+            {
+                UnityEditor.SerializedProperty element = array.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("item").objectReferenceValue = cost[i].item;
+                element.FindPropertyRelative("amount").intValue = cost[i].amount;
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return definition;
+        }
+
+        [Test]
+        public void CanAfford_And_TryPlace_DrawFromProductionBuildingInternalStock()
+        {
+            // Reproduces the reported bug: the Storage panel counts a production building's own
+            // input+output stock as spendable, so ConstructionService must draw from the exact
+            // same pool - otherwise the Building menu shows an item as unaffordable (red) even
+            // though the Storage panel reports enough of it.
+            var grid = new GridRuntime(1f);
+            var ironPlate = TestDataFactory.NewItem("iron_plate", ItemType.Component);
+            var recipeDatabase = TestDataFactory.NewRecipeDatabase();
+            var transport = new TransportSystem(grid);
+            var service = new ConstructionService(grid, null, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(), transport);
+
+            var factoryDefinition = TestDataFactory.NewFactory(50, 0f, System.Array.Empty<string>(), System.Array.Empty<string>());
+            var factory = new FactoryRuntime(factoryDefinition, new GridCoord(5, 5), Direction.North, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem());
+            factory.AddOutput("iron_plate", 10);
+            transport.Register(factory);
+
+            var definition = NewStorageDefinitionWithCost((ironPlate, 10));
+            service.SelectBuilding(definition);
+
+            Assert.AreEqual(10, service.GetAvailableAmount("iron_plate"));
+            Assert.IsTrue(service.CanAfford(definition));
+
+            bool placed = service.TryPlace(new GridCoord(0, 0), Direction.North, out BuildingRuntime result);
+
+            Assert.IsTrue(placed);
+            Assert.IsNotNull(result);
+            factory.GetOutputContents().TryGetValue("iron_plate", out int remaining);
+            Assert.AreEqual(0, remaining);
         }
 
         [Test]

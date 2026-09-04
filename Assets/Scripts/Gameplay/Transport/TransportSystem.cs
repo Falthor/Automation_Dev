@@ -48,6 +48,9 @@ namespace Game.Gameplay.Transport
         readonly List<BuildingRuntime> _allOthers = new List<BuildingRuntime>();
         readonly Dictionary<BuildingRuntime, float> _pushPullTimers = new Dictionary<BuildingRuntime, float>();
 
+        /// <summary>Last consumer served by a given pull source, keyed by the source building itself - lets two consumers sharing one input point (e.g. two Factories both facing the same conveyor cell) alternate instead of the earlier-registered one always winning (see RunGenericPulls).</summary>
+        readonly Dictionary<BuildingRuntime, BuildingRuntime> _lastPullServedBy = new Dictionary<BuildingRuntime, BuildingRuntime>();
+
         /// <summary>Every registered Storage in the world, for UI that needs to aggregate across all of them (e.g. the global Storage panel).</summary>
         public IReadOnlyList<StorageRuntime> Storages => _storages;
 
@@ -92,6 +95,7 @@ namespace Game.Gameplay.Transport
         public void Unregister(BuildingRuntime building)
         {
             building.OnUnregistered();
+            _lastPullServedBy.Remove(building);
 
             if (building is ConveyorRuntime conveyor)
             {
@@ -140,10 +144,7 @@ namespace Game.Gameplay.Transport
             // Buildings read their input cells every tick (not at PushIntervalSeconds like the
             // push side): how fast a building may absorb what it reads is its own business - e.g.
             // FoundryRuntime's intake cooldown - not a side effect of how often transport looks.
-            for (int i = 0; i < _allOthers.Count; i++)
-            {
-                TryGenericPull(_allOthers[i]);
-            }
+            RunGenericPulls();
 
             for (int i = 0; i < _conveyors.Count; i++)
             {
@@ -390,23 +391,69 @@ namespace Game.Gameplay.Transport
 
         /// <summary>
         /// Actively grabs one item off a neighbor exposing a pullable item (Flow contract),
-        /// regardless of that neighbor's own facing, but only across this building's own input
-        /// cells - the cells its entry arrows are drawn on (GetInputCells). Straight-on, directly
+        /// regardless of that neighbor's own facing, but only across a building's own input cells
+        /// - the cells its entry arrows are drawn on (GetInputCells). Straight-on, directly
         /// touching cells only (no reaching around corners or through other buildings).
+        ///
+        /// Two-phase to stay fair when two consumers share one input point (e.g. two Factories
+        /// both facing the same conveyor cell): phase 1 lets every building pick its own single
+        /// best candidate without consuming anything yet, phase 2 resolves any source that more
+        /// than one consumer wants by round-robin (see _lastPullServedBy) instead of always
+        /// letting whichever consumer happens to be registered first win every tick.
         /// </summary>
-        void TryGenericPull(BuildingRuntime building)
+        void RunGenericPulls()
         {
-            foreach (var (cell, fromMySide) in building.GetInputCells())
+            var intents = new List<(BuildingRuntime consumer, BuildingRuntime source, Direction fromSide, string itemId)>();
+
+            for (int i = 0; i < _allOthers.Count; i++)
             {
-                if (!(_grid.GetOccupant(cell) is BuildingRuntime occupant)) continue;
+                BuildingRuntime building = _allOthers[i];
+                foreach (var (cell, fromMySide) in building.GetInputCells())
+                {
+                    if (!(_grid.GetOccupant(cell) is BuildingRuntime occupant)) continue;
 
-                object item = occupant.PeekPullableItem();
-                if (item == null || !(item is string itemId)) continue;
-                if (!building.CanAcceptInput(itemId, 1, fromMySide)) continue;
+                    object item = occupant.PeekPullableItem();
+                    if (item == null || !(item is string itemId)) continue;
+                    if (!building.CanAcceptInput(itemId, 1, fromMySide)) continue;
 
-                occupant.ConsumePulledItem(item);
-                building.AddInput(itemId, 1, fromMySide);
-                return;
+                    intents.Add((building, occupant, fromMySide, itemId));
+                    break;
+                }
+            }
+
+            var contendersBySource = new Dictionary<BuildingRuntime, List<(BuildingRuntime consumer, Direction fromSide, string itemId)>>();
+            foreach (var intent in intents)
+            {
+                if (!contendersBySource.TryGetValue(intent.source, out var list))
+                {
+                    list = new List<(BuildingRuntime, Direction, string)>();
+                    contendersBySource[intent.source] = list;
+                }
+                list.Add((intent.consumer, intent.fromSide, intent.itemId));
+            }
+
+            foreach (var kvp in contendersBySource)
+            {
+                BuildingRuntime source = kvp.Key;
+                var contenders = kvp.Value;
+
+                // A source exposes only one pullable item at a time, so only one contender can
+                // actually take it this tick - pick round-robin among today's contenders rather
+                // than always the first one found, so two consumers sharing one source alternate.
+                int startIndex = 0;
+                if (_lastPullServedBy.TryGetValue(source, out BuildingRuntime lastWinner))
+                {
+                    int lastIndex = contenders.FindIndex(c => ReferenceEquals(c.consumer, lastWinner));
+                    if (lastIndex >= 0) startIndex = (lastIndex + 1) % contenders.Count;
+                }
+
+                var chosen = contenders[startIndex];
+                object item = source.PeekPullableItem();
+                if (!(item is string itemId) || !chosen.consumer.CanAcceptInput(itemId, 1, chosen.fromSide)) continue;
+
+                source.ConsumePulledItem(item);
+                chosen.consumer.AddInput(itemId, 1, chosen.fromSide);
+                _lastPullServedBy[source] = chosen.consumer;
             }
         }
 

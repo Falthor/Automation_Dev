@@ -45,6 +45,7 @@ namespace Game.UI
         VisualElement _progressFill;
         Label _percentLabel;
         VisualElement _ingredientsList;
+        VisualElement _stockList;
         Label _powerValue;
         Label _computeValue;
         Label _stateLabel;
@@ -79,6 +80,7 @@ namespace Game.UI
             _progressFill = panelRoot.Q<VisualElement>("ProductionProgressFill");
             _percentLabel = panelRoot.Q<Label>("ProductionPercentLabel");
             _ingredientsList = panelRoot.Q<VisualElement>("ProductionIngredientsList");
+            _stockList = panelRoot.Q<VisualElement>("ProductionStockList");
             _powerValue = panelRoot.Q<Label>("ProductionPowerValue");
             _computeValue = panelRoot.Q<Label>("ProductionComputeValue");
             if (powerIcon != null) panelRoot.Q<VisualElement>("ProductionPowerIcon").style.backgroundImage = new StyleBackground(powerIcon);
@@ -263,6 +265,8 @@ namespace Game.UI
 
         void RefreshProductionTab()
         {
+            RefreshStockList();
+
             string recipeId = _selected.GetSelectedRecipe();
             bool hasRecipe = !string.IsNullOrEmpty(recipeId);
             _emptyState.EnableInClassList("hidden", hasRecipe);
@@ -298,6 +302,43 @@ namespace Game.UI
             _stateLabel.RemoveFromClassList("state-blocked");
             _stateLabel.RemoveFromClassList("state-idle");
             _stateLabel.AddToClassList(StateClass(state));
+        }
+
+        /// <summary>Everything the building currently holds internally - raw materials waiting on a cycle (input) and finished goods waiting to be pushed out (output) - regardless of whether a recipe is selected, so a jam (e.g. output backing up) is visible at a glance.</summary>
+        void RefreshStockList()
+        {
+            _stockList.Clear();
+            foreach (var kvp in _selected.GetInputContents())
+            {
+                if (kvp.Value <= 0) continue;
+                _stockList.Add(BuildStockRow(kvp.Key, kvp.Value, "ENTREE"));
+            }
+            foreach (var kvp in _selected.GetOutputContents())
+            {
+                if (kvp.Value <= 0) continue;
+                _stockList.Add(BuildStockRow(kvp.Key, kvp.Value, "SORTIE"));
+            }
+        }
+
+        VisualElement BuildStockRow(string itemId, int amount, string sideLabel)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("production-ingredient-row");
+
+            var icon = new VisualElement();
+            icon.AddToClassList("production-ingredient-icon");
+            icon.style.backgroundImage = new StyleBackground(ResolveItemIcon(itemId));
+            row.Add(icon);
+
+            var name = new Label(ResolveItemName(itemId));
+            name.AddToClassList("production-ingredient-name");
+            row.Add(name);
+
+            var status = new Label($"{amount}  ({sideLabel})");
+            status.AddToClassList("production-ingredient-status-ok");
+            row.Add(status);
+
+            return row;
         }
 
         VisualElement BuildIngredientRow(string itemId, int need)

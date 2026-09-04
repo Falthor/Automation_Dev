@@ -82,7 +82,7 @@ namespace Game.Construction
             return true;
         }
 
-        /// <summary>Total of one item id currently held by the player's global stock, the Core and every placed Storage - the same pool a construction cost draws from.</summary>
+        /// <summary>Total of one item id currently held by the player's global stock, the Core, every placed Storage and every production building's internal stock (input+output) - the same pool a construction cost draws from.</summary>
         public int GetAvailableAmount(string itemId)
         {
             int total = (_globalStock?.GetAmount(itemId) ?? 0) + (_core?.GetInputAmount(itemId) ?? 0);
@@ -91,6 +91,13 @@ namespace Game.Construction
                 foreach (StorageRuntime storage in _transport.Storages)
                 {
                     total += storage.GetInputAmount(itemId);
+                }
+
+                foreach (BuildingRuntime building in _transport.GetAllBuildings())
+                {
+                    if (!(building is ProductionBuildingRuntime production)) continue;
+                    total += production.GetInputAmount(itemId);
+                    if (production.GetOutputContents().TryGetValue(itemId, out int outputAmount)) total += outputAmount;
                 }
             }
             return total;
@@ -130,6 +137,30 @@ namespace Game.Construction
 
                     storage.TakeInput(ingredient.Item.Id, fromStorage);
                     remaining -= fromStorage;
+                }
+
+                if (remaining <= 0) continue;
+
+                foreach (BuildingRuntime building in _transport.GetAllBuildings())
+                {
+                    if (remaining <= 0) break;
+                    if (!(building is ProductionBuildingRuntime production)) continue;
+
+                    int fromInput = Mathf.Min(remaining, production.GetInputAmount(ingredient.Item.Id));
+                    if (fromInput > 0)
+                    {
+                        production.TakeInput(ingredient.Item.Id, fromInput);
+                        remaining -= fromInput;
+                    }
+
+                    if (remaining <= 0) break;
+                    if (!production.GetOutputContents().TryGetValue(ingredient.Item.Id, out int outputAmount)) continue;
+
+                    int fromOutput = Mathf.Min(remaining, outputAmount);
+                    if (fromOutput <= 0) continue;
+
+                    production.TakeOutput(ingredient.Item.Id, fromOutput);
+                    remaining -= fromOutput;
                 }
             }
         }
