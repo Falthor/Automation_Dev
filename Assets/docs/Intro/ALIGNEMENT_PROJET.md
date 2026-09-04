@@ -140,7 +140,7 @@ traduction directe de l'état du composant.
 **La fourchette de fluctuation s'élargit avec l'usure.**
 
 ```
-plancher_fluctuation = 1,0 − 0,70 × (1 − usure/100)
+plancher_fluctuation = 0,70 − 0,40 × (1 − usure/100)
 ```
 
 Un composant neuf fluctue entre 70 % et 100 %, un composant en fin de vie entre 30 % et

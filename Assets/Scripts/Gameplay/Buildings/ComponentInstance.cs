@@ -58,8 +58,8 @@ namespace Game.Gameplay.Buildings
         /// <summary>Seconds elapsed since IsReplacing became true.</summary>
         public float ReplacementElapsed { get; set; }
 
-        /// <summary>Fresh install: draws this instance's own dispersed lifetime and derives BaseLossPerSecond from the replacement threshold in effect right now (DataCenterRuntime's own per-type setting) - a later change to that threshold reshapes when HasCrossedReplacementThreshold trips, but never retroactively reshapes an already-derived decay curve.</summary>
-        public ComponentInstance(string itemId, ItemDatabase itemDatabase, System.Random lifetimeRandom, float replacementThresholdPercentAtInstall)
+        /// <summary>Fresh install: draws this instance's own dispersed lifetime and derives BaseLossPerSecond from it alone - the decay curve is calibrated to run Wear from 100 to LifetimeFloorPercent in exactly that drawn lifetime, regardless of the replacement threshold in effect. The threshold only decides where along that fixed curve HasCrossedReplacementThreshold trips; it must not reshape the curve itself, or every threshold setting would yield the same time-to-replacement (TASK_03_DATACENTER.md §4.4).</summary>
+        public ComponentInstance(string itemId, ItemDatabase itemDatabase, System.Random lifetimeRandom)
         {
             ItemId = itemId;
             ItemDefinition item = itemDatabase.Get(itemId);
@@ -68,7 +68,7 @@ namespace Game.Gameplay.Buildings
 
             float nominal = item != null ? item.NominalLifetimeSeconds : 0f;
             NominalLifetimeSeconds = DrawLifetimeSeconds(nominal, lifetimeRandom);
-            BaseLossPerSecond = DeriveBaseLossPerSecond(NominalLifetimeSeconds, replacementThresholdPercentAtInstall);
+            BaseLossPerSecond = DeriveBaseLossPerSecond(NominalLifetimeSeconds);
         }
 
         /// <summary>Restore path only (CONTRACTS.md §14): reconstructs a component with its already-drawn lifetime/decay curve verbatim, instead of drawing a new one - a save must reproduce exactly what existed, not a fresh roll.</summary>
@@ -88,20 +88,25 @@ namespace Game.Gameplay.Buildings
             return nominalSeconds * (0.75f + (float)random.NextDouble() * 0.50f);
         }
 
+        /// <summary>Wear that DeriveBaseLossPerSecond's descent from 100 targets - a fixed calibration floor, NOT the player-configurable replacement threshold (TASK_03_DATACENTER.md §4.4: calibrating on the threshold would make time-to-replacement independent of the threshold, which is the whole bug this constant fixes).</summary>
+        const float LifetimeFloorPercent = 5f;
+
         /// <summary>
         /// Solves dWear/dt = -baseLoss * (1 + 2*(1 - Wear/100)) for the baseLoss that carries Wear
-        /// from 100 to thresholdPercent in exactly lifetimeSeconds (TASK_03_DATACENTER.md §4.4's
-        /// calibration rule). Closed form from integrating the linear ODE: with w = Wear/100,
-        /// dw/dt = -k*(3-2w) (k = baseLoss/100) gives 3-2w = e^(2kt), so
-        /// k = ln(3 - 2*thresholdFraction) / (2*lifetimeSeconds).
+        /// from 100 to LifetimeFloorPercent in exactly lifetimeSeconds - a fixed calibration
+        /// independent of any replacement threshold, so a threshold change actually changes how
+        /// long a component runs (see HasCrossedReplacementThreshold, which reads the same fixed
+        /// curve at whatever threshold is set). Closed form from integrating the linear ODE: with
+        /// w = Wear/100, dw/dt = -k*(3-2w) (k = baseLoss/100) gives 3-2w = e^(2kt), so
+        /// k = ln(3 - 2*floorFraction) / (2*lifetimeSeconds).
         /// </summary>
         /// <summary>Exposed (not just used internally) so DataCenterRuntime's Restore fallback can rederive a plausible BaseLossPerSecond for a blob missing that key, without duplicating the formula.</summary>
-        public static float DeriveBaseLossPerSecond(float lifetimeSeconds, float thresholdPercent)
+        public static float DeriveBaseLossPerSecond(float lifetimeSeconds)
         {
             if (lifetimeSeconds <= 0f) return 0f;
 
-            float thresholdFraction = UnityEngine.Mathf.Clamp01(thresholdPercent / 100f);
-            float k = UnityEngine.Mathf.Log(3f - 2f * thresholdFraction) / (2f * lifetimeSeconds);
+            const float floorFraction = LifetimeFloorPercent / 100f;
+            float k = UnityEngine.Mathf.Log(3f - 2f * floorFraction) / (2f * lifetimeSeconds);
             return 100f * k;
         }
 

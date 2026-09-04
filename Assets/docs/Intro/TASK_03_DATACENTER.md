@@ -118,7 +118,7 @@ stabilité = 95 − 65 × (1 − usure/100)
 ### 4.2 La fluctuation s'élargit avec l'usure
 
 ```
-plancher_fluctuation = 1,0 − 0,70 × (1 − usure/100)
+plancher_fluctuation = 0,70 − 0,40 × (1 − usure/100)
 ```
 
 Un composant neuf fluctue entre 70 % et 100 %, un composant en fin de vie entre 30 % et
@@ -146,7 +146,10 @@ installés ensemble meurent ensemble et la production part en à-coups périodiq
 dispersion transforme ça en flux continu.
 
 `perte_base` se déduit de la durée de vie tirée, de façon que l'intégrale de la courbe
-accélérée amène l'usure de 100 au seuil de remplacement exactement en ce temps-là.
+accélérée amène l'usure de 100 à 5 exactement en ce temps-là — **pas** au seuil de
+remplacement réglé par le joueur, qui n'intervient que pour décider à quel moment de cette
+même courbe on interrompt le composant. Calibrer sur le seuil rendrait la durée de vie
+insensible au seuil, ce qui viderait l'arbitrage du §5 de tout contenu.
 
 **Le tirage doit passer par un générateur seedé**, conformément à la règle de déterminisme
 du projet : même seed et mêmes paramètres, même résultat.

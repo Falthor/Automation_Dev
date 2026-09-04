@@ -157,8 +157,8 @@ namespace Game.Gameplay.Buildings
 
         public override void Tick(float deltaTime)
         {
-            InstallInto(CpuItemId, _cpuSlots, CpuReplacementThresholdPercent);
-            InstallInto(MemoryItemId, _memorySlots, MemoryReplacementThresholdPercent);
+            InstallInto(CpuItemId, _cpuSlots);
+            InstallInto(MemoryItemId, _memorySlots);
 
             if (IsPriming)
             {
@@ -198,7 +198,7 @@ namespace Game.Gameplay.Buildings
             _previousPowerDemand = TotalPowerDemand();
         }
 
-        void InstallInto(string itemId, List<ComponentInstance> slots, float replacementThresholdPercent)
+        void InstallInto(string itemId, List<ComponentInstance> slots)
         {
             while (_input.GetAmount(itemId) > 0)
             {
@@ -206,7 +206,7 @@ namespace Game.Gameplay.Buildings
                 if (slotIndex == -1) return; // no compatible empty slot - item stays in input (normal jam behavior)
 
                 _input.Take(itemId, 1);
-                slots[slotIndex] = new ComponentInstance(itemId, _itemDatabase, _lifetimeRandom, replacementThresholdPercent);
+                slots[slotIndex] = new ComponentInstance(itemId, _itemDatabase, _lifetimeRandom);
             }
         }
 
@@ -255,7 +255,7 @@ namespace Game.Gameplay.Buildings
                 if (_input.GetAmount(itemId) > 0)
                 {
                     _input.Take(itemId, 1);
-                    slots[i] = new ComponentInstance(itemId, _itemDatabase, _lifetimeRandom, replacementThresholdPercent);
+                    slots[i] = new ComponentInstance(itemId, _itemDatabase, _lifetimeRandom);
                 }
                 else
                 {
@@ -337,11 +337,11 @@ namespace Game.Gameplay.Buildings
             MemoryReplacementThresholdPercent = state.Value<float?>("memoryReplacementThresholdPercent") ?? DefaultReplacementThresholdPercent;
             ResearchAxisShare = state.Value<float?>("researchAxisShare") ?? 0.5f;
             _input.RestoreContents(state["input"]?.ToObject<Dictionary<string, int>>());
-            RestoreSlots(_cpuSlots, state["cpuSlots"] as JArray, CpuReplacementThresholdPercent);
-            RestoreSlots(_memorySlots, state["memorySlots"] as JArray, MemoryReplacementThresholdPercent);
+            RestoreSlots(_cpuSlots, state["cpuSlots"] as JArray);
+            RestoreSlots(_memorySlots, state["memorySlots"] as JArray);
         }
 
-        void RestoreSlots(List<ComponentInstance> slots, JArray saved, float replacementThresholdPercent)
+        void RestoreSlots(List<ComponentInstance> slots, JArray saved)
         {
             slots.Clear();
             if (saved == null) return;
@@ -356,7 +356,7 @@ namespace Game.Gameplay.Buildings
 
                 string itemId = entry.Value<string>("itemId");
                 float nominalLifetime = entry.Value<float?>("nominalLifetimeSeconds") ?? (_itemDatabase.Get(itemId)?.NominalLifetimeSeconds ?? 120f);
-                float baseLoss = entry.Value<float?>("baseLossPerSecond") ?? ComponentInstance.DeriveBaseLossPerSecond(nominalLifetime, replacementThresholdPercent);
+                float baseLoss = entry.Value<float?>("baseLossPerSecond") ?? ComponentInstance.DeriveBaseLossPerSecond(nominalLifetime);
 
                 var component = new ComponentInstance(itemId, _itemDatabase, nominalLifetime, baseLoss);
                 component.RestoreWearAndPerformance(entry.Value<float?>("wear") ?? 100f, entry.Value<float?>("effectivePerformance") ?? 1f);
