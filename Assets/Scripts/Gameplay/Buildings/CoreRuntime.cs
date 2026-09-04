@@ -4,6 +4,7 @@ using Game.Data;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Items;
 using Game.Gameplay.Power;
+using Game.Gameplay.Research;
 using Newtonsoft.Json.Linq;
 
 namespace Game.Gameplay.Buildings
@@ -17,23 +18,61 @@ namespace Game.Gameplay.Buildings
     /// the player, not to this building (WorldGenerationSettings.StartingStock). Never placed by
     /// the player (see WorldGenerator); accepts input from every side, like Storage, since it has
     /// no output direction of its own.
+    ///
+    /// Also the sole owner of the action radius as runtime state (TASK_04_PLAFOND_RAYON.md §4):
+    /// CoreDefinition.ActionRadiusCells is only the starting value. ActionRadiusCells here is what
+    /// every placement check must read - extended_bandwidth grows it in place, live, no reload
+    /// needed. Persisted directly in CaptureState/RestoreState rather than re-derived from
+    /// ResearchSystem.IsUnlocked at construction, matching that task's save decision.
     /// </summary>
     public sealed class CoreRuntime : BuildingRuntime
     {
+        public const string ExtendedBandwidthResearchId = "extended_bandwidth";
+
+        /// <summary>
+        /// 32, not the ticket's originally stated 30: the invitation ore clusters WorldGenerator
+        /// actually places (InvitationMinDistanceCells/MaxDistanceCells = 28-34) sit farther out
+        /// than the ticket assumed (25-28), so 30 would only have made each cluster partially
+        /// reachable. Measured in-world with the real fixed ResourceSeed: the farthest invitation
+        /// deposit is ~31.9 cells out (coal); 32 clears all three clusters in full.
+        /// </summary>
+        public const int ExtendedActionRadiusCells = 32;
+
         readonly CoreDefinition _definition;
         readonly ComputeSystem _computeSystem;
         readonly PowerSystem _powerSystem;
+        readonly ResearchSystem _researchSystem;
         readonly PooledItemStock _inventory = new PooledItemStock(int.MaxValue);
+        readonly System.Action<string> _onResearchCompleted;
 
         float _cuTimer;
 
+        /// <summary>Current action radius in cells - starts at CoreDefinition.ActionRadiusCells, grows via extended_bandwidth.</summary>
+        public int ActionRadiusCells { get; private set; }
+
         public CoreRuntime(CoreDefinition definition, GridCoord cell, Direction facingRotation,
-            ComputeSystem computeSystem, PowerSystem powerSystem)
+            ComputeSystem computeSystem, PowerSystem powerSystem, ResearchSystem researchSystem)
             : base(definition, cell, facingRotation)
         {
             _definition = definition;
             _computeSystem = computeSystem;
             _powerSystem = powerSystem;
+            _researchSystem = researchSystem;
+            ActionRadiusCells = definition.ActionRadiusCells;
+
+            _onResearchCompleted = OnResearchCompleted;
+            researchSystem.ResearchCompleted += _onResearchCompleted;
+        }
+
+        void OnResearchCompleted(string researchId)
+        {
+            if (researchId == ExtendedBandwidthResearchId) ActionRadiusCells = ExtendedActionRadiusCells;
+        }
+
+        /// <summary>Unsubscribes from ResearchSystem - the Core is never demolished in practice, but this keeps the same hygiene as every other research-reactive building (DataCenterRuntime).</summary>
+        public override void OnUnregistered()
+        {
+            _researchSystem.ResearchCompleted -= _onResearchCompleted;
         }
 
         /// <summary>Read-only snapshot for the Core inspector panel (CONTRACTS.md §12).</summary>
@@ -63,13 +102,20 @@ namespace Game.Gameplay.Buildings
             return new JObject
             {
                 ["cuTimer"] = _cuTimer,
+                ["actionRadiusCells"] = ActionRadiusCells,
                 ["contents"] = JObject.FromObject(_inventory.Contents)
             };
         }
 
+        /// <summary>
+        /// actionRadiusCells falls back to the definition's starting value when absent (a save
+        /// from before TASK_04_PLAFOND_RAYON.md) - never to 0, which would make every placement
+        /// check reject everything (TASK_03_DATACENTER.md's restore-tolerance precedent).
+        /// </summary>
         public override void RestoreState(JObject state)
         {
             _cuTimer = state.Value<float?>("cuTimer") ?? 0f;
+            ActionRadiusCells = state.Value<int?>("actionRadiusCells") ?? _definition.ActionRadiusCells;
             _inventory.RestoreContents(state["contents"]?.ToObject<Dictionary<string, int>>());
         }
     }

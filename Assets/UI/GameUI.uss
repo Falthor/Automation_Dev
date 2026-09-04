@@ -1029,6 +1029,11 @@
     background-color: rgb(85, 221, 245);
 }
 
+.top-bar-card-bar-fill-buildings {
+    height: 100%;
+    background-color: rgb(85, 221, 245);
+}
+
 .top-bar-icon-button {
     position: absolute;
     top: 0;
@@ -1272,6 +1277,17 @@
     font-size: 13px;
     -unity-font-style: bold;
     letter-spacing: 2px;
+}
+
+.top-bar-refusal-message {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 46px;
+    -unity-text-align: upper-center;
+    color: rgb(242, 83, 83);
+    font-size: 12px;
+    -unity-font-style: bold;
 }
 
 .state-producing {

@@ -26,6 +26,15 @@ namespace Game.Presentation
         [SerializeField] DepositHoverGlowView depositHoverGlowView;
 
         /// <summary>
+        /// Raised when a placement attempt is refused specifically because the building cap was
+        /// reached (TASK_04_PLAFOND_RAYON.md §3.2 - this refusal must name its cause explicitly,
+        /// not fail silently). Game.Presentation must not depend on Game.UI (PROJECT_ARCHITECTURE.md
+        /// §4's dependency direction), so this is a plain event a UI-layer listener (TopBarController)
+        /// subscribes to instead of a direct reference the other way.
+        /// </summary>
+        public event System.Action<string> PlacementRefusedAtBuildingCap;
+
+        /// <summary>
         /// Used to lay straight segments while dragging with the Corner tool selected - a corner
         /// is only ever stamped at the anchor (initial click) or at a later turn, never repeated
         /// along a straight run. See PlaceStraightSegment. Also passed to BuildingSpawner so a
@@ -474,6 +483,11 @@ namespace Game.Presentation
                     gameRuntime.Transport.Unregister(previousBuilding);
                     if (gameRuntime.ItemVisuals != null) gameRuntime.ItemVisuals.Unregister(previousBuilding);
                 }
+            }
+            else if (gameRuntime.Construction.Selected != null
+                     && gameRuntime.Construction.GetPlacementRefusalReason(cell) == PlacementRefusalReason.BuildingCapReached)
+            {
+                PlacementRefusedAtBuildingCap?.Invoke("Plafond de batiments atteint");
             }
         }
 

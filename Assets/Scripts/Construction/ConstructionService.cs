@@ -11,6 +11,17 @@ using UnityEngine;
 
 namespace Game.Construction
 {
+    /// <summary>Why a placement is refused - CONTRACTS.md §8's CanPlace/TryPlace stay a plain bool for ghost tinting; this is the explanatory read GetPlacementRefusalReason exposes for player-facing messaging (TASK_04_PLAFOND_RAYON.md §3.2).</summary>
+    public enum PlacementRefusalReason
+    {
+        None,
+        NotUnlocked,
+        OutOfActionRadius,
+        CannotAfford,
+        BuildingCapReached,
+        CellOccupied
+    }
+
     /// <summary>
     /// Construction tool state and placement orchestration (CONTRACTS.md §8).
     /// Exposes intent-level operations; owns preview/ghost state (selected definition,
@@ -18,6 +29,10 @@ namespace Game.Construction
     /// </summary>
     public sealed class ConstructionService
     {
+        public const int DefaultBuildingCap = 40;
+        const string MemoryAllocationResearchId = "memory_allocation";
+        const int ExtendedBuildingCap = 52;
+
         readonly GridRuntime _grid;
         readonly ItemDatabase _itemDatabase;
         readonly RecipeDatabase _recipeDatabase;
@@ -31,6 +46,40 @@ namespace Game.Construction
         public BuildingDefinition Selected { get; private set; }
         public Direction PreviewRotation { get; private set; } = Direction.North;
 
+        /// <summary>
+        /// Current building slot cap (TASK_04_PLAFOND_RAYON.md §3) - starts at 40, raised to 52 by
+        /// memory_allocation. Runtime state owned here (the same layer that enforces it), not on
+        /// any definition; persisted directly by the save layer via RestoreBuildingCap, with a
+        /// fallback to DefaultBuildingCap for a save predating this task.
+        /// </summary>
+        public int BuildingCap { get; private set; } = DefaultBuildingCap;
+
+        /// <summary>
+        /// How many currently-placed buildings count against BuildingCap right now - every
+        /// registered building except the Core (placed by world generation, not a player decision)
+        /// and Conveyor/Splitter/Crossroad (transport pieces, never slot-limited). Computed live
+        /// from TransportSystem's registry rather than tracked as a separate counter, so placing
+        /// and demolishing can never drift out of sync with it. 0 when there is no TransportSystem
+        /// (e.g. a headless test that never registers anything) - no restriction without data,
+        /// same convention IsWithinActionRadius already uses for a missing Core.
+        /// </summary>
+        public int OccupiedBuildingSlots
+        {
+            get
+            {
+                if (_transport == null) return 0;
+
+                int count = 0;
+                foreach (BuildingRuntime building in _transport.GetAllBuildings())
+                {
+                    if (ReferenceEquals(building, _core)) continue;
+                    if (building is ConveyorRuntime || building is SplitterRuntime || building is CrossroadRuntime) continue;
+                    count++;
+                }
+                return count;
+            }
+        }
+
         public ConstructionService(GridRuntime grid, ItemDatabase itemDatabase, RecipeDatabase recipeDatabase, ComputeSystem computeSystem, PowerSystem powerSystem, ResearchSystem researchSystem, TransportSystem transport = null, CoreRuntime core = null, PooledItemStock globalStock = null)
         {
             _globalStock = globalStock;
@@ -42,7 +91,22 @@ namespace Game.Construction
             _researchSystem = researchSystem;
             _transport = transport;
             _core = core;
+
+            researchSystem.ResearchCompleted += OnResearchCompleted;
         }
+
+        /// <summary>
+        /// No unsubscription: ConstructionService lives exactly as long as its ResearchSystem
+        /// (both owned by GameRuntime for the whole session, never demolished/recreated
+        /// independently), unlike a BuildingRuntime's OnUnregistered subscription.
+        /// </summary>
+        void OnResearchCompleted(string researchId)
+        {
+            if (researchId == MemoryAllocationResearchId) BuildingCap = ExtendedBuildingCap;
+        }
+
+        /// <summary>Restores the persisted cap directly (TASK_04_PLAFOND_RAYON.md §6) - never re-derived from ResearchSystem.IsUnlocked, so a future non-research source of extra cap wouldn't need to also be mirrored here. Falls back to DefaultBuildingCap for an absent/older save.</summary>
+        public void RestoreBuildingCap(int? cap) => BuildingCap = cap ?? DefaultBuildingCap;
 
         public void SelectBuilding(BuildingDefinition definition)
         {
@@ -359,26 +423,40 @@ namespace Game.Construction
             return true;
         }
 
-        bool IsPlaceable(GridCoord cell)
+        bool IsPlaceable(GridCoord cell) => GetPlacementRefusalReason(cell) == PlacementRefusalReason.None;
+
+        /// <summary>
+        /// Single source of truth for every placement gate, driving both CanPlace (ghost tinting,
+        /// bool only) and this explanatory read (TASK_04_PLAFOND_RAYON.md §3.2 - a refusal at the
+        /// building cap must name that cause, not fail silently or generically). Meaningful only
+        /// while Selected != null; callers check that themselves via CanPlace/TryPlace first.
+        /// </summary>
+        public PlacementRefusalReason GetPlacementRefusalReason(GridCoord cell)
         {
             if (Selected.UnlockResearch != null && !_researchSystem.IsUnlocked(Selected.UnlockResearch.Id))
             {
-                return false;
+                return PlacementRefusalReason.NotUnlocked;
             }
 
             if (!IsWithinActionRadius(cell, Selected.FootprintCells))
             {
-                return false;
+                return PlacementRefusalReason.OutOfActionRadius;
             }
 
             if (!CanAfford(Selected))
             {
-                return false;
+                return PlacementRefusalReason.CannotAfford;
+            }
+
+            bool countsAgainstCap = !(Selected is ConveyorDefinition || Selected is SplitterDefinition || Selected is CrossroadDefinition);
+            if (countsAgainstCap && OccupiedBuildingSlots >= BuildingCap)
+            {
+                return PlacementRefusalReason.BuildingCapReached;
             }
 
             if (Selected is ExtractorDefinition extractorDefinition)
             {
-                return IsSameExploitableDeposit(cell, extractorDefinition.FootprintSize);
+                return IsSameExploitableDeposit(cell, extractorDefinition.FootprintSize) ? PlacementRefusalReason.None : PlacementRefusalReason.CellOccupied;
             }
 
             if (Selected is ConveyorDefinition)
@@ -386,7 +464,7 @@ namespace Game.Construction
                 // Conveyors are always 1x1, so a single-cell check (plus the overtake exception)
                 // is exhaustive here - every other building must check its whole footprint below.
                 object occupant = _grid.GetOccupant(cell);
-                return occupant == null || occupant is ConveyorRuntime;
+                return occupant == null || occupant is ConveyorRuntime ? PlacementRefusalReason.None : PlacementRefusalReason.CellOccupied;
             }
 
             if (Selected is SplitterDefinition || Selected is CrossroadDefinition)
@@ -395,13 +473,13 @@ namespace Game.Construction
                 // "+" footprint - lets a Splitter/Crossroad be dropped onto existing belt
                 // segments (e.g. two straight lines about to cross) instead of requiring the
                 // player to demolish them first.
-                return IsFootprintPlaceableOverConveyors(cell, Selected.FootprintCells);
+                return IsFootprintPlaceableOverConveyors(cell, Selected.FootprintCells) ? PlacementRefusalReason.None : PlacementRefusalReason.CellOccupied;
             }
 
             // Checks every cell of the footprint, not just the origin - a building whose origin
             // sits on empty ground but whose footprint extends onto a deposit (or any other
             // occupant) must still be rejected, not just partially overlap it unnoticed.
-            return _grid.IsAreaFree(cell, Selected.FootprintSize);
+            return _grid.IsAreaFree(cell, Selected.FootprintSize) ? PlacementRefusalReason.None : PlacementRefusalReason.CellOccupied;
         }
 
         bool IsFootprintPlaceableOverConveyors(GridCoord origin, Vector2Int[] cells)
@@ -426,14 +504,15 @@ namespace Game.Construction
         /// <summary>
         /// True when every cell of the footprint is within the Core's action radius - a plain
         /// distance-from-Core's-origin-cell check per cell, matching the source project exactly.
-        /// No Core in this scene (e.g. a headless test) means no restriction at all.
+        /// No Core in this scene (e.g. a headless test) means no restriction at all. Reads
+        /// _core.ActionRadiusCells (runtime, extendable by research), never CoreDefinition's own
+        /// ActionRadiusCells (the starting value only) - TASK_04_PLAFOND_RAYON.md §4.1/§4.3.
         /// </summary>
         bool IsWithinActionRadius(GridCoord origin, Vector2Int[] cells)
         {
             if (_core == null) return true;
 
-            var coreDefinition = (CoreDefinition)_core.Definition;
-            float radius = coreDefinition.ActionRadiusCells;
+            float radius = _core.ActionRadiusCells;
             GridCoord coreOrigin = _core.Cell;
 
             foreach (Vector2Int offset in cells)

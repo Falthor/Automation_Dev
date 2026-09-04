@@ -4,6 +4,7 @@ using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Power;
+using Game.Gameplay.Research;
 using Game.Grid;
 using UnityEngine;
 
@@ -26,27 +27,36 @@ namespace Game.Gameplay.WorldGeneration
         /// </summary>
         const float InRadiusMinDistanceCells = 10f;
 
-        /// <summary>Distance band (cells) for the single "invitation" cluster placed just outside the action radius - visible, deliberately not yet exploitable.</summary>
-        const float InvitationMinDistanceCells = 28f;
-        const float InvitationMaxDistanceCells = 34f;
+        /// <summary>
+        /// Distance band (cells) for the single "invitation" cluster placed just outside the
+        /// action radius - visible, deliberately not yet exploitable. Must stay entirely beyond
+        /// the starting action radius (22) and entirely within CoreRuntime.ExtendedActionRadiusCells
+        /// (32, via extended_bandwidth) with margin - a cluster drawn past the extended radius
+        /// would be permanently unreachable regardless of seed (TASK_04_PLAFOND_RAYON.md's
+        /// follow-up correction: the previous 28-34 band let a cluster land past 32).
+        /// </summary>
+        const float InvitationMinDistanceCells = 26f;
+        const float InvitationMaxDistanceCells = 29f;
 
         public CoreRuntime Core { get; private set; }
         public GridCoord CoreOrigin { get; private set; }
-        public int ActionRadiusCells { get; private set; }
+
+        /// <summary>Pass-through to Core.ActionRadiusCells (TASK_04_PLAFOND_RAYON.md §4) - Core is the sole owner of the current radius, this is just a convenience for callers that only hold a WorldGenerator reference.</summary>
+        public int ActionRadiusCells => Core?.ActionRadiusCells ?? 0;
+
         public IReadOnlyList<DepositRuntime> OreDeposits => _oreDeposits;
 
         readonly List<DepositRuntime> _oreDeposits = new List<DepositRuntime>();
 
-        public void Generate(GridRuntime grid, int mapSizeCells, WorldGenerationSettings settings, ComputeSystem computeSystem, PowerSystem powerSystem)
+        public void Generate(GridRuntime grid, int mapSizeCells, WorldGenerationSettings settings, ComputeSystem computeSystem, PowerSystem powerSystem, ResearchSystem researchSystem)
         {
             CoreDefinition coreDefinition = settings.CoreDefinition;
-            ActionRadiusCells = coreDefinition.ActionRadiusCells;
 
             CoreOrigin = new GridCoord(
                 mapSizeCells / 2 - coreDefinition.FootprintSize.x / 2,
                 mapSizeCells / 2 - coreDefinition.FootprintSize.y / 2);
 
-            Core = new CoreRuntime(coreDefinition, CoreOrigin, Direction.North, computeSystem, powerSystem);
+            Core = new CoreRuntime(coreDefinition, CoreOrigin, Direction.North, computeSystem, powerSystem, researchSystem);
             grid.SetOccupantFootprint(CoreOrigin, coreDefinition.FootprintSize, Core);
 
             var random = new System.Random(settings.ResourceSeed);
@@ -133,14 +143,17 @@ namespace Game.Gameplay.WorldGeneration
         /// <summary>
         /// Rebuilds this generator's state from a previously-saved snapshot instead of running
         /// procedural generation (CONTRACTS.md §14). Used only by the save/load restore path -
-        /// the caller has already reconstructed Core and every DepositRuntime and placed them
-        /// into Game.Grid at their saved cells.
+        /// the caller has already reconstructed Core (with its own ActionRadiusCells already
+        /// restored via CoreRuntime.RestoreState - TASK_04_PLAFOND_RAYON.md §4) and every
+        /// DepositRuntime, and placed them into Game.Grid at their saved cells. No longer takes
+        /// its own actionRadiusCells parameter - ActionRadiusCells here is a pass-through of
+        /// core.ActionRadiusCells, so passing a second, separate value could only ever disagree
+        /// with it.
         /// </summary>
-        public void RestoreState(CoreRuntime core, GridCoord coreOrigin, int actionRadiusCells, IEnumerable<DepositRuntime> deposits)
+        public void RestoreState(CoreRuntime core, GridCoord coreOrigin, IEnumerable<DepositRuntime> deposits)
         {
             Core = core;
             CoreOrigin = coreOrigin;
-            ActionRadiusCells = actionRadiusCells;
             _oreDeposits.Clear();
             _oreDeposits.AddRange(deposits);
         }

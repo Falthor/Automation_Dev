@@ -217,5 +217,161 @@ namespace Game.Tests.EditMode.Construction
             service.Cancel();
             Assert.IsNull(service.Selected);
         }
+
+        // --- TASK_04_PLAFOND_RAYON.md: building cap + action radius as runtime state ---
+
+        static (ConstructionService service, TransportSystem transport, ResearchSystem research, CoreRuntime core) NewServiceWithCore(int actionRadiusCells)
+        {
+            var grid = new GridRuntime(1f);
+            var research = new ResearchSystem(new ComputeSystem());
+            var coreDefinition = TestDataFactory.NewCore(actionRadiusCells, new Vector2Int(4, 4));
+            var core = new CoreRuntime(coreDefinition, new GridCoord(0, 0), Direction.North, new ComputeSystem(), new PowerSystem(), research);
+            grid.SetOccupantFootprint(core.Cell, coreDefinition.FootprintSize, core);
+            var transport = new TransportSystem(grid);
+            transport.Register(core);
+            var service = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), research, transport, core);
+            return (service, transport, research, core);
+        }
+
+        static BuildingRuntime PlaceAndRegister(ConstructionService service, TransportSystem transport, BuildingDefinition definition, GridCoord cell)
+        {
+            service.SelectBuilding(definition);
+            Assert.IsTrue(service.TryPlace(cell, Direction.North, out BuildingRuntime placed), $"Expected placement to succeed at {cell}");
+            transport.Register(placed);
+            return placed;
+        }
+
+        static StorageDefinition NewFreeStorageDefinition() => ScriptableObject.CreateInstance<StorageDefinition>();
+
+        [Test]
+        public void TryPlace_AtBuildingCap_RefusesWithBuildingCapReached()
+        {
+            var (service, transport, _, _) = NewServiceWithCore(1000);
+            for (int i = 0; i < ConstructionService.DefaultBuildingCap; i++)
+            {
+                PlaceAndRegister(service, transport, NewFreeStorageDefinition(), new GridCoord(10 + i * 2, 10));
+            }
+            Assert.AreEqual(ConstructionService.DefaultBuildingCap, service.OccupiedBuildingSlots);
+
+            var cell = new GridCoord(10 + ConstructionService.DefaultBuildingCap * 2, 10);
+            service.SelectBuilding(NewFreeStorageDefinition());
+
+            Assert.AreEqual(PlacementRefusalReason.BuildingCapReached, service.GetPlacementRefusalReason(cell));
+            Assert.IsFalse(service.TryPlace(cell, Direction.North, out BuildingRuntime placed));
+            Assert.IsNull(placed);
+        }
+
+        [Test]
+        public void TryPlace_AtBuildingCap_ConveyorSplitterAndCrossroad_RemainPlaceable()
+        {
+            var (service, transport, _, _) = NewServiceWithCore(1000);
+            for (int i = 0; i < ConstructionService.DefaultBuildingCap; i++)
+            {
+                PlaceAndRegister(service, transport, NewFreeStorageDefinition(), new GridCoord(10 + i * 2, 10));
+            }
+
+            service.SelectBuilding(NewConveyorDefinition());
+            var conveyorCell = new GridCoord(-10, -10);
+            Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(conveyorCell));
+            Assert.IsTrue(service.TryPlace(conveyorCell, Direction.North, out _));
+
+            // Splitter/Crossroad are 3x3 "+" footprints - keep them far apart so they don't overlap each other.
+            service.SelectBuilding(ScriptableObject.CreateInstance<SplitterDefinition>());
+            Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(new GridCoord(-20, -20)));
+
+            service.SelectBuilding(ScriptableObject.CreateInstance<CrossroadDefinition>());
+            Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(new GridCoord(-30, -30)));
+        }
+
+        [Test]
+        public void OccupiedBuildingSlots_ExcludesTheCore()
+        {
+            var (service, _, _, _) = NewServiceWithCore(1000);
+
+            Assert.AreEqual(0, service.OccupiedBuildingSlots, "The Core is placed by world generation, not a player decision, and must not count against the cap.");
+        }
+
+        [Test]
+        public void TryDemolish_FreesABuildingSlotImmediately()
+        {
+            var (service, transport, _, _) = NewServiceWithCore(1000);
+            var cell = new GridCoord(5, 5);
+            PlaceAndRegister(service, transport, NewFreeStorageDefinition(), cell);
+            Assert.AreEqual(1, service.OccupiedBuildingSlots);
+
+            Assert.IsTrue(service.TryDemolish(cell, out BuildingRuntime removed));
+            transport.Unregister(removed); // mirrors ConstructionInputAdapter's real TryDemolish + Unregister pairing
+
+            Assert.AreEqual(0, service.OccupiedBuildingSlots);
+        }
+
+        [Test]
+        public void MemoryAllocation_Completed_RaisesBuildingCapTo52()
+        {
+            var (service, _, research, _) = NewServiceWithCore(1000);
+            Assert.AreEqual(40, service.BuildingCap);
+
+            ResearchDefinition memoryAllocation = TestDataFactory.NewResearch("memory_allocation", 10f);
+            research.Enqueue(memoryAllocation);
+            research.Tick(60f);
+
+            Assert.IsTrue(research.IsUnlocked("memory_allocation"));
+            Assert.AreEqual(52, service.BuildingCap);
+        }
+
+        [Test]
+        public void ExtendedBandwidth_MakesACellAt27CellsFromCore_PlaceableWhereItWasRefusedBefore()
+        {
+            var (service, _, research, _) = NewServiceWithCore(22);
+            var farCell = new GridCoord(27, 0); // beyond the starting 22-cell radius, within the extended 32
+
+            service.SelectBuilding(NewConveyorDefinition());
+            Assert.AreEqual(PlacementRefusalReason.OutOfActionRadius, service.GetPlacementRefusalReason(farCell));
+            Assert.IsFalse(service.CanPlace(farCell));
+
+            ResearchDefinition extendedBandwidth = TestDataFactory.NewResearch("extended_bandwidth", 10f);
+            research.Enqueue(extendedBandwidth);
+            research.Tick(60f);
+
+            Assert.IsTrue(service.CanPlace(farCell), "A cell at 27 cells from the Core must become placeable once the radius extends to 32 - this is the exact promise the invitation ore clusters make.");
+            Assert.IsTrue(service.TryPlace(farCell, Direction.North, out BuildingRuntime placed));
+            Assert.IsNotNull(placed);
+        }
+
+        [Test]
+        public void IsWithinActionRadius_ReadsCoreRuntimeValue_NotTheFrozenDefinitionValue()
+        {
+            var (service, _, research, core) = NewServiceWithCore(22);
+            ResearchDefinition extendedBandwidth = TestDataFactory.NewResearch("extended_bandwidth", 10f);
+            research.Enqueue(extendedBandwidth);
+            research.Tick(60f);
+
+            var coreDefinition = (CoreDefinition)core.Definition;
+            Assert.AreEqual(22, coreDefinition.ActionRadiusCells, "The definition asset itself never changes - only the runtime value grows.");
+            Assert.AreEqual(32, core.ActionRadiusCells);
+
+            service.SelectBuilding(NewConveyorDefinition());
+            Assert.IsTrue(service.CanPlace(new GridCoord(27, 0)), "Placement must follow core.ActionRadiusCells (32), not CoreDefinition.ActionRadiusCells (still 22).");
+        }
+
+        [Test]
+        public void RestoreBuildingCap_SetsThePersistedValue()
+        {
+            var (service, _, _, _) = NewServiceWithCore(1000);
+
+            service.RestoreBuildingCap(52);
+
+            Assert.AreEqual(52, service.BuildingCap);
+        }
+
+        [Test]
+        public void RestoreBuildingCap_ToleratesNull_FallsBackToDefault()
+        {
+            var (service, _, _, _) = NewServiceWithCore(1000);
+
+            service.RestoreBuildingCap(null);
+
+            Assert.AreEqual(ConstructionService.DefaultBuildingCap, service.BuildingCap);
+        }
     }
 }

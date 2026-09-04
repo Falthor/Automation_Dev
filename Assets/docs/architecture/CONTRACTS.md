@@ -241,13 +241,24 @@ public void SelectBuilding(BuildingDefinition definition)
 public void Cancel()
 public void SetPreviewRotation(Direction rotation)
 public bool CanPlace(GridCoord cell)
+public PlacementRefusalReason GetPlacementRefusalReason(GridCoord cell)
 public bool TryPlace(GridCoord cell, Direction rotation, out BuildingRuntime placed)
 public bool TryDemolish(GridCoord cell, out BuildingRuntime removed)
+
+public int BuildingCap { get; }              // 40 by default, 52 after memory_allocation
+public int OccupiedBuildingSlots { get; }    // live count against BuildingCap
+public void RestoreBuildingCap(int? cap)
 ```
 
 `TryPlace` deducts the definition's cost (player's global stock first, then Core, then every Storage, then every production building's own internal stock - input before output); `TryDemolish` refunds that same cost in full into the global stock, so placing and removing a building is cost-neutral.
 
 `TryPlace`/`TryDemolish` only mutate `Game.Grid`/runtime state and return the affected `BuildingRuntime` via `out`; they never create or destroy GameObjects. The caller (a Presentation-layer input adapter) is responsible for the corresponding view, which is what keeps `Game.Construction` free of a dependency on `Game.Presentation`. `CanPlace` is a non-mutating query used for ghost-preview valid/invalid tinting.
+
+`GetPlacementRefusalReason` (TASK_04_PLAFOND_RAYON.md §3.2) is the explanatory counterpart to `CanPlace`: same checks, same order, but returns a `PlacementRefusalReason` (`None`/`NotUnlocked`/`OutOfActionRadius`/`CannotAfford`/`BuildingCapReached`/`CellOccupied`) instead of a bare bool, for player-facing messaging - meaningful only while `Selected != null`.
+
+`BuildingCap` (TASK_04_PLAFOND_RAYON.md §3) is runtime state owned by `ConstructionService`, not any definition: starts at 40, raised to 52 by `memory_allocation` (via `ResearchSystem.ResearchCompleted`, same pattern as `DataCenterRuntime`'s bay/threshold subscriptions), and restored directly from a save (`RestoreBuildingCap`) rather than re-derived from `ResearchSystem.IsUnlocked`. `OccupiedBuildingSlots` counts every building currently registered with the constructor-injected `TransportSystem` except the Core and every `ConveyorRuntime`/`SplitterRuntime`/`CrossroadRuntime` - computed live from `TransportSystem.GetAllBuildings()`, never a separately tracked counter, so placing and demolishing can never drift out of sync with it. `IsPlaceable`'s cap check applies to every other building type.
+
+The Core's action radius (`CoreDefinition.ActionRadiusCells` is only the starting value) is runtime state on `CoreRuntime.ActionRadiusCells` instead - `IsWithinActionRadius` reads that, never the definition. `CoreRuntime` owns and extends it via `extended_bandwidth` (`ResearchSystem.ResearchCompleted`), exactly like `BuildingCap` above; `WorldGenerator.ActionRadiusCells` is a plain pass-through of it.
 
 Drag-gesture decoding (turning a mouse drag into a sequence of single-cell `TryPlace` calls, and detecting when to reshape the drag anchor into a corner) is input-interpretation and lives in the Presentation-layer input adapter, not in `ConstructionService` itself, which stays single-cell and Unity-input-agnostic.
 
@@ -375,12 +386,15 @@ public void RestoreState(ResearchDefinition active, float absorbedCu,
     IEnumerable<ResearchDefinition> queue, IEnumerable<string> unlockedIds) // ResearchSystem
 public IEnumerable<string> GetUnlockedIds()                             // ResearchSystem
 public void RestoreState(CoreRuntime core, GridCoord coreOrigin,
-    int actionRadiusCells, IEnumerable<DepositRuntime> deposits)        // WorldGenerator
+    IEnumerable<DepositRuntime> deposits)                               // WorldGenerator
 public void RestoreState(int remainingQuantity)                         // DepositRuntime
 public IEnumerable<BuildingRuntime> GetAllBuildings()                   // TransportSystem
 public BuildingRuntime CreateForRestore(BuildingDefinition definition,
     GridCoord cell, Direction rotation)                                 // ConstructionService
+public void RestoreBuildingCap(int? cap)                                // ConstructionService
 ```
+
+`CoreRuntime`'s own `CaptureState`/`RestoreState` (TASK_04_PLAFOND_RAYON.md §6) now also round-trips `actionRadiusCells` alongside `cuTimer`/`contents` - absent falls back to `CoreDefinition.ActionRadiusCells`, never to 0. `SaveData.BuildingCap` (nullable) is the matching top-level field for `ConstructionService.BuildingCap`, restored via `RestoreBuildingCap`; absent falls back to `ConstructionService.DefaultBuildingCap` (40). Neither addition bumped `SaveData.Version` - both are simple additive fields with a per-field fallback, not the kind of structural reshaping the Version gate exists for.
 
 `BuildingRuntime.CaptureState()`/`RestoreState(JObject)` are virtual, empty by default; each subclass with real mutable state overrides both (`ProductionBuildingRuntime` and its subclasses, `StorageRuntime`, `ConveyorRuntime`, `CoreRuntime`, `ExtractorRuntime`, `PowerplantGazRuntime`, `DataCenterRuntime`, `SplitterRuntime`, `CrossroadRuntime`). A building's envelope (`Definition.Id`, `Cell`, `FacingRotation`) is captured generically by `GameRuntime`, not by the building itself - only its type-specific payload goes through `CaptureState()`.
 

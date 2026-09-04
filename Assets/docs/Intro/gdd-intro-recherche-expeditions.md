@@ -181,10 +181,10 @@ fonderies**.
 | **Datacenter MK1** | **120 Iron Plate + 80 Copper Wire + 160 PCB + 48 CPU MkI + 36 Memory MK1 + 24 Mechanical Component** | oui |
 
 **Plafond de bâtiments : 40 dès le départ.** Convoyeurs et splitters ne consomment pas
-de slot. Le parc nécessaire est de 32 slots, chaîne énergétique comprise, ce qui laisse
-huit erreurs possibles au joueur. La limite se fait sentir dans la dernière ligne droite
-sans jamais enfermer. L'Allocation mémoire, qui relève ce plafond, devient la première
-recherche d'après-introduction.
+de slot. Le parc nécessaire est de 31 slots, chaîne énergétique comprise (le Storage Box
+n'en fait plus partie depuis la tâche 01B), ce qui laisse neuf erreurs possibles au joueur.
+La limite se fait sentir dans la dernière ligne droite sans jamais enfermer. L'Allocation
+mémoire, qui relève ce plafond, devient la première recherche d'après-introduction.
 
 ### 3.5 Le Datacenter MK1
 
@@ -358,8 +358,10 @@ se finance par l'exploration, le brouillon se rattrape aux expéditions.
 ### 4.5 Durée et parc
 
 Parc cible : 8 extracteurs de minerai, 2 extracteurs de charbon, 6 fonderies,
-8 factories, 3 assembleurs, 3 centrales gaz, 1 storage, plus le Datacenter.
-**32 slots sur les 40 disponibles.**
+8 factories, 3 assembleurs, 3 centrales gaz, plus le Datacenter. **31 slots sur les 40
+disponibles.** Le Storage Box ne fait plus partie du parc de référence depuis la tâche 01B :
+les tampons internes sont accessibles à la construction et la Boîte de stockage est passée en
+recherche optionnelle.
 
 Quantités totales à produire : 958 minerais de fer, 965 de cuivre, 1 040 fils, 746 vis,
 394 plaques, 310 circuits imprimés.
