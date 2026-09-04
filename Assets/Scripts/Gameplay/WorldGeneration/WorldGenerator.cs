@@ -18,6 +18,18 @@ namespace Game.Gameplay.WorldGeneration
     {
         const int DepositPlacementAttempts = 500;
 
+        /// <summary>
+        /// Distance (cells, Core center to cluster center) for every in-radius cluster - the
+        /// guaranteed one per resource and the surplus ones alike. Replaces the old
+        /// footprint-derived minimum (~6 cells, which put a cluster almost against the Core)
+        /// with a flat value that leaves room to build around the Core (ALIGNEMENT_PROJET.md §8).
+        /// </summary>
+        const float InRadiusMinDistanceCells = 10f;
+
+        /// <summary>Distance band (cells) for the single "invitation" cluster placed just outside the action radius - visible, deliberately not yet exploitable.</summary>
+        const float InvitationMinDistanceCells = 28f;
+        const float InvitationMaxDistanceCells = 34f;
+
         public CoreRuntime Core { get; private set; }
         public GridCoord CoreOrigin { get; private set; }
         public int ActionRadiusCells { get; private set; }
@@ -42,28 +54,65 @@ namespace Game.Gameplay.WorldGeneration
                 CoreOrigin.X + coreDefinition.FootprintSize.x / 2f,
                 CoreOrigin.Y + coreDefinition.FootprintSize.y / 2f);
 
-            OreDepositDefinition[] toPlace =
+            // One guaranteed cluster per resource (one iron, one copper, one coal), placed first
+            // and inside the radius - 4 deposit slots each, exactly covering the 4/4/2 extractors
+            // the introduction needs (coal uses only 2 of its 4). The introduction is not
+            // playable without at least one of each resource, so a failure to place any of them
+            // throws rather than silently producing an amputated world (ALIGNEMENT_PROJET.md §8 -
+            // today's 500-attempts-then-silent-skip is the exact bug this guards against).
+            PlaceGuaranteedCluster(grid, random, coreCenter, settings.IronOreDefinition, "fer");
+            PlaceGuaranteedCluster(grid, random, coreCenter, settings.CopperOreDefinition, "cuivre");
+            PlaceGuaranteedCluster(grid, random, coreCenter, settings.CoalOreDefinition, "charbon");
+
+            // One "invitation" cluster per resource, placed just outside the action radius:
+            // visible (once fog of war reveals that far) but not yet exploitable - a standing
+            // invitation to expand the radius later. Best-effort, not part of the guarantee above.
+            TryPlaceCluster(grid, random, coreCenter, settings.IronOreDefinition, InvitationMinDistanceCells, InvitationMaxDistanceCells);
+            TryPlaceCluster(grid, random, coreCenter, settings.CopperOreDefinition, InvitationMinDistanceCells, InvitationMaxDistanceCells);
+            TryPlaceCluster(grid, random, coreCenter, settings.CoalOreDefinition, InvitationMinDistanceCells, InvitationMaxDistanceCells);
+        }
+
+        float InRadiusMaxDistance(OreDepositDefinition definition)
+        {
+            if (definition == null) return 0f;
+            Vector2Int clusterFootprint = definition.FootprintSize * 2;
+            return ActionRadiusCells - Mathf.Max(clusterFootprint.x, clusterFootprint.y);
+        }
+
+        /// <summary>Places the one required cluster for a resource type, or throws if it cannot be placed within the attempt budget - see the Generate() comment on why this is fatal instead of silent.</summary>
+        void PlaceGuaranteedCluster(GridRuntime grid, System.Random random, Vector2 coreCenter, OreDepositDefinition definition, string resourceLabel)
+        {
+            if (definition == null)
             {
-                settings.IronOreDefinition, settings.IronOreDefinition,
-                settings.CopperOreDefinition, settings.CopperOreDefinition,
-                settings.CoalOreDefinition, settings.CoalOreDefinition
-            };
-
-            foreach (OreDepositDefinition definition in toPlace)
-            {
-                if (definition == null) continue;
-
-                // A deposit never spawns as a single isolated footprint anymore - it's a 2x2
-                // cluster of individually-exploitable deposit instances (each still its own
-                // definition-sized footprint), so up to 4 extractors can work the same deposit
-                // side by side, and it reads as a much bigger, more visible ore field on the map.
-                Vector2Int clusterFootprint = definition.FootprintSize * 2;
-
-                if (TryFindFreeSpot(grid, random, coreCenter, coreDefinition.FootprintSize, clusterFootprint, out GridCoord clusterOrigin))
-                {
-                    PlaceDepositCluster(grid, clusterOrigin, definition);
-                }
+                throw new System.InvalidOperationException(
+                    $"World generation cannot place the guaranteed {resourceLabel} cluster: no OreDepositDefinition assigned in WorldGenerationSettings.");
             }
+
+            if (!TryPlaceCluster(grid, random, coreCenter, definition, InRadiusMinDistanceCells, InRadiusMaxDistance(definition)))
+            {
+                throw new System.InvalidOperationException(
+                    $"World generation failed to place the guaranteed {resourceLabel} resource cluster within {DepositPlacementAttempts} attempts. " +
+                    "An introduction missing a resource type is not playable (ALIGNEMENT_PROJET.md §8).");
+            }
+        }
+
+        bool TryPlaceCluster(GridRuntime grid, System.Random random, Vector2 coreCenter, OreDepositDefinition definition, float minDistance, float maxDistance)
+        {
+            if (definition == null) return false;
+
+            // A deposit never spawns as a single isolated footprint - it's a 2x2 cluster of
+            // individually-exploitable deposit instances (each still its own definition-sized
+            // footprint), so up to 4 extractors can work the same deposit side by side, and it
+            // reads as a much bigger, more visible ore field on the map.
+            Vector2Int clusterFootprint = definition.FootprintSize * 2;
+
+            if (!TryFindFreeSpot(grid, random, coreCenter, minDistance, maxDistance, clusterFootprint, out GridCoord clusterOrigin))
+            {
+                return false;
+            }
+
+            PlaceDepositCluster(grid, clusterOrigin, definition);
+            return true;
         }
 
         /// <summary>Places a 2x2 grid of individual deposit instances filling clusterOrigin's 2x-sized footprint.</summary>
@@ -96,11 +145,8 @@ namespace Game.Gameplay.WorldGeneration
             _oreDeposits.AddRange(deposits);
         }
 
-        bool TryFindFreeSpot(GridRuntime grid, System.Random random, Vector2 coreCenter, Vector2Int coreFootprint, Vector2Int depositFootprint, out GridCoord origin)
+        bool TryFindFreeSpot(GridRuntime grid, System.Random random, Vector2 coreCenter, float minDistance, float maxDistance, Vector2Int depositFootprint, out GridCoord origin)
         {
-            float minDistance = Mathf.Max(coreFootprint.x, coreFootprint.y) * 0.5f + Mathf.Max(depositFootprint.x, depositFootprint.y);
-            float maxDistance = ActionRadiusCells - Mathf.Max(depositFootprint.x, depositFootprint.y);
-
             for (int attempt = 0; attempt < DepositPlacementAttempts && maxDistance > minDistance; attempt++)
             {
                 float angle = (float)(random.NextDouble() * Mathf.PI * 2.0);
