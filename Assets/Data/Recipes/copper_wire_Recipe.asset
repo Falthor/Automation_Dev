@@ -15,8 +15,8 @@ MonoBehaviour:
   id: copper_wire
   ingredients:
   - item: {fileID: 11400000, guid: 65d78e7c331fda945b089ab7a130f97c, type: 2}
-    amount: 2
-  outputAmount: 3
-  timeSeconds: 3
-  computeCost: 300
+    amount: 1
+  outputAmount: 2
+  timeSeconds: 2
+  computeCost: 4
   unlockResearch: {fileID: 0}

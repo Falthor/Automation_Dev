@@ -15,10 +15,10 @@ MonoBehaviour:
   id: Memory_MK1
   ingredients:
   - item: {fileID: 11400000, guid: 0ff6217112897ef44ae6bdf7d7d711de, type: 2}
-    amount: 4
+    amount: 2
   - item: {fileID: 11400000, guid: b96b1a8817e8abf4bacd918c5be7b859, type: 2}
-    amount: 5
+    amount: 3
   outputAmount: 1
-  timeSeconds: 3
-  computeCost: 1500
-  unlockResearch: {fileID: 11400000, guid: 876b69fc3c5662542a4b0797dffca515, type: 2}
+  timeSeconds: 4
+  computeCost: 48
+  unlockResearch: {fileID: 0}

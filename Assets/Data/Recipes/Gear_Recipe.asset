@@ -18,5 +18,5 @@ MonoBehaviour:
     amount: 1
   outputAmount: 2
   timeSeconds: 2
-  computeCost: 200
+  computeCost: 4
   unlockResearch: {fileID: 0}

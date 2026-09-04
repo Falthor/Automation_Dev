@@ -17,5 +17,5 @@ MonoBehaviour:
   displayName: Memoire Mk.I
   icon: {fileID: 21300000, guid: 25d9cef5dc849e345830ff433ce6db13, type: 3}
   fallbackColor: {r: 0.2, g: 0.7, b: 0.85, a: 1}
-  cuOutput: 500
+  cuOutput: 10
   powerKw: 1

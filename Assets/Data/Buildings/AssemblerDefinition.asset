@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Assembler
   footprintSize: {x: 4, y: 4}
   placeholderColor: {r: 0.6, g: 0.3, b: 0.3, a: 1}
-  unlockResearch: {fileID: 11400000, guid: 044697c9013e7824e93bafe53e0ddb6f, type: 2}
+  unlockResearch: {fileID: 0}
   sprite: {fileID: -6622863259242664493, guid: 49ca3e040b241074d8afbd90787bd10b, type: 3}
   animationFrames:
   - {fileID: -6622863259242664493, guid: 49ca3e040b241074d8afbd90787bd10b, type: 3}
