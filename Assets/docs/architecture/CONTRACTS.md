@@ -276,15 +276,14 @@ Implemented by `ComputeSystem` (`Game.Gameplay.Compute`), owned by `GameRuntime`
 public void Grant(float amount)
 public bool CanSpend(float cost)
 public void Spend(float cost)
+public float SpendUpTo(float maxAmount)
 public void Tick(float deltaTime)
 ```
 
-CU is a **currency, not a flow**. There is one mechanism: a pooled reserve (`Reserve`, capped at `ReserveCap` = 60000, starting full) credited by `Grant` and spent in one-shot chunks via `CanSpend`/`Spend`. Nothing draws CU per second, nothing is throttled by a CU ratio: a building either affords the cycle it is about to start, or waits at 0 progress until the reserve can pay for it.
+CU is a pooled reserve (`Reserve`, capped at `ReserveCap` = 60000, starting full) credited by `Grant`. It is a **currency, not a flow** for every spender but one:
 
-Two kinds of spender, both charged in full at the instant a cycle starts:
-
-- a recipe-based production building pays its **recipe's** `ComputeCost` (§6);
-- Extractor, Laboratory and Gas Powerplant pay their own **`BuildingDefinition.CuCostPerCycle`** - per extraction, per card converted into RP, and per unit of fuel burned respectively. A powerplant that cannot pay does not light its fuel, and therefore supplies no Power that tick.
+- Every production cycle - a recipe-based production building (its recipe's `ComputeCost`, §6), Extractor, and Gas Powerplant (their own `BuildingDefinition.CuCostPerCycle`, per extraction/per unit of fuel burned respectively) - still pays in a **single one-shot chunk the instant the cycle starts**, via `CanSpend`/`Spend`. There is no throttling ratio for these: a cycle either affords itself in full or waits at 0 progress. A powerplant that cannot pay does not light its fuel, and therefore supplies no Power that tick.
+- **Research** (`Game.Gameplay.Research.ResearchSystem`, §11) is the one continuous per-second draw, via `SpendUpTo(maxAmount)`: it withdraws up to `maxAmount`, less if the reserve holds less, and returns how much was actually taken - it never goes negative and never throws. This is a deliberate, documented exception to "CU is a currency, not a flow" (CONTRACTS.md §13 contract evolution, TASK_02_REFONTE_RECHERCHE.md): the research absorption model needs a real per-second rate, capped by both the research's own `AbsorptionRatePerSecond` and whatever the reserve can currently give. `SpendUpTo` has exactly one caller; every other spender keeps using `CanSpend`/`Spend`.
 
 Two sources credit the reserve:
 
@@ -293,31 +292,38 @@ Two sources credit the reserve:
 
 `Tick(deltaTime)` (called once per `GameRuntime.Update()`) only advances the window `IncomePerSecond` is averaged over - the credited-CU-per-second figure the UI shows. Anything granted above the cap is discarded, and `IncomePerSecond` counts only what was really credited.
 
-The UI reads `Reserve`/`IncomePerSecond` through this contract; it must not show a continuous consumption figure, because there is none.
+The UI reads `Reserve`/`IncomePerSecond` through this contract for the general CU display; it must not show a continuous consumption figure there, because outside of research there is none. The one legitimate continuous-rate figure is research's own absorption ceiling and estimated time remaining (§11), which the UI reads from `ResearchSystem`, not from `ComputeSystem`.
 
 ## 11. Research
 
-Implemented by `ResearchSystem` (`Game.Gameplay.Research`), owned by `GameRuntime`:
+Implemented by `ResearchSystem` (`Game.Gameplay.Research`), owned by `GameRuntime`. CU/absorption model (TASK_02_REFONTE_RECHERCHE.md), not RP/laboratories:
 
 ```csharp
-public void AddRp(float amount)
 public bool HasActiveResearch()
 public ResearchDefinition GetActiveResearch()
+public float AbsorbedCu
 public float GetProgress()
-public void ReportActiveLab()
-public int GetActiveLabCount()
+public float GetEstimatedSecondsRemaining()
+public IReadOnlyList<ResearchDefinition> GetQueue()
 public bool IsUnlocked(string researchId)
+public IEnumerable<string> GetUnlockedIds()
 public bool ArePrerequisitesMet(ResearchDefinition research)
-public bool Start(ResearchDefinition research)
+public bool CanQueue(ResearchDefinition research)
+public bool Enqueue(ResearchDefinition research)
+public bool Dequeue(ResearchDefinition research)
+public bool ReorderQueue(int fromIndex, int toIndex)
+public void CancelActive()
 public void Tick(float deltaTime)
 public event Action<string> ResearchCompleted
 ```
 
-One RP pool, one active research slot at a time. Laboratories call `ReportActiveLab()` every tick while a research is active; `Tick()` (report-then-settle, same one-frame lag as Power/Compute) advances progress at `activeLabCount / 60` per second, so completion takes 60s/30s/20s/15s for 1/2/3/4 simultaneously active Laboratories. `Start` deducts the cost immediately and rejects if something is already active, already unlocked, RP is insufficient, or its prerequisite is not completed yet.
+A research never defines a duration, only a total cost (`ResearchDefinition.CuCost`) and an absorption ceiling (`AbsorptionRatePerSecond`). Duration is the consequence: `cost / min(absorptionRatePerSecond, what the reserve can currently give)`. `ResearchSystem` holds a `ComputeSystem` reference (constructor-injected) and draws from it every `Tick` via `ComputeSystem.SpendUpTo` (§10) - never more than the research's own ceiling, never more than the reserve currently holds. Progress (`AbsorbedCu`) is a running total that is never rolled back: at zero reserve the draw for that tick is simply zero, which is what makes "pause without loss" a consequence of the model rather than a special case to implement. This is the one documented exception to CU being a pure one-shot currency (§10).
 
-A research may require one other research to be completed first (`ResearchDefinition.RequiresResearch`, a direct asset reference - the tree is a chain today, so it is one reference and not a list). `ArePrerequisitesMet` is the read-only form the UI uses to show *why* a row is unavailable instead of only greying it out.
+One active research at a time (`ActiveResearch`); everything else waits in a reorderable queue (`GetQueue`/`ReorderQueue`/`Dequeue`). `Enqueue` starts a research immediately if nothing is active, otherwise appends it to the queue; either way it first checks `CanQueue` (not unlocked, not already active/queued, every prerequisite met - **not** CU availability, which is never a precondition to queueing, only to progressing). When the active research completes, `Tick` pulls the next one off the head of the queue on the following tick (same one-frame-lag convention as Power/Compute's report-then-settle). `CancelActive` abandons the active research, discarding its absorbed CU - the same "switching abandons the cycle without refunding" precedent `ProductionBuildingRuntime.SetSelectedRecipe` already establishes.
 
-Unlike Power/Compute, there is no separate id-keyed registry: `ResearchDefinition` (`Game.Data`, id/displayName/cost) is referenced directly wherever a gate applies - `BuildingDefinition.UnlockResearch` (checked by `ConstructionService.IsPlaceable`, not by any runtime) and `RecipeDefinition.UnlockResearch` (checked by `ProductionBuildingRuntime.GetRecipeIds()`). Building placement and recipe availability both query unlock state through `IsUnlocked(id)` rather than reading internal research collections.
+A research may require any number of other researches to be completed first (`ResearchDefinition.Prerequisites`, a list - not the single-reference chain of the old RP model). `ArePrerequisitesMet` is the read-only form the UI uses to show *why* a row is unavailable instead of only greying it out, and to highlight specifically which prerequisites are missing when a locked node is clicked.
+
+`ResearchDatabase` (`Game.Data`) is the id-keyed registry, on the same model as `ItemDatabase`/`RecipeDatabase` - one asset assigned on `GameRuntime`, `Get(id)` for a single lookup, `GetAll()` for the UI to enumerate the whole tree. A gate itself still references a `ResearchDefinition` directly, exactly as before: `BuildingDefinition.UnlockResearch` (checked by `ConstructionService.IsPlaceable`, not by any runtime) and `RecipeDefinition.UnlockResearch` (checked by `ProductionBuildingRuntime.GetRecipeIds()`). Building placement and recipe availability both query unlock state through `IsUnlocked(id)` rather than reading internal research collections.
 
 ## 12. UI contract
 
@@ -363,8 +369,8 @@ public void RestoreState(JObject state)
 
 public void RestoreContents(IReadOnlyDictionary<string,int> contents)   // PooledItemStock
 public void RestoreReserve(float reserve)                               // ComputeSystem
-public void RestoreState(float rp, ResearchDefinition active,
-    float progress, IEnumerable<string> unlockedIds)                    // ResearchSystem
+public void RestoreState(ResearchDefinition active, float absorbedCu,
+    IEnumerable<ResearchDefinition> queue, IEnumerable<string> unlockedIds) // ResearchSystem
 public IEnumerable<string> GetUnlockedIds()                             // ResearchSystem
 public void RestoreState(CoreRuntime core, GridCoord coreOrigin,
     int actionRadiusCells, IEnumerable<DepositRuntime> deposits)        // WorldGenerator
@@ -374,11 +380,11 @@ public BuildingRuntime CreateForRestore(BuildingDefinition definition,
     GridCoord cell, Direction rotation)                                 // ConstructionService
 ```
 
-`BuildingRuntime.CaptureState()`/`RestoreState(JObject)` are virtual, empty by default; each subclass with real mutable state overrides both (`ProductionBuildingRuntime` and its subclasses, `StorageRuntime`, `ConveyorRuntime`, `CoreRuntime`, `ExtractorRuntime`, `LaboratoryRuntime`, `PowerplantGazRuntime`, `DataCenterRuntime`, `SplitterRuntime`, `CrossroadRuntime`). A building's envelope (`Definition.Id`, `Cell`, `FacingRotation`) is captured generically by `GameRuntime`, not by the building itself - only its type-specific payload goes through `CaptureState()`.
+`BuildingRuntime.CaptureState()`/`RestoreState(JObject)` are virtual, empty by default; each subclass with real mutable state overrides both (`ProductionBuildingRuntime` and its subclasses, `StorageRuntime`, `ConveyorRuntime`, `CoreRuntime`, `ExtractorRuntime`, `PowerplantGazRuntime`, `DataCenterRuntime`, `SplitterRuntime`, `CrossroadRuntime`). A building's envelope (`Definition.Id`, `Cell`, `FacingRotation`) is captured generically by `GameRuntime`, not by the building itself - only its type-specific payload goes through `CaptureState()`.
 
 `ConstructionService.CreateForRestore` is the one other caller of the definition→runtime factory besides `TryPlace`: same instantiation switch, but with no cost deduction and no placement validity check (both already happened once, at the original construction the save captured). It relies on the caller having already placed any deposit a restored Extractor sits on, exactly like `TryPlace` relies on `IsPlaceable` having checked that beforehand.
 
-`GameRuntime` resolves a saved `BuildingDefinition`/`ResearchDefinition` id back to its asset via two small serialized catalogs (`buildingCatalog`, `researchCatalog`) populated in the Inspector, following the same "id → asset" registry pattern as `ItemDatabase`/`RecipeDatabase` - there is no separate `BuildingDatabase` elsewhere in the project.
+`GameRuntime` resolves a saved `BuildingDefinition` id back to its asset via a small serialized catalog (`buildingCatalog`) populated in the Inspector, following the same "id → asset" pattern as `ItemDatabase`/`RecipeDatabase` - there is no separate `BuildingDatabase` elsewhere in the project. A saved `ResearchDefinition` id is resolved through `ResearchDatabase.Get(id)` instead (§11) - one real database, not a second ad hoc catalog.
 
 Trigger points (both in `GameRuntime`, `Game.Presentation`):
 

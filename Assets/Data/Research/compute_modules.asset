@@ -10,9 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72c3c39fefc96e1488e1fdd7ff1eb525, type: 3}
-  m_Name: cpu_assembler
+  m_Name: compute_modules
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
-  id: cpu_assembler
-  displayName: CPU Assembler
-  cost: 100
-  requiresResearch: {fileID: 11400000, guid: 6d2e1b8c5f4a49b3c7dae1f2a3b4c5d6, type: 2}
+  id: compute_modules
+  displayName: Modules de calcul
+  description: Debloque le CPU MkI et la Memory MK1.
+  icon: {fileID: 0}
+  cuCost: 3500
+  prerequisites:
+  - {fileID: 11400000, guid: 044697c9013e7824e93bafe53e0ddb6f, type: 2}
+  absorptionRatePerSecond: 50
+  tier: 2

@@ -315,13 +315,6 @@ namespace Game.Construction
                 return powerplant;
             }
 
-            if (definition is LaboratoryDefinition laboratoryDefinition)
-            {
-                var laboratory = new LaboratoryRuntime(laboratoryDefinition, cell, rotation, _computeSystem, _powerSystem, _researchSystem);
-                _grid.SetOccupantFootprint(cell, laboratoryDefinition.FootprintSize, laboratory);
-                return laboratory;
-            }
-
             if (definition is DataCenterDefinition dataCenterDefinition)
             {
                 var dataCenter = new DataCenterRuntime(dataCenterDefinition, cell, rotation, _itemDatabase, _computeSystem, _powerSystem, _researchSystem);

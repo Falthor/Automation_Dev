@@ -10,8 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72c3c39fefc96e1488e1fdd7ff1eb525, type: 3}
-  m_Name: extra_cpu_slot
+  m_Name: storage_box
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
-  id: extra_cpu_slot
-  displayName: Extra CPU Slot
-  cost: 20
+  id: storage_box
+  displayName: Boite de stockage
+  description: Debloque le batiment de stockage.
+  icon: {fileID: 0}
+  cuCost: 1000
+  prerequisites: []
+  absorptionRatePerSecond: 30
+  tier: 0

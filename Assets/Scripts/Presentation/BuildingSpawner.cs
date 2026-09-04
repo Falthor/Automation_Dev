@@ -125,7 +125,7 @@ namespace Game.Presentation
         /// Generic view for every non-conveyor building: a sprite sized to its footprint, plus
         /// an output arrow (and, for a recipe-based production building, entry arrows on every
         /// other side) if its Definition declares one. Covers Extractor/Storage/Foundry/Factory/
-        /// AdvancedFoundry/Assembler/PowerplantGaz/Laboratory/DataCenter - the only per-type
+        /// AdvancedFoundry/Assembler/PowerplantGaz/DataCenter - the only per-type
         /// differences (HasOutputArrow/HasInputArrows) already live on BuildingDefinition, so no
         /// concrete-type dispatch is needed here at all.
         ///
@@ -172,7 +172,7 @@ namespace Game.Presentation
             }
 
             // Independent of the output arrow: a building can take deliveries without producing
-            // anything physical (Laboratory). Same list the transport pull reads from, so an
+            // anything physical (DataCenter). Same list the transport pull reads from, so an
             // arrow always marks a cell items are genuinely taken from - and only those cells.
             if (definition.HasInputArrows)
             {

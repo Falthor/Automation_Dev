@@ -309,7 +309,6 @@ Concrete types include, where migrated:
 
 - Core
 - Extractor
-- Laboratory
 - PowerplantGaz
 - DataCenter
 - StorageBox

@@ -110,5 +110,51 @@ namespace Game.Tests.EditMode.Gameplay.Compute
 
             Assert.AreEqual(0f, compute.IncomePerSecond);
         }
+
+        /// <summary>The one continuous per-second draw CONTRACTS.md §10 allows (research absorption) - covers TASK_02_REFONTE_RECHERCHE.md's contract evolution.</summary>
+        [Test]
+        public void SpendUpTo_DeductsExactlyWhatItReturns()
+        {
+            var compute = new ComputeSystem();
+
+            float taken = compute.SpendUpTo(500f);
+
+            Assert.AreEqual(500f, taken);
+            Assert.AreEqual(ComputeSystem.ReserveCap - 500f, compute.Reserve);
+        }
+
+        [Test]
+        public void SpendUpTo_NeverTakesMoreThanTheReserveHolds()
+        {
+            var compute = new ComputeSystem();
+            compute.Spend(compute.Reserve - 200f); // leaves exactly 200
+
+            float taken = compute.SpendUpTo(500f);
+
+            Assert.AreEqual(200f, taken);
+            Assert.AreEqual(0f, compute.Reserve);
+        }
+
+        [Test]
+        public void SpendUpTo_FloorsAtZero_NeverGoesNegative()
+        {
+            var compute = new ComputeSystem();
+            compute.Spend(compute.Reserve); // reserve now exactly 0
+
+            float taken = compute.SpendUpTo(500f);
+
+            Assert.AreEqual(0f, taken);
+            Assert.AreEqual(0f, compute.Reserve);
+        }
+
+        [Test]
+        public void SpendUpTo_IgnoresNonPositiveAmounts()
+        {
+            var compute = new ComputeSystem();
+
+            Assert.AreEqual(0f, compute.SpendUpTo(0f));
+            Assert.AreEqual(0f, compute.SpendUpTo(-50f));
+            Assert.AreEqual(ComputeSystem.ReserveCap, compute.Reserve);
+        }
     }
 }

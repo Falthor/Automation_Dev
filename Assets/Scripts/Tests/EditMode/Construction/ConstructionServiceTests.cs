@@ -24,7 +24,7 @@ namespace Game.Tests.EditMode.Construction
         // null is fine here (would throw only if a test actually selected a FoundryDefinition).
         static ConstructionService NewService(GridRuntime grid)
         {
-            return new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), new ResearchSystem());
+            return new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
         }
 
         [Test]
@@ -127,9 +127,9 @@ namespace Game.Tests.EditMode.Construction
         public void CanPlace_False_WhenUnlockResearchNotUnlocked()
         {
             var grid = new GridRuntime(1f);
-            var research = new ResearchSystem();
+            var research = new ResearchSystem(new ComputeSystem());
             var service = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), research);
-            var definition = NewGatedStorageDefinition(MakeResearch("test_gate", 10f));
+            var definition = NewGatedStorageDefinition(TestDataFactory.NewResearch("test_gate", 10f));
             service.SelectBuilding(definition);
 
             Assert.IsFalse(service.CanPlace(new GridCoord(0, 0)));
@@ -139,30 +139,18 @@ namespace Game.Tests.EditMode.Construction
         public void CanPlace_True_AfterUnlockResearchIsUnlocked()
         {
             var grid = new GridRuntime(1f);
-            var research = new ResearchSystem();
+            var research = new ResearchSystem(new ComputeSystem());
             var service = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), research);
-            var unlockResearch = MakeResearch("test_gate", 10f);
+            var unlockResearch = TestDataFactory.NewResearch("test_gate", 10f);
             var definition = NewGatedStorageDefinition(unlockResearch);
             service.SelectBuilding(definition);
             Assert.IsFalse(service.CanPlace(new GridCoord(0, 0)));
 
-            research.AddRp(10f);
-            research.Start(unlockResearch);
-            research.ReportActiveLab();
+            research.Enqueue(unlockResearch);
             research.Tick(60f);
             Assert.IsTrue(research.IsUnlocked("test_gate"));
 
             Assert.IsTrue(service.CanPlace(new GridCoord(0, 0)));
-        }
-
-        static ResearchDefinition MakeResearch(string id, float cost)
-        {
-            var research = ScriptableObject.CreateInstance<ResearchDefinition>();
-            var so = new UnityEditor.SerializedObject(research);
-            so.FindProperty("id").stringValue = id;
-            so.FindProperty("cost").floatValue = cost;
-            so.ApplyModifiedPropertiesWithoutUndo();
-            return research;
         }
 
         static StorageDefinition NewStorageDefinitionWithCost(params (ItemDefinition item, int amount)[] cost)
@@ -192,10 +180,10 @@ namespace Game.Tests.EditMode.Construction
             var ironPlate = TestDataFactory.NewItem("iron_plate", ItemType.Component);
             var recipeDatabase = TestDataFactory.NewRecipeDatabase();
             var transport = new TransportSystem(grid);
-            var service = new ConstructionService(grid, null, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(), transport);
+            var service = new ConstructionService(grid, null, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()), transport);
 
             var factoryDefinition = TestDataFactory.NewFactory(50, 0f, System.Array.Empty<string>(), System.Array.Empty<string>());
-            var factory = new FactoryRuntime(factoryDefinition, new GridCoord(5, 5), Direction.North, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem());
+            var factory = new FactoryRuntime(factoryDefinition, new GridCoord(5, 5), Direction.North, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
             factory.AddOutput("iron_plate", 10);
             transport.Register(factory);
 
