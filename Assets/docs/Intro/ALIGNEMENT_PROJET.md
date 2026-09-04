@@ -298,17 +298,17 @@ seul nœud tant que le combat n'est pas conçu.
 gisement n'accueille donc qu'un extracteur. Mais dans le rayon initial du Noyau, les
 gisements sont **groupés par quatre**, si bien qu'un groupe accepte quatre extracteurs.
 
-Le parc cible demande 4 extracteurs de fer, 4 de cuivre et 2 de charbon. Le générateur
-place volontairement bien plus, pour que le joueur puisse se surdimensionner — et
-apprendre à ne pas le faire :
+Le parc cible demande 4 extracteurs de fer, 4 de cuivre et 2 de charbon. Un seul groupe
+par ressource, dans le rayon, couvre exactement ce besoin (le charbon n'utilise que deux
+de ses quatre emplacements — la seule marge de surdimensionnement possible) :
 
 | Ressource | Groupes dans le rayon | Emplacements disponibles | Extracteurs nécessaires |
 |---|---|---|---|
-| Fer | **4** | 16 | 4 |
-| Cuivre | **2** | 8 | 4 |
+| Fer | **1** | 4 | 4 |
+| Cuivre | **1** | 4 | 4 |
 | Charbon | **1** | 4 | 2 |
 
-Plus **au moins un groupe de fer visible hors du rayon d'action**, comme invitation
+Plus **un groupe de chaque ressource visible hors du rayon d'action**, comme invitation
 permanente.
 
 ### Les gisements sont illimités
@@ -339,14 +339,14 @@ rayon d'action** : il n'existe aucune ressource hors de portée.
 
 | Élément | Actuel | Cible |
 |---|---|---|
-| Grappes de fer | 2 | **4** dans le rayon, **+1 hors rayon** |
-| Grappes de cuivre | 2 | **2** dans le rayon |
-| Grappes de charbon | 2 | **1** dans le rayon |
-| Garantie | aucune | **au moins une grappe de fer, une de cuivre et une de charbon dans le rayon**, quoi qu'il arrive |
+| Grappes de fer | 2 | **1** dans le rayon, **+1 hors rayon** |
+| Grappes de cuivre | 2 | **1** dans le rayon, **+1 hors rayon** |
+| Grappes de charbon | 2 | **1** dans le rayon, **+1 hors rayon** |
+| Garantie | aucune | **une grappe de fer, une de cuivre et une de charbon dans le rayon**, quoi qu'il arrive |
 | `minDistance` | 6 cellules | **10 cellules** — laisser de la place pour bâtir autour du Noyau |
 | `maxDistance` (dans le rayon) | `ActionRadiusCells − 4` | inchangé, soit 18 avec un rayon de 22 |
-| Grappe d'invitation | impossible | placée **entre 28 et 34 cellules**, hors rayon, visible mais inexploitable |
-| Échec de placement | silencieux | **doit lever une erreur** — une grappe manquante rend l'introduction infaisable |
+| Grappes d'invitation | impossible | une par ressource, placée **entre 28 et 34 cellules**, hors rayon, visible mais inexploitable |
+| Échec de placement | silencieux | **doit lever une erreur pour les trois grappes garanties** — une grappe manquante rend l'introduction infaisable ; les grappes d'invitation restent best-effort |
 
 Deux points méritent attention.
 
