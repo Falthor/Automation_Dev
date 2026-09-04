@@ -19,6 +19,9 @@
             </ui:VisualElement>
 
             <ui:VisualElement name="ProductionTab" class="production-tab-content hidden">
+                <ui:Label text="STOCK INTERNE" class="extractor-section-label" />
+                <ui:VisualElement name="ProductionStockList" class="production-ingredients-list" />
+
                 <ui:Label name="ProductionEmptyState" text="AUCUNE RECETTE SELECTIONNEE" class="production-empty-state" />
                 <ui:VisualElement name="ProductionContent" class="production-content hidden">
                     <ui:VisualElement class="production-current-row">
