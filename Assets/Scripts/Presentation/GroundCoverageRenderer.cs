@@ -12,6 +12,12 @@ namespace Game.Presentation
     /// conversion front, uploaded to an R8 texture and drawn by a quad sitting above the terrain and
     /// below the concrete slab.
     ///
+    /// <b>The ground is revealed by the building's own front.</b> It ranks its threshold the way the
+    /// dissolve ranks its sprite - bottom to top by default, radial when the shared reveal mode says
+    /// so - over the very world rectangle the dissolve normalises on. A given progress therefore puts
+    /// both fronts at the same world height, and the ground's lead reads as one wave running slightly
+    /// ahead of the building rather than as a second effect on its own clock.
+    ///
     /// <b>The field is not bounded by the footprint.</b> A threshold that stops at the footprint's
     /// edge makes the rectangle itself the outer boundary, so the finished shape is a square however
     /// the front travels inside it. The threshold therefore keeps rising through the ring of cells
@@ -118,6 +124,15 @@ namespace Game.Presentation
             public float Progress;
             public float Flash;
             public bool Live;
+
+            /// <summary>
+            /// The world rectangle the front is ranked over, bottom and height - the very one the
+            /// building's own dissolve normalises its sweep on (Custom/BuildDissolve's _BuildBounds).
+            /// Shared rather than recomputed so a given progress puts both fronts at the same world
+            /// height and the two read as one wave rising through the site.
+            /// </summary>
+            public float SweepMinY;
+            public float SweepSpanY;
 
             /// <summary>The concrete pad this site is revealing behind its front, if it has one. Fed the zone's field so both layers read the same one.</summary>
             public SpriteRenderer Slab;
@@ -249,6 +264,16 @@ namespace Game.Presentation
                 // concrete slab - see BuildingSpawner.ArtWorldSize.
                 patch.Origin = segment.Cell;
                 patch.Size = segment.Definition.FootprintSize;
+
+                // The one place the drawing's own extent IS what matters: the axis the front is
+                // ranked along. Taking the building's own reveal rectangle is what puts both fronts
+                // at the same world height for a given progress - the ground stops being a separate
+                // animation that merely happens at the same time.
+                ResolveSweep(segments[i], segment, out float sweepMinY, out float sweepSpanY);
+                if (patch.SweepMinY != sweepMinY || patch.SweepSpanY != sweepSpanY) changed = true;
+                patch.SweepMinY = sweepMinY;
+                patch.SweepSpanY = sweepSpanY;
+
                 patch.Progress = progress;
                 patch.Flash = segments[i].FlashBoost;
                 patch.Slab = segments[i].ConvertingSlab;
@@ -279,6 +304,27 @@ namespace Game.Presentation
             if (_expiredScratch.Count > 0) changed = true;
 
             return changed;
+        }
+
+        /// <summary>
+        /// The world band the front is ranked over: the building's own reveal rectangle when there is
+        /// one, its footprint otherwise. The fallback is not a corner case - a segment drawn without a
+        /// dissolve arrives here with no bounds, as does every EditMode test - and the footprint is the
+        /// honest answer for something with nothing drawn above it.
+        /// </summary>
+        void ResolveSweep(ConstructionSiteVisualSync.DrawnSegment drawn, BuildingRuntime segment, out float minY, out float spanY)
+        {
+            Vector4 artBounds = drawn.ArtBounds;
+            if (artBounds.w > 0.0001f)
+            {
+                minY = artBounds.y;
+                spanY = artBounds.w;
+                return;
+            }
+
+            float cellSize = _grid.CellSize;
+            minY = _grid.CellCenterToWorld(segment.Cell).y - cellSize * 0.5f;
+            spanY = Mathf.Max(segment.Definition.FootprintSize.y, 1) * cellSize;
         }
 
         void Rebuild()
@@ -411,22 +457,42 @@ namespace Game.Presentation
             float centerX = patch.Origin.X - zone.OriginCell.X + halfX;
             float centerY = patch.Origin.Y - zone.OriginCell.Y + halfY;
 
+            // The ground obeys the same reveal mode as the building rather than carrying its own, so
+            // the two can never be set to disagree about which way the front travels.
+            bool bottomUp = settings.RevealMode < 1;
+            float sweepMinY = patch.SweepMinY;
+            float sweepSpanY = Mathf.Max(patch.SweepSpanY, 0.0001f);
+
             for (int ty = texMinY; ty < texMaxY; ty++)
             {
                 float py = (ty + 0.5f) / texels;
-                float worldY = (zone.MinWorld.y + py * cellSize) * noiseScale;
+                float worldY = zone.MinWorld.y + py * cellSize;
+
+                // Deliberately the same expression as Custom/BuildDissolve's
+                // saturate((worldPos.y - _BuildBounds.y) / _BuildBounds.w), over the same rectangle:
+                // that identity is the whole of what makes the two fronts one wave.
+                float heightRank = Mathf.Clamp01((worldY - sweepMinY) / sweepSpanY);
+
+                float noiseY = worldY * noiseScale;
                 int row = ty * zone.TexelSide;
 
                 for (int tx = texMinX; tx < texMaxX; tx++)
                 {
                     float px = (tx + 0.5f) / texels;
 
-                    float threshold = Threshold(px - centerX, py - centerY, halfX, halfY, round, inner, corner, overflow);
+                    float sdf = RoundedBoxDistance(px - centerX, py - centerY, halfX, halfY, round);
+
+                    // Radial ranks by distance from the centre, bottom-up by height. Both are 0
+                    // where the front starts and 1 at the last point of the footprint it reaches,
+                    // so everything downstream is written once for the two of them.
+                    float rank = bottomUp ? heightRank : Mathf.Clamp01((sdf + inner) / (inner + corner));
+
+                    float threshold = Threshold(rank, sdf, corner, overflow);
 
                     if (noiseWeight > 0f)
                     {
                         float worldX = (zone.MinWorld.x + px * cellSize) * noiseScale;
-                        threshold += (ValueNoise(worldX, worldY) - 0.5f) * noiseWeight;
+                        threshold += (ValueNoise(worldX, noiseY) - 0.5f) * noiseWeight;
                     }
 
                     float distance = patch.Progress - Mathf.Max(threshold, 0f);
@@ -443,23 +509,26 @@ namespace Game.Presentation
         }
 
         /// <summary>
-        /// The static threshold a point has to be reached for: 0 at the footprint's centre,
-        /// <see cref="FootprintShare"/> at its corners - the last of its own points the front
-        /// reaches - and 1 a full groundOverflowCells beyond them.
+        /// The static threshold a point has to be reached for. Two terms, and whichever asks to wait
+        /// longer wins:
         ///
-        /// The shape is the exact distance to a rounded rectangle, so the front is round inside the
-        /// footprint (a plain box distance would grow a square) and keeps rising smoothly outside it
-        /// (a threshold clamped at the outline would make the rectangle the final shape, whatever
-        /// happens inside).
+        /// <b>rank</b> is the order the front visits the patch in - height for a bottom-up reveal,
+        /// distance from the centre for a radial one. Scaled by <see cref="FootprintShare"/>, so the
+        /// last point of the footprint is reached at 0.8 and the noise still has room to displace it
+        /// without ever pushing it past 1.
+        ///
+        /// <b>The spill</b> is 0 at the footprint's furthest point and 1 a full groundOverflowCells
+        /// beyond it, from the exact distance to a rounded rectangle. It is <b>negative everywhere on
+        /// the footprint</b>, which is what lets it bound the patch without ever delaying the sweep
+        /// inside it: it only speaks outside, and there it - not the edge of a rectangle - is what
+        /// decides where the conversion stops, in every direction including below.
+        ///
+        /// Taking the later of the two rather than adding them is what keeps that bound honest. Added,
+        /// the region under the footprint would have the whole progress budget left to spend on the
+        /// spill (its rank being 0 there) and the patch would open into a fan several cells deep.
         /// </summary>
-        static float Threshold(float dx, float dy, float halfX, float halfY, float round, float inner, float corner, float overflow)
-        {
-            float sdf = RoundedBoxDistance(dx, dy, halfX, halfY, round);
-
-            return sdf <= corner
-                ? FootprintShare * (sdf + inner) / (inner + corner)
-                : FootprintShare + (1f - FootprintShare) * ((sdf - corner) / overflow);
-        }
+        static float Threshold(float rank, float sdf, float corner, float overflow)
+            => Mathf.Max(FootprintShare * rank, (sdf - corner) / overflow);
 
         /// <summary>Signed distance in cells to a rectangle with rounded corners: negative inside, reaching -min(halfX, halfY) at the centre.</summary>
         static float RoundedBoxDistance(float dx, float dy, float halfX, float halfY, float round)

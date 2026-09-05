@@ -145,7 +145,17 @@ namespace Game.Presentation
                 }
                 else displayed = view.AssemblyRenderer != null ? 1f : 0f;
 
-                into.Add(new DrawnSegment(kvp.Key, displayed, flash, view.Slab));
+                // Read off the renderer the dissolve is attached to, which is the one whose bounds it
+                // writes into _BuildBounds - not recomputed from the definition, or the two would
+                // disagree about any art that overhangs its footprint, which is most of it.
+                Vector4 artBounds = default;
+                if (view.AssemblyRenderer != null)
+                {
+                    Bounds bounds = view.AssemblyRenderer.bounds;
+                    artBounds = new Vector4(bounds.min.x, bounds.min.y, bounds.size.x, bounds.size.y);
+                }
+
+                into.Add(new DrawnSegment(kvp.Key, displayed, flash, view.Slab, artBounds));
             }
         }
 
@@ -166,12 +176,22 @@ namespace Game.Presentation
             /// </summary>
             public readonly SpriteRenderer ConvertingSlab;
 
-            public DrawnSegment(BuildingRuntime segment, float displayedProgress, float flashBoost = 0f, SpriteRenderer convertingSlab = null)
+            /// <summary>
+            /// The world rectangle the dissolve reveals this segment over - (minX, minY, sizeX, sizeY),
+            /// the same value it writes into the shader's _BuildBounds. Carried so the ground layer can
+            /// rank its own front along the very same axis instead of measuring one of its own: two
+            /// rectangles would be two waves that merely start together. Zero-sized where nothing is
+            /// drawn yet, which the reader is expected to fall back from.
+            /// </summary>
+            public readonly Vector4 ArtBounds;
+
+            public DrawnSegment(BuildingRuntime segment, float displayedProgress, float flashBoost = 0f, SpriteRenderer convertingSlab = null, Vector4 artBounds = default)
             {
                 Segment = segment;
                 DisplayedProgress = displayedProgress;
                 FlashBoost = flashBoost;
                 ConvertingSlab = convertingSlab;
+                ArtBounds = artBounds;
             }
         }
 

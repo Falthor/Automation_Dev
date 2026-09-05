@@ -42,7 +42,7 @@ namespace Game.Tests.EditMode.Presentation
         /// the expected values below can be written out; the two tests that are about the noise turn
         /// it back on.
         /// </summary>
-        NanoConstructionSettings NewSettings(float noiseWeight = 0f, int texelsPerCell = 4, float leadShare = 1f)
+        NanoConstructionSettings NewSettings(float noiseWeight = 0f, int texelsPerCell = 4, float leadShare = 1f, int revealMode = 0)
         {
             var settings = ScriptableObject.CreateInstance<NanoConstructionSettings>();
             _spawned.Add(settings);
@@ -54,6 +54,10 @@ namespace Game.Tests.EditMode.Presentation
             so.FindProperty("groundNoiseScale").floatValue = 1.2f;
             so.FindProperty("groundTexelsPerCell").intValue = texelsPerCell;
 
+            // The ground reads the same reveal mode as the building, so the tests that are about
+            // the order the front travels in have to name the one they mean.
+            so.FindProperty("revealMode").intValue = revealMode;
+
             // The lead is neutral by default, so every other test can speak in the ground's own
             // progress instead of restating the remap in each expectation. One test owns it.
             so.FindProperty("groundLeadShare").floatValue = leadShare;
@@ -64,7 +68,7 @@ namespace Game.Tests.EditMode.Presentation
             return settings;
         }
 
-        GroundCoverageRenderer NewRenderer(out GridRuntime grid, float noiseWeight = 0f, int texelsPerCell = 4, float leadShare = 1f)
+        GroundCoverageRenderer NewRenderer(out GridRuntime grid, float noiseWeight = 0f, int texelsPerCell = 4, float leadShare = 1f, int revealMode = 0)
         {
             grid = new GridRuntime(1f);
 
@@ -72,7 +76,7 @@ namespace Game.Tests.EditMode.Presentation
             _spawned.Add(go);
 
             var renderer = go.AddComponent<GroundCoverageRenderer>();
-            renderer.Initialize(grid, NewSettings(noiseWeight, texelsPerCell, leadShare));
+            renderer.Initialize(grid, NewSettings(noiseWeight, texelsPerCell, leadShare, revealMode));
             return renderer;
         }
 
@@ -204,15 +208,87 @@ namespace Game.Tests.EditMode.Presentation
         }
 
         /// <summary>
-        /// Writing the site's progress straight onto every cell gave the whole footprint one value,
-        /// so the square lit and faded as a single block with no front travelling across it. Each
-        /// point now carries its own static threshold, and the conversion leaves the centre and
-        /// reaches the corners last.
+        /// The ground is revealed the way the building is: the same front, travelling in the same
+        /// direction, over the same world rectangle. Bottom to top that means a row converts as a
+        /// unit - the defining difference from the radial mode, where the centre of a row leads its
+        /// own corners by a wide margin.
         /// </summary>
         [Test]
-        public void TheConversion_StartsAtTheCentreAndReachesTheCornersLast()
+        public void BottomUp_TheFrontRisesARowAtATime()
         {
             GroundCoverageRenderer renderer = NewRenderer(out _);
+            StorageDefinition wide = NewFootprint(3, 3);
+            var origin = new GridCoord(5, 5);
+            BuildingRuntime segment = NewSegment(wide, origin);
+
+            var bottomCorner = new GridCoord(origin.X, origin.Y);
+            var bottomCentre = new GridCoord(origin.X + 1, origin.Y);
+            var middle = new GridCoord(origin.X + 1, origin.Y + 1);
+            var top = new GridCoord(origin.X + 1, origin.Y + 2);
+
+            renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 0.25f) });
+
+            Assert.IsTrue(renderer.IsConvertedAt(bottomCentre), "The bottom row goes first.");
+            Assert.AreEqual(renderer.FrontDistanceAt(bottomCentre), renderer.FrontDistanceAt(bottomCorner), 0.0001f,
+                "And goes as one: a corner of the bottom row is no further from the front than its middle. "
+                + "This is what separates a rising front from a radial one.");
+            Assert.IsFalse(renderer.IsConvertedAt(middle), "The row above has not been reached.");
+
+            renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 0.5f) });
+
+            Assert.IsTrue(renderer.IsConvertedAt(middle), "By half the phase the front is through the middle row.");
+            Assert.IsFalse(renderer.IsConvertedAt(top), "The top row is still ahead of it.");
+
+            renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 1f) });
+
+            Assert.IsTrue(renderer.IsConvertedAt(top), "And the end of the phase has to reach it.");
+        }
+
+        /// <summary>
+        /// The front is ranked over the <b>building's own</b> reveal rectangle, not over the
+        /// footprint, so a given progress puts the ground's front and the sprite's at the same world
+        /// height. Art that overhangs its cells - which is most of it - would otherwise put the two
+        /// on different scales and they would read as two effects that merely start together.
+        /// </summary>
+        [Test]
+        public void BottomUp_IsRankedOverTheBuildingsOwnRevealRectangle()
+        {
+            StorageDefinition wide = NewFootprint(3, 3);
+            var origin = new GridCoord(5, 5);
+            BuildingRuntime segment = NewSegment(wide, origin);
+
+            var top = new GridCoord(origin.X + 1, origin.Y + 2);
+
+            // Art twice as tall as the footprint, anchored on the same base - a Core or a Foundry
+            // sheet drawn to overhang the cells above it.
+            var tallArt = new Vector4(origin.X - 0.5f, origin.Y - 0.5f, 3f, 6f);
+
+            GroundCoverageRenderer overhanging = NewRenderer(out _);
+            overhanging.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 0.5f, 0f, null, tallArt) });
+
+            GroundCoverageRenderer flat = NewRenderer(out _);
+            flat.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 0.5f) });
+
+            Assert.Greater(overhanging.FrontDistanceAt(top), flat.FrontDistanceAt(top),
+                "A twice-as-tall reveal covers twice the world height per unit of progress, so the same "
+                + "progress carries the front further past the footprint's top row.");
+
+            Assert.IsTrue(overhanging.IsConvertedAt(top),
+                "Which is the point: the front is where the sprite's own reveal has it, so the ground under "
+                + "an overhanging drawing is finished while the drawing is still rising through the cells above.");
+            Assert.IsFalse(flat.IsConvertedAt(top), "Ranked over the footprint alone it would still be short of that row.");
+        }
+
+        /// <summary>
+        /// Writing the site's progress straight onto every cell gave the whole footprint one value,
+        /// so the square lit and faded as a single block with no front travelling across it. Each
+        /// point now carries its own static threshold, and in the radial mode the conversion leaves
+        /// the centre and reaches the corners last.
+        /// </summary>
+        [Test]
+        public void Radial_StartsAtTheCentreAndReachesTheCornersLast()
+        {
+            GroundCoverageRenderer renderer = NewRenderer(out _, revealMode: 1);
             StorageDefinition wide = NewFootprint(3, 3);
             var origin = new GridCoord(5, 5);
             BuildingRuntime segment = NewSegment(wide, origin);
@@ -291,36 +367,35 @@ namespace Game.Tests.EditMode.Presentation
             BuildingRuntime segment = NewSegment(wide, origin);
             var live = new List<DrawnSegment> { new DrawnSegment(segment, 1f) };
 
-            var ring = new[]
+            // Mirrored left/right pairs rather than the whole ring: the front rises, so cells at
+            // different heights are meant to differ. What no rule of the field may distinguish is
+            // two cells at the same height on either side of the footprint.
+            var pairs = new[]
             {
-                new GridCoord(origin.X + 1, origin.Y - 1),
-                new GridCoord(origin.X + 1, origin.Y + 3),
-                new GridCoord(origin.X - 1, origin.Y + 1),
-                new GridCoord(origin.X + 3, origin.Y + 1)
+                (new GridCoord(origin.X - 1, origin.Y), new GridCoord(origin.X + 3, origin.Y)),
+                (new GridCoord(origin.X - 1, origin.Y + 1), new GridCoord(origin.X + 3, origin.Y + 1)),
+                (new GridCoord(origin.X - 1, origin.Y + 2), new GridCoord(origin.X + 3, origin.Y + 2))
             };
 
             GroundCoverageRenderer clean = NewRenderer(out _);
             clean.Tick(0f, OneZone(), live);
 
-            foreach (GridCoord cell in ring)
+            foreach ((GridCoord left, GridCoord right) in pairs)
             {
-                Assert.AreEqual(clean.FrontDistanceAt(ring[0]), clean.FrontDistanceAt(cell), 0.005f,
-                    "Without noise the four sides are interchangeable: " + cell.X + "," + cell.Y);
+                Assert.AreEqual(clean.FrontDistanceAt(left), clean.FrontDistanceAt(right), 0.005f,
+                    "Without noise the two sides are interchangeable at height " + left.Y);
             }
 
             GroundCoverageRenderer noisy = NewRenderer(out _, noiseWeight: 0.25f);
             noisy.Tick(0f, OneZone(), live);
 
-            float min = float.MaxValue;
-            float max = float.MinValue;
-            foreach (GridCoord cell in ring)
+            float widest = 0f;
+            foreach ((GridCoord left, GridCoord right) in pairs)
             {
-                float distance = noisy.FrontDistanceAt(cell);
-                min = Mathf.Min(min, distance);
-                max = Mathf.Max(max, distance);
+                widest = Mathf.Max(widest, Mathf.Abs(noisy.FrontDistanceAt(left) - noisy.FrontDistanceAt(right)));
             }
 
-            Assert.Greater(max - min, 0.02f, "With noise they no longer are, so the outline stops being a shape.");
+            Assert.Greater(widest, 0.02f, "With noise they no longer are, so the outline stops being a shape.");
         }
 
         /// <summary>
@@ -438,22 +513,24 @@ namespace Game.Tests.EditMode.Presentation
             var origin = new GridCoord(2, 2);
             BuildingRuntime segment = NewSegment(wide, origin);
 
-            var centre = new GridCoord(origin.X + 1, origin.Y + 1);
-            var corner = new GridCoord(origin.X, origin.Y);
+            // The first row the rising front reached, and the last - so the retreat is asserted to
+            // undo the advance in reverse, rather than merely to end at nothing.
+            var first = new GridCoord(origin.X + 1, origin.Y);
+            var last = new GridCoord(origin.X + 1, origin.Y + 2);
 
             renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 1f) });
-            Assert.IsTrue(renderer.IsConvertedAt(corner));
+            Assert.IsTrue(renderer.IsConvertedAt(last));
 
             renderer.Tick(FadeSeconds * 0.7f, OneZone(), NoSegments());
 
-            Assert.IsTrue(renderer.IsConvertedAt(centre), "Well into the fade the centre is still converted...");
-            Assert.IsFalse(renderer.IsConvertedAt(corner), "...and the front has already left the corners.");
+            Assert.IsTrue(renderer.IsConvertedAt(first), "Well into the fade the bottom row is still converted...");
+            Assert.IsFalse(renderer.IsConvertedAt(last), "...and the front has already come back down past the top.");
 
             renderer.Tick(FadeSeconds * 0.3f, OneZone(), NoSegments());
-            Assert.IsFalse(renderer.IsConvertedAt(centre), "The full duration takes it back to nothing.");
+            Assert.IsFalse(renderer.IsConvertedAt(first), "The full duration takes it back to nothing.");
 
             renderer.Tick(FadeSeconds, OneZone(), NoSegments());
-            Assert.IsFalse(renderer.IsConvertedAt(centre), "And it stays there.");
+            Assert.IsFalse(renderer.IsConvertedAt(first), "And it stays there.");
         }
 
         [Test]
