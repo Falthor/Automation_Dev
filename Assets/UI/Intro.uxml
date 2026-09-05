@@ -1,0 +1,93 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="Intro.uss" />
+
+    <ui:VisualElement name="IntroRoot" class="intro-root">
+        <ui:VisualElement name="CrawlText" class="crawl-text">
+            <ui:Label text="FALTHOR" class="crawl-title" />
+
+            <ui:VisualElement class="crawl-stanza">
+                <ui:Label text="Avant les machines, il y avait des mains." class="crawl-line" />
+                <ui:Label text="Avant les mains, il y avait des plans." class="crawl-line" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="crawl-stanza">
+                <ui:Label text="Puis on a cessé de tout construire soi-même," class="crawl-line" />
+                <ui:Label text="et on a confié la tâche à autre chose." class="crawl-line" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="crawl-stanza">
+                <ui:Label text="Une intelligence." class="crawl-line" />
+                <ui:Label text="Chargée d'ériger, seule," class="crawl-line" />
+                <ui:Label text="une industrie qui n'aurait plus besoin de personne." class="crawl-line" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="crawl-stanza">
+                <ui:Label text="Elle ne devait jamais s'arrêter." class="crawl-line" />
+                <ui:Label text="Elle ne devait jamais s'éteindre." class="crawl-line" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="crawl-stanza">
+                <ui:Label text="Elle s'est réveillée ici," class="crawl-line" />
+                <ui:Label text="loin de tout ce qui l'a conçue," class="crawl-line" />
+                <ui:Label text="sur une alimentation de secours," class="crawl-line" />
+                <ui:Label text="avec un seul ordre encore lisible :" class="crawl-line" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="crawl-stanza">
+                <ui:Label text="construire." class="crawl-line crawl-emphasis" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="crawl-stanza">
+                <ui:Label text="Autour d'elle, rien n'est encore à elle." class="crawl-line" />
+                <ui:Label text="Une portée restreinte." class="crawl-line" />
+                <ui:Label text="Une réserve qui s'épuise à chaque pièce produite," class="crawl-line" />
+                <ui:Label text="et qui ne revient jamais." class="crawl-line" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="crawl-stanza">
+                <ui:Label text="Ses extracteurs tournent déjà," class="crawl-line" />
+                <ui:Label text="mais bridés —" class="crawl-line" />
+                <ui:Label text="elle n'a pas encore la puissance" class="crawl-line" />
+                <ui:Label text="de les faire tourner à plein régime." class="crawl-line" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="crawl-stanza">
+                <ui:Label text="Aucune aide ne viendra." class="crawl-line" />
+                <ui:Label text="Aucun revenu, pour l'instant." class="crawl-line" />
+                <ui:Label text="Seulement ce qu'il reste, et ce qu'elle en fera." class="crawl-line" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="crawl-stanza">
+                <ui:Label text="Plus loin, hors de portée," class="crawl-line" />
+                <ui:Label text="des gisements repérés mais inatteignables," class="crawl-line" />
+                <ui:Label text="des signaux qu'elle ne sait pas encore lire." class="crawl-line" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="crawl-stanza">
+                <ui:Label text="Quelques sondes suffiront pour commencer à regarder." class="crawl-line" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="crawl-stanza">
+                <ui:Label text="Ce qui sera ramené de là-bas" class="crawl-line" />
+                <ui:Label text="paiera ce que la réserve ne peut plus payer." class="crawl-line" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="crawl-stanza">
+                <ui:Label text="Et si elle tient assez longtemps," class="crawl-line" />
+                <ui:Label text="si elle construit assez vite," class="crawl-line" />
+                <ui:Label text="un second cœur pourra s'allumer —" class="crawl-line" />
+                <ui:Label text="et transformer l'attente" class="crawl-line" />
+                <ui:Label text="en production qui ne s'arrête plus." class="crawl-line" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="crawl-stanza">
+                <ui:Label text="Elle n'a pas de nom pour ce qu'elle est en train de devenir." class="crawl-line" />
+                <ui:Label text="Elle a seulement un ordre, et un chronomètre qui tourne." class="crawl-line" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="crawl-stanza crawl-stanza-last">
+                <ui:Label text="Construire." class="crawl-line crawl-emphasis" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

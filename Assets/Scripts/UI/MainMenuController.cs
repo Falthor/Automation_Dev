@@ -6,16 +6,18 @@ using UnityEngine.UIElements;
 namespace Game.UI
 {
     /// <summary>
-    /// Home screen (MainMenu.unity): New Game writes an initial save and enters Play mode; Load
-    /// restores the existing save and enters Play mode. Mono-save system (CONTRACTS.md §14) - one
-    /// fixed save file, so New Game over an existing save asks for confirmation before overwriting
-    /// it, and Load is disabled whenever no save exists.
+    /// Home screen (MainMenu.unity): New Game writes an initial save and enters Play mode via the
+    /// Intro scene's crawl (Intro.unity, skippable, plays once per New Game click); Load restores
+    /// the existing save and enters Play mode directly, skipping Intro. Mono-save system
+    /// (CONTRACTS.md §14) - one fixed save file, so New Game over an existing save asks for
+    /// confirmation before overwriting it, and Load is disabled whenever no save exists.
     /// </summary>
     public sealed class MainMenuController : MonoBehaviour
     {
         [SerializeField] UIDocument uiDocument;
         [SerializeField] VisualTreeAsset visualTree;
         [SerializeField] Texture2D menuBackground;
+        [SerializeField] string introSceneName = "Intro";
         [SerializeField] string bootstrapSceneName = "Bootstrap";
 
         Button _newGameButton;
@@ -75,7 +77,7 @@ namespace Game.UI
         void StartNewGame()
         {
             PendingGameStart.RequestNewGame();
-            SceneManager.LoadScene(bootstrapSceneName);
+            SceneManager.LoadScene(introSceneName);
         }
 
         void OnLoadClicked()
