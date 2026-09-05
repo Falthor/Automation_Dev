@@ -60,6 +60,15 @@ namespace Game.Presentation
         /// <summary>How far (world units) the noise can perturb the sand-encroachment boundary in or out ("forme" - 0 = a perfectly smooth ring, larger = more jagged/irregular).</summary>
         [SerializeField, Min(0f)] float groundSlabSandNoiseAmplitude = 0.5f;
 
+        /// <summary>
+        /// Single global source for every drop shadow: sun offset, opacity, depth. Optional - null
+        /// means nothing casts a shadow, rather than a hardcoded fallback look, matching the slab
+        /// above. Only the Core reads it for now; the placed-building spawner does not, so shadows
+        /// stay a deliberate, one-building experiment until the look is judged.
+        /// </summary>
+        [Header("Shadows")]
+        [SerializeField] BuildingShadowSettings buildingShadowSettings;
+
         [Header("Item/Recipe registries")]
         [SerializeField] ItemDatabase itemDatabase;
         [SerializeField] RecipeDatabase recipeDatabase;
@@ -392,7 +401,7 @@ namespace Game.Presentation
 
             if (World != null)
             {
-                var contentSpawner = new WorldContentSpawner(Grid, new ProceduralSpriteFactory(), GroundSlabSettings, GroundSlabNeighborLinker);
+                var contentSpawner = new WorldContentSpawner(Grid, new ProceduralSpriteFactory(), GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings);
                 contentSpawner.SpawnCore(World.Core);
                 Transport.Register(World.Core);
 
