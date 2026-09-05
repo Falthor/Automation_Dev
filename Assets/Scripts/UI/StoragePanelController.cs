@@ -10,12 +10,12 @@ using UnityEngine.UIElements;
 namespace Game.UI
 {
     /// <summary>
-    /// Storage panel, opened either from the Bottom Nav "Storage" category button (aggregated
-    /// view: total of every item type across the player's global stock and every Storage in the
-    /// world, grid sized to however many types actually exist) or by clicking a specific Storage
-    /// in the world (that box's own
-    /// 8 fixed slots, empty ones included). Same panel shell, same global-panel slot
-    /// (CONTRACTS.md §7/§12: UI reads the public Inventory contract, never a private field).
+    /// Storage panel, opened either from the Bottom Nav "Storage" category button (the dedicated
+    /// aggregate view TASK_05_ROBOT_CONSTRUCTEUR.md §1 asks for: GlobalStock, i.e. everything a
+    /// builder robot could still be sent to fetch, grid sized to however many item types actually
+    /// exist) or by clicking a specific Storage in the world (that box's own fixed slots, empty
+    /// ones included). Same panel shell, same global-panel slot (CONTRACTS.md §7/§12: UI reads the
+    /// public contract, never a private field).
     /// </summary>
     public sealed class StoragePanelController : MonoBehaviour
     {
@@ -122,54 +122,24 @@ namespace Game.UI
             LayoutGrid(cards);
         }
 
+        /// <summary>
+        /// The aggregate view is now a straight read of GlobalStock (CONTRACTS.md §15) - the Core
+        /// chest, every placed Storage and every production building's output, minus what
+        /// construction sites have already reserved. It no longer sums those sources itself: what
+        /// this panel shows must be exactly what a builder robot could still be sent to fetch, and
+        /// there is one implementation of that rule, not two.
+        /// </summary>
         void RenderAggregate()
         {
-            _title.text = "STORAGE";
+            _title.text = "STOCK GLOBAL";
             _root.EnableInClassList("overlay-root-right", false);
 
-            var totals = new Dictionary<string, int>();
-
-            // The player's global stock (the items the game starts with, held by no building) is
-            // part of what this aggregate view reports - it is spendable exactly like a Storage
-            // box's contents, so hiding it here would show the player less than they own.
-            foreach (var entry in gameRuntime.GlobalStock.Contents)
-            {
-                totals[entry.Key] = (totals.TryGetValue(entry.Key, out int owned) ? owned : 0) + entry.Value;
-            }
-
-            foreach (StorageRuntime storage in gameRuntime.Transport.Storages)
-            {
-                foreach (InventorySlot slot in storage.Slots)
-                {
-                    if (slot.IsEmpty) continue;
-                    totals[slot.ItemId] = (totals.TryGetValue(slot.ItemId, out int existing) ? existing : 0) + slot.Amount;
-                }
-            }
-
-            // A production building's own internal stock (raw materials waiting on a cycle,
-            // finished goods waiting to be pushed out) counts as the player's spendable inventory
-            // too, exactly like a Storage box's contents - hiding it here would show less than
-            // they actually own, and ConstructionService.GetAvailableAmount already draws from it.
-            foreach (BuildingRuntime building in gameRuntime.Transport.GetAllBuildings())
-            {
-                if (!(building is ProductionBuildingRuntime production)) continue;
-
-                foreach (var entry in production.GetInputContents())
-                {
-                    if (entry.Value <= 0) continue;
-                    totals[entry.Key] = (totals.TryGetValue(entry.Key, out int existing) ? existing : 0) + entry.Value;
-                }
-                foreach (var entry in production.GetOutputContents())
-                {
-                    if (entry.Value <= 0) continue;
-                    totals[entry.Key] = (totals.TryGetValue(entry.Key, out int existing) ? existing : 0) + entry.Value;
-                }
-            }
+            IReadOnlyDictionary<string, int> totals = gameRuntime.GlobalStock;
 
             if (totals.Count == 0)
             {
                 _grid.Clear();
-                var empty = new Label("(no items in any storage)");
+                var empty = new Label("(aucun materiau disponible)");
                 empty.AddToClassList("storage-empty-label");
                 _grid.Add(empty);
                 return;

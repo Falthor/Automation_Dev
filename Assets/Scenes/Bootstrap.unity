@@ -418,6 +418,7 @@ GameObject:
   - component: {fileID: 60635902}
   - component: {fileID: 60635900}
   - component: {fileID: 60635899}
+  - component: {fileID: 60635903}
   m_Layer: 0
   m_Name: GameUI
   m_TagString: Untagged
@@ -710,6 +711,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.UI::Game.UI.PowerplantGazPanelController
   uiDocument: {fileID: 60635889}
   visualTree: {fileID: 9197481963319205126, guid: 784d666ea8339c44d9f661ca54612a7b, type: 3}
+  gameRuntime: {fileID: 2103112250}
+--- !u!114 &60635903
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 60635885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b3e085f5af36814d92431daa639e7c5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.UI::Game.UI.NotificationBannerController
+  uiDocument: {fileID: 60635889}
+  visualTree: {fileID: 9197481963319205126, guid: 24ac06c1efdd39042b25cf3888db589b, type: 3}
   gameRuntime: {fileID: 2103112250}
 --- !u!1 &134080686
 GameObject:
@@ -4668,6 +4684,8 @@ GameObject:
   - component: {fileID: 2103112251}
   - component: {fileID: 2103112250}
   - component: {fileID: 2103112252}
+  - component: {fileID: 2103112254}
+  - component: {fileID: 2103112253}
   m_Layer: 0
   m_Name: GameRuntime
   m_TagString: Untagged
@@ -4698,6 +4716,7 @@ MonoBehaviour:
   groundSlabEdgeSoftness: 0.5
   groundSlabSandNoiseScale: 1.2
   groundSlabSandNoiseAmplitude: 0.5
+  buildingShadowSettings: {fileID: 11400000, guid: fa7a3a94c33d1ff4ca87b051641bb079, type: 2}
   itemDatabase: {fileID: 11400000, guid: e293367a8c57e9742b5e998dfa2732a0, type: 2}
   recipeDatabase: {fileID: 11400000, guid: 6e1c6652c14736c4abd9665bd5eee4fd, type: 2}
   worldGenerationSettings: {fileID: 11400000, guid: 592ff7fb40a07364995fc0c9a5f6d49b, type: 2}
@@ -4753,6 +4772,40 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.ItemVisualSync
   itemVisualScale: 0.35
   conveyorItemVisualScale: 0.4
+--- !u!114 &2103112253
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2103112249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc7d455eeb47c5040b99c2d61bde59ca, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Presentation::Game.Presentation.BuilderRobotVisualSync
+  gameRuntime: {fileID: 2103112250}
+  robotSprite: {fileID: 21300000, guid: aca9344cf6115774cbf9e8d5069139ba, type: 3}
+  robotVisualScale: 1
+  firstRobotColor: {r: 1, g: 1, b: 1, a: 1}
+  secondRobotColor: {r: 0.62, g: 0.82, b: 1, a: 1}
+  flightHeight: 3
+  artNativeDirection: 0
+  turnDegreesPerSecond: 540
+--- !u!114 &2103112254
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2103112249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de8202a5d82663f4aa4410a180b473b5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Presentation::Game.Presentation.ConstructionSiteVisualSync
+  gameRuntime: {fileID: 2103112250}
+  siteTint: {r: 0.35, g: 0.6, b: 1, a: 0.6}
 --- !u!1 &2117863649
 GameObject:
   m_ObjectHideFlags: 0

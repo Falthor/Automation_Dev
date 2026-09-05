@@ -82,7 +82,7 @@ Returns a read-only `IReadOnlyDictionary<string,int>` snapshot of everything cur
 
 ### `ProductionBuildingRuntime.GetInputContents()`
 
-Not part of the base `BuildingRuntime` contract (only `ProductionBuildingRuntime` and its subclasses have a pooled input to enumerate). Returns a read-only `IReadOnlyDictionary<string,int>` snapshot of everything currently held in input - mirrors `GetOutputContents()` for the other side of the same building. Used by the aggregate Storage panel (`Game.UI`) and by `ConstructionService` (§8) to include every production building's own internal stock (input+output) alongside the player's global stock and every placed Storage box - the same pool in both places, so what the Storage panel shows is exactly what a construction cost can draw from.
+Not part of the base `BuildingRuntime` contract (only `ProductionBuildingRuntime` and its subclasses have a pooled input to enumerate). Returns a read-only `IReadOnlyDictionary<string,int>` snapshot of everything currently held in input - mirrors `GetOutputContents()` for the other side of the same building. Read by the building's own inspector panel (`ProductionPanelController`) to show what it is holding. It is deliberately **not** part of GlobalStock's aggregate nor of a construction site's collection order (§15): only a production building's *output* is claimable by a builder robot.
 
 The pooled inventory model must not be mixed with the belt lane model. Two pooled-inventory shapes coexist under this same contract: `Inventory` (`Game.Gameplay.Items`, used by `StorageRuntime`) is slot-based - a fixed `SlotCount` of distinct item ids, each slot capped at `CapacityPerSlot`. `PooledItemStock` (`Game.Gameplay.Items`, used by `ProductionBuildingRuntime`'s input and output) has unlimited distinct item ids, each capped independently at a `MaxStackPerItem`. Which one a building uses is an internal representation choice; both satisfy the same public methods above.
 
@@ -248,21 +248,32 @@ public void Cancel()
 public void SetPreviewRotation(Direction rotation)
 public bool CanPlace(GridCoord cell)
 public PlacementRefusalReason GetPlacementRefusalReason(GridCoord cell)
-public bool TryPlace(GridCoord cell, Direction rotation, out BuildingRuntime placed)
+public bool TryPlace(GridCoord cell, Direction rotation, out ConstructionSiteRuntime site,
+    ConstructionSiteRuntime conveyorRunSite = null)
+public bool TryCancelSiteAt(GridCoord cell)
 public bool TryDemolish(GridCoord cell, out BuildingRuntime removed)
+
+public bool CanAfford(BuildingDefinition definition)   // informational only, never a gate
+public int GetAvailableAmount(string itemId)           // reads GlobalStock's aggregate (§15)
 
 public int BuildingCap { get; }              // 40 by default, 52 after memory_allocation
 public int OccupiedBuildingSlots { get; }    // live count against BuildingCap
 public void RestoreBuildingCap(int? cap)
 ```
 
-`TryPlace` deducts the definition's cost (player's global stock first, then Core, then every Storage, then every production building's own internal stock - input before output); `TryDemolish` refunds that same cost in full into the global stock, so placing and removing a building is cost-neutral. The Core is still listed as a cost source for an older save that had items in it, but `CoreRuntime.CanAcceptInput` always refuses now (design decision: the Core must never receive anything), so on a fresh game it always contributes 0 - the player's starting resources instead live in a real Storage Box fixture (`WorldGenerator.CoreStorage`, seeded from `WorldGenerationSettings.StartingStock`) placed one cell south of the Core at world generation, counted like any other placed Storage.
+`TryPlace` no longer pays for anything and no longer produces a working building: it opens a **construction site** (§15). The `BuildingRuntime` is instantiated and occupies its grid cells immediately - so nothing else can be placed on top of it and a conveyor drag can keep reshaping its anchor - but it is deliberately not registered with `TransportSystem` and has no view, so it neither ticks, transports nor produces until robots have delivered its full cost. Passing `conveyorRunSite` appends the cell to that existing site instead of opening a new one: a whole conveyor/splitter drag is **one** chantier, not one per segment.
 
-`TryDemolish` refuses (returns `false`, `removed` stays `null`) for the Core and for that Core Storage fixture (matched by definition id `core_storage`, since a restored instance is just an ordinary entry in the save's building list, not a tracked reference) - both are world-generated fixtures the player never placed and must never be able to remove, the Storage box especially since its contents would otherwise be lost for good (only the construction *cost* is ever refunded, never a building's own held contents).
+`TryDemolish` removes the building immediately (the player wants the space back) but refunds nothing anywhere: the cost becomes a repatriation job a robot must physically haul back (§15). `TryCancelSiteAt` is the counterpart for a still-pending site - it releases the site's reservations and frees the cells its unbuilt segments held, and is what the demolition input routes to when the clicked cell belongs to a chantier rather than a finished building.
+
+`CanAfford`/`GetAvailableAmount` remain public but are now purely informational (the Building menu's "you can/cannot pay for this yet" styling): both read the §15 aggregate, and neither gates placement.
+
+`TryDemolish` refuses (returns `false`, `removed` stays `null`) for the Core, for the Core chest fixture (matched by definition id `core_storage`, since a restored instance is just an ordinary entry in the save's building list, not a tracked reference), and for any building that is still a pending site's unbuilt segment. The first two are world-generated fixtures the player never placed and must never be able to remove, the chest especially since its contents would otherwise be lost for good (only the construction *cost* is ever repatriated, never a building's own held contents).
+
+`OccupiedBuildingSlots` counts every registered building except the Core, the Core chest fixture (a world fixture, not a player decision) and Conveyor/Splitter/Crossroad, **plus** every pending construction site of a slot-consuming type - a site takes its slot from the moment it is placed, otherwise the cap could be walked straight past by queueing sites faster than robots can serve them.
 
 `TryPlace`/`TryDemolish` only mutate `Game.Grid`/runtime state and return the affected `BuildingRuntime` via `out`; they never create or destroy GameObjects. The caller (a Presentation-layer input adapter) is responsible for the corresponding view, which is what keeps `Game.Construction` free of a dependency on `Game.Presentation`. `CanPlace` is a non-mutating query used for ghost-preview valid/invalid tinting.
 
-`GetPlacementRefusalReason` (TASK_04_PLAFOND_RAYON.md §3.2) is the explanatory counterpart to `CanPlace`: same checks, same order, but returns a `PlacementRefusalReason` (`None`/`NotUnlocked`/`OutOfActionRadius`/`CannotAfford`/`BuildingCapReached`/`CellOccupied`) instead of a bare bool, for player-facing messaging - meaningful only while `Selected != null`.
+`GetPlacementRefusalReason` (TASK_04_PLAFOND_RAYON.md §3.2) is the explanatory counterpart to `CanPlace`: same checks, same order, but returns a `PlacementRefusalReason` (`None`/`NotUnlocked`/`OutOfActionRadius`/`BuildingCapReached`/`CellOccupied`) instead of a bare bool, for player-facing messaging - meaningful only while `Selected != null`. There is deliberately no affordability case: placing an unaffordable building opens a site that waits for its materials and names what it is missing (§15), so "I cannot pay for this right now" is a state of the chantier, never a refusal.
 
 `BuildingCap` (TASK_04_PLAFOND_RAYON.md §3) is runtime state owned by `ConstructionService`, not any definition: starts at 40, raised to 52 by `memory_allocation` (via `ResearchSystem.ResearchCompleted`, same pattern as `DataCenterRuntime`'s bay/threshold subscriptions), and restored directly from a save (`RestoreBuildingCap`) rather than re-derived from `ResearchSystem.IsUnlocked`. `OccupiedBuildingSlots` counts every building currently registered with the constructor-injected `TransportSystem` except the Core and every `ConveyorRuntime`/`SplitterRuntime`/`CrossroadRuntime` - computed live from `TransportSystem.GetAllBuildings()`, never a separately tracked counter, so placing and demolishing can never drift out of sync with it. `IsPlaceable`'s cap check applies to every other building type.
 
@@ -417,3 +428,31 @@ Trigger points (both in `GameRuntime`, `Game.Presentation`):
 - **Load** (`MainMenu.unity` → `Bootstrap.unity` with `PendingGameStart.LoadedSave != null`): `GameRuntime.Awake()` restores every system from the save instead of generating a new world, in dependency order (Core → deposits → every other building, since an Extractor resolves its deposit from whatever already occupies its cell).
 
 `Game.Save.PendingGameStart` carries the player's New Game/Load choice across the `MainMenu.unity → Bootstrap.unity` scene load. It is the one deliberately mutable static field the save system introduces (DEVELOPMENT_RULES.md §5): a single field, consumed and cleared at the very start of `GameRuntime.Awake()`, never read anywhere else.
+
+`SaveData.ConstructionSites` (a `JObject`) round-trips every construction site (segments, delivered totals, reservations) and both builder robots (position, state, cargo) plus any repatriation still in flight, via `ConstructionSiteSystem.CaptureState()`/`RestoreState(...)` (§15). It restores last, after every real building is back in `Game.Grid` and registered, because a site's segments are rebuilt with the same `CreateForRestore` factory and its reservations are re-resolved by container cell. An absent key restores as two idle robots with no site, without throwing. `SaveData.GlobalStock` no longer exists: the aggregate holds nothing, so there is nothing to serialize - it is recomputed from the real containers at load. Both changes bumped `SaveData.CurrentVersion` to 3.
+
+## 15. Construction sites, builder robots, and GlobalStock as a view
+
+Implemented by `ConstructionSiteSystem` (`Game.Gameplay.Sites`), owned and ticked by `GameRuntime` alongside Power/Compute/Transport/Research (TASK_05_ROBOT_CONSTRUCTEUR.md).
+
+**GlobalStock's contract is inverted, and the name deliberately stays the same.** It used to be a container: it held the starting stock and every demolition refund, was the first pool construction costs drew from, and was serialized. It now holds **nothing at all**. It is a read-only aggregated view, recomputed on every read, over exactly three sources in this fixed order:
+
+```text
+Core chest (the core_storage fixture)
+   → every placed Storage
+      → every production building's OUTPUT
+```
+
+minus everything already reserved by a construction site. Its invariant: **what GlobalStock reports is exactly what a builder robot could still be sent to fetch.** Items riding a conveyor or already in a robot's cargo are therefore never counted - they are no longer claimable. A production building's *input* is no longer part of it either (only its output is), a deliberate narrowing of the previous behavior: the aggregate and the robots' collection order must be the same list, and a robot does not raid work-in-progress ingredients out of a machine.
+
+`GameRuntime.GlobalStock` is that aggregate (`IReadOnlyDictionary<string,int>`), and the Storage panel's aggregate view is a straight read of it rather than a second summation.
+
+**Reservation is localized.** A reservation is a `(container, itemId, amount)` triple held by one site, never a bare total - two sites can otherwise both promise themselves the same physical stack and the second one blocks with nothing to explain it. Every tick, every open site, **oldest first**, tries to reserve what it still needs from the collection order above; an older site always wins a newly produced unit over a younger one. Reserved items stay physically in their container (still visible, still counted in that container's own contents) and only leave it when a robot actually loads them.
+
+**Sites.** Placing opens a `ConstructionSiteRuntime` holding one segment (a normal building) or several in placement order (a whole conveyor/splitter drag). Segments materialize strictly in order, each the moment its own cost has been delivered - a dragged belt line grows from its anchor as the robots supply it. Materializing means: register with `TransportSystem` and raise `SegmentMaterialized`, which the Presentation layer turns into a spawned view. Until then a segment is inert.
+
+**Robots.** Two `BuilderRobotRuntime` (4-unit capacity, 4.4 cells/s, free diagonal movement, no pathfinding), driven only by this system's tick - never by their own `Update()`; the view reads `Position` and converts it to world space, nothing more. They always serve the **oldest site that currently has something reserved and not yet delivered**: a site blocked on a material nobody has is skipped rather than blocking the queue, and reclaims the robots as soon as it can be served again. "One chantier at a time" is about simultaneous execution (both robots serve the same one), not about strict queue order. Each robot claims its share of a site's reservations before leaving, so two robots never fetch the same promised piece twice.
+
+**Demolition and its overflow.** The building disappears immediately; its construction cost becomes a repatriation job a robot carries back - Core chest first, then any Storage with room for the whole cargo. If no container anywhere can take it, the robot keeps the cargo, a notification names the cause and the parade, and after 20 seconds **the cargo is destroyed**. This loss is a deliberate, documented simplification, punitive and silent by design: it is the anti-deadlock that keeps a permanently loaded robot from making construction impossible (and the reason there are two robots - one can still build a Storage while the other is stuck). It is a decision, not an oversight: the day it should change, the alternatives are dropping the cargo on the ground or refusing the demolition outright.
+
+**Notifications.** `NotificationSystem` (`Game.Gameplay.Notifications`) is a generic queue - severity, message, display duration, optional countdown - read by a left-edge banner. A blocked robot and a chantier missing materials are its first two callers, not its purpose; it never blocks interaction and no gameplay decision ever reads it.

@@ -184,6 +184,8 @@ Compute
 Research
 Inventory
 Selection
+Sites (construction sites + builder robots)
+Notifications
 ```
 
 These are functional responsibilities inside the gameplay assembly unless a future dependency boundary justifies another assembly.
@@ -199,7 +201,7 @@ The project must not create one assembly per subsystem merely for organizational
 - placement
 - demolition
 - conveyor drag/replacement behavior
-- construction costs, drawn from the player's global stock first, then the Core, then every placed Storage, and refunded in full to the global stock on demolition
+- construction sites: placing opens a chantier that reserves its materials in real containers and is built by the builder robots (`Game.Gameplay.Sites`, `CONTRACTS.md` §15); demolition frees the space immediately and hands the materials to a robot to haul back
 - building unlock checks
 - construction preview orchestration
 
@@ -327,7 +329,7 @@ Core is a special world entity and is unique.
 
 Its gameplay behavior must remain consistent with the source project's accepted behavior when migrated, including its role as the starting power/compute source where those systems are implemented.
 
-The game's starting items are not part of it, and the Core never receives anything at all - `CoreRuntime.CanAcceptInput` always refuses, by design (no conveyor or building may ever deliver to it). The player's starting items instead live in a real, world-generated Storage Box fixture (`WorldGenerator.CoreStorage`) placed one cell south of the Core and seeded from `WorldGenerationSettings.StartingStock`, counted like any other placed Storage rather than in a building-less pool. Both the Core and this fixture are protected from demolition (`ConstructionService.IsProtectedFromDemolition`).
+The game's starting items are not part of it, and the Core never receives anything at all - `CoreRuntime.CanAcceptInput` always refuses, by design (no conveyor or building may ever deliver to it). The player's starting items live in a real, world-generated Storage Box fixture, the **Core chest** (`WorldGenerator.CoreStorage`, definition id `core_storage`): placed one cell south of the Core, seeded from `WorldGenerationSettings.StartingStock`, 6 slots of 200. There is no building-less global pool at all any more - `GlobalStock` is a read-only aggregate over real containers (`CONTRACTS.md` §15), never a holder. The chest refuses every conveyor connection (`StorageDefinition.RejectsConveyorInput`), so it stays a construction reserve rather than a production dumping ground, and a builder robot's delivery is a separate path that flag never blocks. Both the Core and the chest are protected from demolition (`ConstructionService.IsProtectedFromDemolition`), and neither counts against the building cap.
 
 ### Ore deposits
 

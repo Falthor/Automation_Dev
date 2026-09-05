@@ -24,7 +24,7 @@ namespace Game.Save
         /// §14) - Version is a coarser, all-or-nothing gate for changes too structural for that,
         /// like this task's Data Center Capture/Restore reshaping and Research's RP-to-CU switch.
         /// </summary>
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
 
         public int Version = CurrentVersion;
         public string SavedAtUtc;
@@ -41,7 +41,18 @@ namespace Game.Save
         public List<string> ResearchQueue = new List<string>();
         public List<string> ResearchUnlocked = new List<string>();
 
-        public Dictionary<string, int> GlobalStock = new Dictionary<string, int>();
+        /// <summary>
+        /// Construction sites (their remaining bill of materials and their reservations) and both
+        /// builder robots (position, state, cargo), plus any repatriation still in flight -
+        /// TASK_05_ROBOT_CONSTRUCTEUR.md §8. An opaque blob owned by
+        /// Game.Gameplay.Sites.ConstructionSiteSystem's own Capture/Restore pair, like every
+        /// per-building blob. Absent (a save from before that task) restores as two idle robots
+        /// with no site, without throwing.
+        ///
+        /// There is deliberately no GlobalStock field any more: it holds nothing to serialize -
+        /// it is recomputed at load from the real containers (CONTRACTS.md §15).
+        /// </summary>
+        public JObject ConstructionSites;
 
         public string CoreDefinitionId;
         public int CoreCellX;

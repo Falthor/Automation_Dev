@@ -20,5 +20,6 @@ MonoBehaviour:
   sprite: {fileID: 21300000, guid: 8cc3f2c2d0292ce4eb676eb70947d729, type: 3}
   cost: []
   intakeIntervalSeconds: 1
-  slotCountOverride: 3
+  slotCountOverride: 6
   capacityPerSlotOverride: 200
+  rejectsConveyorInput: 1

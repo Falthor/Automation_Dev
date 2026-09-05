@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="GameUI.uss" />
+
+    <ui:VisualElement name="NotificationBannerRoot" class="notification-banner-root" picking-mode="Ignore">
+        <ui:VisualElement name="NotificationBannerList" class="notification-banner-list" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

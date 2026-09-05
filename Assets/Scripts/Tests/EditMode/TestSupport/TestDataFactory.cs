@@ -40,6 +40,53 @@ namespace Game.Tests.EditMode.TestSupport
             return NewRecipe(id, timeSeconds, computeCost, outputAmount, null, ingredients);
         }
 
+        /// <summary>
+        /// Storage Box definition, with the shape overrides TASK_05_ROBOT_CONSTRUCTEUR.md's Core
+        /// chest needs (6 slots x 200, refusing every conveyor connection). slotCountOverride /
+        /// capacityPerSlotOverride left at 0 fall back to Inventory's own defaults, exactly like a
+        /// regular player-built Storage.
+        /// </summary>
+        public static StorageDefinition NewStorage(string id = "storage", int slotCountOverride = 0, int capacityPerSlotOverride = 0, bool rejectsConveyorInput = false, float intakeIntervalSeconds = 0f, params (ItemDefinition item, int amount)[] cost)
+        {
+            var definition = ScriptableObject.CreateInstance<StorageDefinition>();
+            var so = new SerializedObject(definition);
+            so.FindProperty("id").stringValue = id;
+            so.FindProperty("slotCountOverride").intValue = slotCountOverride;
+            so.FindProperty("capacityPerSlotOverride").intValue = capacityPerSlotOverride;
+            so.FindProperty("rejectsConveyorInput").boolValue = rejectsConveyorInput;
+            so.FindProperty("intakeIntervalSeconds").floatValue = intakeIntervalSeconds;
+
+            SerializedProperty array = so.FindProperty("cost");
+            array.arraySize = cost.Length;
+            for (int i = 0; i < cost.Length; i++)
+            {
+                SerializedProperty element = array.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("item").objectReferenceValue = cost[i].item;
+                element.FindPropertyRelative("amount").intValue = cost[i].amount;
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return definition;
+        }
+
+        /// <summary>Conveyor definition with a real cost, for the one-site-per-drag/progressive-materialization tests.</summary>
+        public static ConveyorDefinition NewConveyor(string id = "conveyor", params (ItemDefinition item, int amount)[] cost)
+        {
+            var definition = ScriptableObject.CreateInstance<ConveyorDefinition>();
+            var so = new SerializedObject(definition);
+            so.FindProperty("id").stringValue = id;
+
+            SerializedProperty array = so.FindProperty("cost");
+            array.arraySize = cost.Length;
+            for (int i = 0; i < cost.Length; i++)
+            {
+                SerializedProperty element = array.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("item").objectReferenceValue = cost[i].item;
+                element.FindPropertyRelative("amount").intValue = cost[i].amount;
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return definition;
+        }
+
         public static RecipeDefinition NewRecipe(string id, float timeSeconds, float computeCost, int outputAmount, ResearchDefinition unlockResearch, params (ItemDefinition item, int amount)[] ingredients)
         {
             var recipe = ScriptableObject.CreateInstance<RecipeDefinition>();

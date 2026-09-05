@@ -1314,3 +1314,52 @@
 .state-idle {
     color: rgb(135, 147, 156);
 }
+
+/* Notification banner (left edge) - generic feed, never interactive. */
+
+.notification-banner-root {
+    position: absolute;
+    left: 0;
+    top: 120px;
+    bottom: 140px;
+    width: 340px;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+
+.notification-banner-list {
+    flex-direction: column;
+    margin-left: 16px;
+}
+
+.notification-item {
+    background-color: rgba(16, 20, 25, 0.98);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    border-left-width: 3px;
+    border-left-color: rgb(85, 221, 245);
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    max-width: 300px;
+}
+
+.notification-item-warning {
+    border-left-color: rgb(232, 168, 61);
+}
+
+.notification-item-critical {
+    border-left-color: rgb(222, 107, 74);
+}
+
+.notification-message {
+    color: rgb(220, 220, 220);
+    font-size: 11px;
+    white-space: normal;
+}
+
+.notification-countdown {
+    color: rgb(232, 168, 61);
+    font-size: 11px;
+    -unity-font-style: bold;
+    margin-top: 3px;
+}
