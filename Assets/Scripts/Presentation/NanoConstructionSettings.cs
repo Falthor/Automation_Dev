@@ -98,6 +98,21 @@ namespace Game.Presentation
         [SerializeField, Min(0f)] float coverageFadeSeconds = 4f;
 
         /// <summary>
+        /// How much the static per-cell threshold is perturbed away from a pure distance-to-centre.
+        /// 0 converts the footprint in clean concentric rings, 1 in a purely scattered order. The
+        /// perturbation is a hash of the world cell, so it never changes between frames - the
+        /// conversion order of a given footprint is fixed the moment it is placed.
+        /// </summary>
+        [SerializeField, Range(0f, 1f)] float groundNoiseWeight = 0.35f;
+
+        /// <summary>
+        /// Width, in threshold units, over which a single cell goes from unconverted to fully
+        /// converted. Small values make cells flip on one after another; larger ones overlap them
+        /// into a continuous swell.
+        /// </summary>
+        [SerializeField, Range(0.01f, 1f)] float groundFrontSoftness = 0.35f;
+
+        /// <summary>
         /// How far the shader looks around each pixel to find the boundary, in cells. Widens the lit
         /// band; it does not move it. Measured in cells rather than world units so the band keeps
         /// the same physical width whatever the cell size.
@@ -156,6 +171,8 @@ namespace Game.Presentation
         public float GroundIntensity => groundIntensity;
         public float GroundRimIntensity => groundRimIntensity;
         public float CoverageFadeSeconds => coverageFadeSeconds;
+        public float GroundNoiseWeight => groundNoiseWeight;
+        public float GroundFrontSoftness => groundFrontSoftness;
         public float GroundRimWidth => groundRimWidth;
         public int GroundCoverageSortingOrder => groundCoverageSortingOrder;
 

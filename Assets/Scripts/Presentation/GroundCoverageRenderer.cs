@@ -287,6 +287,14 @@ namespace Game.Presentation
                 Zone zone = ZoneContaining(segment.Cell);
                 if (zone == null) continue;
 
+                Vector2Int size = definition.FootprintSize;
+                float centerX = (size.x - 1) * 0.5f;
+                float centerY = (size.y - 1) * 0.5f;
+                float halfX = Mathf.Max(centerX, 0.5f);
+                float halfY = Mathf.Max(centerY, 0.5f);
+                float noiseWeight = settings.GroundNoiseWeight;
+                float softness = Mathf.Max(settings.GroundFrontSoftness, 0.0001f);
+
                 // One flash per zone, not per site: the layer is one texture and one material, so
                 // concurrent sites in the same zone share the brightest of their flashes. Visible
                 // only when two sites in one zone take deliveries at once, which reads as a single
@@ -298,10 +306,61 @@ namespace Game.Presentation
                 // concrete slab - see BuildingSpawner.ArtWorldSize.
                 foreach (Vector2Int offset in definition.FootprintCells)
                 {
-                    Write(zone, segment.Cell.X + offset.x, segment.Cell.Y + offset.y, value);
+                    int cellX = segment.Cell.X + offset.x;
+                    int cellY = segment.Cell.Y + offset.y;
+
+                    float threshold = CellThreshold(offset, centerX, centerY, halfX, halfY, cellX, cellY, noiseWeight);
+                    Write(zone, cellX, cellY, Converted(value, threshold, softness));
                 }
             }
         }
+
+        /// <summary>
+        /// The static threshold a cell has to be reached for, between 0 at the footprint's centre
+        /// and 1 at its corners, perturbed by a hash of the world cell.
+        ///
+        /// This is what makes the conversion spread instead of switching on at once. Writing the
+        /// site's progress straight onto every cell - which is what this did first - gives every
+        /// cell of the footprint the same value, so the whole square lights and fades as one block
+        /// with no sense of a front travelling across it.
+        ///
+        /// Static by construction: it depends only on the cell's position in its footprint and on
+        /// the cell's own world coordinates, never on time, so a given footprint always converts in
+        /// the same order. The hash is over world coordinates for the same reason the dissolve
+        /// samples its noise in world space - two adjacent sites do not restart the same pattern.
+        /// </summary>
+        static float CellThreshold(Vector2Int offset, float centerX, float centerY, float halfX, float halfY, int cellX, int cellY, float noiseWeight)
+        {
+            float dx = (offset.x - centerX) / halfX;
+            float dy = (offset.y - centerY) / halfY;
+
+            // Divided by the diagonal, so a corner reaches exactly 1 and an edge midpoint ~0.707.
+            float radial = Mathf.Clamp01(Mathf.Sqrt(dx * dx + dy * dy) / Mathf.Sqrt(2f));
+
+            return radial * (1f - noiseWeight) + CellNoise(cellX, cellY) * noiseWeight;
+        }
+
+        /// <summary>Deterministic hash of a world cell to [0, 1] - the same cell always yields the same value, in this session and the next.</summary>
+        static float CellNoise(int cellX, int cellY)
+        {
+            unchecked
+            {
+                uint h = (uint)(cellX * 73856093) ^ (uint)(cellY * 19349663);
+                h ^= h >> 13;
+                h *= 0x5bd1e995u;
+                h ^= h >> 15;
+                return (h & 0xFFFFFF) / (float)0xFFFFFF;
+            }
+        }
+
+        /// <summary>
+        /// How converted a cell is, from the site's displayed progress against that cell's
+        /// threshold. Progress is stretched by the softness so that reaching 1 converts every cell
+        /// including the corners, which sit at threshold 1 - the same reason the dissolve had to
+        /// mind its own endpoints.
+        /// </summary>
+        static float Converted(float progress, float threshold, float softness)
+            => Mathf.Clamp01((progress * (1f + softness) - threshold) / softness);
 
         void Write(Zone zone, int cellX, int cellY, float value)
         {
