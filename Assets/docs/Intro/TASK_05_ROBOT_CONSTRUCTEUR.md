@@ -14,6 +14,14 @@
 > `PlacementRefusalReason.CannotAfford` est donc retiré : poser réussit toujours sous réserve
 > du verrou de recherche, du rayon d'action, du plafond de bâtiments et de la cellule libre.
 >
+> **Suite livrée — le panneau de chantier.** Cliquer une silhouette bleue ouvre son
+> approvisionnement (par ingrédient : arrivés, en route, manquant) au lieu du panneau du
+> bâtiment qu'elle va devenir, et ce panneau passe la main à celui du bâtiment quand le
+> chantier s'achève. C'est le compteur de réservation de cette tâche rendu lisible : sans le
+> total réservé, l'écran ne pourrait afficher que « livré 10 sur 15 », qui ne distingue pas un
+> chantier que le système sert d'un chantier oublié faute de production. Voir `CONTRACTS.md`
+> §7 (le troisième slot de sélection) et §15 (`GetSupply`).
+>
 > **Règle ajoutée n°2 — un chantier bloqué est sauté, jamais bloquant.** « Un seul chantier à
 > la fois » porte sur l'exécution simultanée (les deux robots servent le même chantier), pas
 > sur l'ordre strict de la file : les robots servent le chantier le plus ancien qui a de quoi

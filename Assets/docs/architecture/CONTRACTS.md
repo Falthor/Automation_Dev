@@ -224,19 +224,27 @@ Extractor does not need to implement this player-selected-recipe contract - its 
 
 ## 7. Selection
 
-Selection owns the currently inspected building and the global UI-panel selection state.
+Selection owns what is currently inspected and the global UI-panel selection state. Three slots - an inspected **building**, an inspected **construction site**, and a named **global panel** - of which at most one is ever set: opening any of them closes the other two.
 
 The public API must support the equivalent behavior of:
 
 ```text
 Select(building)
+SelectSite(site)
 Clear()
 GetSelectedBuilding()
+OpenGlobalPanel(name) / CloseGlobalPanel()
 ```
 
-and an observable selection-changed notification.
+and one observable changed-notification per inspection slot.
 
-The global panel state and building selection remain mutually exclusive when that behavior is retained from the source project.
+`Clear()` empties whichever inspection slot was set and notifies **only** that one: a slot that was already empty raises nothing, so a panel never re-runs its close path for a selection it did not hold.
+
+A construction site gets a slot of its own rather than being carried in the building slot. Its segments *are* `BuildingRuntime`s, and are what the grid returns for those cells, so routing one through `Select` would open the panel of the building it is going to become - a production panel over a machine that does not exist yet. What a site is waiting for and what a building is doing are different questions about the same cell.
+
+`GameRuntime.IsUIBlockingInput` is true while any of the three slots is set.
+
+**Routing a world click to a panel** is one map, owned by whichever component resolves clicks, and reused rather than copied - notably by the construction site panel's handover (§15). Only building types that actually have a panel may become the selection: selecting one that has none would block world input with nothing able to clear it.
 
 ## 8. Construction
 
@@ -393,6 +401,8 @@ Mono-save (`Game.Save`, `Assets/Scripts/Save/`): one fixed file (`SaveService.Sa
 
 `SaveService.Load` refuses a save whose `Version` does not equal `SaveData.CurrentVersion`, returning `null` exactly like a read/parse failure (TASK_03_DATACENTER.md's decision) - it does not attempt to load an old-format save with defaults filled in. A per-building blob missing an individual key still falls back gracefully (see below); `Version` is the coarser, all-or-nothing gate for a change too structural for that.
 
+The save is written and read by the JSON library alone. `SaveData` and its nested records are therefore deliberately **not** `[Serializable]`: nothing passes them through Unity serialization, and claiming otherwise only misdescribes the three `JObject` fields and the nullable `int`, none of which Unity can serialize. `[NonSerialized]` must never be used to quiet that either - the JSON library honours it and would silently drop those keys from every save. The file's shape (its key set, its values, and the fact that a null keeps its key rather than vanishing) is pinned by `SaveFormatTests`; its key *order* deliberately is not, JSON having none.
+
 `Game.Save` has no dependency on any other `Game.*` assembly (only on the JSON library) - it never reads private state itself. Every system capable of holding meaningful runtime state exposes a `Capture`/`Restore` pair as a public member of that system, and only `GameRuntime` (`Game.Presentation`) calls them, assembling/consuming a `Game.Save.SaveData`:
 
 ```csharp
@@ -456,6 +466,16 @@ minus everything already reserved by a construction site. Its invariant: **what 
 How far along one segment is, `0` to `1`. Read-only, and the **only** form in which per-segment advancement leaves `Game.Gameplay`: the rule deciding which delivery feeds which segment stays here rather than being re-derived by whoever draws it. Since segments materialize strictly in order and consume the delivered pile in that same order, it answers `1` before the front, `0` after it, and a real ratio only for the segment currently being built. Within a segment, items are weighed by unit count, the same way the whole-site ratio is.
 
 A view that needs a whole site's advancement still computes it from `TotalCost` / `Delivered`; `SegmentProgress` exists for drawing each segment materializing on its own rather than a whole conveyor drag dissolving in one block.
+
+### `ConstructionSiteRuntime.GetSupply(list)`
+
+The bill of materials in the three states a player asks about, one `SupplyLine` per ingredient: **delivered**, **en route**, **missing**. Read-only, filled into a caller-owned list, and in an order fixed by the bill rather than by a dictionary's enumeration, so a panel rebuilt every frame cannot reshuffle its rows.
+
+`EnRoute` covers both halves of a promise - reserved in a container and not yet collected, and already riding in a robot's cargo - because from outside those are the same statement: this is on its way. It is the only thing that separates a site the robots are actively serving from one forgotten because nothing produces what it needs; on a delivered count alone the two read identically until one of them silently never finishes. The three states always account for the whole of that ingredient's cost, mid-flight included.
+
+Assembled here rather than left to the reader for the same reason as `SegmentProgress`: the rule maintaining those numbers stays with the object that maintains them.
+
+**Inspecting a site.** Clicking a not-yet-materialized segment opens the site's supply panel through `Selection.SelectSite` (§7), never the panel of the building it will become. When the site finishes, that panel hands over to the finished building's own panel instead of closing - completion and cancellation are the same event only from the code's side, and `IsComplete` tells them apart (cancelling frees the segments that were never built, so a cancelled site is by construction one whose segments did not all materialize).
 
 **Robots.** Two `BuilderRobotRuntime` (4-unit capacity, 4.4 cells/s, free diagonal movement, no pathfinding), driven only by this system's tick - never by their own `Update()`; the view reads `Position` and converts it to world space, nothing more. They always serve the **oldest site that currently has something reserved and not yet delivered**: a site blocked on a material nobody has is skipped rather than blocking the queue, and reclaims the robots as soon as it can be served again. "One chantier at a time" is about simultaneous execution (both robots serve the same one), not about strict queue order. Each robot claims its share of a site's reservations before leaving, so two robots never fetch the same promised piece twice.
 
