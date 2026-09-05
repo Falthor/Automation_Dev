@@ -204,9 +204,49 @@ Si la zone se révélait un mauvais découpage à l'usage, le repli est un pavag
 taille constante, avec le même drapeau de modification par région. C'est l'alternative, pas le
 choix par défaut : elle perd le lien avec la structure du jeu.
 
-Le reste de la section 7 est inchangé : `float[]` alloué une fois, `R8`, `FilterMode.Bilinear`,
-`TextureWrapMode.Clamp`, `SetPixelData` + `Apply` seulement si le champ a changé, `clip()` là où la
-couverture est nulle, et lecture de `displayedProgress` et non de l'avancement brut.
+Le reste de la section 7 : tableau alloué une fois, `R8`, `FilterMode.Bilinear`,
+`TextureWrapMode.Clamp`, `SetPixelData` + `Apply` seulement si le champ a changé, `clip()` là où
+rien n'est converti, et lecture de `displayedProgress` et non de l'avancement brut.
+
+### 7.1 Ce que contient le champ
+
+**Le champ ne porte pas une quantité de couverture, il porte la distance signée au front de
+conversion** — exactement le `distanceToFront` du shader de dissolve, mais précalculé côté C# parce
+que le seuil dépend du chantier propriétaire, ce qu'un fragment ne peut pas savoir. Empaquetée dans
+`[0, 1]`, 0,5 étant le front lui-même, ce qui laisse le `clip()` se faire sans que le shader ait la
+moindre notion de seuil.
+
+Trois conséquences, toutes obligatoires :
+
+- **Le champ déborde de l'emprise.** Un seuil qui s'arrête au bord de l'emprise fait du rectangle la
+  frontière extérieure : la forme finale est un carré, quoi que fasse le front à l'intérieur. Le
+  seuil continue donc de monter dans l'anneau de cases autour du bâtiment, sur `groundOverflowCells`
+  cases, et c'est le seuil **plus le bruit** dans cet anneau qui décide où la conversion s'arrête. Le
+  débordement sur les cases voisines est voulu : il rattrape l'écart avec un bâtiment dont l'art
+  déborde déjà de son emprise.
+- **Plusieurs texels par case.** À un texel par case, la frontière ne peut que suivre la grille et le
+  bruit n'a pas de quoi la déchiqueter. `groundTexelsPerCell` vaut 4 par défaut.
+- **Le liseré se déduit de la distance au seuil**, comme celui du bâtiment, et pas de la valeur de
+  couverture ni d'un écart entre voisins. C'est la condition pour que les deux couches partagent une
+  même frontière lumineuse et se lisent comme un seul effet.
+
+L'estompage d'un chantier qui disparaît est un **front qui recule**, obtenu en faisant redescendre
+l'avancement du chantier, et non un champ qu'on assombrit sur place. Soustraire des valeurs stockées
+ferait traverser la bande de liseré à tout le plateau converti en même temps, ce qui allume la tache
+entière au moment où elle devrait s'éteindre.
+
+### 7.2 Le sol a sa propre phase, en avance sur le bâtiment
+
+Le sprite d'un bâtiment couvre exactement son emprise, et le sol est dessous. **Sur la même horloge,
+la couverture est donc invisible pendant tout le chantier** : elle n'apparaît qu'en halo, et
+seulement dans les derniers instants. Le sol tourne donc sur `saturate(avancement / groundLeadShare)`
+et termine bien avant le bâtiment — à `groundLeadShare = 0.5`, la seconde moitié du bâtiment monte
+sur un sol déjà converti.
+
+**À la fin de sa propre phase, le champ doit avoir dépassé le front partout sur l'emprise**, coins
+compris, et cela doit tenir par construction et non par chance aux réglages du moment. Deux choses
+l'assurent : le seuil est normalisé sur le **coin** de l'emprise et non sur son contour, et
+l'amplitude du bruit est plafonnée à la marge qui reste au-dessus.
 
 ## 8. Ordre de rendu
 
@@ -234,7 +274,13 @@ l'aspect de toute la base depuis un seul asset.
 | `revealMode` | `0` | 0 = bas vers haut, 1 = radial |
 | `groundIntensity` | `0.15` | teinte du sol converti, volontairement discrète |
 | `groundRimIntensity` | `0.6` | **découplé** de `groundIntensity`, voir ci-dessous |
-| `coverageFadeSeconds` | `4` | |
+| `groundRimWidth` | `0.08` | largeur du liseré au sol, **en unités de seuil** — même unité que `rimWidth` |
+| `groundLeadShare` | `0.5` | fraction de l'avancement du bâtiment à laquelle le sol a fini |
+| `groundOverflowCells` | `0.45` | débordement au-delà du coin de l'emprise, en cases |
+| `groundNoiseScale` | `1.2` | grain du sol, en périodes par unité monde |
+| `groundNoiseWeight` | `0.25` | déplacement de la frontière par le bruit, en unités de seuil |
+| `groundTexelsPerCell` | `4` | résolution du champ de couverture |
+| `coverageFadeSeconds` | `4` | durée du recul du front après la fin d'un chantier |
 | `assemblyRate` | `1.8` | **cases assemblées par seconde** |
 | `minAssemblyDuration` | `0.25` | secondes, plancher de durée d'assemblage |
 | `deliveryFlashDuration` | `0.40` | secondes |

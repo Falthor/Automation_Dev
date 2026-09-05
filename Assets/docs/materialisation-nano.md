@@ -15,12 +15,12 @@ ses livraisons, et le sol sous lui se convertit au même rythme. Les particules 
 | `Art/Shaders/BuildDissolve.shader` | Découpe le sprite sous un front de révélation bruité, avec liseré lumineux. |
 | `Scripts/Presentation/BuildDissolveView.cs` | Pilote l'effet : lissage de l'avancement, flash de livraison, écriture du `MaterialPropertyBlock`, retrait à l'achèvement. |
 | `Scripts/Presentation/ConstructionSiteVisualSync.cs` | Les trois états d'un segment de chantier, et le passage de main à la vraie vue. |
-| `Art/Shaders/GroundCoverage.shader` | Teinte le sol converti et allume son liseré, à partir de la texture de couverture de la zone. |
-| `Scripts/Presentation/GroundCoverageRenderer.cs` | Le champ de couverture : une texture, un quad et un material **par zone**, réuploadés seulement quand le champ a changé. |
+| `Art/Shaders/GroundCoverage.shader` | Teinte le sol converti et allume son liseré, à partir de la distance au front stockée dans la texture de la zone. |
+| `Scripts/Presentation/GroundCoverageRenderer.cs` | Le champ de conversion : une texture, un quad et un material **par zone**, réuploadés seulement quand le champ a changé. |
 | `Scripts/Presentation/NanoConstructionSettings.cs` | La classe de réglages. |
 | `Data/Presentation/NanoConstructionSettings.asset` | L'instance unique. C'est le seul fichier à ouvrir pour changer l'aspect. |
 | `Scripts/Tests/EditMode/Presentation/BuildDissolveViewTests.cs` | 17 tests : lissage, flash, achèvement, dépendance à la taille du bâtiment, plancher de durée, isolation entre bâtiments, propagation des réglages. |
-| `Scripts/Tests/EditMode/Presentation/GroundCoverageRendererTests.cs` | 11 tests : écriture sur l'emprise et sur elle seule, front du centre vers les coins, seuils statiques, décroissance, réupload conditionnel, cycle de vie des zones. |
+| `Scripts/Tests/EditMode/Presentation/GroundCoverageRendererTests.cs` | 15 tests : front du centre vers les coins, débordement sur les côtés mais pas sur les diagonales, avance du sol sur le bâtiment, emprise entièrement convertie à la fin de la phase du sol, seuils statiques, symétrie cassée par le bruit, résolution sous-case réellement utilisée, recul du front, réupload conditionnel, cycle de vie des zones. |
 | `Scripts/Tests/EditMode/Presentation/ConstructionSiteVisualSyncTests.cs` | 7 tests : les trois états, la démolition et l'annulation en cours d'assemblage, le glissé multi-segments. |
 | `Scenes/DissolveTest.unity` | Scène de validation à l'œil : une caméra, une Fonderie à sa taille de jeu (3 cases), le composant câblé. Hors Build Settings, sans aucune dépendance au reste du jeu. Ouvrir, lancer le Play, monter `Target Progress` dans l'inspecteur du composant. |
 
@@ -44,10 +44,13 @@ le Play : le composant relit l'asset à chaque tick.
 | `groundIntensity` | Force de la teinte du sol converti. Volontairement discrète. |
 | `groundRimColor` | Couleur du sol converti **et** de son liseré. |
 | `groundRimIntensity` | Force du liseré au sol. Découplé de `groundIntensity` : régler l'un ne doit pas éteindre l'autre. |
-| `groundNoiseWeight` | Perturbation du seuil par case. À 0 la conversion part du centre en anneaux nets ; à 1 elle est dispersée. |
-| `groundFrontSoftness` | Largeur, en unités de seuil, sur laquelle une case passe de non convertie à convertie. Bas = les cases s'allument l'une après l'autre ; haut = houle continue. |
-| `groundRimWidth` | Distance d'échantillonnage de la frontière, **en cases**. Élargit la bande lumineuse, ne la déplace pas. |
-| `coverageFadeSeconds` | Temps que met une case sans chantier à revenir à zéro. |
+| `groundLeadShare` | À quelle fraction de l'avancement du bâtiment le sol a fini de se convertir. **En dessous de 1 le sol prend de l'avance sur le bâtiment**, ce qui est la seule façon de le voir : le sprite couvre sa propre emprise. À 0,5 le sol est fini quand le bâtiment est à moitié matérialisé. |
+| `groundOverflowCells` | De combien de cases la conversion déborde l'emprise à la fin de sa phase, mesuré depuis le **coin** de l'emprise. **C'est ce réglage qui empêche la tache finale d'être un carré** : à 0 la frontière redevient le rectangle. |
+| `groundNoiseScale` | Grain du bruit du sol, en périodes par unité monde. Beaucoup plus grossier que `noiseScale` : au-delà de `groundTexelsPerCell`, un grain plus fin ne fait qu'aliaser. |
+| `groundNoiseWeight` | De combien le bruit déplace la frontière, **en unités de seuil**. À 0 la tache est un rectangle arrondi parfait ; plus haut, ses contours se déchiquettent. |
+| `groundTexelsPerCell` | Résolution du champ. À 1, la frontière ne peut que suivre la grille. À 4, le bruit la découpe au quart de case. Changer la valeur réalloue les textures de zone. |
+| `groundRimWidth` | Largeur du liseré au sol, **en unités de seuil** — même unité et même sens que `rimWidth` sur le bâtiment. |
+| `coverageFadeSeconds` | Durée du recul du front une fois le chantier fini. |
 | `groundCoverageSortingOrder` | Rang de la couche de sol. **3**, entre le terrain (0 et 1) et la dalle de béton (5). |
 | `sitePlaceholderAlpha` | Opacité de la silhouette bleue **pendant** l'assemblage. En attente elle reste à l'alpha de `siteTint` (sur le composant, pas dans l'asset). |
 | `siteSilhouetteSortingOrder` | Rang de la silhouette. À 7 elle passe sous l'ombre portée et sous le sprite — voir *Limites connues* pour le cas de l'Extracteur. |
@@ -107,8 +110,15 @@ deux évènements distincts.
 | `Game.Presentation` ajouté aux références de `Game.Tests.EditMode.asmdef` | Sans quoi les tests EditMode de §10 ne voient pas le composant. Changement de configuration de test uniquement ; aucune assembly de production n'a bougé. |
 | Le bruit est un fBm à trois octaves suivi d'un étirement analytique, alors que §5 décrivait « hash + smoothstep » | **Défaut de la spécification, pas de l'implémentation.** « Bruit de valeur, hash plus smoothstep » décrit une seule octave ; le prototype qui a servi à trouver les réglages en empilait trois. Une octave unique n'a qu'une échelle de détail : combinée au dégradé, elle ne produit qu'une ondulation molle, et monter `noiseWeight` amplifie les vagues au lieu de découper le bord. L'étirement `saturate((fbm - 0.25) / 0.5)` est indispensable : un fBm se concentre autour de 0,5 sur une plage utile d'environ 0,25 à 0,75, donc sans lui `noiseWeight` rend moitié moins d'irrégularité que sa valeur ne le suggère. Le prototype normalisait sur toute l'image, ce qu'un fragment ne peut pas faire — d'où les constantes fixes. §5 est corrigée. |
 | `RenderOverscan` sort de `BuildingSpawner` et devient `BuildingSpawner.ArtWorldSize` | L'overscan n'était appliqué que dans `BuildingSpawner`. Tout ce qui prévisualise un bâtiment — aperçu de pose, silhouette de chantier, sprite en dissolve — se dimensionnait sur `FootprintSize` seul et sortait donc plus petit que ce qui allait être construit : **9 % sur la Fonderie**, visible à l'œil nu à côté d'un bâtiment fini. Quatre définitions sont concernées (Fonderie 1,09, Splitter et Crossroad 1,08, Convoyeur Coin 1,02). La taille de l'art est maintenant calculée en un seul endroit, dont tous ces chemins dépendent. Le convoyeur garde l'ajustement uniforme de `ConveyorView`, overscan compris et sous la même condition (uniquement si la bande porte sa propre art, jamais le sprite procédural). **La dalle de béton est délibérément exclue** : elle marque les cases occupées, pas l'étendue de l'art. Verrouillé par `SilhouetteAndAssembly_AreSizedToTheArtTheRealViewWillUse_OverscanIncluded`. |
-| **Un seuil statique par case**, comparé à l'avancement — et non l'avancement écrit tel quel | Deuxième erreur de conception, corrigée après coup d'œil à l'écran. Écrire `displayedProgress` sur toutes les cases de l'emprise leur donne **la même valeur** : le carré s'allume et s'éteint d'un bloc, sans aucun front qui le traverse. Chaque case porte maintenant son propre seuil statique — distance au centre de l'emprise, normalisée pour qu'un coin vaille 1, perturbée par un hachage de la case monde — et la couverture vaut `saturate((progress × (1 + softness) − seuil) / softness)`. C'est exactement la construction du dissolve du bâtiment (`field` comparé à `_Progress`), transposée à la case. La conversion part donc du centre et gagne les coins. Le facteur `(1 + softness)` est ce qui garantit qu'à l'avancement 1 même un coin, de seuil 1, est entièrement converti — le même souci de bornes que l'epsilon du dissolve. Le hachage porte sur les coordonnées **monde**, pour la même raison que le bruit du dissolve : deux chantiers voisins ne redémarrent pas le même motif. |
-| Le liseré au sol mesure la **frontière spatiale**, pas la valeur de couverture | Première version fausse, et le rendu était un pavé bleu opaque : `rim = 1 - smoothstep(0, w, coverage)` s'allume partout où la couverture est faible, or à l'intérieur d'une emprise le champ est un **plateau uniforme**. Un chantier à 0,2 avait donc toute son emprise « près du seuil » et brillait en entier. Le liseré échantillonne maintenant les quatre voisins à `groundRimWidth` cases et prend le plus grand écart : nul sur un plateau, non nul seulement dans la retombée du bord. Il se met aussi à l'échelle tout seul — un chantier à peine commencé a une petite marche au bord, donc un liseré discret. `groundRimWidth` change de sens au passage : ce n'est plus une largeur en unités de couverture mais **une distance d'échantillonnage en cases**, d'où le passage de 0,35 à 1. |
+| **Le champ porte la distance signée au front**, pas une quantité de couverture | C'est le `distanceToFront` du dissolve, précalculé côté C# parce que le seuil dépend du chantier propriétaire — ce qu'un fragment ne peut pas savoir. Empaqueté dans un octet, 128 = le front, donc le shader `clip()` sans avoir la moindre notion de seuil, et son liseré s'écrit exactement comme celui du bâtiment. **C'est la seule forme de stockage qui permet aux deux couches de partager une même frontière lumineuse**, ce qui était la consigne. |
+| **Le champ déborde l'emprise de `groundOverflowCells`** | Trois versions ont été nécessaires, et la troisième est la seule qui pose le bon problème. (1) L'avancement écrit tel quel sur chaque case de l'emprise : toutes portent la même valeur, le carré s'allume d'un bloc. (2) Un seuil statique **par case**, comparé à l'avancement : le front traverse enfin l'emprise, mais il s'arrête à son bord, donc la frontière extérieure reste le rectangle et **la forme finale est un carré**. (3) Le seuil continue de monter dans l'anneau autour du bâtiment : c'est le seuil plus le bruit dans cet anneau qui décide où la conversion s'arrête, plus le bord de l'emprise. La leçon vaut au-delà de ce champ : tant qu'une frontière est *bornée* par une géométrie, c'est cette géométrie qu'on voit, quelle que soit la finesse de ce qui se passe à l'intérieur. Le débordement sur les cases voisines est assumé et voulu — il rattrape l'écart avec un bâtiment dont l'art déborde déjà. |
+| Le seuil est la distance à un **rectangle aux coins arrondis**, pas au centre de l'emprise | Une distance au centre normalisée par l'emprise donne un anneau dont la largeur dépend de la taille du bâtiment, et une distance à la boîte nue (Chebyshev) fait grandir un carré à l'intérieur. Le SDF du rectangle arrondi est le seul des trois qui soit rond au centre, continu au bord, et croissant à l'extérieur en **cases** — donc réglable par un `groundOverflowCells` qui veut dire la même chose sur un convoyeur et sur une Fonderie. `FootprintShare = 0.8` (constante, pas un réglage) place le contour de l'emprise à 80 % de l'animation : les 20 % restants sont le débordement. |
+| **Plusieurs texels par case** (`groundTexelsPerCell = 4`) | À un texel par case le bruit n'a pas de quoi travailler : la frontière ne peut que suivre la grille, et le filtrage bilinéaire ne fait qu'adoucir des marches carrées. La résolution sous-case est ce qui transforme un seuil bruité en contour irrégulier. Coût : 260×260 octets par zone au lieu de 65×65, soit ~66 Ko — sans commune mesure avec ce que ça change à l'écran. |
+| Le bruit du sol est **additif** et à **une seule octave** | Additif (`seuil += (bruit − 0,5) × poids`) et non mélangé comme dans le dissolve : un mélange aplatirait le dégradé centre-vers-bord en même temps qu'il le perturberait, alors qu'ici il faut déplacer la frontière sans détruire l'ordre de conversion. Une seule octave parce que le champ est échantillonné à 4 texels par case : les octaves plus fines aliaseraient au lieu d'ajouter du détail. Le hachage est celui du dissolve (Dave Hoskins), en coordonnées **monde**, pour que deux chantiers voisins ne redémarrent pas le même motif. |
+| **Le sol prend de l'avance sur le bâtiment** (`groundLeadShare`) | Le sprite du bâtiment couvre exactement son emprise, et le sol est dessous. Sur la même horloge, la couverture est donc **invisible pendant tout le chantier** : elle n'existe à l'écran que sous forme d'un halo qui sort à peine du bâtiment, et seulement dans les derniers instants — constaté à l'écran, la tache complète n'était visible qu'en démolissant. Le sol tourne donc sur un avancement remis à l'échelle, `saturate(avancement / groundLeadShare)` : à 0,5 il est terminé quand le bâtiment est à mi-course, et la seconde moitié du bâtiment monte sur un sol déjà converti. C'est aussi la bonne lecture de la fiction — les nanites préparent le terrain avant de bâtir dessus. |
+| Le seuil est normalisé sur le **coin de l'emprise**, pas sur son contour | Le champ doit atteindre 1 **partout** sur l'emprise à la fin de sa propre phase. Normalisé sur le contour (`sdf = 0`), la région entre le rectangle arrondi et le vrai coin du rectangle dépasse `FootprintShare`, et **dépasse 1 tout court à partir d'une emprise 8×8** : les coins ne se convertissaient alors jamais. Le seuil vaut donc exactement `FootprintShare` au coin de l'emprise quelle que soit sa taille, et `groundOverflowCells` se mesure à partir de là. L'amplitude du bruit est plafonnée à `2 × (1 − FootprintShare)` pour la même raison : aucun point de l'emprise ne peut être repoussé au-delà de 1 par le bruit. La garantie tient **par construction**, pas par chance aux réglages du moment — verrouillée par un test qui balaie tous les texels de cinq emprises, bruit au maximum. |
+| Le fondu est un **front qui recule**, pas un champ qu'on assombrit | Le chantier disparu, sa tache est conservée avec un avancement qui redescend, et le champ est reconstruit à partir de là. Faire baisser les valeurs stockées à la place ferait traverser la bande de liseré à tout le plateau converti **en même temps** : la tache entière s'allumerait au moment de s'éteindre — la version « pavé bleu opaque » revenue par la porte de derrière. Le front recule donc exactement comme il est venu, liseré compris. |
+| Le champ est **reconstruit** à chaque changement, pas modifié en place | Une reconstruction ne coûte que la somme des rectangles des taches (une Fonderie : ~8×8 cases, soit 1024 texels), pas la zone entière, parce que chaque zone retient les rectangles écrits au tour précédent et n'efface qu'eux. Un tick où aucune tache n'apparaît, ne bouge ni n'avance ne touche pas un seul texel — c'est-à-dire toutes les frames d'une base qui ne construit rien. Le drapeau de réupload reste exact : il se lève quand un octet change réellement, jamais parce qu'on a repassé dessus. |
 | Texture de couverture **allouée au rayon maximal**, pas au rayon courant | Le rayon d'action est extensible par recherche (22 → `CoreRuntime.ExtendedActionRadiusCells` = 32). §7 laisse le choix entre réallouer à l'agrandissement et allouer d'emblée pour le plafond ; c'est la seconde qui est prise, parce qu'elle supprime entièrement le chemin de réallocation. Le coût est dérisoire — 65×65 en R8, soit ~4 Ko par zone — et les cases hors rayon restent simplement à zéro, donc `clip()`. |
 | Le sol converti et son liseré partagent `groundRimColor` | §9 ne prévoit pas de couleur de teinte distincte. Comme la consigne est justement que les deux liserés soient de la même famille, une seule couleur pour la couche de sol est cohérente et fait un réglage de moins. À séparer si le réglage à l'œil le demande. |
 | **Un seul `_RimBoost` par zone**, pas par chantier | La couche est une texture et un material par zone ; le flash ne peut donc pas être par chantier sans un material par chantier, ce qui reviendrait à annuler le regroupement. La zone prend le plus fort flash de ses chantiers. Visible seulement quand deux chantiers d'une même zone reçoivent une livraison en même temps, et ça se lit comme une pulsation unique plutôt que comme une fausse. |
@@ -158,13 +168,18 @@ ne traverse jamais l'ensemble « en cours ».
 
 ## Limites connues
 
-- **L'étendue dessinée déborde l'emprise d'environ une demi-case de chaque côté.** La couverture
-  est *écrite* sur `FootprintSize`, mais le filtrage bilinéaire — celui que §7 demande pour obtenir
-  une frontière continue — fait retomber la valeur de la case de bord vers zéro sur toute la case
-  voisine. Une emprise 3×3 se voit donc sur ~4×4. La correspondance texel/case est exacte et
-  vérifiée (chaque centre de case tombe sur son centre de texel) : ce n'est pas un étirement, c'est
-  la retombée. À juger à l'écran ; un seuil de `clip()` plus haut resserrerait le bord au prix de
-  sa douceur. Aucun élargissement ni resserrement n'a été ajouté.
+- **La tache déborde l'emprise, et c'est le mécanisme, pas un effet de bord.** Le seuil est calculé
+  sur `FootprintSize` — la paire canonique est respectée — mais il *continue* au-delà, sur
+  `groundOverflowCells`. Une emprise 3×3 se voit donc sur un peu plus de 4×4, avec des contours
+  irréguliers. Mettre `groundOverflowCells` à 0 ramène la frontière sur le rectangle et rend le
+  carré ; c'est la valeur à ne pas choisir.
+- **Les valeurs de la couche de sol n'ont pas encore été réglées à l'œil.** `groundLeadShare` 0,5,
+  `groundOverflowCells` 0,45, `groundNoiseScale` 1,2, `groundNoiseWeight` 0,25, `groundRimWidth`
+  0,08 et `groundTexelsPerCell` 4 sont des valeurs de départ posées par raisonnement, pas mesurées à
+  la distance de caméra réelle comme l'ont été celles du dissolve. À rejuger sur une Fonderie et sur
+  un convoyeur, qui sont les deux extrêmes de taille. La forme, elle, a été validée à l'écran.
+  `groundOverflowCells` est passé de 0,75 à 0,45 en même temps que le seuil changeait d'origine
+  (contour → coin) : les deux se compensent, la portée totale de la Fonderie est inchangée.
 - **Une seule zone existe aujourd'hui**, celle du Noyau. Le composant traite les zones comme un
   ensemble et le seul endroit à étendre pour un Agent IA est `CollectZones`. Le partitionnement
   repose sur la garantie qu'un robot ne travaille que dans sa zone ; **les zones ne se recouvrent
@@ -252,6 +267,26 @@ Si l'aspect ne convient plus, régler dans cet ordre — chaque étape suppose l
    sur un convoyeur (1 case) ne donne pas le même chiffre. Le repère est la centrale gaz.
 5. **Le flash** : en dernier, une fois le rythme fixé — sa lisibilité dépend de la vitesse
    d'assemblage.
+
+Pour la couche de sol, l'ordre est différent — la **forme** avant la lumière, sans quoi on règle une
+intensité sur une silhouette qu'on va changer :
+
+1. **L'avance** : `groundLeadShare` en premier, parce qu'il décide *quand* on voit la couche —
+   régler une forme qu'on n'aperçoit qu'une demi-seconde n'a pas de sens. Descendre jusqu'à ce que
+   la conversion du sol se lise comme une étape distincte, avant que le bâtiment ne monte.
+2. **L'étendue** : `groundOverflowCells`, bruit à 0. On règle jusqu'où la conversion mord sur les
+   cases voisines. Se juge sur une Fonderie *et* sur un convoyeur : la valeur est en cases, donc la
+   proportion n'est pas la même sur les deux.
+3. **L'irrégularité** : `groundNoiseWeight` puis `groundNoiseScale`. Le poids déplace la frontière,
+   l'échelle décide de la taille des creux. Si le contour paraît sale plutôt qu'irrégulier, c'est
+   l'échelle qui est trop fine, pas le poids qui est trop fort. Au-delà de 0,4 le poids est plafonné
+   en interne, sinon les coins de l'emprise pourraient ne jamais se convertir.
+4. **La résolution** : `groundTexelsPerCell`, seulement si le contour reste visiblement accroché à
+   la grille à 4. Chaque cran double la mémoire par zone.
+5. **La lumière** : `groundRimWidth`, puis `groundRimIntensity`, puis `groundIntensity` en dernier.
+   Le liseré du sol doit se lire comme le prolongement de celui du bâtiment ; s'ils ne semblent pas
+   appartenir au même effet, c'est `groundRimWidth` qu'il faut rapprocher de `rimWidth`, les deux
+   étant dans la même unité.
 
 À mesurer si une session de réglage est refaite : la durée réelle entre deux livraisons sur un
 bâtiment courant, et la largeur en cases du plus petit et du plus grand bâtiment. Ces deux

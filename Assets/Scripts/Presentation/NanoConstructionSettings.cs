@@ -94,30 +94,57 @@ namespace Game.Presentation
         /// <summary>Deliberately decoupled from groundIntensity: the ground stays subtle while its lit boundary stays readable. Coupling them would make tuning one switch the other off.</summary>
         [SerializeField, Range(0f, 1f)] float groundRimIntensity = 0.6f;
 
-        /// <summary>Seconds a cell with no site takes to fade back to zero coverage.</summary>
+        /// <summary>Seconds a site with no chantier takes to walk its conversion front back to nothing.</summary>
         [SerializeField, Min(0f)] float coverageFadeSeconds = 4f;
 
         /// <summary>
-        /// How much the static per-cell threshold is perturbed away from a pure distance-to-centre.
-        /// 0 converts the footprint in clean concentric rings, 1 in a purely scattered order. The
-        /// perturbation is a hash of the world cell, so it never changes between frames - the
-        /// conversion order of a given footprint is fixed the moment it is placed.
+        /// Fraction of a building's displayed progress at which its ground has finished converting.
+        /// Below 1 the ground runs <b>ahead</b> of the building, which is the only way to see it: the
+        /// sprite covers its own footprint, so a ground on the same clock is hidden for the whole
+        /// build and only ever peeks out as a halo at the very end. At 0.5 the ground is done by the
+        /// time the building is half materialised, and the second half rises on finished ground.
         /// </summary>
-        [SerializeField, Range(0f, 1f)] float groundNoiseWeight = 0.35f;
+        [SerializeField, Range(0.05f, 1f)] float groundLeadShare = 0.5f;
 
         /// <summary>
-        /// Width, in threshold units, over which a single cell goes from unconverted to fully
-        /// converted. Small values make cells flip on one after another; larger ones overlap them
-        /// into a continuous swell.
+        /// How far past the footprint's outline the conversion reaches once the ground's own phase
+        /// is over, in cells. This is what stops the finished patch from being a square: the outer
+        /// boundary is decided by the threshold and the noise inside this ring, not by the edge of
+        /// the footprint. It also narrows the gap with a building whose art already overhangs its
+        /// own cells. Measured from the footprint's <b>corner</b>, which is the last point of the
+        /// footprint the front reaches.
         /// </summary>
-        [SerializeField, Range(0.01f, 1f)] float groundFrontSoftness = 0.35f;
+        [SerializeField, Range(0.05f, 3f)] float groundOverflowCells = 0.45f;
 
         /// <summary>
-        /// How far the shader looks around each pixel to find the boundary, in cells. Widens the lit
-        /// band; it does not move it. Measured in cells rather than world units so the band keeps
-        /// the same physical width whatever the cell size.
+        /// Grain of the ground's noise, in periods per world unit - the same unit as the dissolve's
+        /// noiseScale. Much coarser than the dissolve's 12, because the ground field is sampled at
+        /// groundTexelsPerCell texels per cell and a finer grain than that only aliases.
         /// </summary>
-        [SerializeField, Range(0.1f, 3f)] float groundRimWidth = 1f;
+        [SerializeField, Min(0f)] float groundNoiseScale = 1.2f;
+
+        /// <summary>
+        /// How far the noise displaces the conversion boundary, in threshold units. Added to the
+        /// threshold rather than blended with it, so it breaks the outline up without flattening the
+        /// centre-outwards order. 0 gives a clean rounded rectangle; higher values give a ragged
+        /// patch. Sampled in world space, so it never changes between frames.
+        /// </summary>
+        [SerializeField, Range(0f, 1f)] float groundNoiseWeight = 0.25f;
+
+        /// <summary>
+        /// Resolution of the coverage field, in texels per grid cell. One texel per cell can only
+        /// draw a boundary that follows the grid; 4 lets the noise break the outline up at a
+        /// quarter-cell scale. Changing it reallocates every zone's texture, which is why it is a
+        /// tuning knob and not something read per frame.
+        /// </summary>
+        [SerializeField, Range(1, 8)] int groundTexelsPerCell = 4;
+
+        /// <summary>
+        /// Width of the lit band behind the conversion front, in threshold units - the same unit and
+        /// the same meaning as the dissolve's own rimWidth, so both layers light their boundary the
+        /// same way. Widens the band; it does not move it.
+        /// </summary>
+        [SerializeField, Range(0f, 1f)] float groundRimWidth = 0.08f;
 
         /// <summary>
         /// Between the terrain (0 and 1) and the concrete slab (5). 2 and 4 are left free on either
@@ -171,8 +198,19 @@ namespace Game.Presentation
         public float GroundIntensity => groundIntensity;
         public float GroundRimIntensity => groundRimIntensity;
         public float CoverageFadeSeconds => coverageFadeSeconds;
+        public float GroundLeadShare => groundLeadShare;
+        public float GroundOverflowCells => groundOverflowCells;
+
+        /// <summary>
+        /// Where the ground's own conversion stands when a building's dissolve stands at
+        /// <paramref name="displayedProgress"/>. Reaches 1 - a completely converted footprint -
+        /// at groundLeadShare of the build, and stays there for the rest of it.
+        /// </summary>
+        public float GroundProgressFor(float displayedProgress)
+            => Mathf.Clamp01(displayedProgress / Mathf.Max(groundLeadShare, 0.0001f));
+        public float GroundNoiseScale => groundNoiseScale;
         public float GroundNoiseWeight => groundNoiseWeight;
-        public float GroundFrontSoftness => groundFrontSoftness;
+        public int GroundTexelsPerCell => groundTexelsPerCell;
         public float GroundRimWidth => groundRimWidth;
         public int GroundCoverageSortingOrder => groundCoverageSortingOrder;
 

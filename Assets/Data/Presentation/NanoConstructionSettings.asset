@@ -27,7 +27,12 @@ MonoBehaviour:
   groundIntensity: 0.15
   groundRimIntensity: 0.6
   coverageFadeSeconds: 4
-  groundRimWidth: 1
+  groundLeadShare: 0.5
+  groundOverflowCells: 0.45
+  groundNoiseScale: 1.2
+  groundNoiseWeight: 0.25
+  groundTexelsPerCell: 4
+  groundRimWidth: 0.08
   groundCoverageSortingOrder: 3
   dissolveShader: {fileID: 4800000, guid: 0b93921b36faddc448b43faedfefb038, type: 3}
   coverageShader: {fileID: 4800000, guid: 6749c75e27f0e5e46a8a0d58509d25f4, type: 3}

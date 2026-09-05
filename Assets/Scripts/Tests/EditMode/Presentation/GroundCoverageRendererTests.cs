@@ -17,12 +17,12 @@ namespace Game.Tests.EditMode.Presentation
     /// <summary>
     /// directive-materialisation-nano.md §7: the per-zone ground coverage field. Nothing here
     /// asserts on rendering - GroundCoverageRenderer.Tick is frame-free precisely so the field, the
-    /// per-cell conversion front, the decay and the upload gating can be driven step by step.
+    /// conversion front, its retreat and the upload gating can be driven step by step.
     /// </summary>
     public class GroundCoverageRendererTests
     {
         const float FadeSeconds = 4f;
-        const float Softness = 0.35f;
+        const float OverflowCells = 0.45f;
 
         readonly List<Object> _spawned = new List<Object>();
 
@@ -36,18 +36,26 @@ namespace Game.Tests.EditMode.Presentation
             _spawned.Clear();
         }
 
-        NanoConstructionSettings NewSettings()
+        /// <summary>
+        /// The noise is off by default so a cell's threshold is exactly its rounded-box distance and
+        /// the expected values below can be written out; the two tests that are about the noise turn
+        /// it back on.
+        /// </summary>
+        NanoConstructionSettings NewSettings(float noiseWeight = 0f, int texelsPerCell = 4, float leadShare = 1f)
         {
             var settings = ScriptableObject.CreateInstance<NanoConstructionSettings>();
             _spawned.Add(settings);
 
             var so = new SerializedObject(settings);
             so.FindProperty("coverageFadeSeconds").floatValue = FadeSeconds;
-            so.FindProperty("groundFrontSoftness").floatValue = Softness;
+            so.FindProperty("groundOverflowCells").floatValue = OverflowCells;
+            so.FindProperty("groundNoiseWeight").floatValue = noiseWeight;
+            so.FindProperty("groundNoiseScale").floatValue = 1.2f;
+            so.FindProperty("groundTexelsPerCell").intValue = texelsPerCell;
 
-            // No perturbation, so a cell's threshold is exactly its distance to the footprint
-            // centre and the expected values below can be written out.
-            so.FindProperty("groundNoiseWeight").floatValue = 0f;
+            // The lead is neutral by default, so every other test can speak in the ground's own
+            // progress instead of restating the remap in each expectation. One test owns it.
+            so.FindProperty("groundLeadShare").floatValue = leadShare;
 
             so.FindProperty("coverageShader").objectReferenceValue = Shader.Find("Sprites/Default");
             so.ApplyModifiedPropertiesWithoutUndo();
@@ -55,7 +63,7 @@ namespace Game.Tests.EditMode.Presentation
             return settings;
         }
 
-        GroundCoverageRenderer NewRenderer(out GridRuntime grid)
+        GroundCoverageRenderer NewRenderer(out GridRuntime grid, float noiseWeight = 0f, int texelsPerCell = 4, float leadShare = 1f)
         {
             grid = new GridRuntime(1f);
 
@@ -63,7 +71,7 @@ namespace Game.Tests.EditMode.Presentation
             _spawned.Add(go);
 
             var renderer = go.AddComponent<GroundCoverageRenderer>();
-            renderer.Initialize(grid, NewSettings());
+            renderer.Initialize(grid, NewSettings(noiseWeight, texelsPerCell, leadShare));
             return renderer;
         }
 
@@ -93,26 +101,112 @@ namespace Game.Tests.EditMode.Presentation
         // --- The field ---
 
         [Test]
-        public void AtFullProgress_EveryFootprintCellIsConverted_AndNoOthers()
+        public void AtFullProgress_TheWholeFootprintIsConverted()
         {
             GroundCoverageRenderer renderer = NewRenderer(out _);
-            StorageDefinition definition = TestDataFactory.NewStorage("target");
-            BuildingRuntime segment = NewSegment(definition, new GridCoord(3, 4));
+            StorageDefinition wide = NewFootprint(3, 3);
+            var origin = new GridCoord(5, 5);
+            BuildingRuntime segment = NewSegment(wide, origin);
 
             renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 1f) });
 
-            Assert.AreEqual(1f, renderer.CoverageAt(new GridCoord(3, 4)), 0.0001f, "The cell the site occupies.");
-            Assert.AreEqual(0f, renderer.CoverageAt(new GridCoord(2, 4)), 0.0001f, "West neighbour is untouched.");
-            Assert.AreEqual(0f, renderer.CoverageAt(new GridCoord(4, 4)), 0.0001f, "East neighbour is untouched.");
-            Assert.AreEqual(0f, renderer.CoverageAt(new GridCoord(3, 5)), 0.0001f, "North neighbour is untouched.");
-            Assert.AreEqual(0f, renderer.CoverageAt(new GridCoord(3, 3)), 0.0001f, "South neighbour is untouched.");
+            Assert.AreEqual(9, wide.FootprintCells.Length, "Precondition: a 3x3 footprint.");
+            foreach (Vector2Int offset in wide.FootprintCells)
+            {
+                Assert.IsTrue(renderer.IsConvertedAt(new GridCoord(origin.X + offset.x, origin.Y + offset.y)),
+                    "footprint cell " + offset);
+            }
         }
 
         /// <summary>
-        /// The point of the per-cell threshold. Writing the site's progress straight onto every cell
-        /// gave the whole footprint one value, so the square lit and faded as a single block with no
-        /// front travelling across it. Each cell now carries its own static threshold, and the
-        /// conversion leaves the centre and reaches the corners last.
+        /// The reason the field is not bounded by the footprint. A threshold that stops at the
+        /// outline makes the rectangle itself the final boundary, so the finished patch is a square
+        /// however the front travels inside it. The threshold keeps rising through the ring instead,
+        /// which both rounds the corners off and lets the conversion spill onto the neighbours.
+        /// </summary>
+        [Test]
+        public void AtFullProgress_TheConversionSpillsOntoTheSides_ButNotTheDiagonals()
+        {
+            GroundCoverageRenderer renderer = NewRenderer(out _);
+            StorageDefinition definition = TestDataFactory.NewStorage("target");
+            var cell = new GridCoord(3, 4);
+            BuildingRuntime segment = NewSegment(definition, cell);
+
+            renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 1f) });
+
+            Assert.IsTrue(renderer.IsConvertedAt(cell), "The cell the site occupies.");
+            Assert.IsTrue(renderer.IsConvertedAt(new GridCoord(cell.X + 1, cell.Y)), "The conversion reaches past the footprint's edge.");
+            Assert.IsTrue(renderer.IsConvertedAt(new GridCoord(cell.X - 1, cell.Y)), "On every side.");
+            Assert.IsTrue(renderer.IsConvertedAt(new GridCoord(cell.X, cell.Y + 1)));
+            Assert.IsTrue(renderer.IsConvertedAt(new GridCoord(cell.X, cell.Y - 1)));
+
+            Assert.Greater(renderer.FrontDistanceAt(new GridCoord(cell.X + 1, cell.Y)),
+                renderer.FrontDistanceAt(new GridCoord(cell.X + 1, cell.Y + 1)),
+                "A diagonal is further from the footprint than a side, so it trails it - the boundary is round, not a bigger square.");
+
+            Assert.IsFalse(renderer.IsConvertedAt(new GridCoord(cell.X + 1, cell.Y + 1)), "And has not been reached.");
+
+            Assert.IsFalse(renderer.IsConvertedAt(new GridCoord(cell.X + 2, cell.Y)),
+                "The spill is bounded by groundOverflowCells, not open-ended.");
+        }
+
+        /// <summary>
+        /// The ground runs ahead of the building and is finished long before it. It has to: the
+        /// sprite covers its own footprint, so a ground on the same clock is hidden for the whole
+        /// build and only ever shows as a thin halo in the last instants.
+        /// </summary>
+        [Test]
+        public void TheGround_FinishesAtItsLeadShareOfTheBuild()
+        {
+            GroundCoverageRenderer renderer = NewRenderer(out _, leadShare: 0.5f);
+            StorageDefinition wide = NewFootprint(3, 3);
+            var origin = new GridCoord(5, 5);
+            BuildingRuntime segment = NewSegment(wide, origin);
+
+            var footprint = new Vector2Int(3, 3);
+
+            renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 0.5f) });
+            float atLead = renderer.MinFrontDistanceOver(origin, footprint);
+            Assert.Greater(atLead, 0f, "At half the build the ground is already converted everywhere.");
+
+            renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 1f) });
+            Assert.AreEqual(atLead, renderer.MinFrontDistanceOver(origin, footprint), 0.0001f,
+                "And it stays exactly there for the rest of the build rather than carrying on.");
+
+            GroundCoverageRenderer level = NewRenderer(out _);
+            level.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 0.5f) });
+            Assert.Less(level.MinFrontDistanceOver(origin, footprint), 0f,
+                "Without a lead the same instant still leaves the corners unconverted.");
+        }
+
+        /// <summary>
+        /// The guarantee the ground's own phase owes: when it ends, the field is past the front over
+        /// every texel of the footprint - not merely at its cell centres, which are the most
+        /// converted points of all. It has to hold by construction and not by luck at the current
+        /// settings, so this pushes the noise to its ceiling and takes the largest footprint in play.
+        /// </summary>
+        [Test]
+        public void AtTheEndOfItsPhase_TheFieldIsPastTheFrontEverywhereOnTheFootprint()
+        {
+            foreach (Vector2Int size in new[] { new Vector2Int(1, 1), new Vector2Int(3, 3), new Vector2Int(4, 4), new Vector2Int(1, 5), new Vector2Int(9, 9) })
+            {
+                GroundCoverageRenderer renderer = NewRenderer(out _, noiseWeight: 1f);
+                StorageDefinition definition = NewFootprint(size.x, size.y);
+                var origin = new GridCoord(-4, -4);
+                BuildingRuntime segment = NewSegment(definition, origin);
+
+                renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 1f) });
+
+                Assert.Greater(renderer.MinFrontDistanceOver(origin, size), 0f,
+                    "A " + size.x + "x" + size.y + " footprint still has an unconverted spot at the end of the ground's phase.");
+            }
+        }
+
+        /// <summary>
+        /// Writing the site's progress straight onto every cell gave the whole footprint one value,
+        /// so the square lit and faded as a single block with no front travelling across it. Each
+        /// point now carries its own static threshold, and the conversion leaves the centre and
+        /// reaches the corners last.
         /// </summary>
         [Test]
         public void TheConversion_StartsAtTheCentreAndReachesTheCornersLast()
@@ -128,39 +222,19 @@ namespace Game.Tests.EditMode.Presentation
 
             renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 0.2f) });
 
-            Assert.Greater(renderer.CoverageAt(centre), 0f, "The centre converts first.");
-            Assert.AreEqual(0f, renderer.CoverageAt(edge), 0.0001f, "An edge cell is further out and has not started.");
-            Assert.AreEqual(0f, renderer.CoverageAt(corner), 0.0001f, "A corner is the furthest of all.");
+            Assert.IsTrue(renderer.IsConvertedAt(centre), "The centre converts first.");
+            Assert.IsFalse(renderer.IsConvertedAt(edge), "An edge cell is further out and has not started.");
+            Assert.IsFalse(renderer.IsConvertedAt(corner), "A corner is the furthest of all.");
 
-            renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 0.8f) });
+            renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 0.7f) });
 
-            Assert.AreEqual(1f, renderer.CoverageAt(centre), 0.0001f);
-            Assert.Greater(renderer.CoverageAt(edge), 0f, "By 0.8 the front has passed the edge cells.");
-            Assert.Greater(renderer.CoverageAt(edge), renderer.CoverageAt(corner), "And the corner still trails the edge.");
+            Assert.IsTrue(renderer.IsConvertedAt(edge), "By 0.7 the front has passed the edge cells.");
+            Assert.Greater(renderer.FrontDistanceAt(edge), renderer.FrontDistanceAt(corner),
+                "And the corner still trails the edge.");
 
             renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 1f) });
 
-            Assert.AreEqual(1f, renderer.CoverageAt(corner), 0.0001f, "Reaching 1 must convert even the corners.");
-        }
-
-        /// <summary>The threshold depends on the cell alone, never on time, so a footprint always converts in the same order.</summary>
-        [Test]
-        public void TheCellThresholds_AreStatic()
-        {
-            GroundCoverageRenderer first = NewRenderer(out _);
-            GroundCoverageRenderer second = NewRenderer(out _);
-            StorageDefinition wide = NewFootprint(3, 3);
-            var origin = new GridCoord(5, 5);
-            BuildingRuntime segment = NewSegment(wide, origin);
-
-            first.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 0.5f) });
-            second.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 0.5f) });
-
-            foreach (Vector2Int offset in wide.FootprintCells)
-            {
-                var cell = new GridCoord(origin.X + offset.x, origin.Y + offset.y);
-                Assert.AreEqual(first.CoverageAt(cell), second.CoverageAt(cell), 0.0001f, "cell " + offset);
-            }
+            Assert.IsTrue(renderer.IsConvertedAt(corner), "Reaching 1 must convert even the corners.");
         }
 
         [Test]
@@ -175,59 +249,146 @@ namespace Game.Tests.EditMode.Presentation
 
             foreach (Vector2Int offset in wide.FootprintCells)
             {
-                Assert.AreEqual(0f, renderer.CoverageAt(new GridCoord(origin.X + offset.x, origin.Y + offset.y)), 0.0001f,
+                Assert.IsFalse(renderer.IsConvertedAt(new GridCoord(origin.X + offset.x, origin.Y + offset.y)),
                     "cell " + offset);
             }
         }
 
+        /// <summary>The threshold depends on the point alone, never on time, so a footprint always converts in the same order.</summary>
         [Test]
-        public void AMultiCellFootprint_ConvertsEveryOneOfItsCells()
+        public void TheThresholds_AreStatic()
         {
-            GroundCoverageRenderer renderer = NewRenderer(out _);
+            GroundCoverageRenderer first = NewRenderer(out _, noiseWeight: 0.25f);
+            GroundCoverageRenderer second = NewRenderer(out _, noiseWeight: 0.25f);
             StorageDefinition wide = NewFootprint(3, 3);
             var origin = new GridCoord(5, 5);
             BuildingRuntime segment = NewSegment(wide, origin);
 
-            renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 1f) });
+            first.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 0.5f) });
+            second.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 0.5f) });
 
-            Assert.AreEqual(9, wide.FootprintCells.Length, "Precondition: a 3x3 footprint.");
             foreach (Vector2Int offset in wide.FootprintCells)
             {
-                Assert.AreEqual(1f, renderer.CoverageAt(new GridCoord(origin.X + offset.x, origin.Y + offset.y)), 0.0001f,
-                    "footprint cell " + offset);
+                var cell = new GridCoord(origin.X + offset.x, origin.Y + offset.y);
+                Assert.AreEqual(first.FrontDistanceAt(cell), second.FrontDistanceAt(cell), 0.0001f, "cell " + offset);
+            }
+        }
+
+        // --- The noise, and the resolution it needs ---
+
+        /// <summary>
+        /// Without noise the field is symmetric about the footprint, so four cells at the same
+        /// distance carry the same value and the patch is a perfectly regular rounded rectangle. The
+        /// noise is what makes the outer boundary irregular - the whole point of pushing the field
+        /// past the footprint in the first place.
+        /// </summary>
+        [Test]
+        public void TheNoise_BreaksTheSymmetryOfTheBoundary()
+        {
+            StorageDefinition wide = NewFootprint(3, 3);
+            var origin = new GridCoord(5, 5);
+            BuildingRuntime segment = NewSegment(wide, origin);
+            var live = new List<DrawnSegment> { new DrawnSegment(segment, 1f) };
+
+            var ring = new[]
+            {
+                new GridCoord(origin.X + 1, origin.Y - 1),
+                new GridCoord(origin.X + 1, origin.Y + 3),
+                new GridCoord(origin.X - 1, origin.Y + 1),
+                new GridCoord(origin.X + 3, origin.Y + 1)
+            };
+
+            GroundCoverageRenderer clean = NewRenderer(out _);
+            clean.Tick(0f, OneZone(), live);
+
+            foreach (GridCoord cell in ring)
+            {
+                Assert.AreEqual(clean.FrontDistanceAt(ring[0]), clean.FrontDistanceAt(cell), 0.005f,
+                    "Without noise the four sides are interchangeable: " + cell.X + "," + cell.Y);
             }
 
-            Assert.AreEqual(0f, renderer.CoverageAt(new GridCoord(origin.X - 1, origin.Y)), 0.0001f,
-                "One cell west of the footprint is outside it.");
-            Assert.AreEqual(0f, renderer.CoverageAt(new GridCoord(origin.X + wide.FootprintSize.x, origin.Y)), 0.0001f,
-                "And one cell past its east edge.");
+            GroundCoverageRenderer noisy = NewRenderer(out _, noiseWeight: 0.25f);
+            noisy.Tick(0f, OneZone(), live);
+
+            float min = float.MaxValue;
+            float max = float.MinValue;
+            foreach (GridCoord cell in ring)
+            {
+                float distance = noisy.FrontDistanceAt(cell);
+                min = Mathf.Min(min, distance);
+                max = Mathf.Max(max, distance);
+            }
+
+            Assert.Greater(max - min, 0.02f, "With noise they no longer are, so the outline stops being a shape.");
         }
 
-        // --- Decay ---
-
+        /// <summary>
+        /// The noise can only break the outline up at the resolution the field is stored at. At one
+        /// texel per cell every point inside a cell reads the same value, so the boundary can only
+        /// ever follow the grid.
+        /// </summary>
         [Test]
-        public void ACellWithNoSite_FadesToZeroOverCoverageFadeSeconds()
+        public void TheField_IsFinerThanOneValuePerCell()
+        {
+            StorageDefinition definition = TestDataFactory.NewStorage("target");
+            var cell = new GridCoord(2, 2);
+            BuildingRuntime segment = NewSegment(definition, cell);
+            var live = new List<DrawnSegment> { new DrawnSegment(segment, 0.5f) };
+
+            GroundCoverageRenderer coarse = NewRenderer(out GridRuntime coarseGrid, texelsPerCell: 1);
+            coarse.Tick(0f, OneZone(), live);
+
+            GroundCoverageRenderer fine = NewRenderer(out _, texelsPerCell: 4);
+            fine.Tick(0f, OneZone(), live);
+
+            Vector2 centre = coarseGrid.CellCenterToWorld(cell);
+            Vector2 offCentre = centre + new Vector2(0.35f, 0.35f);
+
+            Assert.AreEqual(coarse.FrontDistanceAtWorld(centre), coarse.FrontDistanceAtWorld(offCentre), 0.0001f,
+                "One texel per cell cannot tell two points of the same cell apart.");
+
+            Assert.AreNotEqual(fine.FrontDistanceAtWorld(centre), fine.FrontDistanceAtWorld(offCentre),
+                "Four texels per cell can.");
+
+            Assert.AreEqual(33, coarse.TexelSideOf(1), "A 33-cell zone at one texel per cell.");
+            Assert.AreEqual(33 * 4, fine.TexelSideOf(1), "And the texture really is allocated at the finer resolution.");
+        }
+
+        // --- The retreat ---
+
+        /// <summary>
+        /// The front retreats the way it came instead of the field dimming in place. Subtracting
+        /// from the stored values would take the whole converted plateau down through the rim band
+        /// at once and flash the entire patch on its way out.
+        /// </summary>
+        [Test]
+        public void ASiteThatStopsBeingDrawn_WalksItsFrontBackToNothing()
         {
             GroundCoverageRenderer renderer = NewRenderer(out _);
-            StorageDefinition definition = TestDataFactory.NewStorage("target");
-            BuildingRuntime segment = NewSegment(definition, new GridCoord(2, 2));
-            var cell = new GridCoord(2, 2);
+            StorageDefinition wide = NewFootprint(3, 3);
+            var origin = new GridCoord(2, 2);
+            BuildingRuntime segment = NewSegment(wide, origin);
+
+            var centre = new GridCoord(origin.X + 1, origin.Y + 1);
+            var corner = new GridCoord(origin.X, origin.Y);
 
             renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 1f) });
-            Assert.AreEqual(1f, renderer.CoverageAt(cell), 0.0001f);
+            Assert.IsTrue(renderer.IsConvertedAt(corner));
 
-            renderer.Tick(FadeSeconds * 0.5f, OneZone(), NoSegments());
-            Assert.AreEqual(0.5f, renderer.CoverageAt(cell), 0.0001f, "Half of coverageFadeSeconds removes half the coverage.");
+            renderer.Tick(FadeSeconds * 0.7f, OneZone(), NoSegments());
 
-            renderer.Tick(FadeSeconds * 0.5f, OneZone(), NoSegments());
-            Assert.AreEqual(0f, renderer.CoverageAt(cell), 0.0001f, "The full duration takes it to exactly zero.");
+            Assert.IsTrue(renderer.IsConvertedAt(centre), "Well into the fade the centre is still converted...");
+            Assert.IsFalse(renderer.IsConvertedAt(corner), "...and the front has already left the corners.");
+
+            renderer.Tick(FadeSeconds * 0.3f, OneZone(), NoSegments());
+            Assert.IsFalse(renderer.IsConvertedAt(centre), "The full duration takes it back to nothing.");
 
             renderer.Tick(FadeSeconds, OneZone(), NoSegments());
-            Assert.AreEqual(0f, renderer.CoverageAt(cell), 0.0001f, "And it never goes negative.");
+            Assert.IsFalse(renderer.IsConvertedAt(centre), "And it stays there.");
         }
 
         [Test]
-        public void AStillActiveSite_HoldsItsCellAgainstTheDecay()
+        public void AStillActiveSite_HoldsItsGroundAgainstTheRetreat()
         {
             GroundCoverageRenderer renderer = NewRenderer(out _);
             StorageDefinition definition = TestDataFactory.NewStorage("target");
@@ -237,8 +398,8 @@ namespace Game.Tests.EditMode.Presentation
             renderer.Tick(0f, OneZone(), live);
             renderer.Tick(FadeSeconds, OneZone(), live);
 
-            Assert.AreEqual(1f, renderer.CoverageAt(new GridCoord(2, 2)), 0.0001f,
-                "The site rewrites its cells after the decay pass, so a live chantier never fades.");
+            Assert.IsTrue(renderer.IsConvertedAt(new GridCoord(2, 2)),
+                "A site that is still drawn keeps its own progress, so its ground never retreats.");
         }
 
         // --- Upload gating ---
@@ -259,13 +420,13 @@ namespace Game.Tests.EditMode.Presentation
             Assert.AreEqual(afterCreation, renderer.UploadCount, "An empty field that cannot change must not be re-uploaded.");
 
             renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 1f) });
-            Assert.AreEqual(afterCreation + 1, renderer.UploadCount, "Writing coverage uploads once.");
+            Assert.AreEqual(afterCreation + 1, renderer.UploadCount, "Writing a front uploads once.");
 
             renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 1f) });
-            Assert.AreEqual(afterCreation + 1, renderer.UploadCount, "Re-writing the same value changes nothing, so nothing is uploaded.");
+            Assert.AreEqual(afterCreation + 1, renderer.UploadCount, "Re-writing the same progress changes nothing, so nothing is uploaded.");
 
             renderer.Tick(0.1f, OneZone(), NoSegments());
-            Assert.AreEqual(afterCreation + 2, renderer.UploadCount, "Fading is a change, so it does upload.");
+            Assert.AreEqual(afterCreation + 2, renderer.UploadCount, "A retreating front is a change, so it does upload.");
         }
 
         // --- Zone lifecycle ---
@@ -281,7 +442,7 @@ namespace Game.Tests.EditMode.Presentation
             renderer.Tick(0f, new List<ZoneDescriptor>(), NoSegments());
 
             Assert.AreEqual(0, renderer.ZoneCount, "A zone that has fallen keeps nothing allocated.");
-            Assert.AreEqual(0f, renderer.CoverageAt(new GridCoord(0, 0)), 0.0001f);
+            Assert.IsFalse(renderer.IsConvertedAt(new GridCoord(0, 0)));
         }
 
         [Test]
@@ -306,9 +467,9 @@ namespace Game.Tests.EditMode.Presentation
             });
 
             Assert.AreEqual(2, renderer.ZoneCount);
-            Assert.AreEqual(1f, renderer.CoverageAt(new GridCoord(1, 0)), 0.0001f, "Each zone holds its own site.");
-            Assert.AreEqual(1f, renderer.CoverageAt(new GridCoord(101, 0)), 0.0001f);
-            Assert.AreEqual(0f, renderer.CoverageAt(new GridCoord(50, 0)), 0.0001f, "And nothing lies between them.");
+            Assert.IsTrue(renderer.IsConvertedAt(new GridCoord(1, 0)), "Each zone holds its own site.");
+            Assert.IsTrue(renderer.IsConvertedAt(new GridCoord(101, 0)));
+            Assert.IsFalse(renderer.IsConvertedAt(new GridCoord(50, 0)), "And nothing lies between them.");
         }
 
         [Test]
@@ -319,7 +480,7 @@ namespace Game.Tests.EditMode.Presentation
             BuildingRuntime segment = NewSegment(definition, new GridCoord(500, 500));
 
             Assert.DoesNotThrow(() => renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 1f) }));
-            Assert.AreEqual(0f, renderer.CoverageAt(new GridCoord(500, 500)), 0.0001f);
+            Assert.IsFalse(renderer.IsConvertedAt(new GridCoord(500, 500)));
         }
     }
 }
