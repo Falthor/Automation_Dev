@@ -74,6 +74,7 @@ deux évènements distincts.
 | `Game.Presentation` ajouté aux références de `Game.Tests.EditMode.asmdef` | Sans quoi les tests EditMode de §10 ne voient pas le composant. Changement de configuration de test uniquement ; aucune assembly de production n'a bougé. |
 | Le shader décale l'intervalle utile de ±0,001 avant le `clip()` | `field` vaut [0, 1] : un `_Progress - field` brut laisse un éclat visible à 0 et en découpe un à 1. Le décalage garantit que 0 ne montre strictement rien et que 1 montre strictement tout, ce que §10 demande. |
 | Aucun prefab | Le projet n'a aucun prefab de bâtiment : toutes les vues sont construites en code (`BuildingSpawner`, `WorldContentSpawner`). Le composant s'ajoute donc à n'importe quel GameObject portant un `SpriteRenderer`. |
+| **`ConstructionSiteRuntime` gagne `SegmentProgress(index)` — la spec §1 interdit toute modification dans `Game.Gameplay`** | Contrainte **levée sciemment sur ce seul point**, après arbitrage. `TotalCost` et `Delivered` sont agrégés par chantier : un glissé de convoyeurs se serait dissous en bloc au lieu de s'assembler segment par segment. Calculer l'avancement d'un segment demande de savoir quelle livraison alimente quel segment — une règle que `ConstructionSiteRuntime` possède en privé (`ConsumedByMaterializedSegments`). La refaire dans Presentation aurait mis cette règle à deux endroits, dont l'un se désynchronise en silence : ça viole l'esprit de la contrainte (Presentation ne doit pas s'approprier la logique du jeu) plus gravement qu'un accesseur n'en viole la lettre. L'accesseur est en **lecture seule** et n'expose **que le résultat**, jamais la somme préfixe — sinon l'arithmétique redescendait dans Presentation et le problème restait entier. Consigné dans `architecture/CONTRACTS.md` §15. |
 
 ## Limites connues
 
@@ -87,14 +88,38 @@ visuel — non tranché ici.
 
 Le reste :
 
-- Un chantier de convoyeurs couvre N segments avec un coût unique. `ProgressOf` renvoie
-  l'avancement du chantier entier, pas celui d'un segment. Sans conséquence pour un bâtiment
-  simple, à revoir si le dissolve s'applique un jour segment par segment.
+- **L'avancement pondère chaque item par son nombre d'unités.** Une vis vaut un circuit imprimé.
+  L'Assembleur coûtant 2 circuits + 10 vis + 5 plaques, livrer les 10 vis remplit 59 % de la
+  barre et livrer les 2 circuits 12 %. Le biais est réel et connu ; l'alternative retenue le
+  jour où ça gênera est la moyenne des taux par ligne d'ingrédient (chaque ligne vaut `1/N`),
+  calculable depuis les données déjà publiques. Une pondération par valeur réelle de l'item
+  demanderait une notion de valeur que le jeu n'a pas. **Non tranché.**
+- La barre ne compte que le matériel **livré**, pas celui en vol (`_committed`). Elle avance donc
+  par à-coups à l'arrivée des robots plutôt que pendant leur trajet. Axe indépendant du
+  précédent, également non tranché.
 - `revealMode = 1` (radial) est implémenté mais n'a jamais été regardé à l'œil.
 - Le gel de la feuille animée pendant le chantier est implémenté ; la 12ᵉ frame de la centrale gaz,
   doublon exact de la première signalé en §6, n'a pas été corrigée — c'est une donnée
   (`Data/Buildings/PowerplantGazDefinition.asset`), hors périmètre de l'étape 1.
 - Rien n'est testé sur le rendu lui-même, par consigne.
+
+## Pour l'étape 2
+
+**`_BuildBounds` est l'AABB visuelle du sprite, pas l'emprise logique du bâtiment.** Le sprite
+déborde volontairement de son emprise (`PROJECT_ARCHITECTURE.md` §12 : « un bâtiment peut
+visuellement déborder de son emprise logique »), et `_BuildBounds` vient de `renderer.bounds`.
+C'est le bon choix pour le dissolve, qui normalise un dégradé sur ce qui est *dessiné*.
+
+La couverture au sol a besoin de l'autre notion : les **cases** occupées, c'est-à-dire
+`BuildingDefinition.FootprintSize` à partir de `BuildingRuntime.Cell`. Écrire le champ de
+couverture depuis `renderer.bounds` déborderait sur les cases voisines et donnerait une dalle
+plus large que le bâtiment. Les deux valeurs coïncident pour un sprite bien cadré, ce qui rend
+l'erreur difficile à voir sur les cas simples et flagrante sur la Fonderie ou le Datacenter.
+
+**Piste notée, non codée :** cliquer une silhouette pourrait ouvrir un panneau de chantier
+listant le livré et le manquant. Avec des livraisons par lots et des chantiers qui peuvent
+stagner faute de matériaux, l'information a de la valeur — aujourd'hui le clic est simplement
+neutralisé (voir `BuildingSelectionInput`).
 
 ## Comment re-régler
 

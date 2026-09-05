@@ -428,6 +428,52 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Assert.IsTrue(fixture.Sites.TryGetSiteContaining(site.Segments[2], out _));
         }
 
+        /// <summary>
+        /// SegmentProgress is the only form in which per-segment advancement leaves Gameplay: the
+        /// rule about which delivery feeds which segment must stay owned here rather than be
+        /// re-derived by the view that draws it. Tested at this level for that reason.
+        /// </summary>
+        [Test]
+        public void SegmentProgress_IsOneBehindTheFront_ZeroAhead_AndARatioOnTheSegmentBeingBuilt()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 1);
+            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 1));
+
+            fixture.Construction.SelectBuilding(conveyor);
+            Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5, 5), Direction.East, out ConstructionSiteRuntime site));
+            for (int i = 1; i < 3; i++)
+            {
+                Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5 + i, 5), Direction.East, out _, site));
+            }
+
+            Assert.AreEqual(0f, site.SegmentProgress(0), 0.0001f, "Nothing delivered yet.");
+
+            fixture.Simulate(20f);
+
+            Assert.AreEqual(1, site.MaterializedCount);
+            Assert.AreEqual(1f, site.SegmentProgress(0), 0.0001f, "Built segments read as done.");
+            Assert.AreEqual(0f, site.SegmentProgress(1), 0.0001f, "The front consumes deliveries first, so the next one has nothing.");
+            Assert.AreEqual(0f, site.SegmentProgress(2), 0.0001f);
+            Assert.AreEqual(0f, site.SegmentProgress(7), 0.0001f, "Out of range is 0, not an exception.");
+        }
+
+        /// <summary>A single building is the common case: its segment progress is its delivered-over-cost ratio, moving in steps as lots land.</summary>
+        [Test]
+        public void SegmentProgress_OnASingleBuilding_TracksDeliveredOverCost()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 0);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
+            ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
+
+            Assert.AreEqual(0f, site.SegmentProgress(0), 0.0001f);
+
+            site.RegisterDelivery(PlateId, 1);
+            Assert.AreEqual(0.25f, site.SegmentProgress(0), 0.0001f);
+
+            site.RegisterDelivery(PlateId, 3);
+            Assert.AreEqual(1f, site.SegmentProgress(0), 0.0001f);
+        }
+
         // --- Save / restore ---
 
         [Test]

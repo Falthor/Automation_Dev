@@ -40,6 +40,15 @@ namespace Game.Gameplay.Sites
         /// <summary>Reserved-in-container-but-not-yet-picked-up, OR picked-up-but-not-yet-delivered (in a robot's cargo) - see RemainingNeeded. Distinct from _delivered, which only grows once a robot actually drops items off here.</summary>
         readonly Dictionary<string, int> _committed = new Dictionary<string, int>();
 
+        /// <summary>
+        /// Running total of what the already-materialized segments consumed, maintained as they
+        /// materialize instead of being re-summed on demand. SegmentProgress is read once per
+        /// segment per frame by the construction view, and re-walking the preceding segments on
+        /// every call would be quadratic in the length of a conveyor drag - harmless on three
+        /// segments, not on fifty.
+        /// </summary>
+        readonly Dictionary<string, int> _consumedByMaterialized = new Dictionary<string, int>();
+
         readonly List<Reservation> _reservations = new List<Reservation>();
 
         public IReadOnlyList<BuildingRuntime> Segments => _segments;
@@ -205,23 +214,60 @@ namespace Game.Gameplay.Sites
 
         int ConsumedByMaterializedSegments(string itemId)
         {
-            int total = 0;
-            for (int i = 0; i < MaterializedCount; i++)
+            return _consumedByMaterialized.TryGetValue(itemId, out int total) ? total : 0;
+        }
+
+        /// <summary>
+        /// How far along segment `index` is, 0 to 1 - what a view needs to draw it materializing,
+        /// and the only form in which this is exposed: the rule that decides which delivery feeds
+        /// which segment stays here rather than being re-derived by whoever draws it.
+        ///
+        /// Segments materialize strictly in placement order and consume the delivered pile in that
+        /// same order, so a segment past the current one has necessarily received nothing yet: the
+        /// answer is 1 before the front, 0 after it, and a real ratio only for the segment being
+        /// built. Costs nothing but the active segment's own ingredient list.
+        ///
+        /// Within a segment this weighs every item by its unit count, matching what the whole-site
+        /// ratio does today.
+        /// </summary>
+        public float SegmentProgress(int index)
+        {
+            if (index < 0 || index >= _segments.Count) return 0f;
+            if (index < MaterializedCount) return 1f;
+            if (index > MaterializedCount) return 0f;
+
+            int cost = 0;
+            int available = 0;
+            foreach (RecipeIngredient ingredient in _segments[index].Definition.Cost)
             {
-                foreach (RecipeIngredient ingredient in _segments[i].Definition.Cost)
-                {
-                    if (ingredient.Item != null && ingredient.Item.Id == itemId) total += ingredient.Amount;
-                }
+                if (ingredient.Item == null || ingredient.Amount <= 0) continue;
+
+                cost += ingredient.Amount;
+                int delivered = _delivered.TryGetValue(ingredient.Item.Id, out int d) ? d : 0;
+                int usable = delivered - ConsumedByMaterializedSegments(ingredient.Item.Id);
+                available += System.Math.Max(0, System.Math.Min(usable, ingredient.Amount));
             }
-            return total;
+
+            return cost <= 0 ? 1f : (float)available / cost;
         }
 
         /// <summary>Marks the next segment as materialized (caller has already registered/spawned it) and returns it.</summary>
         public BuildingRuntime MaterializeNextSegment()
         {
             BuildingRuntime segment = _segments[MaterializedCount];
+            AccumulateConsumption(segment);
             MaterializedCount++;
             return segment;
+        }
+
+        void AccumulateConsumption(BuildingRuntime segment)
+        {
+            foreach (RecipeIngredient ingredient in segment.Definition.Cost)
+            {
+                if (ingredient.Item == null || ingredient.Amount <= 0) continue;
+                _consumedByMaterialized[ingredient.Item.Id] =
+                    (_consumedByMaterialized.TryGetValue(ingredient.Item.Id, out int existing) ? existing : 0) + ingredient.Amount;
+            }
         }
 
         /// <summary>
@@ -276,6 +322,15 @@ namespace Game.Gameplay.Sites
         public void RestoreCounters(JObject state)
         {
             MaterializedCount = state.Value<int?>("materializedCount") ?? 0;
+
+            // Rebuilt rather than serialized: it is a pure function of the segments already
+            // materialized, and those are reconstructed before this runs. One pass on load instead
+            // of a saved field that could disagree with the segment list it summarizes.
+            _consumedByMaterialized.Clear();
+            for (int i = 0; i < MaterializedCount && i < _segments.Count; i++)
+            {
+                AccumulateConsumption(_segments[i]);
+            }
 
             _delivered.Clear();
             if (state["delivered"] is JObject delivered)
