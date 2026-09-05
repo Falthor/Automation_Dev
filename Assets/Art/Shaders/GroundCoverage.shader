@@ -11,7 +11,9 @@ Shader "Custom/GroundCoverage"
 
         _RimColor ("Rim colour", Color) = (0.1176, 0.5490, 0.7255, 1)
         _RimIntensity ("Rim strength", Range(0, 1)) = 0.6
-        _RimWidth ("Rim band width, in coverage units", Range(0.001, 1)) = 0.35
+
+        // How far the boundary is sampled, in cells. Widens the lit band; it does not move it.
+        _RimWidth ("Rim band width, in cells", Range(0.1, 3)) = 1
         _RimBoost ("Rim boost (delivery flash)", Range(0, 1)) = 0
 
         // World-space rectangle this zone's texture covers: (minX, minY, sizeX, sizeY). Written per
@@ -56,6 +58,7 @@ Shader "Custom/GroundCoverage"
             };
 
             sampler2D _CoverageTex;
+            float4 _CoverageTex_TexelSize;
             fixed4 _Tint;
             float _Intensity;
             fixed4 _RimColor;
@@ -83,11 +86,27 @@ Shader "Custom/GroundCoverage"
                 // rectangle that is almost always empty.
                 clip(coverage - 0.002);
 
-                // The lit boundary sits where coverage falls off, which with a bilinear field is
-                // exactly the fringe around the converted cells.
-                float rim = 1.0 - smoothstep(0.0, max(_RimWidth, 0.0001), coverage);
+                // How much the field changes over one cell around here. Inside a site's footprint
+                // the field is a plateau, so this is ~0; it only rises in the bilinear falloff at
+                // the edge, which is where the lit boundary belongs.
+                //
+                // Keying the rim on the coverage VALUE instead does not work, and looked like a
+                // solid slab: while a site is only part built its whole footprint sits at one low
+                // value, so every pixel of it reads as "near the threshold" at once. The boundary
+                // is a spatial property, so it has to be measured spatially.
+                //
+                // It also scales itself: a barely started site has a small step at its edge and so
+                // a faint rim, which is the behaviour wanted anyway.
+                float2 step = _CoverageTex_TexelSize.xy * max(_RimWidth, 0.001);
+                float left = tex2D(_CoverageTex, uv - float2(step.x, 0)).r;
+                float right = tex2D(_CoverageTex, uv + float2(step.x, 0)).r;
+                float down = tex2D(_CoverageTex, uv - float2(0, step.y)).r;
+                float up = tex2D(_CoverageTex, uv + float2(0, step.y)).r;
 
-                fixed3 rgb = lerp(_Tint.rgb, _RimColor.rgb, rim);
+                float rim = max(max(abs(coverage - left), abs(coverage - right)),
+                                max(abs(coverage - down), abs(coverage - up)));
+
+                fixed3 rgb = lerp(_Tint.rgb, _RimColor.rgb, saturate(rim));
 
                 // Rim strength is its own parameter, never multiplied by _Intensity: the converted
                 // ground stays deliberately discreet while its boundary stays readable. Coupling

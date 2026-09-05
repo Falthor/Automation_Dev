@@ -44,7 +44,7 @@ le Play : le composant relit l'asset à chaque tick.
 | `groundIntensity` | Force de la teinte du sol converti. Volontairement discrète. |
 | `groundRimColor` | Couleur du sol converti **et** de son liseré. |
 | `groundRimIntensity` | Force du liseré au sol. Découplé de `groundIntensity` : régler l'un ne doit pas éteindre l'autre. |
-| `groundRimWidth` | Largeur de la bande lumineuse, **en unités de couverture** et non en unités monde : sa largeur physique suit donc la taille des cases toute seule. |
+| `groundRimWidth` | Distance d'échantillonnage de la frontière, **en cases**. Élargit la bande lumineuse, ne la déplace pas. |
 | `coverageFadeSeconds` | Temps que met une case sans chantier à revenir à zéro. |
 | `groundCoverageSortingOrder` | Rang de la couche de sol. **3**, entre le terrain (0 et 1) et la dalle de béton (5). |
 | `sitePlaceholderAlpha` | Opacité de la silhouette bleue **pendant** l'assemblage. En attente elle reste à l'alpha de `siteTint` (sur le composant, pas dans l'asset). |
@@ -105,6 +105,7 @@ deux évènements distincts.
 | `Game.Presentation` ajouté aux références de `Game.Tests.EditMode.asmdef` | Sans quoi les tests EditMode de §10 ne voient pas le composant. Changement de configuration de test uniquement ; aucune assembly de production n'a bougé. |
 | Le bruit est un fBm à trois octaves suivi d'un étirement analytique, alors que §5 décrivait « hash + smoothstep » | **Défaut de la spécification, pas de l'implémentation.** « Bruit de valeur, hash plus smoothstep » décrit une seule octave ; le prototype qui a servi à trouver les réglages en empilait trois. Une octave unique n'a qu'une échelle de détail : combinée au dégradé, elle ne produit qu'une ondulation molle, et monter `noiseWeight` amplifie les vagues au lieu de découper le bord. L'étirement `saturate((fbm - 0.25) / 0.5)` est indispensable : un fBm se concentre autour de 0,5 sur une plage utile d'environ 0,25 à 0,75, donc sans lui `noiseWeight` rend moitié moins d'irrégularité que sa valeur ne le suggère. Le prototype normalisait sur toute l'image, ce qu'un fragment ne peut pas faire — d'où les constantes fixes. §5 est corrigée. |
 | `RenderOverscan` sort de `BuildingSpawner` et devient `BuildingSpawner.ArtWorldSize` | L'overscan n'était appliqué que dans `BuildingSpawner`. Tout ce qui prévisualise un bâtiment — aperçu de pose, silhouette de chantier, sprite en dissolve — se dimensionnait sur `FootprintSize` seul et sortait donc plus petit que ce qui allait être construit : **9 % sur la Fonderie**, visible à l'œil nu à côté d'un bâtiment fini. Quatre définitions sont concernées (Fonderie 1,09, Splitter et Crossroad 1,08, Convoyeur Coin 1,02). La taille de l'art est maintenant calculée en un seul endroit, dont tous ces chemins dépendent. Le convoyeur garde l'ajustement uniforme de `ConveyorView`, overscan compris et sous la même condition (uniquement si la bande porte sa propre art, jamais le sprite procédural). **La dalle de béton est délibérément exclue** : elle marque les cases occupées, pas l'étendue de l'art. Verrouillé par `SilhouetteAndAssembly_AreSizedToTheArtTheRealViewWillUse_OverscanIncluded`. |
+| Le liseré au sol mesure la **frontière spatiale**, pas la valeur de couverture | Première version fausse, et le rendu était un pavé bleu opaque : `rim = 1 - smoothstep(0, w, coverage)` s'allume partout où la couverture est faible, or à l'intérieur d'une emprise le champ est un **plateau uniforme**. Un chantier à 0,2 avait donc toute son emprise « près du seuil » et brillait en entier. Le liseré échantillonne maintenant les quatre voisins à `groundRimWidth` cases et prend le plus grand écart : nul sur un plateau, non nul seulement dans la retombée du bord. Il se met aussi à l'échelle tout seul — un chantier à peine commencé a une petite marche au bord, donc un liseré discret. `groundRimWidth` change de sens au passage : ce n'est plus une largeur en unités de couverture mais **une distance d'échantillonnage en cases**, d'où le passage de 0,35 à 1. |
 | Texture de couverture **allouée au rayon maximal**, pas au rayon courant | Le rayon d'action est extensible par recherche (22 → `CoreRuntime.ExtendedActionRadiusCells` = 32). §7 laisse le choix entre réallouer à l'agrandissement et allouer d'emblée pour le plafond ; c'est la seconde qui est prise, parce qu'elle supprime entièrement le chemin de réallocation. Le coût est dérisoire — 65×65 en R8, soit ~4 Ko par zone — et les cases hors rayon restent simplement à zéro, donc `clip()`. |
 | Le sol converti et son liseré partagent `groundRimColor` | §9 ne prévoit pas de couleur de teinte distincte. Comme la consigne est justement que les deux liserés soient de la même famille, une seule couleur pour la couche de sol est cohérente et fait un réglage de moins. À séparer si le réglage à l'œil le demande. |
 | **Un seul `_RimBoost` par zone**, pas par chantier | La couche est une texture et un material par zone ; le flash ne peut donc pas être par chantier sans un material par chantier, ce qui reviendrait à annuler le regroupement. La zone prend le plus fort flash de ses chantiers. Visible seulement quand deux chantiers d'une même zone reçoivent une livraison en même temps, et ça se lit comme une pulsation unique plutôt que comme une fausse. |
@@ -154,11 +155,13 @@ ne traverse jamais l'ensemble « en cours ».
 
 ## Limites connues
 
-- **Le sol converti est plus étroit que le bâtiment sur un art débordant.** La couverture s'écrit
-  sur `FootprintSize`, donc sur une Fonderie (overscan 1,09) ou sur le Noyau (art 4×5 pour une
-  emprise 4×4) la dalle nano s'arrête avant le dessin. C'est la conséquence assumée de la paire
-  canonique, pas un défaut : la couverture dit quelles cases sont converties. Aucun élargissement
-  n'a été ajouté — à juger à l'écran, et un paramètre serait le remède si ça gêne.
+- **L'étendue dessinée déborde l'emprise d'environ une demi-case de chaque côté.** La couverture
+  est *écrite* sur `FootprintSize`, mais le filtrage bilinéaire — celui que §7 demande pour obtenir
+  une frontière continue — fait retomber la valeur de la case de bord vers zéro sur toute la case
+  voisine. Une emprise 3×3 se voit donc sur ~4×4. La correspondance texel/case est exacte et
+  vérifiée (chaque centre de case tombe sur son centre de texel) : ce n'est pas un étirement, c'est
+  la retombée. À juger à l'écran ; un seuil de `clip()` plus haut resserrerait le bord au prix de
+  sa douceur. Aucun élargissement ni resserrement n'a été ajouté.
 - **Une seule zone existe aujourd'hui**, celle du Noyau. Le composant traite les zones comme un
   ensemble et le seul endroit à étendre pour un Agent IA est `CollectZones`. Le partitionnement
   repose sur la garantie qu'un robot ne travaille que dans sa zone ; **les zones ne se recouvrent

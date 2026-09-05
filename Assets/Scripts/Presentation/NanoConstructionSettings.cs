@@ -98,11 +98,11 @@ namespace Game.Presentation
         [SerializeField, Min(0f)] float coverageFadeSeconds = 4f;
 
         /// <summary>
-        /// Width of the lit boundary, in coverage units rather than world units: the rim is the band
-        /// where the bilinear field falls from a converted cell's value to zero, so its physical
-        /// width follows the cell size on its own.
+        /// How far the shader looks around each pixel to find the boundary, in cells. Widens the lit
+        /// band; it does not move it. Measured in cells rather than world units so the band keeps
+        /// the same physical width whatever the cell size.
         /// </summary>
-        [SerializeField, Range(0.001f, 1f)] float groundRimWidth = 0.35f;
+        [SerializeField, Range(0.1f, 3f)] float groundRimWidth = 1f;
 
         /// <summary>
         /// Between the terrain (0 and 1) and the concrete slab (5). 2 and 4 are left free on either
