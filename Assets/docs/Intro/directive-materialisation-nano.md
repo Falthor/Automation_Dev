@@ -45,8 +45,25 @@ saute de 0 à 0,67 en une frame et l'effet perd tout son sens.
 La vue tient donc sa propre valeur, distincte de l'avancement du chantier :
 
 - `targetProgress` — l'avancement réel, discret, qui saute par paliers à chaque livraison
-- `displayedProgress` — ce qui pilote les shaders, qui rattrape la cible à **vitesse bornée**,
-  `catchUpRate` unités par seconde
+- `displayedProgress` — ce qui pilote les shaders, qui rattrape la cible à **vitesse bornée**
+
+Cette vitesse est une **surface par seconde**, pas un avancement par seconde, et se divise par
+l'emprise du bâtiment :
+
+```
+progressRate = assemblyRate / surface du bâtiment en cases
+```
+
+Un avancement par seconde serait indépendant de la taille : un convoyeur d'une case et une centrale
+de neuf cases mettraient le même temps à s'assembler. C'est trop long sur les convoyeurs, et comme
+les segments d'un glissé se matérialisent en série, une ligne de dix convoyeurs devient
+interminable. Avec `assemblyRate = 2.25`, la centrale garde ses 4 secondes et un convoyeur
+s'assemble en 0,44 s.
+
+`minAssemblyDuration` plafonne le taux à `1 / minAssemblyDuration` pour qu'un petit bâtiment ne
+surgisse pas d'un coup. La surface se prend sur l'**emprise logique** (`FootprintSize`), jamais sur
+l'AABB visuelle `_BuildBounds` : un sprite peut volontairement déborder de son emprise, et un toit
+en surplomb n'a pas à ralentir le bâtiment.
 
 Conséquences voulues :
 
@@ -107,6 +124,31 @@ Prérequis : les bâtiments ne bougent ni ne tournent après placement. Sur une 
 
 Écris le bruit de valeur à la main (hash + interpolation smoothstep), sans dépendance externe.
 Shader CG non éclairé sans tag `RenderPipeline`, comme les autres shaders 2D du projet.
+
+**Trois octaves, pas une.** Une octave unique n'a qu'une échelle de détail : combinée au dégradé
+de bas en haut, elle ne peut produire qu'une ondulation molle, et augmenter `noiseWeight` amplifie
+les vagues au lieu de découper le bord. `p` est la position monde multipliée par `noiseScale` :
+
+```
+n1  = vnoise(p)
+n2  = vnoise(p * 2.2)
+n3  = vnoise(p * 4.5)
+fbm = 0.62*n1 + 0.27*n2 + 0.11*n3
+n   = saturate((fbm - 0.25) / 0.5)
+```
+
+L'étirement final n'est pas cosmétique. Un fBm ne couvre pas 0 à 1 : la somme pondérée de trois
+bruits se concentre autour de 0,5, avec une plage utile d'environ 0,25 à 0,75. Sans le remap,
+`noiseWeight` produit à peu près moitié moins d'irrégularité que sa valeur ne le laisse croire. Le
+prototype normalisait son champ sur toute l'image, ce qu'un shader ne peut pas faire pixel par
+pixel — d'où l'étirement par constantes fixes.
+
+Le champ final est `field = base * (1 - noiseWeight) + n * noiseWeight`, et le poids ne doit être
+appliqué **qu'une seule fois** : toute normalisation ou pondération supplémentaire ailleurs dans le
+fragment diviserait encore l'amplitude réelle du bruit.
+
+`n` étant correctement étiré, `field` couvre exactement 0 à 1 et `progress` se compare directement
+à lui — pas de décalage epsilon avant le `clip()`.
 
 ## 6. Composant `BuildDissolveView`
 
@@ -169,7 +211,8 @@ l'aspect de toute la base depuis un seul asset.
 | `groundIntensity` | `0.15` | teinte du sol converti, volontairement discrète |
 | `groundRimIntensity` | `0.6` | **découplé** de `groundIntensity`, voir ci-dessous |
 | `coverageFadeSeconds` | `4` | |
-| `catchUpRate` | `0.25` | unités d'avancement par seconde |
+| `assemblyRate` | `2.25` | **cases assemblées par seconde** |
+| `minAssemblyDuration` | `0.25` | secondes, plancher de durée d'assemblage |
 | `deliveryFlashDuration` | `0.40` | secondes |
 | `deliveryFlashIntensity` | `0.28` | |
 
@@ -194,7 +237,9 @@ tu les couples, régler l'un éteint l'autre.
 
 - `displayedProgress` rattrape `targetProgress` à la vitesse configurée, et ne le dépasse jamais
 - une hausse instantanée de `targetProgress` de 0 à 0,67 produit une montée étalée sur
-  `0.67 / catchUpRate` secondes, pas un saut
+  `0.67 / progressRate` secondes, pas un saut — donc une durée qui dépend de l'emprise
+- un bâtiment d'une case s'assemble strictement plus vite qu'un bâtiment de neuf cases, dans le
+  rapport exact de leurs surfaces, et `minAssemblyDuration` plafonne le cas d'une seule case
 - une livraison déclenche le flash, et le flash retombe à zéro après `deliveryFlashDuration`
 - le composant se retire quand `displayedProgress` atteint 1, pas quand les matériaux sont livrés
 - à 0, rien du sprite n'est visible ; à 1, le sprite est intégralement visible

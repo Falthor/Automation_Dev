@@ -19,7 +19,8 @@ MonoBehaviour:
   revealMode: 0
   sitePlaceholderAlpha: 0.35
   siteSilhouetteSortingOrder: 7
-  catchUpRate: 0.2
+  assemblyRate: 2.25
+  minAssemblyDuration: 0.25
   deliveryFlashDuration: 0.4
   deliveryFlashIntensity: 0.28
   groundRimColor: {r: 0.1176, g: 0.549, b: 0.7255, a: 1}

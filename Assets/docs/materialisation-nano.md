@@ -35,7 +35,8 @@ le Play : le composant relit l'asset à chaque tick.
 | `rimWidth` | Épaisseur de la bande lumineuse qui suit le front. |
 | `rimColor` | Couleur de cette bande. |
 | `revealMode` | 0 = le bâtiment monte du sol, 1 = il se forme depuis son centre. |
-| `catchUpRate` | Vitesse d'assemblage. Plus bas = matérialisation plus lente et plus lisible. |
+| `assemblyRate` | Vitesse d'assemblage, **en cases par seconde**. Plus bas = matérialisation plus lente. Un bâtiment de N cases met `N / assemblyRate` secondes. |
+| `minAssemblyDuration` | Plancher de durée. Inerte aux valeurs actuelles (une case prend déjà 0,44 s) ; garde-fou si `assemblyRate` remonte. |
 | `deliveryFlashDuration` | Durée du flash à chaque arrivée de matière. |
 | `deliveryFlashIntensity` | Puissance de ce flash. |
 | `sitePlaceholderAlpha` | Opacité de la silhouette bleue **pendant** l'assemblage. En attente elle reste à l'alpha de `siteTint` (sur le composant, pas dans l'asset). |
@@ -60,9 +61,15 @@ La centrale fait 3×3 cases, donc 19 ÷ 3 ≈ **6,3 périodes par case**. Comme 
 recalcul : un bâtiment plus grand reçoit plus de périodes, avec un grain de même taille physique.
 **Ne jamais coder 0,06 en dur**, ce serait des dizaines de fois trop grossier.
 
-**`catchUpRate = 0.25`** signifie qu'une matérialisation complète prend au minimum 4 secondes,
-même si tous les matériaux arrivent d'un coup. C'est ce plancher qui est réglé, pas une durée
-« moyenne » : la durée réelle est proportionnelle à la matière livrée.
+**`assemblyRate = 2.25`** cases par seconde. Le taux d'avancement d'un bâtiment est
+`assemblyRate / surface en cases`, donc la centrale gaz (9 cases) tourne à 0,25 avancement par
+seconde : une matérialisation complète y prend au minimum 4 secondes même si tous les matériaux
+arrivent d'un coup. C'est ce plancher qui est réglé, pas une durée « moyenne » : la durée réelle
+est proportionnelle à la matière livrée. Un convoyeur (1 case) s'assemble en 0,44 s.
+
+Le 2,25 vient de `0,25 × 9`, c'est-à-dire du réglage validé à l'œil sur la centrale. **Attention :
+l'asset portait 0,20 et non 0,25** — ta valeur réglée à la main. La centrale passe donc de 5 s à
+4 s. Si les 5 s étaient le bon rythme, mets `assemblyRate` à **1.8**.
 
 **`deliveryFlashDuration = 0.40`** est calé pour être vu sans être clignotant — assez long pour
 que l'œil accroche l'arrivée d'un lot, assez court pour que deux livraisons rapprochées restent
@@ -77,7 +84,8 @@ deux évènements distincts.
 | Le shader est référencé comme asset depuis le ScriptableObject, pas résolu par `Shader.Find` | Un shader atteint uniquement par son nom est supprimé du build s'il n'est pas listé dans Always Included Shaders — voir `BUILD.md`. Une référence d'asset ne peut pas être supprimée, donc cette dépendance ne peut pas casser un build en silence. Les cinq autres vues du projet utilisent encore `Shader.Find`. |
 | `BuildDissolveView.Tick(deltaTime)` public, appelé depuis `LateUpdate` | §10 demande des tests EditMode ; `Update` n'y tourne pas. Le composant reçoit donc son delta au lieu de lire `Time` lui-même. |
 | `Game.Presentation` ajouté aux références de `Game.Tests.EditMode.asmdef` | Sans quoi les tests EditMode de §10 ne voient pas le composant. Changement de configuration de test uniquement ; aucune assembly de production n'a bougé. |
-| Le shader décale l'intervalle utile de ±0,001 avant le `clip()` | `field` vaut [0, 1] : un `_Progress - field` brut laisse un éclat visible à 0 et en découpe un à 1. Le décalage garantit que 0 ne montre strictement rien et que 1 montre strictement tout, ce que §10 demande. |
+| Le bruit est un fBm à trois octaves suivi d'un étirement analytique, alors que §5 décrivait « hash + smoothstep » | **Défaut de la spécification, pas de l'implémentation.** « Bruit de valeur, hash plus smoothstep » décrit une seule octave ; le prototype qui a servi à trouver les réglages en empilait trois. Une octave unique n'a qu'une échelle de détail : combinée au dégradé, elle ne produit qu'une ondulation molle, et monter `noiseWeight` amplifie les vagues au lieu de découper le bord. L'étirement `saturate((fbm - 0.25) / 0.5)` est indispensable : un fBm se concentre autour de 0,5 sur une plage utile d'environ 0,25 à 0,75, donc sans lui `noiseWeight` rend moitié moins d'irrégularité que sa valeur ne le suggère. Le prototype normalisait sur toute l'image, ce qu'un fragment ne peut pas faire — d'où les constantes fixes. §5 est corrigée. |
+| Plus de décalage ±0,001 avant le `clip()` | Il compensait un `field` dont on ne savait pas s'il couvrait vraiment [0, 1]. Avec l'étirement, `base` et `n` valent tous deux 0–1, donc `field` aussi, et `_Progress` se compare directement. Retiré. |
 | Aucun prefab | Le projet n'a aucun prefab de bâtiment : toutes les vues sont construites en code (`BuildingSpawner`, `WorldContentSpawner`). Le composant s'ajoute donc à n'importe quel GameObject portant un `SpriteRenderer`. |
 | **`ConstructionSiteRuntime` gagne `SegmentProgress(index)` — la spec §1 interdit toute modification dans `Game.Gameplay`** | Contrainte **levée sciemment sur ce seul point**, après arbitrage. `TotalCost` et `Delivered` sont agrégés par chantier : un glissé de convoyeurs se serait dissous en bloc au lieu de s'assembler segment par segment. Calculer l'avancement d'un segment demande de savoir quelle livraison alimente quel segment — une règle que `ConstructionSiteRuntime` possède en privé (`ConsumedByMaterializedSegments`). La refaire dans Presentation aurait mis cette règle à deux endroits, dont l'un se désynchronise en silence : ça viole l'esprit de la contrainte (Presentation ne doit pas s'approprier la logique du jeu) plus gravement qu'un accesseur n'en viole la lettre. L'accesseur est en **lecture seule** et n'expose **que le résultat**, jamais la somme préfixe — sinon l'arithmétique redescendait dans Presentation et le problème restait entier. Consigné dans `architecture/CONTRACTS.md` §15. |
 
@@ -120,6 +128,17 @@ ne traverse jamais l'ensemble « en cours ».
 
 ## Limites connues
 
+- **Le plancher `minAssemblyDuration` ne mord jamais aux valeurs actuelles.** Il plafonne le taux à
+  `1 / 0,25 = 4` avancement par seconde, alors qu'un bâtiment d'une case — le plus petit possible —
+  tourne déjà à 2,25. Il ne servirait qu'au-delà de `assemblyRate = 4`. C'est un garde-fou pour un
+  réglage futur, pas une contrainte active : le test qui le couvre doit donc monter `assemblyRate`
+  pour le déclencher.
+- **À `noiseWeight = 1`, « 0 ne montre rien » n'est plus strictement garanti.** Le champ devient le
+  bruit seul, qui vaut exactement 0 sur une surface non nulle après l'étirement `saturate`, et ces
+  pixels-là survivent au `clip()` à l'avancement 0. En dessous de 1, le terme `base` est strictement
+  positif partout sauf sur le bord inférieur exact, donc le cas ne se pose pas. L'ancien décalage
+  ±0,001 le couvrait accessoirement ; il n'était pas là pour ça, et la valeur 1 n'est pas un réglage
+  utile (le dégradé disparaît entièrement).
 - **La silhouette est au rang 7, ce qui est faux pour l'Extracteur.** Le rang 7 la place sous
   l'ombre portée (8) et sous le sprite (10), ce qu'il faut pour un bâtiment normal. Mais un
   Extracteur se pose sur un gisement, et le gisement est dessiné plus haut : la silhouette d'un
@@ -177,8 +196,10 @@ Si l'aspect ne convient plus, régler dans cet ordre — chaque étape suppose l
    **et** son emprise en cases, sinon la conversion est impossible à refaire.
 3. **Le liseré** : `rimWidth` puis `rimColor`. Le liseré doit rester lisible sur le sol le plus
    clair de la carte, pas seulement sur le sol rouge.
-4. **Le rythme** : `catchUpRate`, en observant une vraie livraison par lots, jamais une valeur
-   poussée à la main. Ce qui se règle est le plancher de durée.
+4. **Le rythme** : `assemblyRate`, en observant une vraie livraison par lots, jamais une valeur
+   poussée à la main. Ce qui se règle est le plancher de durée, **et il se règle sur un bâtiment de
+   taille connue** : la valeur est en cases par seconde, donc juger sur une Fonderie (9 cases) et
+   sur un convoyeur (1 case) ne donne pas le même chiffre. Le repère est la centrale gaz.
 5. **Le flash** : en dernier, une fois le rythme fixé — sa lisibilité dépend de la vitesse
    d'assemblage.
 

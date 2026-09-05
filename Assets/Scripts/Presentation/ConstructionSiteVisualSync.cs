@@ -247,6 +247,11 @@ namespace Game.Presentation
                 view.AssemblyRenderer = NewRenderer($"ConstructionAssembly {segment.Cell}", AssemblySortingOrder);
                 view.Dissolve = view.AssemblyRenderer.gameObject.AddComponent<BuildDissolveView>();
                 view.Dissolve.Settings = settings;
+
+                // The logical footprint, not the sprite's AABB: assembly speed is per cell covered,
+                // and a sprite that deliberately overflows its footprint must not slow it down.
+                Vector2Int footprint = segment.Definition.FootprintSize;
+                view.Dissolve.FootprintCells = footprint.x * footprint.y;
             }
 
             _views[segment] = view;

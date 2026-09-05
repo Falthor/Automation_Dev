@@ -93,6 +93,23 @@ Shader "Custom/BuildDissolve"
                 return lerp(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
             }
 
+            // Three octaves, then an analytic stretch. A single octave has one scale of detail:
+            // combined with the bottom-up gradient it can only produce a soft undulation, and
+            // raising _NoiseWeight amplifies those waves instead of breaking up the edge.
+            //
+            // The stretch is not cosmetic. A weighted sum of three noises does not span 0-1: it
+            // concentrates around 0.5, with a usable range of roughly 0.25 to 0.75, so without the
+            // remap _NoiseWeight would deliver about half the irregularity it claims. Normalizing
+            // over the whole image is not available to a fragment shader, hence fixed constants.
+            float Fbm(float2 p)
+            {
+                float fbm = 0.62 * ValueNoise(p)
+                          + 0.27 * ValueNoise(p * 2.2)
+                          + 0.11 * ValueNoise(p * 4.5);
+
+                return saturate((fbm - 0.25) / 0.5);
+            }
+
             v2f vert(appdata v)
             {
                 v2f o;
@@ -117,15 +134,13 @@ Shader "Custom/BuildDissolve"
                 // World coordinates, never sprite UVs: the pattern stays pinned to the terrain, so
                 // it survives a sheet frame change and two neighbouring sites share one continuous
                 // field instead of two juxtaposed patterns.
-                float noise = ValueNoise(i.worldPos.xy * _NoiseScale);
+                float noise = Fbm(i.worldPos.xy * _NoiseScale);
+
+                // The one and only place _NoiseWeight is applied. Both terms span 0-1, so field
+                // does too, and _Progress can be compared to it directly - no epsilon nudge.
                 float field = base * (1.0 - _NoiseWeight) + noise * _NoiseWeight;
 
-                // field lands in [0, 1], so a raw (_Progress - field) leaves a sliver visible at
-                // _Progress = 0 and clips one at 1. Nudging the usable range just past both ends
-                // makes 0 mean strictly nothing and 1 mean strictly everything.
-                const float Epsilon = 0.001;
-                float progress = _Progress * (1.0 + 2.0 * Epsilon) - Epsilon;
-                float distanceToFront = progress - field;
+                float distanceToFront = _Progress - field;
 
                 clip(distanceToFront);
 

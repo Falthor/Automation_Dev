@@ -18,6 +18,10 @@ namespace Game.Presentation
     /// bounded rate instead, never overtaking it, which makes materialisation last in proportion to
     /// how much matter actually arrived and guarantees a minimum duration even when everything
     /// lands at once. The steps are not hidden but announced, by the delivery flash.
+    ///
+    /// That rate is a speed in cells per second, not in progress per second, so it is divided by
+    /// the building's own footprint - a 9-cell power plant takes nine times as long to assemble as
+    /// a 1-cell conveyor rather than exactly as long. See NanoConstructionSettings.ProgressRateFor.
     /// </summary>
     [RequireComponent(typeof(SpriteRenderer))]
     public sealed class BuildDissolveView : MonoBehaviour
@@ -39,6 +43,14 @@ namespace Game.Presentation
         /// (directive-materialisation-nano.md §11, step 1). A bound site overwrites it every tick.
         /// </summary>
         [SerializeField, Range(0f, 1f)] float targetProgress;
+
+        /// <summary>
+        /// The building's logical footprint area, in grid cells - what sets the assembly speed.
+        /// Defaults to 9, the gas power plant this effect was tuned on, so a hand-driven test
+        /// object behaves like that reference building. ConstructionSiteVisualSync overwrites it
+        /// from BuildingDefinition.FootprintSize for a real segment.
+        /// </summary>
+        [SerializeField, Min(1)] int footprintCells = 9;
 
         SpriteRenderer _renderer;
         MaterialPropertyBlock _propertyBlock;
@@ -69,6 +81,16 @@ namespace Game.Presentation
             get => settings;
             set => settings = value;
         }
+
+        /// <summary>The building's logical footprint area in cells, which is what its assembly speed is derived from. Clamped to at least 1.</summary>
+        public int FootprintCells
+        {
+            get => footprintCells;
+            set => footprintCells = Mathf.Max(1, value);
+        }
+
+        /// <summary>Progress units per second this particular building assembles at, given its footprint. 0 when no settings are bound.</summary>
+        public float ProgressRate => settings != null ? settings.ProgressRateFor(footprintCells) : 0f;
 
         /// <summary>Reads TargetProgress from this site from now on. Read-only on the site; pass null to drive TargetProgress by hand instead.</summary>
         public void Bind(ConstructionSiteRuntime site) => _site = site;
@@ -145,7 +167,7 @@ namespace Game.Presentation
 
             if (FlashRemaining > 0f) FlashRemaining = Mathf.Max(0f, FlashRemaining - deltaTime);
 
-            DisplayedProgress = Mathf.Min(target, DisplayedProgress + settings.CatchUpRate * deltaTime);
+            DisplayedProgress = Mathf.Min(target, DisplayedProgress + ProgressRate * deltaTime);
 
             PushToRenderer();
 

@@ -31,8 +31,8 @@ namespace Game.Tests.EditMode.Presentation
         const string PlateId = "iron_plate";
         const float TickSeconds = 0.2f;
 
-        /// <summary>High enough that a single Tick finishes any assembly - the smoothing rate itself is BuildDissolveViewTests' subject, not this one's.</summary>
-        const float InstantCatchUpRate = 100f;
+        /// <summary>Footprint cells per second, set high enough that a single Tick finishes any assembly - the pacing itself is BuildDissolveViewTests' subject, not this one's.</summary>
+        const float InstantAssemblyRate = 100f;
 
         readonly List<Object> _spawned = new List<Object>();
 
@@ -112,7 +112,11 @@ namespace Game.Tests.EditMode.Presentation
             _spawned.Add(settings);
 
             var so = new SerializedObject(settings);
-            so.FindProperty("catchUpRate").floatValue = InstantCatchUpRate;
+            so.FindProperty("assemblyRate").floatValue = InstantAssemblyRate;
+
+            // Without lowering the floor, the derived rate would be capped at 1/0.25 = 4 per second
+            // and "instant" would stop being instant.
+            so.FindProperty("minAssemblyDuration").floatValue = 0.01f;
             so.FindProperty("sitePlaceholderAlpha").floatValue = 0.35f;
             so.FindProperty("siteSilhouetteSortingOrder").intValue = 7;
 

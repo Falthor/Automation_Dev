@@ -60,12 +60,22 @@ namespace Game.Presentation
         [Header("Displayed progress (see the spec's section 3)")]
 
         /// <summary>
-        /// Progress units per second that the displayed value is allowed to gain on the real one.
-        /// This is what turns a delivery of ten components into a longer assembly than a delivery
-        /// of two, and what guarantees a minimum materialisation time even when everything lands
-        /// at once.
+        /// Footprint cells assembled per second - a speed, not a duration, so a big building takes
+        /// proportionally longer than a small one. Progress per second is this divided by the
+        /// building's own footprint area, which is why a 9-cell power plant and a 1-cell conveyor
+        /// no longer take the same time.
+        ///
+        /// 2.25 reproduces the value tuned on the gas power plant (0.25 progress/s over 9 cells),
+        /// so that building's behaviour is unchanged; a conveyor now assembles in 0.44 s.
         /// </summary>
-        [SerializeField, Min(0.0001f)] float catchUpRate = 0.25f;
+        [SerializeField, Min(0.0001f)] float assemblyRate = 2.25f;
+
+        /// <summary>
+        /// Floor on how fast any building may assemble, so a small one cannot pop into existence in
+        /// a single frame. Caps the derived rate at 1/duration. Inert at the shipped assemblyRate -
+        /// a 1-cell building already takes 0.44 s - and there as a guard for future retuning.
+        /// </summary>
+        [SerializeField, Min(0.0001f)] float minAssemblyDuration = 0.25f;
 
         /// <summary>Seconds the rim flash lasts after a delivery.</summary>
         [SerializeField, Min(0f)] float deliveryFlashDuration = 0.40f;
@@ -106,7 +116,21 @@ namespace Game.Presentation
         public float SitePlaceholderAlpha => sitePlaceholderAlpha;
         public int SiteSilhouetteSortingOrder => siteSilhouetteSortingOrder;
 
-        public float CatchUpRate => catchUpRate;
+        public float AssemblyRate => assemblyRate;
+        public float MinAssemblyDuration => minAssemblyDuration;
+
+        /// <summary>
+        /// Progress units per second for a building covering <paramref name="footprintCells"/> grid
+        /// cells. The area is the building's <b>logical footprint</b>, never the visual AABB the
+        /// shader's _BuildBounds carries: a sprite may deliberately overflow its footprint, and
+        /// sizing the assembly speed off what is drawn would make an overhanging roof slow the
+        /// building down.
+        /// </summary>
+        public float ProgressRateFor(int footprintCells)
+        {
+            float cells = Mathf.Max(1, footprintCells);
+            return Mathf.Min(assemblyRate / cells, 1f / minAssemblyDuration);
+        }
         public float DeliveryFlashDuration => deliveryFlashDuration;
         public float DeliveryFlashIntensity => deliveryFlashIntensity;
 

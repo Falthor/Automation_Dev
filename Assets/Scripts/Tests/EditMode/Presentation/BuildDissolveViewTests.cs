@@ -21,7 +21,16 @@ namespace Game.Tests.EditMode.Presentation
     /// </summary>
     public class BuildDissolveViewTests
     {
-        const float CatchUpRate = 0.25f;
+        /// <summary>Footprint cells per second, the shipped value - a speed, so the progress rate a view actually runs at depends on how big it is.</summary>
+        const float AssemblyRate = 2.25f;
+
+        /// <summary>The gas power plant this effect was tuned on, and BuildDissolveView's own default footprint.</summary>
+        const int ReferenceFootprint = 9;
+
+        /// <summary>Progress per second for the reference building: 2.25 / 9. The value the whole effect was tuned at.</summary>
+        const float ReferenceRate = AssemblyRate / ReferenceFootprint;
+
+        const float MinAssemblyDuration = 0.25f;
         const float FlashDuration = 0.40f;
         const float FlashIntensity = 0.28f;
 
@@ -38,18 +47,19 @@ namespace Game.Tests.EditMode.Presentation
         }
 
         /// <summary>The asset's fields have no production setter on purpose - it is a definition, not runtime state - so tests write them the same way TestDataFactory does.</summary>
-        NanoConstructionSettings NewSettings(float catchUpRate = CatchUpRate, float flashDuration = FlashDuration, float flashIntensity = FlashIntensity, float noiseScale = 6.3f)
+        NanoConstructionSettings NewSettings(float assemblyRate = AssemblyRate, float flashDuration = FlashDuration, float flashIntensity = FlashIntensity, float noiseScale = 6.3f)
         {
             var settings = ScriptableObject.CreateInstance<NanoConstructionSettings>();
             _spawned.Add(settings);
-            SetSettings(settings, catchUpRate, flashDuration, flashIntensity, noiseScale);
+            SetSettings(settings, assemblyRate, flashDuration, flashIntensity, noiseScale);
             return settings;
         }
 
-        static void SetSettings(NanoConstructionSettings settings, float catchUpRate, float flashDuration, float flashIntensity, float noiseScale)
+        static void SetSettings(NanoConstructionSettings settings, float assemblyRate, float flashDuration, float flashIntensity, float noiseScale)
         {
             var so = new SerializedObject(settings);
-            so.FindProperty("catchUpRate").floatValue = catchUpRate;
+            so.FindProperty("assemblyRate").floatValue = assemblyRate;
+            so.FindProperty("minAssemblyDuration").floatValue = MinAssemblyDuration;
             so.FindProperty("deliveryFlashDuration").floatValue = flashDuration;
             so.FindProperty("deliveryFlashIntensity").floatValue = flashIntensity;
             so.FindProperty("noiseScale").floatValue = noiseScale;
@@ -103,7 +113,7 @@ namespace Game.Tests.EditMode.Presentation
 
             view.Tick(1f);
 
-            Assert.AreEqual(CatchUpRate, view.DisplayedProgress, 0.0001f);
+            Assert.AreEqual(ReferenceRate, view.DisplayedProgress, 0.0001f);
         }
 
         [Test]
@@ -128,7 +138,7 @@ namespace Game.Tests.EditMode.Presentation
             view.Tick(0.05f);
             Assert.Less(view.DisplayedProgress, 0.05f, "A single frame must not carry the whole step.");
 
-            float expectedSeconds = 0.67f / CatchUpRate;
+            float expectedSeconds = 0.67f / ReferenceRate;
             Advance(view, expectedSeconds * 0.5f);
             Assert.That(view.DisplayedProgress, Is.GreaterThan(0.25f).And.LessThan(0.42f),
                 "Halfway through, roughly half the step should be covered.");
@@ -178,7 +188,7 @@ namespace Game.Tests.EditMode.Presentation
             Assert.IsTrue(view != null, "Everything is delivered, but nothing is assembled yet.");
             Assert.Less(view.DisplayedProgress, 1f);
 
-            Advance(view, 1f / CatchUpRate + 0.2f);
+            Advance(view, 1f / ReferenceRate + 0.2f);
 
             Assert.IsTrue(view == null, "The component must remove itself once the sprite is whole.");
 
@@ -203,7 +213,7 @@ namespace Game.Tests.EditMode.Presentation
             Assert.AreEqual(0f, ShaderProgress(view), 0.0001f);
 
             view.TargetProgress = 1f;
-            Advance(view, 1f / CatchUpRate + 0.2f);
+            Advance(view, 1f / ReferenceRate + 0.2f);
 
             var block = new MaterialPropertyBlock();
             renderer.GetPropertyBlock(block);
@@ -242,7 +252,7 @@ namespace Game.Tests.EditMode.Presentation
             view.GetComponent<SpriteRenderer>().GetPropertyBlock(block);
             Assert.AreEqual(6.3f, block.GetFloat("_NoiseScale"), 0.0001f);
 
-            SetSettings(settings, CatchUpRate, FlashDuration, FlashIntensity, noiseScale: 11f);
+            SetSettings(settings, AssemblyRate, FlashDuration, FlashIntensity, noiseScale: 11f);
             view.Tick(0.05f);
 
             view.GetComponent<SpriteRenderer>().GetPropertyBlock(block);
@@ -250,15 +260,81 @@ namespace Game.Tests.EditMode.Presentation
         }
 
         [Test]
-        public void ChangingTheCatchUpRate_ChangesHowFastTheBuildingAssembles()
+        public void ChangingTheAssemblyRate_ChangesHowFastTheBuildingAssembles()
         {
-            NanoConstructionSettings settings = NewSettings(catchUpRate: 0.5f);
+            NanoConstructionSettings settings = NewSettings(assemblyRate: 4.5f);
             BuildDissolveView view = NewView(settings);
             view.TargetProgress = 1f;
 
             view.Tick(1f);
 
-            Assert.AreEqual(0.5f, view.DisplayedProgress, 0.0001f);
+            Assert.AreEqual(0.5f, view.DisplayedProgress, 0.0001f, "4.5 cells/s over the 9-cell default footprint.");
+        }
+
+        /// <summary>
+        /// The correction that made the setting a speed rather than a progress rate: a conveyor and
+        /// a power plant used to take exactly as long, which made a ten-belt drag interminable since
+        /// a drag's segments assemble in series.
+        /// </summary>
+        [Test]
+        public void ASmallBuilding_AssemblesFasterThanABigOne_InProportionToItsFootprint()
+        {
+            NanoConstructionSettings settings = NewSettings();
+
+            BuildDissolveView conveyor = NewView(settings);
+            conveyor.FootprintCells = 1;
+            BuildDissolveView powerPlant = NewView(settings);
+            powerPlant.FootprintCells = ReferenceFootprint;
+
+            Assert.AreEqual(AssemblyRate, conveyor.ProgressRate, 0.0001f, "One cell takes the whole rate: 0.44 s end to end.");
+            Assert.AreEqual(ReferenceRate, powerPlant.ProgressRate, 0.0001f, "Nine cells: 0.25 progress/s, the value the effect was tuned at.");
+            Assert.AreEqual(ReferenceFootprint, conveyor.ProgressRate / powerPlant.ProgressRate, 0.0001f, "Strictly proportional to footprint area.");
+
+            conveyor.TargetProgress = 1f;
+            powerPlant.TargetProgress = 1f;
+            Advance(conveyor, 0.5f);
+            Advance(powerPlant, 0.5f);
+
+            Assert.IsTrue(conveyor == null, "Half a second is past the conveyor's 0.44 s, so it finished and removed itself.");
+            Assert.Less(powerPlant.DisplayedProgress, 0.2f, "The power plant is barely started.");
+        }
+
+        /// <summary>
+        /// The floor caps the derived rate so nothing pops into existence in one frame. It does not
+        /// bind at the shipped assemblyRate - a 1-cell building already takes 0.44 s - so this
+        /// raises the rate until it does, which is the case the floor exists to guard.
+        /// </summary>
+        [Test]
+        public void TheMinimumDuration_CapsHowFastAOneCellBuildingCanAssemble()
+        {
+            NanoConstructionSettings shipped = NewSettings();
+            Assert.AreEqual(AssemblyRate, shipped.ProgressRateFor(1), 0.0001f);
+            Assert.Less(shipped.ProgressRateFor(1), 1f / MinAssemblyDuration,
+                "At the shipped rate the floor is inert even on the smallest possible building.");
+
+            NanoConstructionSettings settings = NewSettings(assemblyRate: 100f);
+            Assert.AreEqual(1f / MinAssemblyDuration, settings.ProgressRateFor(1), 0.0001f,
+                "100 cells/s over one cell would be near-instant; the floor holds it to 0.25 s.");
+
+            BuildDissolveView view = NewView(settings);
+            view.FootprintCells = 1;
+            view.TargetProgress = 1f;
+
+            view.Tick(0.05f);
+
+            Assert.IsTrue(view != null, "A single frame must never carry the whole assembly.");
+            Assert.AreEqual(0.2f, view.DisplayedProgress, 0.0001f);
+        }
+
+        [Test]
+        public void TheFootprint_IsClampedToAtLeastOneCell()
+        {
+            BuildDissolveView view = NewView(NewSettings());
+
+            view.FootprintCells = 0;
+
+            Assert.AreEqual(1, view.FootprintCells, "A zero footprint would divide the rate by zero.");
+            Assert.AreEqual(AssemblyRate, view.ProgressRate, 0.0001f);
         }
 
         [Test]
