@@ -2292,7 +2292,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 01ef087dd5e6cd340bb14b98d32ca909, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.CameraZoomController
-  gameRuntime: {fileID: 2103112250}
+  uiDocument: {fileID: 60635889}
   zoomSpeed: 4
   minOrthographicSize: 2
   maxOrthographicSize: 30

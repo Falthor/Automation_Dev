@@ -28,13 +28,14 @@ namespace Game.Data
         // the current art file and has to be re-measured whenever that file changes: it is
         // 1 / (opaque width as a fraction of the frame).
         //
-        // Building_foundry_Spirite_v4.png: the opaque box is 504 of 512 px, so 512/504 = 1.0159.
-        // The previous 1.09 was measured the same way against v3, whose margins were 21 px a side;
-        // left in place over v4 it drew the building 7% wider than its own footprint.
+        // Building_Foundry_v3.png: the opaque box is 470 of 512 px, so 512/470 = 1.0894.
+        // Building_foundry_Spirite_v4.png, briefly in use, has 4 px margins instead of 21 and wants
+        // 1.016 - leaving 1.09 over it drew the building 7% wider than its own footprint. If that
+        // sheet comes back, this constant comes back with it.
         //
         // Not the same rationale as ConveyorDefinition/Splitter/Crossroad, whose overscan
         // deliberately pushes their arms INTO the neighbouring cell to close a seam - theirs is not
         // a margin measurement and must not be "corrected" to one.
-        public override float RenderOverscan => 1.016f;
+        public override float RenderOverscan => 1.09f;
     }
 }

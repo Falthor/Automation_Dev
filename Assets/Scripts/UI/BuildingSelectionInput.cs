@@ -125,22 +125,13 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// True when the click landed on a real (pickable) UI element rather than on the world.
-        /// The mouse position comes in with the origin at the screen's bottom-left while a UI
-        /// Toolkit panel's coordinates start at its top-left, and ScreenToPanel does not flip
-        /// that axis itself - passing the raw position picks a vertically mirrored point, which
-        /// reported "no UI here" for clicks that did hit a panel (a ProductionPanel recipe card
-        /// then also read as a world click and cleared the selection, closing the panel).
+        /// True when the click landed on a real (pickable) UI element rather than on the world -
+        /// the case that first needed it being a ProductionPanel recipe card, which also read as a
+        /// world click and cleared the selection, closing the panel it had just been clicked in.
+        ///
+        /// Delegated so the camera and this share one rule rather than two copies of it, Y flip
+        /// included. See PointerOverUI.
         /// </summary>
-        bool IsPointerOverUI(Vector2 screenPos)
-        {
-            if (uiDocument == null) return false;
-
-            IPanel panel = uiDocument.rootVisualElement?.panel;
-            if (panel == null) return false;
-
-            Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(panel, new Vector2(screenPos.x, Screen.height - screenPos.y));
-            return panel.Pick(panelPos) != null;
-        }
+        bool IsPointerOverUI(Vector2 screenPos) => PointerOverUI.At(uiDocument, screenPos);
     }
 }

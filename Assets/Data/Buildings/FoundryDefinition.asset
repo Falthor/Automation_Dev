@@ -17,20 +17,20 @@ MonoBehaviour:
   footprintSize: {x: 3, y: 3}
   placeholderColor: {r: 0.6, g: 0.4, b: 0.2, a: 1}
   unlockResearch: {fileID: 0}
-  sprite: {fileID: -1461866547, guid: 1d7116cbc4a0ac347ad0bd80707d101c, type: 3}
+  sprite: {fileID: -6622863259242664493, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
   animationFrames:
-  - {fileID: -1461866547, guid: 1d7116cbc4a0ac347ad0bd80707d101c, type: 3}
-  - {fileID: -368652952, guid: 1d7116cbc4a0ac347ad0bd80707d101c, type: 3}
-  - {fileID: 1192890136, guid: 1d7116cbc4a0ac347ad0bd80707d101c, type: 3}
-  - {fileID: 1638298449, guid: 1d7116cbc4a0ac347ad0bd80707d101c, type: 3}
-  - {fileID: 1372750725, guid: 1d7116cbc4a0ac347ad0bd80707d101c, type: 3}
-  - {fileID: 695778801, guid: 1d7116cbc4a0ac347ad0bd80707d101c, type: 3}
-  - {fileID: 808580588, guid: 1d7116cbc4a0ac347ad0bd80707d101c, type: 3}
-  - {fileID: -2026445609, guid: 1d7116cbc4a0ac347ad0bd80707d101c, type: 3}
-  - {fileID: 86358945, guid: 1d7116cbc4a0ac347ad0bd80707d101c, type: 3}
-  - {fileID: 1305941524, guid: 1d7116cbc4a0ac347ad0bd80707d101c, type: 3}
-  - {fileID: -2036710486, guid: 1d7116cbc4a0ac347ad0bd80707d101c, type: 3}
-  - {fileID: -1805579472, guid: 1d7116cbc4a0ac347ad0bd80707d101c, type: 3}
+  - {fileID: -6622863259242664493, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
+  - {fileID: 4138848172959368440, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
+  - {fileID: 5823024787834327110, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
+  - {fileID: -5429809939435209488, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
+  - {fileID: -7409573511083393705, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
+  - {fileID: 2402639969742374697, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
+  - {fileID: 368041112877095050, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
+  - {fileID: -3326688003119052452, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
+  - {fileID: 9209089764030810201, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
+  - {fileID: 7800090583882032772, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
+  - {fileID: -7160256121808793437, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
+  - {fileID: -955268259036638798, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
   animationFps: 12
   cost:
   - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}

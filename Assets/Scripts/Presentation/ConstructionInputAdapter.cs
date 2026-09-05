@@ -126,6 +126,14 @@ namespace Game.Presentation
                 _subscribedToMaterialization = true;
             }
 
+            GridCoord cellUnderMouse = CellUnderMouse();
+
+            // Above the gate on purpose. The outline is not click handling, and freezing it while
+            // a panel is open is what left it stranded on the previously inspected building: with
+            // the whole method returning early, the last cell it had been given simply stayed on
+            // screen while the panel moved on to another building.
+            HandleHoverHighlight(cellUnderMouse);
+
             // A UI panel (Building menu, Storage panel, ...) owns mouse/keyboard input while
             // open, and for one extra frame after it closes - otherwise the same click that
             // selected a menu item or closed a panel also lands on the world underneath it.
@@ -133,20 +141,40 @@ namespace Game.Presentation
 
             HandleRotateAndCancel();
 
-            GridCoord cellUnderMouse = CellUnderMouse();
             UpdateGhost(cellUnderMouse);
-            HandleHoverHighlight(cellUnderMouse);
             HandlePlacement(cellUnderMouse);
             HandleDemolition(cellUnderMouse);
         }
 
         /// <summary>
-        /// Outlines the footprint of whatever building sits under the mouse, active both with
-        /// and without a construction tool armed (only suppressed while a UI panel owns input,
-        /// handled by the early-return above).
+        /// Outlines a building's footprint, active both with and without a construction tool armed.
+        ///
+        /// While a building is being inspected the outline marks <b>that</b> building rather than
+        /// whatever the cursor happens to be over: the outline's job is then to say which building
+        /// the open panel is about, and the cursor is somewhere else entirely - on the panel. It
+        /// follows the selection from one building to the next, so clicking a second building moves
+        /// both the panel and the outline.
+        ///
+        /// A global panel (Research, the Building menu, Storage) has no building to point at, so
+        /// the outline steps aside entirely rather than tracking a cursor that is busy elsewhere.
         /// </summary>
         void HandleHoverHighlight(GridCoord cell)
         {
+            BuildingRuntime inspected = gameRuntime.Selection.SelectedBuilding;
+            if (inspected != null)
+            {
+                hoverHighlightView?.Show(inspected.Cell, inspected.Definition.FootprintSize);
+                depositHoverGlowView?.Hide();
+                return;
+            }
+
+            if (gameRuntime.Selection.ActiveGlobalPanel != null)
+            {
+                hoverHighlightView?.Hide();
+                depositHoverGlowView?.Hide();
+                return;
+            }
+
             object occupant = gameRuntime.Grid.GetOccupant(cell);
 
             if (hoverHighlightView != null)
