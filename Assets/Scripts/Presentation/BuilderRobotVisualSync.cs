@@ -5,21 +5,36 @@ using UnityEngine;
 namespace Game.Presentation
 {
     /// <summary>
-    /// Draws each builder robot as a plain moving square (TASK_05_ROBOT_CONSTRUCTEUR.md §2: for
-    /// this first pass a black square is enough - the point of the task is the behavior, not the
-    /// look; the only display requirement is that the two robots be told apart at a glance, so the
-    /// second one is a lighter shade). The runtime is authoritative for position: this view only
-    /// converts BuilderRobotRuntime.Position (grid-space, advanced by the central tick) into world
-    /// space, and never moves a robot itself.
+    /// Draws each builder robot, one cell wide, with a ground shadow thrown further than a
+    /// building's because a drone flies (see DropShadow.HeightMultiplier). Falls back to a plain
+    /// coloured square when no drone art is assigned, which is what TASK_05_ROBOT_CONSTRUCTEUR.md §2
+    /// asked for and what a scene without the asset still gets.
+    ///
+    /// The runtime is authoritative for position: this view only converts
+    /// BuilderRobotRuntime.Position (grid-space, advanced by the central tick) into world space,
+    /// and never moves a robot itself.
     /// </summary>
     public sealed class BuilderRobotVisualSync : MonoBehaviour
     {
         const int SortingOrder = 14;
 
         [SerializeField] GameRuntime gameRuntime;
-        [SerializeField, Range(0.1f, 1f)] float robotVisualScale = 0.45f;
-        [SerializeField] Color firstRobotColor = new Color(0.05f, 0.05f, 0.07f, 1f);
-        [SerializeField] Color secondRobotColor = new Color(0.32f, 0.34f, 0.40f, 1f);
+
+        /// <summary>Drone art shown for every robot. Optional: null falls back to the procedural square.</summary>
+        [SerializeField] Sprite robotSprite;
+
+        /// <summary>Fraction of a cell the robot occupies. 1 fills its cell exactly; the sprite keeps its aspect ratio inside that, so a non-square drone is never stretched.</summary>
+        [SerializeField, Range(0.1f, 1f)] float robotVisualScale = 1f;
+
+        /// <summary>
+        /// Kept from the square-placeholder era and still useful with real art: the two robots must
+        /// be told apart at a glance, so the second one is tinted. White leaves the art untouched.
+        /// </summary>
+        [SerializeField] Color firstRobotColor = Color.white;
+        [SerializeField] Color secondRobotColor = new Color(0.62f, 0.82f, 1f, 1f);
+
+        /// <summary>How far the drone's shadow falls compared to a building's, i.e. how high it flies.</summary>
+        [SerializeField, Min(0f)] float flightHeight = 3f;
 
         readonly ProceduralSpriteFactory _spriteFactory = new ProceduralSpriteFactory();
         readonly List<GameObject> _views = new List<GameObject>();
@@ -44,13 +59,23 @@ namespace Game.Presentation
         {
             var view = new GameObject($"BuilderRobot {index}");
             var renderer = view.AddComponent<SpriteRenderer>();
-            renderer.sprite = _spriteFactory.CreateSolidSquareSprite(Color.white);
+            renderer.sprite = robotSprite != null ? robotSprite : _spriteFactory.CreateSolidSquareSprite(Color.white);
             renderer.color = index == 0 ? firstRobotColor : secondRobotColor;
             renderer.sortingOrder = SortingOrder;
 
+            // Uniform fit, so the drone's own proportions survive - a per-axis stretch would squash
+            // a 1275x1233 sprite into a square.
             Vector2 nativeSize = renderer.sprite.bounds.size;
             float desired = cellSize * robotVisualScale;
-            view.transform.localScale = new Vector3(desired / nativeSize.x, desired / nativeSize.y, 1f);
+            float scale = desired / Mathf.Max(nativeSize.x, nativeSize.y);
+            view.transform.localScale = new Vector3(scale, scale, 1f);
+
+            if (gameRuntime.ShadowSettings != null)
+            {
+                var shadow = view.AddComponent<DropShadow>();
+                shadow.Settings = gameRuntime.ShadowSettings;
+                shadow.HeightMultiplier = flightHeight;
+            }
 
             return view;
         }

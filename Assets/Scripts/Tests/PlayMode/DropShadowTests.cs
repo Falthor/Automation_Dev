@@ -182,6 +182,26 @@ namespace Game.Tests.PlayMode
             Assert.AreEqual(offset.y, worldOffset.y, 0.0001f);
         }
 
+        /// <summary>A flying unit throws its shadow further, but on the same side as everything else - the height is per-caster, the sun is not.</summary>
+        [Test]
+        public void HeightMultiplierPushesTheShadowFurtherAlongTheSameSunDirection()
+        {
+            var offset = new Vector2(0.25f, -0.25f);
+            BuildingShadowSettings settings = NewSettings(offset: offset);
+
+            DropShadow grounded = NewCaster(settings, NewSprite(), Vector3.zero, Vector3.one);
+            DropShadow flying = NewCaster(settings, NewSprite(), new Vector3(10f, 0f, 0f), Vector3.one);
+            flying.HeightMultiplier = 3f;
+            flying.Apply();
+
+            Vector3 groundedOffset = grounded.ShadowRenderer.transform.position - grounded.transform.position;
+            Vector3 flyingOffset = flying.ShadowRenderer.transform.position - flying.transform.position;
+
+            Assert.AreEqual(offset.x, groundedOffset.x, 0.0001f);
+            Assert.AreEqual(offset.x * 3f, flyingOffset.x, 0.0001f);
+            Assert.AreEqual(offset.y * 3f, flyingOffset.y, 0.0001f);
+        }
+
         [Test]
         public void FollowsTheCastersSpriteWhenItChanges()
         {

@@ -116,6 +116,12 @@ namespace Game.Presentation
         public GroundSlabSettings GroundSlabSettings { get; private set; }
 
         /// <summary>
+        /// The one shadow configuration every caster reads, so it is assigned in a single place in
+        /// the scene. Null means nothing casts a shadow. See BuildingShadowSettings.
+        /// </summary>
+        public BuildingShadowSettings ShadowSettings => buildingShadowSettings;
+
+        /// <summary>
         /// Built once in Start() alongside GroundSlabSettings; keeps every placed slab's edge
         /// mask (Custom/BuildingGroundSlab._EdgeMask) in sync as buildings are placed/demolished
         /// next to each other or the Core. See GroundSlabNeighborLinker.

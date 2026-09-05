@@ -24,6 +24,15 @@ namespace Game.Presentation
 
         [SerializeField] BuildingShadowSettings settings;
 
+        /// <summary>
+        /// How high off the ground this particular caster sits, as a multiple of the shared sun
+        /// offset. 1 is something standing on the ground; a flying unit uses more, and its shadow
+        /// falls that much further away - which is what reads as altitude in a top-down view.
+        /// The sun direction itself stays global, so raising this never puts one object's shadow
+        /// on a different side than everything else's.
+        /// </summary>
+        [SerializeField, Min(0f)] float heightMultiplier = 1f;
+
         SpriteRenderer _caster;
         SpriteRenderer _shadow;
 
@@ -52,6 +61,17 @@ namespace Game.Presentation
 
         /// <summary>The child renderer drawing the shadow. Null until Awake has run, and while no settings asset is assigned.</summary>
         public SpriteRenderer ShadowRenderer => _shadow;
+
+        /// <summary>See the field: multiplies the shared sun offset for this caster only. Settable from code for a view built at runtime.</summary>
+        public float HeightMultiplier
+        {
+            get => heightMultiplier;
+            set
+            {
+                heightMultiplier = Mathf.Max(0f, value);
+                _hasApplied = false;
+            }
+        }
 
         void Awake()
         {
@@ -110,7 +130,7 @@ namespace Game.Presentation
 
             // Only the caster's rotation and scale change what local offset produces the wanted
             // world offset; a caster that merely translates drags the child along for free.
-            Vector2 offset = settings.Offset;
+            Vector2 offset = settings.Offset * heightMultiplier;
             if (!_hasApplied
                 || _appliedOffset != offset
                 || _appliedCasterRotation != transform.rotation

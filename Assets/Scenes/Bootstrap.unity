@@ -4785,9 +4785,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.BuilderRobotVisualSync
   gameRuntime: {fileID: 2103112250}
-  robotVisualScale: 0.45
-  firstRobotColor: {r: 0.05, g: 0.05, b: 0.07, a: 1}
-  secondRobotColor: {r: 0.32, g: 0.34, b: 0.4, a: 1}
+  robotSprite: {fileID: 21300000, guid: aca9344cf6115774cbf9e8d5069139ba, type: 3}
+  robotVisualScale: 1
+  firstRobotColor: {r: 1, g: 1, b: 1, a: 1}
+  secondRobotColor: {r: 0.62, g: 0.82, b: 1, a: 1}
+  flightHeight: 3
 --- !u!114 &2103112254
 MonoBehaviour:
   m_ObjectHideFlags: 0

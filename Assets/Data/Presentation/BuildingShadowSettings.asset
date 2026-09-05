@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fbf7893be1e60ac4db6ffd47fe4940e3, type: 3}
   m_Name: BuildingShadowSettings
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.BuildingShadowSettings
-  alpha: 0.6
+  alpha: 0.7
   offset: {x: 0.25, y: 0.25}
   sortingOrder: 8
-  scale: 1
+  scale: 1.1
