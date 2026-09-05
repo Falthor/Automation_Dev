@@ -202,9 +202,9 @@ l'aspect de toute la base depuis un seul asset.
 
 | Champ | Valeur | Remarque |
 |---|---|---|
-| `noiseScale` | `6.3` | périodes de bruit par case, valeur unique |
-| `noiseWeight` | `0.30` | |
-| `rimWidth` | `0.09` | |
+| `noiseScale` | `12` | périodes de bruit par case, valeur unique |
+| `noiseWeight` | `0.045` | |
+| `rimWidth` | `0.059` | |
 | `rimColor` | `#3CB9EB` | liseré du bâtiment |
 | `groundRimColor` | `#1E8CB9` | liseré du sol, variante plus sourde |
 | `revealMode` | `0` | 0 = bas vers haut, 1 = radial |
@@ -217,10 +217,13 @@ l'aspect de toute la base depuis un seul asset.
 | `deliveryFlashIntensity` | `0.28` | |
 
 **`noiseScale`** : c'est **un seul nombre, en périodes de bruit par case**, valable pour tous les
-bâtiments — il n'y a pas de valeur par bâtiment. Le réglage a été trouvé sur un prototype en pixels,
-où le grain valait 0,06 par pixel sur une largeur de 320 px, soit environ 19 périodes sur la largeur
-de la centrale gaz. La centrale faisant 3×3 cases, la conversion donne 19 ÷ 3 ≈ **6,3 périodes par
-case**, et cette valeur s'applique ensuite à tous les bâtiments sans recalcul.
+bâtiments — il n'y a pas de valeur par bâtiment.
+
+Les valeurs de bruit et de liseré ci-dessus (`noiseScale`, `noiseWeight`, `rimWidth`) ont été
+trouvées **à l'œil, dans le jeu, à la distance de caméra réelle**. Elles remplacent celles dérivées
+du prototype navigateur (6,3 / 0,30 / 0,09), qui étaient justes en tant que conversion mais fausses
+à l'écran — voir le carnet, section *D'où viennent les valeurs*. Ne pas les « corriger » vers les
+chiffres du prototype.
 
 Comme le bruit est échantillonné en coordonnées monde, un bâtiment plus grand reçoit simplement plus
 de périodes sur sa largeur, avec un grain de taille physique identique. C'est le comportement voulu :

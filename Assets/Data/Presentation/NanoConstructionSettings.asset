@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c25cb404be8daf43bc1a48d37e9fe57, type: 3}
   m_Name: NanoConstructionSettings
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.NanoConstructionSettings
-  noiseScale: 6.3
-  noiseWeight: 0.2
-  rimWidth: 0.06
+  noiseScale: 12
+  noiseWeight: 0.045
+  rimWidth: 0.059
   rimColor: {r: 0.2353, g: 0.7255, b: 0.9216, a: 1}
   revealMode: 0
   sitePlaceholderAlpha: 0.35

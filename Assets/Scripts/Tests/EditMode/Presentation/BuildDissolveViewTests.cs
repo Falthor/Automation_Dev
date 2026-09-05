@@ -96,6 +96,48 @@ namespace Game.Tests.EditMode.Presentation
             return block.GetFloat("_RimBoost");
         }
 
+        static Vector4 ShaderBuildBounds(BuildDissolveView view)
+        {
+            var block = new MaterialPropertyBlock();
+            view.GetComponent<SpriteRenderer>().GetPropertyBlock(block);
+            return block.GetVector("_BuildBounds");
+        }
+
+        /// <summary>
+        /// The contract the reveal direction rests on. The shader normalises world Y over
+        /// _BuildBounds as (worldPos.y - _BuildBounds.y) / _BuildBounds.w, so .y must be the world
+        /// AABB's <b>bottom</b> edge for normalized.y to read 0 at the building's base and 1 at its
+        /// top - which is what makes _RevealMode 0 grow the building out of the ground.
+        ///
+        /// Writing the centre or the top edge instead would invert the reveal silently, and would
+        /// take the radial mode down with it, since both modes read the same normalized value. That
+        /// is why this is asserted at the source rather than patched in the shader.
+        /// </summary>
+        [Test]
+        public void BuildBounds_CarriesTheWorldAabbsBottomLeftCorner_NotItsCentre()
+        {
+            BuildDissolveView view = NewView(NewSettings());
+            view.transform.position = new Vector3(10f, 20f, 0f);
+            view.transform.localScale = new Vector3(3f, 3f, 1f);
+
+            view.Tick(0.05f);
+
+            Bounds bounds = view.GetComponent<SpriteRenderer>().bounds;
+            Vector4 written = ShaderBuildBounds(view);
+
+            Assert.AreEqual(bounds.min.x, written.x, 0.0001f, "x is the AABB's left edge.");
+            Assert.AreEqual(bounds.min.y, written.y, 0.0001f, "y is the AABB's bottom edge - not its centre, not its top.");
+            Assert.AreEqual(bounds.size.x, written.z, 0.0001f);
+            Assert.AreEqual(bounds.size.y, written.w, 0.0001f);
+
+            Assert.Less(written.y, bounds.center.y, "A centre would put the building's base at normalized.y 0.5 and clip its lower half away.");
+
+            float atBase = (bounds.min.y - written.y) / written.w;
+            float atTop = (bounds.max.y - written.y) / written.w;
+            Assert.AreEqual(0f, atBase, 0.0001f, "normalized.y is 0 at the base, so the base is revealed first.");
+            Assert.AreEqual(1f, atTop, 0.0001f, "and 1 at the top, so the top is revealed last.");
+        }
+
         static void Advance(BuildDissolveView view, float seconds, float step = 0.05f)
         {
             for (float elapsed = 0f; elapsed < seconds; elapsed += step)

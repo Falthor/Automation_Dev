@@ -26,13 +26,13 @@ namespace Game.Presentation
         /// receives more periods across its width at an identical physical grain size, which is
         /// the intended behaviour.
         /// </summary>
-        [SerializeField, Min(0f)] float noiseScale = 6.3f;
+        [SerializeField, Min(0f)] float noiseScale = 12f;
 
         /// <summary>How much the noise perturbs the reveal front. 0 is a clean sweep, 1 is pure noise.</summary>
-        [SerializeField, Range(0f, 1f)] float noiseWeight = 0.30f;
+        [SerializeField, Range(0f, 1f)] float noiseWeight = 0.045f;
 
         /// <summary>Width of the glowing edge trailing the reveal front, in progress units.</summary>
-        [SerializeField, Range(0f, 1f)] float rimWidth = 0.09f;
+        [SerializeField, Range(0f, 1f)] float rimWidth = 0.059f;
 
         /// <summary>Colour of the building's own rim.</summary>
         [SerializeField] Color rimColor = new Color(0.2353f, 0.7255f, 0.9216f, 1f);
