@@ -17,6 +17,7 @@ faites, et le composant n'est branché sur aucun chantier réel — voir *Limite
 | `Scripts/Presentation/NanoConstructionSettings.cs` | La classe de réglages. |
 | `Data/Presentation/NanoConstructionSettings.asset` | L'instance unique. C'est le seul fichier à ouvrir pour changer l'aspect. |
 | `Scripts/Tests/EditMode/Presentation/BuildDissolveViewTests.cs` | 13 tests : lissage, flash, achèvement, isolation entre bâtiments, propagation des réglages. |
+| `Scenes/DissolveTest.unity` | Scène de validation à l'œil : une caméra, une Fonderie à sa taille de jeu (3 cases), le composant câblé. Hors Build Settings, sans aucune dépendance au reste du jeu. Ouvrir, lancer le Play, monter `Target Progress` dans l'inspecteur du composant. |
 
 ## Comment régler
 
