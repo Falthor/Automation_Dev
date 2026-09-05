@@ -537,7 +537,17 @@ namespace Game.Presentation
                 Dirty = true
             };
 
-            zone.Texture = new Texture2D(texelSide, texelSide, TextureFormat.R8, mipChain: false)
+            // linear: true is not optional. This texture is DATA, not colour: it carries a signed
+            // distance, and the project renders in Linear colour space, so the default sRGB flag
+            // would have the GPU gamma-decode every sample before the shader ever sees it. The byte
+            // that means "exactly on the front" (128) would arrive as 0.216 instead of 0.502, i.e.
+            // a distance of -0.57 instead of 0, and everything within reach of the front would be
+            // clipped away - the field would be correct and most of it would simply not be drawn.
+            //
+            // The bug was invisible while the texture held a plain 0-1 coverage, because a gamma
+            // curve is monotone and leaves 0 at 0: only the interior gradient was wrong. Moving the
+            // zero point to mid-grey put it exactly where the curve does the most damage.
+            zone.Texture = new Texture2D(texelSide, texelSide, TextureFormat.R8, mipChain: false, linear: true)
             {
                 name = "GroundCoverage " + descriptor.Id,
                 filterMode = FilterMode.Bilinear,   // the quantised field only reads as continuous because of this
@@ -702,6 +712,9 @@ namespace Game.Presentation
 
         /// <summary>Side of a zone's texture, in texels. Exposed for tests.</summary>
         public int TexelSideOf(int zoneId) => _zones.TryGetValue(zoneId, out Zone zone) ? zone.TexelSide : 0;
+
+        /// <summary>A zone's field texture. Exposed for tests, which have to be able to check it is not an sRGB one.</summary>
+        public Texture2D TextureOf(int zoneId) => _zones.TryGetValue(zoneId, out Zone zone) ? zone.Texture : null;
 
         /// <summary>
         /// Smallest front distance over every texel of a footprint - not just its cell centres, which

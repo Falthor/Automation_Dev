@@ -8,6 +8,7 @@ using Game.Tests.EditMode.TestSupport;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 
 using DrawnSegment = Game.Presentation.ConstructionSiteVisualSync.DrawnSegment;
 using ZoneDescriptor = Game.Presentation.GroundCoverageRenderer.ZoneDescriptor;
@@ -352,6 +353,26 @@ namespace Game.Tests.EditMode.Presentation
 
             Assert.AreEqual(33, coarse.TexelSideOf(1), "A 33-cell zone at one texel per cell.");
             Assert.AreEqual(33 * 4, fine.TexelSideOf(1), "And the texture really is allocated at the finer resolution.");
+        }
+
+        /// <summary>
+        /// The field is data, not colour. The project renders in Linear colour space, so a texture
+        /// carrying the default sRGB flag is gamma-decoded by the GPU on every sample: the byte
+        /// meaning "exactly on the front" would arrive as 0.216 instead of 0.502, and everything
+        /// within reach of the front would be clipped away. Nothing in C# can observe that - the
+        /// decode happens in the sampler - so the format itself is what gets asserted.
+        /// </summary>
+        [Test]
+        public void TheFieldTexture_IsLinear_NotSrgb()
+        {
+            GroundCoverageRenderer renderer = NewRenderer(out _);
+            renderer.Tick(0f, OneZone(), NoSegments());
+
+            Texture2D texture = renderer.TextureOf(1);
+
+            Assert.IsNotNull(texture);
+            Assert.AreEqual(GraphicsFormat.R8_UNorm, texture.graphicsFormat,
+                "R8_SRGB would have the sampler gamma-decode a signed distance field.");
         }
 
         // --- The retreat ---
