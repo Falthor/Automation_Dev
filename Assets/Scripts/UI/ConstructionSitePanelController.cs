@@ -34,6 +34,13 @@ namespace Game.UI
         /// <summary>The building-to-panel router, borrowed for the handover when a site finishes. Optional: without it a finished site simply closes, as before.</summary>
         [SerializeField] BuildingSelectionInput selectionRouter;
 
+        /// <summary>
+        /// The panel's accent, shared by the solid and the hatched segment on purpose: what tells
+        /// them apart is the texture, not the hue. Matches the .site-bar-delivered rule in GameUI.uss
+        /// - Painter2D takes a Color, so this one segment cannot read its own colour from USS.
+        /// </summary>
+        static readonly Color AccentColor = new Color(85f / 255f, 221f / 255f, 245f / 255f);
+
         readonly ProceduralSpriteFactory _spriteFactory = new ProceduralSpriteFactory();
         readonly List<SupplyLine> _lines = new List<SupplyLine>();
 
@@ -64,6 +71,8 @@ namespace Game.UI
 
             panelRoot.Q<Button>("SiteCloseButton").clicked += Close;
 
+            BuildLegend(panelRoot.Q<VisualElement>("SiteLegend"));
+
             _root.EnableInClassList("hidden", true);
             gameRuntime.Selection.SiteSelectionChanged += OnSiteSelectionChanged;
         }
@@ -81,6 +90,36 @@ namespace Game.UI
 
             _title.text = TitleFor(_selected);
             Render();
+        }
+
+        /// <summary>
+        /// Built once, in code rather than in the UXML, because the hatched swatch has to be the same
+        /// element the bars use - a legend drawn by any other means would be free to stop matching
+        /// what it explains.
+        /// </summary>
+        static void BuildLegend(VisualElement legend)
+        {
+            if (legend == null) return;
+
+            legend.Add(LegendEntry(new VisualElement(), "site-bar-delivered", "arrivé"));
+            legend.Add(LegendEntry(new HatchFillElement { StripeColor = AccentColor }, "site-bar-enroute", "en route"));
+            legend.Add(LegendEntry(new VisualElement(), "site-legend-missing", "manquant"));
+        }
+
+        static VisualElement LegendEntry(VisualElement swatch, string swatchClass, string text)
+        {
+            var entry = new VisualElement();
+            entry.AddToClassList("site-legend-entry");
+
+            swatch.AddToClassList("site-legend-swatch");
+            swatch.AddToClassList(swatchClass);
+            entry.Add(swatch);
+
+            var label = new Label(text);
+            label.AddToClassList("site-legend-label");
+            entry.Add(label);
+
+            return entry;
         }
 
         void Close() => gameRuntime.Selection.Clear();
@@ -162,22 +201,24 @@ namespace Game.UI
 
             int total = 0;
             int delivered = 0;
-            bool anyStalled = false;
+            bool anyMissing = false;
             foreach (SupplyLine line in _lines)
             {
                 total += line.Total;
                 delivered += line.Delivered;
-                if (line.IsStalled) anyStalled = true;
+                if (IsAlarming(line)) anyMissing = true;
             }
 
             float progress = total > 0 ? (float)delivered / total : 0f;
             _progressFill.style.width = new StyleLength(Length.Percent(progress * 100f));
             _percentLabel.text = $"{Mathf.RoundToInt(progress * 100f)} %";
 
-            _stateLabel.text = anyStalled ? "● MATERIAUX MANQUANTS" : "● LIVRAISON EN COURS";
+            // Deliberately the same rule the rows are coloured by. A red ingredient under a headline
+            // saying deliveries are under way would have the panel contradicting itself.
+            _stateLabel.text = anyMissing ? "● MATERIAUX MANQUANTS" : "● LIVRAISON EN COURS";
             _stateLabel.RemoveFromClassList("state-producing");
             _stateLabel.RemoveFromClassList("state-blocked");
-            _stateLabel.AddToClassList(anyStalled ? "state-blocked" : "state-producing");
+            _stateLabel.AddToClassList(anyMissing ? "state-blocked" : "state-producing");
         }
 
         /// <summary>
@@ -194,8 +235,15 @@ namespace Game.UI
             }
         }
 
+        /// <summary>
+        /// One ingredient: a label line (name left, count right) over a bar filled left to right in
+        /// the order things actually arrive - solid for what is here, hatched for what is coming,
+        /// bare track for what nothing has been found for.
+        /// </summary>
         VisualElement BuildSupplyRow(SupplyLine line)
         {
+            bool alarming = IsAlarming(line);
+
             var row = new VisualElement();
             row.AddToClassList("site-supply-row");
 
@@ -209,43 +257,62 @@ namespace Game.UI
 
             var name = new Label(ItemName(line.ItemId));
             name.AddToClassList("site-supply-name");
+            name.EnableInClassList("site-supply-alarming", alarming);
             head.Add(name);
 
-            var totalLabel = new Label(line.Total.ToString());
-            totalLabel.AddToClassList("site-supply-total");
-            head.Add(totalLabel);
+            var count = new Label(CountText(line));
+            count.AddToClassList("site-supply-count");
+            count.EnableInClassList("site-supply-alarming", alarming);
+            head.Add(count);
 
             row.Add(head);
-
-            var counts = new VisualElement();
-            counts.AddToClassList("site-supply-counts");
-            counts.Add(Count($"{line.Delivered} {Plural(line.Delivered, "arrivé")}", "site-count-arrived", line.Delivered));
-            counts.Add(Separator());
-            counts.Add(Count($"{line.EnRoute} en route", "site-count-enroute", line.EnRoute));
-            counts.Add(Separator());
-            counts.Add(Count($"{line.Missing} {Plural(line.Missing, "manquant")}", "site-count-missing", line.Missing));
-            row.Add(counts);
+            row.Add(BuildSupplyBar(line));
 
             return row;
         }
 
-        /// <summary>A zero keeps its place in the row - the columns have to line up down the list - but loses its colour, so the eye lands on the counts that carry meaning.</summary>
-        static Label Count(string text, string styleClass, int value)
+        VisualElement BuildSupplyBar(SupplyLine line)
         {
-            var label = new Label(text);
-            label.AddToClassList(styleClass);
-            if (value == 0) label.AddToClassList("site-count-zero");
-            return label;
+            var track = new VisualElement();
+            track.AddToClassList("site-bar-track");
+
+            var delivered = new VisualElement();
+            delivered.AddToClassList("site-bar-delivered");
+            delivered.style.width = new StyleLength(Length.Percent(FillPercent(line.Delivered, line.Total)));
+            track.Add(delivered);
+
+            var enRoute = new HatchFillElement { StripeColor = AccentColor };
+            enRoute.AddToClassList("site-bar-enroute");
+            enRoute.style.width = new StyleLength(Length.Percent(FillPercent(line.EnRoute, line.Total)));
+            track.Add(enRoute);
+
+            // Whatever is missing is simply the track showing through: one less element per row, and
+            // it cannot disagree with the other two about how much is left.
+            return track;
         }
 
-        static Label Separator()
-        {
-            var label = new Label("·");
-            label.AddToClassList("site-supply-separator");
-            return label;
-        }
+        /// <summary>
+        /// "10 + 20 / 40" - I have ten, twenty are coming, I need forty. With nothing in flight the
+        /// addition would be noise, so it collapses to "0 / 30".
+        /// </summary>
+        public static string CountText(SupplyLine line)
+            => line.EnRoute > 0
+                ? $"{line.Delivered} + {line.EnRoute} / {line.Total}"
+                : $"{line.Delivered} / {line.Total}";
 
-        static string Plural(int amount, string word) => amount > 1 ? word + "s" : word;
+        /// <summary>
+        /// Whether this ingredient is the player's problem. The useful split is not between arrived
+        /// and en route - it is between "the system is handling this" and "I have to produce it" -
+        /// so a bar filled end to end means do nothing, whether it is solid or hatched.
+        ///
+        /// Hence <b>Missing &gt; 0</b>, never Delivered &lt; Total: an ingredient with nothing
+        /// delivered and everything reserved is fully handled and must not be flagged.
+        /// </summary>
+        public static bool IsAlarming(SupplyLine line) => line.Missing > 0;
+
+        /// <summary>Share of the bar one count occupies, 0-100. A free building (no cost at all) fills nothing rather than dividing by zero.</summary>
+        public static float FillPercent(int amount, int total)
+            => total <= 0 ? 0f : Mathf.Clamp(100f * amount / total, 0f, 100f);
 
         Sprite ItemSprite(string itemId)
         {

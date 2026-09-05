@@ -17,6 +17,8 @@
                     <ui:Label name="SitePercentLabel" text="0 %" class="production-percent-label" />
                 </ui:VisualElement>
                 <ui:VisualElement name="SiteSupplyList" class="production-ingredients-list" />
+                <ui:VisualElement class="site-legend-separator" />
+                <ui:VisualElement name="SiteLegend" class="site-legend" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

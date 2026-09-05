@@ -9,6 +9,7 @@
         "Game.Construction",
         "Game.Presentation",
         "Game.Save",
+        "Game.UI",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
