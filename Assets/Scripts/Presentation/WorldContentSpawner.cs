@@ -26,18 +26,22 @@ namespace Game.Presentation
         readonly ProceduralSpriteFactory _spriteFactory;
         readonly GroundSlabSettings _groundSlabSettings;
         readonly GroundSlabNeighborLinker _groundSlabNeighborLinker;
+        readonly BuildingShadowSettings _shadowSettings;
 
         /// <summary>
         /// groundSlabSettings is optional; null (or its diffuse/normal being null) means the Core
         /// spawns with no concrete pad. groundSlabNeighborLinker is optional too; null means the
-        /// Core's slab (if any) never reacts to buildings placed next to it later.
+        /// Core's slab (if any) never reacts to buildings placed next to it later. shadowSettings
+        /// is optional as well; null means the Core casts no drop shadow - same all-or-nothing
+        /// convention as the slab, no hardcoded fallback look.
         /// </summary>
-        public WorldContentSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory, GroundSlabSettings groundSlabSettings = null, GroundSlabNeighborLinker groundSlabNeighborLinker = null)
+        public WorldContentSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory, GroundSlabSettings groundSlabSettings = null, GroundSlabNeighborLinker groundSlabNeighborLinker = null, BuildingShadowSettings shadowSettings = null)
         {
             _grid = grid;
             _spriteFactory = spriteFactory;
             _groundSlabSettings = groundSlabSettings;
             _groundSlabNeighborLinker = groundSlabNeighborLinker;
+            _shadowSettings = shadowSettings;
         }
 
         public void SpawnCore(BuildingRuntime core)
@@ -85,6 +89,13 @@ namespace Game.Presentation
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
                 renderer.gameObject.AddComponent<SpriteFlipbook>().Initialize(definition.AnimationFrames, definition.AnimationFps);
+            }
+
+            // On the sprite child rather than the root: the shadow must be the silhouette that is
+            // actually drawn, which is this renderer's current sprite (a flipbook frame included).
+            if (_shadowSettings != null)
+            {
+                spriteGo.AddComponent<DropShadow>().Settings = _shadowSettings;
             }
         }
 
