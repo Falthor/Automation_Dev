@@ -23,16 +23,16 @@ MonoBehaviour:
   minAssemblyDuration: 0.25
   deliveryFlashDuration: 0.4
   deliveryFlashIntensity: 0.28
-  groundRimColor: {r: 0.6320754, g: 0.6320754, b: 0.6320754, a: 1}
-  groundIntensity: 0.034
-  groundRimIntensity: 0
-  coverageFadeSeconds: 2
+  groundRimColor: {r: 0.23529412, g: 0.7254902, b: 0.92156863, a: 1}
+  groundIntensity: 0.206
+  groundRimIntensity: 0.402
+  coverageFadeSeconds: 0
   groundLeadShare: 1
-  groundOverflowCells: 0.45
-  groundNoiseScale: 1.2
-  groundNoiseWeight: 0.25
-  groundTexelsPerCell: 1
+  groundOverflowCells: 0.05
+  groundNoiseScale: 0
+  groundNoiseWeight: 0.162
+  groundTexelsPerCell: 2
   groundRimWidth: 0
-  groundCoverageSortingOrder: 3
+  groundCoverageSortingOrder: 1
   dissolveShader: {fileID: 4800000, guid: 0b93921b36faddc448b43faedfefb038, type: 3}
   coverageShader: {fileID: 4800000, guid: 6749c75e27f0e5e46a8a0d58509d25f4, type: 3}
