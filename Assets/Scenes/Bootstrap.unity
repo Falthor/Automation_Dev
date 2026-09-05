@@ -4790,6 +4790,8 @@ MonoBehaviour:
   firstRobotColor: {r: 1, g: 1, b: 1, a: 1}
   secondRobotColor: {r: 0.62, g: 0.82, b: 1, a: 1}
   flightHeight: 3
+  artNativeDirection: 0
+  turnDegreesPerSecond: 540
 --- !u!114 &2103112254
 MonoBehaviour:
   m_ObjectHideFlags: 0
