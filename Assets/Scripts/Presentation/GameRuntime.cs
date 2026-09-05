@@ -94,6 +94,13 @@ namespace Game.Presentation
 
         [SerializeField] ItemVisualSync itemVisuals;
 
+        /// <summary>
+        /// Optional. When present it draws construction sites and owns the dissolve assembly, so
+        /// ConstructionInputAdapter hands it its BuildingSpawner instead of spawning a materialized
+        /// segment's view itself. Null means segments appear the instant they materialize.
+        /// </summary>
+        [SerializeField] ConstructionSiteVisualSync constructionSiteVisuals;
+
         [Header("Save/Load id -> asset resolution (CONTRACTS.md §14)")]
         [SerializeField] BuildingDefinition[] buildingCatalog = System.Array.Empty<BuildingDefinition>();
 
@@ -107,6 +114,7 @@ namespace Game.Presentation
         public TransportSystem Transport { get; private set; }
         public SelectionRuntime Selection { get; private set; }
         public ItemVisualSync ItemVisuals => itemVisuals;
+        public ConstructionSiteVisualSync ConstructionSiteVisuals => constructionSiteVisuals;
         public ItemDatabase Items => itemDatabase;
 
         /// <summary>

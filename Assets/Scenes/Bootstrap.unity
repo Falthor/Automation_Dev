@@ -4730,6 +4730,7 @@ MonoBehaviour:
   fogOfWarView: {fileID: 1659034849}
   fogRadiusMarginCells: 10
   itemVisuals: {fileID: 2103112252}
+  constructionSiteVisuals: {fileID: 2103112254}
   buildingCatalog:
   - {fileID: 11400000, guid: 81fc98426c6cbeb46b62f0f51a99c00b, type: 2}
   - {fileID: 11400000, guid: 24f3c4c440f22c14cb72e74f072b099c, type: 2}
@@ -4812,6 +4813,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.ConstructionSiteVisualSync
   gameRuntime: {fileID: 2103112250}
   siteTint: {r: 0.35, g: 0.6, b: 1, a: 0.6}
+  settings: {fileID: 11400000, guid: 79d5e14f36e1222419f95746c4db949e, type: 2}
 --- !u!1 &2117863649
 GameObject:
   m_ObjectHideFlags: 0

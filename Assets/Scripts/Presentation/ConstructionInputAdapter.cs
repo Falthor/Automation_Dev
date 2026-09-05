@@ -116,6 +116,13 @@ namespace Game.Presentation
             if (!_subscribedToMaterialization && gameRuntime.ConstructionSites != null)
             {
                 gameRuntime.ConstructionSites.SegmentMaterialized += OnSegmentMaterialized;
+
+                // The one spawner of the scene, lent to the site views so they can finish a
+                // segment's assembly and swap in the real building themselves. A second spawner
+                // built over there would keep its own per-cell view dictionary, and demolition
+                // would stop finding views created by the other.
+                if (gameRuntime.ConstructionSiteVisuals != null) gameRuntime.ConstructionSiteVisuals.SetViewSpawner(_spawner.SpawnView);
+
                 _subscribedToMaterialization = true;
             }
 
@@ -477,6 +484,12 @@ namespace Game.Presentation
         void RefreshViewIfMaterialized(BuildingRuntime runtime)
         {
             if (gameRuntime.ConstructionSites != null && gameRuntime.ConstructionSites.TryGetSiteContaining(runtime, out _)) return;
+
+            // Materialized but still assembling: ConstructionSiteVisualSync re-reads the runtime's
+            // orientation every frame, so the reshape already shows - and spawning the real view
+            // here would double-draw it until the dissolve hands over.
+            if (gameRuntime.ConstructionSiteVisuals != null && gameRuntime.ConstructionSiteVisuals.Draws(runtime)) return;
+
             _spawner.SpawnView(runtime);
         }
 
@@ -484,10 +497,19 @@ namespace Game.Presentation
         /// A construction site just delivered a segment's full cost: it is now a real, registered
         /// building (ConstructionSiteSystem already called Transport.Register) and needs the same
         /// view/item-visual wiring an immediate placement used to do inline.
+        ///
+        /// The view is the one part that is no longer immediate. Delivery completes long before the
+        /// sprite has finished assembling on screen, so ConstructionSiteVisualSync keeps the segment
+        /// in its assembling set and calls the spawner lent above once the dissolve reaches 1.
+        /// Item visuals stay immediate on purpose: the segment is live in TransportSystem from this
+        /// instant, and items already riding it must be visible while it assembles.
         /// </summary>
         void OnSegmentMaterialized(BuildingRuntime runtime)
         {
-            _spawner?.SpawnView(runtime);
+            bool assembledElsewhere = gameRuntime.ConstructionSiteVisuals != null
+                && gameRuntime.ConstructionSiteVisuals.AssemblesMaterializedSegments;
+            if (!assembledElsewhere) _spawner?.SpawnView(runtime);
+
             if (gameRuntime.ItemVisuals != null) gameRuntime.ItemVisuals.Register(runtime);
         }
 

@@ -3,8 +3,9 @@
 Décisions, écarts et limites. La spécification est `Intro/directive-materialisation-nano.md` ;
 ce document ne la répète pas, il consigne ce qui ne s'y trouve pas.
 
-**État : étape 1 sur 3.** Le dissolve seul. La couverture au sol et les particules ne sont pas
-faites, et le composant n'est branché sur aucun chantier réel — voir *Limites connues*.
+**État : le dissolve est branché sur les chantiers réels.** Un bâtiment posé s'assemble
+maintenant à l'écran au rythme de ses livraisons. La couverture au sol et les particules ne sont
+pas faites.
 
 ---
 
@@ -14,9 +15,11 @@ faites, et le composant n'est branché sur aucun chantier réel — voir *Limite
 |---|---|
 | `Art/Shaders/BuildDissolve.shader` | Découpe le sprite sous un front de révélation bruité, avec liseré lumineux. |
 | `Scripts/Presentation/BuildDissolveView.cs` | Pilote l'effet : lissage de l'avancement, flash de livraison, écriture du `MaterialPropertyBlock`, retrait à l'achèvement. |
+| `Scripts/Presentation/ConstructionSiteVisualSync.cs` | Les trois états d'un segment de chantier, et le passage de main à la vraie vue. |
 | `Scripts/Presentation/NanoConstructionSettings.cs` | La classe de réglages. |
 | `Data/Presentation/NanoConstructionSettings.asset` | L'instance unique. C'est le seul fichier à ouvrir pour changer l'aspect. |
 | `Scripts/Tests/EditMode/Presentation/BuildDissolveViewTests.cs` | 13 tests : lissage, flash, achèvement, isolation entre bâtiments, propagation des réglages. |
+| `Scripts/Tests/EditMode/Presentation/ConstructionSiteVisualSyncTests.cs` | 6 tests : les trois états, la démolition et l'annulation en cours d'assemblage, le glissé multi-segments. |
 | `Scenes/DissolveTest.unity` | Scène de validation à l'œil : une caméra, une Fonderie à sa taille de jeu (3 cases), le composant câblé. Hors Build Settings, sans aucune dépendance au reste du jeu. Ouvrir, lancer le Play, monter `Target Progress` dans l'inspecteur du composant. |
 
 ## Comment régler
@@ -35,6 +38,8 @@ le Play : le composant relit l'asset à chaque tick.
 | `catchUpRate` | Vitesse d'assemblage. Plus bas = matérialisation plus lente et plus lisible. |
 | `deliveryFlashDuration` | Durée du flash à chaque arrivée de matière. |
 | `deliveryFlashIntensity` | Puissance de ce flash. |
+| `sitePlaceholderAlpha` | Opacité de la silhouette bleue **pendant** l'assemblage. En attente elle reste à l'alpha de `siteTint` (sur le composant, pas dans l'asset). |
+| `siteSilhouetteSortingOrder` | Rang de la silhouette. À 7 elle passe sous l'ombre portée et sous le sprite — voir *Limites connues* pour le cas de l'Extracteur. |
 
 `groundRimColor`, `groundIntensity`, `groundRimIntensity` et `coverageFadeSeconds` sont présents
 dans l'asset mais **ne sont lus par personne** tant que l'étape 2 n'est pas faite. Ils y sont pour
@@ -76,18 +81,58 @@ deux évènements distincts.
 | Aucun prefab | Le projet n'a aucun prefab de bâtiment : toutes les vues sont construites en code (`BuildingSpawner`, `WorldContentSpawner`). Le composant s'ajoute donc à n'importe quel GameObject portant un `SpriteRenderer`. |
 | **`ConstructionSiteRuntime` gagne `SegmentProgress(index)` — la spec §1 interdit toute modification dans `Game.Gameplay`** | Contrainte **levée sciemment sur ce seul point**, après arbitrage. `TotalCost` et `Delivered` sont agrégés par chantier : un glissé de convoyeurs se serait dissous en bloc au lieu de s'assembler segment par segment. Calculer l'avancement d'un segment demande de savoir quelle livraison alimente quel segment — une règle que `ConstructionSiteRuntime` possède en privé (`ConsumedByMaterializedSegments`). La refaire dans Presentation aurait mis cette règle à deux endroits, dont l'un se désynchronise en silence : ça viole l'esprit de la contrainte (Presentation ne doit pas s'approprier la logique du jeu) plus gravement qu'un accesseur n'en viole la lettre. L'accesseur est en **lecture seule** et n'expose **que le résultat**, jamais la somme préfixe — sinon l'arithmétique redescendait dans Presentation et le problème restait entier. Consigné dans `architecture/CONTRACTS.md` §15. |
 
+## Le pipeline de vues
+
+Trois états, un seul propriétaire. `ConstructionSiteVisualSync` dessine lui-même le sprite en
+dissolve et passe la main à `BuildingSpawner.SpawnView` quand l'assemblage est fini.
+`BuildingSpawner` n'a pas été modifié et n'a gagné aucun mode.
+
+| État | Ce qu'on voit | Sortie |
+|---|---|---|
+| **En attente** | Silhouette bleue à l'alpha plein de `siteTint`, sprite intégralement découpé. | rang 7 (silhouette) + rang 10 (sprite, invisible) |
+| **En assemblage** | Silhouette à `sitePlaceholderAlpha`, sprite qui se matérialise par-dessus. | idem |
+| **Terminé** | La vraie vue. | `BuildingSpawner` |
+
+**L'ensemble « en cours d'assemblage » survit au chantier.** Un segment se matérialise à l'instant
+où sa dernière pièce arrive — bien avant d'avoir fini de s'assembler à l'écran — et quitte alors la
+plage en attente de `ConstructionSiteSystem`. Les vues concernées sont donc *détachées* : elles
+restent dans le composant, pilotées à la cible 1, et ne sont libérées qu'à `DisplayedProgress == 1`.
+Leur critère de vie n'est plus le chantier mais la grille : une entrée dont la cellule ne la
+contient plus a été démolie ou écrasée, et disparaît sans jamais devenir une vraie vue.
+
+Le passage de main **spawn la vraie vue et détruit les objets d'assemblage dans le même appel**
+(`HandOver`), donc aucune image ne montre les deux ni aucun. Le sprite en dissolve porte déjà la
+position, la taille (`BuildingSpawner.SetSpriteToWorldSize`, par axe, overscan compris) et la
+rotation de la vraie vue : rien ne bouge au moment du basculement.
+
+`ConstructionInputAdapter.OnSegmentMaterialized` ne spawne plus la vue ; il **prête son
+`BuildingSpawner`** au composant via `SetViewSpawner`. Un second spawner aurait son propre
+dictionnaire de vues par cellule, et la démolition ne retrouverait plus les vues créées par
+l'autre. En revanche `ItemVisuals.Register` reste immédiat : le segment est vivant dans
+`TransportSystem` dès la matérialisation, et les items qui le parcourent doivent être visibles
+pendant qu'il s'assemble.
+
+**Chargement d'une sauvegarde** : la restauration passe par `Start()` de `GameRuntime`, donc sur
+une scène fraîche où l'ensemble « en cours » est vide. Les bâtiments restaurés reçoivent
+directement leur vraie vue ; les segments encore en attente d'un chantier restauré repartent en
+silhouette au premier `LateUpdate`, avec `SegmentProgress` comme source. Le chemin de restauration
+ne traverse jamais l'ensemble « en cours ».
+
 ## Limites connues
 
-**Le composant n'est branché sur aucun chantier réel, et le brancher demande une décision.**
-Aujourd'hui, un chantier en attente n'a **pas** de vue de bâtiment : `ConstructionSiteVisualSync`
-dessine une silhouette bleue, et `BuildingSpawner` ne crée la vraie vue qu'à la matérialisation du
-segment. Il n'y a donc rien à dissoudre pendant la construction. Faire vivre le dissolve dans le
-jeu suppose de trancher ce que devient la silhouette bleue : remplacée par le sprite dissous,
-ou conservée derrière lui. Ce n'est pas un détail d'implémentation, c'est un choix de langage
-visuel — non tranché ici.
-
-Le reste :
-
+- **La silhouette est au rang 7, ce qui est faux pour l'Extracteur.** Le rang 7 la place sous
+  l'ombre portée (8) et sous le sprite (10), ce qu'il faut pour un bâtiment normal. Mais un
+  Extracteur se pose sur un gisement, et le gisement est dessiné plus haut : la silhouette d'un
+  Extracteur en attente passe donc *derrière* le gisement qu'il vient réserver, alors que c'est
+  précisément l'information de pose la plus utile — et l'Extracteur est le bâtiment le plus posé du
+  jeu. Corriger ça demande de renuméroter l'échelle des rangs (une quinzaine de couches dispersées
+  dans une dizaine de fichiers plus deux `.asset`, avec des égalités), ce qui est une session
+  d'infrastructure à part sur `main` : une renumérotation partielle casserait items, flèches et
+  robots. **Hors périmètre ici, sciemment.**
+- **`GameRuntime` construit un second `BuildingSpawner`** pour le chemin de restauration
+  (`GameRuntime.cs`, fin de `Start()`). C'est exactement le piège que `SetViewSpawner` évite côté
+  chantiers : ce spawner-là a son propre dictionnaire de vues par cellule, distinct de celui de
+  `ConstructionInputAdapter`. Antérieur à cette tâche, non touché ici.
 - **L'avancement pondère chaque item par son nombre d'unités.** Une vis vaut un circuit imprimé.
   L'Assembleur coûtant 2 circuits + 10 vis + 5 plaques, livrer les 10 vis remplit 59 % de la
   barre et livrer les 2 circuits 12 %. Le biais est réel et connu ; l'alternative retenue le
