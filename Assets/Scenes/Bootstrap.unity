@@ -419,6 +419,7 @@ GameObject:
   - component: {fileID: 60635900}
   - component: {fileID: 60635899}
   - component: {fileID: 60635903}
+  - component: {fileID: 60635904}
   m_Layer: 0
   m_Name: GameUI
   m_TagString: Untagged
@@ -726,6 +727,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.UI::Game.UI.NotificationBannerController
   uiDocument: {fileID: 60635889}
   visualTree: {fileID: 9197481963319205126, guid: 24ac06c1efdd39042b25cf3888db589b, type: 3}
+  gameRuntime: {fileID: 2103112250}
+--- !u!114 &60635904
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 60635885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d98772237980244086e65aeeea81cc2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.UI::Game.UI.ConstructionSitePanelController
+  uiDocument: {fileID: 60635889}
+  visualTree: {fileID: 9197481963319205126, guid: 45be202f65d06db4eadf566a1e775b70, type: 3}
   gameRuntime: {fileID: 2103112250}
 --- !u!1 &134080686
 GameObject:
@@ -4719,7 +4735,7 @@ MonoBehaviour:
   groundSlabNormal: {fileID: 2800000, guid: db1031b4a217ae7478df55171c585fd1, type: 3}
   groundSlabShader: {fileID: 4800000, guid: 15003a87f1889654393974b5c0bcac1e, type: 3}
   groundSlabDarken: 0.348
-  groundSlabSandBandWidth: 1.2
+  groundSlabSandBandWidth: 0.8
   groundSlabEdgeSoftness: 0.5
   groundSlabSandNoiseScale: 1.2
   groundSlabSandNoiseAmplitude: 0.5
@@ -4795,8 +4811,7 @@ MonoBehaviour:
   gameRuntime: {fileID: 2103112250}
   robotSprite: {fileID: 21300000, guid: aca9344cf6115774cbf9e8d5069139ba, type: 3}
   robotVisualScale: 1
-  firstRobotColor: {r: 1, g: 1, b: 1, a: 1}
-  secondRobotColor: {r: 0.62, g: 0.82, b: 1, a: 1}
+  robotColor: {r: 1, g: 1, b: 1, a: 1}
   flightHeight: 3
   artNativeDirection: 0
   turnDegreesPerSecond: 540

@@ -167,12 +167,30 @@ namespace Game.Presentation
         /// A global panel (Research, the Building menu, Storage) has no building to point at, so
         /// the outline steps aside entirely rather than tracking a cursor that is busy elsewhere.
         /// </summary>
+        /// <summary>The next segment a site will materialize - the one its panel's bill is being spent on. Null once every segment is built.</summary>
+        static BuildingRuntime FrontSegmentOf(ConstructionSiteRuntime site)
+            => site.MaterializedCount < site.Segments.Count ? site.Segments[site.MaterializedCount] : null;
+
         void HandleHoverHighlight(GridCoord cell)
         {
             BuildingRuntime inspected = gameRuntime.Selection.SelectedBuilding;
             if (inspected != null)
             {
                 hoverHighlightView?.Show(inspected.Cell, inspected.Definition.FootprintSize);
+                depositHoverGlowView?.Hide();
+                return;
+            }
+
+            // A site under inspection is marked the same way, on the segment its panel is really
+            // about: the one being built. On a dragged run the earlier segments are already
+            // buildings and outlining the whole run would claim ground that is no longer the
+            // site's.
+            ConstructionSiteRuntime inspectedSite = gameRuntime.Selection.SelectedSite;
+            if (inspectedSite != null)
+            {
+                BuildingRuntime front = FrontSegmentOf(inspectedSite);
+                if (front != null) hoverHighlightView?.Show(front.Cell, front.Definition.FootprintSize);
+                else hoverHighlightView?.Hide();
                 depositHoverGlowView?.Hide();
                 return;
             }

@@ -1,5 +1,6 @@
 using Game.Core;
 using Game.Gameplay.Buildings;
+using Game.Gameplay.Sites;
 using Game.Presentation;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -72,19 +73,23 @@ namespace Game.UI
             object occupant = gameRuntime.Grid.GetOccupant(cell);
 
             // A construction site's pending segment already occupies the grid - that is what stops
-            // anything else being placed on it - but it is not built yet: nothing has been
-            // delivered, it produces nothing, and it has no state worth showing. Clicking the blue
-            // silhouette of an empty Foundry must not open its production panel.
+            // anything else being placed on it - but it is not the building it will become: nothing
+            // has been delivered, it produces nothing, and a Foundry's production panel over it
+            // would be a panel about a machine that does not exist yet.
             //
-            // Neutralized rather than ignored, so the click still closes whatever panel was open,
-            // exactly like a click on bare ground. TryGetSiteContaining only matches segments that
-            // have not materialized yet, so the first conveyor of a three-segment run stays
-            // selectable as soon as it is built while its two siblings do not.
+            // The click is routed to the site's own panel rather than dropped. What a player wants
+            // from a blue silhouette is what it is waiting for, which is a different question about
+            // the same cell - hence a different selection slot, not a different cast of the same one.
+            // TryGetSiteContaining only matches segments that have not materialized yet, so the
+            // first conveyor of a three-segment run opens its own panel as soon as it is built while
+            // its two siblings still open the site's.
             if (occupant is BuildingRuntime pendingSegment
                 && gameRuntime.ConstructionSites != null
-                && gameRuntime.ConstructionSites.TryGetSiteContaining(pendingSegment, out _))
+                && gameRuntime.ConstructionSites.TryGetSiteContaining(pendingSegment, out ConstructionSiteRuntime site))
             {
-                occupant = null;
+                storagePanel.Hide();
+                gameRuntime.Selection.SelectSite(site);
+                return;
             }
 
             if (occupant is StorageRuntime storage)

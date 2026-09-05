@@ -1363,3 +1363,71 @@
     -unity-font-style: bold;
     margin-top: 3px;
 }
+
+/* Construction site panel - a supply, not a production. Reuses the building panels' frame,
+   header and body width; only the per-ingredient block below is its own.
+
+   The three counts carry the whole message, so each one owns a colour and they never share:
+   green is here, cyan is coming, red is nothing coming. A count of zero is dimmed rather than
+   hidden - the columns have to stay aligned down the list, and "0 manquant" is information. */
+
+.site-supply-row {
+    flex-direction: column;
+    margin-bottom: 5px;
+}
+
+.site-supply-head {
+    flex-direction: row;
+    align-items: center;
+}
+
+.site-supply-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 4px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.site-supply-name {
+    color: rgb(200, 205, 210);
+    font-size: 10px;
+    flex-grow: 1;
+}
+
+.site-supply-total {
+    color: rgb(140, 148, 155);
+    font-size: 10px;
+}
+
+.site-supply-counts {
+    flex-direction: row;
+    align-items: center;
+    margin-left: 20px;
+    margin-top: 1px;
+}
+
+.site-count-arrived {
+    color: rgb(100, 210, 130);
+    font-size: 10px;
+}
+
+.site-count-enroute {
+    color: rgb(85, 221, 245);
+    font-size: 10px;
+}
+
+.site-count-missing {
+    color: rgb(220, 105, 95);
+    font-size: 10px;
+}
+
+.site-count-zero {
+    color: rgb(105, 113, 120);
+}
+
+.site-supply-separator {
+    color: rgb(80, 88, 95);
+    font-size: 10px;
+    margin-left: 4px;
+    margin-right: 4px;
+}

@@ -170,7 +170,9 @@ namespace Game.Presentation
         /// building) - there is exactly one source of truth for "is a panel open" (CONTRACTS.md
         /// §7), panels no longer track this themselves.
         /// </summary>
-        public bool IsUIBlockingInput => Selection.ActiveGlobalPanel != null || Selection.SelectedBuilding != null;
+        public bool IsUIBlockingInput => Selection.ActiveGlobalPanel != null
+            || Selection.SelectedBuilding != null
+            || Selection.SelectedSite != null;
 
         /// <summary>
         /// The frame a UI panel last closed. World input adapters also skip their click handling
