@@ -277,23 +277,63 @@ namespace Game.Presentation
                 : _grid.FootprintCenterToWorld(segment.Cell, definition.FootprintSize);
 
             SpriteRenderer silhouette = view.Silhouette;
-            silhouette.sprite = sprite;
             silhouette.color = SilhouetteColor(view);
             silhouette.sortingOrder = SilhouetteSortingOrder;
             silhouette.transform.position = position;
-            ScaleToFootprint(silhouette.transform, sprite, definition);
+            ApplySizing(silhouette, sprite, segment, definition);
             ApplyRotation(silhouette.transform, segment, definition);
 
             if (view.AssemblyRenderer == null) return;
 
-            // Sized the way BuildingSpawner sizes the real sprite - per axis, overscan included -
-            // rather than the silhouette's uniform fit, so the handover changes no dimension.
             SpriteRenderer assembly = view.AssemblyRenderer;
             assembly.transform.position = position;
-            BuildingSpawner.SetSpriteToWorldSize(assembly, sprite, new Vector2(_grid.CellSize, _grid.CellSize) * definition.FootprintSize);
-            if (definition.RenderOverscan != 1f) assembly.transform.localScale *= definition.RenderOverscan;
+            ApplySizing(assembly, sprite, segment, definition);
             ApplyRotation(assembly.transform, segment, definition);
         }
+
+        /// <summary>
+        /// Exactly the size the real view will be, and the same for both renderers - so the
+        /// silhouette sits precisely under the sprite assembling over it, and nothing changes
+        /// dimension at the handover.
+        ///
+        /// A conveyor is fitted uniformly, preserving its art's aspect ratio, because that is what
+        /// ConveyorView does and a per-axis stretch is what used to make belts look a different
+        /// thickness than their neighbours. Everything else is fitted per axis to
+        /// BuildingSpawner.ArtWorldSize, matching SpawnStandardView and SpawnRotatingCrossView -
+        /// RenderOverscan included, without which the Foundry's silhouette came out 9% too small.
+        /// </summary>
+        void ApplySizing(SpriteRenderer renderer, Sprite sprite, BuildingRuntime segment, BuildingDefinition definition)
+        {
+            if (!(segment is ConveyorRuntime))
+            {
+                BuildingSpawner.SetSpriteToWorldSize(renderer, sprite, BuildingSpawner.ArtWorldSize(definition, _grid.CellSize));
+                return;
+            }
+
+            renderer.sprite = sprite;
+            Vector2 desiredWorldSize = new Vector2(_grid.CellSize, _grid.CellSize) * definition.FootprintSize;
+            Vector2 nativeSize = sprite.bounds.size;
+            float scale = Mathf.Max(desiredWorldSize.x / nativeSize.x, desiredWorldSize.y / nativeSize.y);
+
+            // ConveyorView overscans only a belt wearing its own art, never the procedural
+            // placeholder - the placeholder already fills its cell, and widening it would push it
+            // over its neighbours.
+            if (UsesOwnConveyorArt(segment, definition)) scale *= definition.RenderOverscan;
+
+            renderer.transform.localScale = new Vector3(scale, scale, 1f);
+        }
+
+        /// <summary>
+        /// True when a belt is drawn with its own art rather than the procedural shape sprite - a
+        /// drag-turned segment whose Definition no longer matches its Orientation.Shape falls back
+        /// to the procedural one. ConveyorView hangs both the sprite choice and the overscan off
+        /// this single condition, so it is asked once here instead of being restated in each.
+        /// </summary>
+        static bool UsesOwnConveyorArt(BuildingRuntime segment, BuildingDefinition definition)
+            => segment is ConveyorRuntime conveyor
+               && definition is ConveyorDefinition conveyorDefinition
+               && conveyorDefinition.OverrideSprite != null
+               && conveyor.Orientation.Shape == conveyorDefinition.DefaultShape;
 
         /// <summary>
         /// Full tint while nothing has arrived, SitePlaceholderAlpha as soon as the sprite starts
@@ -322,9 +362,7 @@ namespace Game.Presentation
         {
             if (segment is ConveyorRuntime conveyor && definition is ConveyorDefinition conveyorDefinition)
             {
-                bool artMatchesShape = conveyorDefinition.OverrideSprite != null
-                    && conveyor.Orientation.Shape == conveyorDefinition.DefaultShape;
-                return artMatchesShape
+                return UsesOwnConveyorArt(segment, definition)
                     ? conveyorDefinition.OverrideSprite
                     : _spriteFactory.CreateShapeSprite(conveyor.Orientation.Shape, definition.PlaceholderColor);
             }
@@ -332,16 +370,6 @@ namespace Game.Presentation
             return definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
-        }
-
-        /// <summary>Uniform fit (preserving the art's aspect ratio), matching ConveyorView.SetSpriteToWorldSizeUniform - a per-axis stretch is what used to make belts look a different thickness than their neighbours.</summary>
-        void ScaleToFootprint(Transform target, Sprite sprite, BuildingDefinition definition)
-        {
-            float cellSize = _grid.CellSize;
-            Vector2 desiredWorldSize = new Vector2(cellSize, cellSize) * definition.FootprintSize;
-            Vector2 nativeSize = sprite.bounds.size;
-            float scale = Mathf.Max(desiredWorldSize.x / nativeSize.x, desiredWorldSize.y / nativeSize.y);
-            target.localScale = new Vector3(scale, scale, 1f);
         }
 
         /// <summary>

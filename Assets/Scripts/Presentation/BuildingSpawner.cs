@@ -154,12 +154,7 @@ namespace Game.Presentation
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
-            SetSpriteToWorldSize(renderer, sprite, new Vector2(_grid.CellSize, _grid.CellSize) * definition.FootprintSize);
-
-            if (definition.RenderOverscan != 1f)
-            {
-                renderer.transform.localScale *= definition.RenderOverscan;
-            }
+            SetSpriteToWorldSize(renderer, sprite, ArtWorldSize(definition, _grid.CellSize));
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
@@ -243,12 +238,7 @@ namespace Game.Presentation
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
-            SetSpriteToWorldSize(renderer, sprite, new Vector2(_grid.CellSize, _grid.CellSize) * definition.FootprintSize);
-
-            if (definition.RenderOverscan != 1f)
-            {
-                renderer.transform.localScale *= definition.RenderOverscan;
-            }
+            SetSpriteToWorldSize(renderer, sprite, ArtWorldSize(definition, _grid.CellSize));
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
@@ -279,6 +269,23 @@ namespace Game.Presentation
             arrowRenderer.sortingOrder = sortingOrder;
             arrowRenderer.sprite = _spriteFactory.CreateArrowSprite(color);
         }
+
+        /// <summary>
+        /// The world size a building's art is actually drawn at: its logical footprint widened by
+        /// the definition's RenderOverscan.
+        ///
+        /// Every view that has to line up with the real building - the placement ghost, the
+        /// construction silhouette, the assembling dissolve - must size itself from this rather
+        /// than from FootprintSize alone. Overscan used to be applied here and nowhere else, so
+        /// those views came out RenderOverscan smaller than what actually got built: 9% on the
+        /// Foundry, enough to read as a different building.
+        ///
+        /// Note this is deliberately not the sizing for anything that belongs to the ground rather
+        /// than to the building - the concrete slab follows the footprint, since it marks the cells
+        /// the building occupies, not the extent of its art.
+        /// </summary>
+        public static Vector2 ArtWorldSize(BuildingDefinition definition, float cellSize)
+            => new Vector2(cellSize, cellSize) * definition.FootprintSize * definition.RenderOverscan;
 
         internal static void SetSpriteToWorldSize(SpriteRenderer renderer, Sprite sprite, Vector2 desiredWorldSize)
         {

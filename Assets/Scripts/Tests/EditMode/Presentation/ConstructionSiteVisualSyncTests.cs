@@ -221,6 +221,56 @@ namespace Game.Tests.EditMode.Presentation
             Assert.AreEqual(1, fixture.SpawnedRealViews.Count, "Never spawned twice.");
         }
 
+        /// <summary>
+        /// The silhouette, the assembling sprite and the real view must all be the size the
+        /// building is actually drawn at - BuildingSpawner.ArtWorldSize, RenderOverscan included.
+        /// Overscan used to be applied only inside BuildingSpawner, so everything previewing a
+        /// building came out that much smaller than what got built: 9% on the Foundry, visible to
+        /// the naked eye against a finished neighbour.
+        /// </summary>
+        [Test]
+        public void SilhouetteAndAssembly_AreSizedToTheArtTheRealViewWillUse_OverscanIncluded()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 0);
+            FoundryDefinition foundry = TestDataFactory.NewFoundry(10, 0f, 0f);
+            Assert.AreNotEqual(1f, foundry.RenderOverscan, "Precondition: the Foundry is the overscanned case this guards.");
+
+            // A cost, or a zero-cost site materialises on the spot and never shows a silhouette.
+            SetCost(foundry, fixture.Plate, 4);
+
+            ConstructionSiteRuntime site = PlaceSite(fixture, foundry, new GridCoord(5, 5));
+            BuildingRuntime segment = site.Segments[0];
+
+            fixture.Views.Tick();
+
+            SpriteRenderer silhouette = fixture.Views.SilhouetteOf(segment);
+            Assert.IsNotNull(silhouette, "The segment must still be pending for this to mean anything.");
+
+            Vector2 expected = BuildingSpawner.ArtWorldSize(foundry, fixture.Grid.CellSize);
+            AssertDrawnWorldSize(silhouette, expected, "silhouette");
+            AssertDrawnWorldSize(fixture.Views.DissolveOf(segment).GetComponent<SpriteRenderer>(), expected, "assembling sprite");
+        }
+
+        /// <summary>TestDataFactory's typed builders take a cost only where a test already needed one; the Foundry's is written here the same way.</summary>
+        static void SetCost(BuildingDefinition definition, ItemDefinition item, int amount)
+        {
+            var so = new SerializedObject(definition);
+            SerializedProperty array = so.FindProperty("cost");
+            array.arraySize = 1;
+            SerializedProperty element = array.GetArrayElementAtIndex(0);
+            element.FindPropertyRelative("item").objectReferenceValue = item;
+            element.FindPropertyRelative("amount").intValue = amount;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        static void AssertDrawnWorldSize(SpriteRenderer renderer, Vector2 expected, string what)
+        {
+            Vector3 scale = renderer.transform.localScale;
+            Vector3 native = renderer.sprite.bounds.size;
+            Assert.AreEqual(expected.x, native.x * scale.x, 0.0001f, what + " width");
+            Assert.AreEqual(expected.y, native.y * scale.y, 0.0001f, what + " height");
+        }
+
         // --- Edge cases ---
 
         [Test]
