@@ -346,22 +346,20 @@ namespace Game.Presentation
         /// silhouette sits precisely under the sprite assembling over it, and nothing changes
         /// dimension at the handover.
         ///
-        /// A conveyor is fitted uniformly, preserving its art's aspect ratio, because that is what
-        /// ConveyorView does and a per-axis stretch is what used to make belts look a different
-        /// thickness than their neighbours. Everything else is fitted per axis to
-        /// BuildingSpawner.ArtWorldSize, matching SpawnStandardView and SpawnRotatingCrossView -
-        /// RenderOverscan included, without which the Foundry's silhouette came out 9% too small.
+        /// Always a uniform fit, preserving the art's aspect ratio, which is what every other art
+        /// path does - RenderOverscan included, without which the Foundry's silhouette came out 9%
+        /// too small. A per-axis stretch is a no-op on square art and squashes a sprite deliberately
+        /// drawn taller than its footprint into a square.
+        ///
+        /// The one thing a conveyor changes is the overscan, not the fit: a belt wearing the
+        /// procedural placeholder already fills its cell exactly.
         /// </summary>
         void ApplySizing(SpriteRenderer renderer, Sprite sprite, BuildingRuntime segment, BuildingDefinition definition)
         {
-            if (!(segment is ConveyorRuntime))
-            {
-                BuildingSpawner.SetSpriteToWorldSize(renderer, sprite, BuildingSpawner.ArtWorldSize(definition, _grid.CellSize));
-                return;
-            }
+            bool overscanned = !(segment is ConveyorRuntime) || UsesOwnConveyorArt(segment, definition);
 
             BuildingSpawner.FitSpriteUniform(renderer, sprite,
-                BuildingSpawner.ArtWorldSize(definition, _grid.CellSize, overscanned: UsesOwnConveyorArt(segment, definition)));
+                BuildingSpawner.ArtWorldSize(definition, _grid.CellSize, overscanned));
         }
 
         /// <summary>

@@ -18,9 +18,13 @@ namespace Game.Presentation
         const int StandardSortingOrder = 10;
         const int GroundSlabSortingOrder = 5;
 
-        // How far the concrete slab bleeds past the building's true footprint on each side, so it
-        // reads as sitting on top of the ground rather than stopping exactly at the grid line.
-        const float GroundSlabOverscanMargin = 0.3f;
+        // How far the concrete slab bleeds past the building's true footprint on each side, in
+        // cells, so it reads as an apron laid around the building rather than stopping exactly on
+        // the grid line. Half a cell each side, so a 3x3 building gets a 4x4 slab.
+        //
+        // In cells rather than world units: it is a statement about the grid, and the previous
+        // world-unit constant only happened to mean 0.3 cells because CellSize is 1.
+        const float GroundSlabOverscanCells = 0.5f;
 
         // Splitter/Crossroad's RenderOverscan deliberately makes their arms overlap the
         // neighboring conveyor's sprite bounds at the seam (to close the visual gap). With an
@@ -154,7 +158,7 @@ namespace Game.Presentation
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
-            SetSpriteToWorldSize(renderer, sprite, ArtWorldSize(definition, _grid.CellSize));
+            FitSpriteUniform(renderer, sprite, ArtWorldSize(definition, _grid.CellSize));
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
@@ -199,7 +203,7 @@ namespace Game.Presentation
             renderer.sharedMaterial = _spriteFactory.GetGroundSlabMaterial(_groundSlabSettings);
 
             Vector2 footprintWorldSize = new Vector2(_grid.CellSize, _grid.CellSize) * footprintSize;
-            Vector2 slabWorldSize = footprintWorldSize + Vector2.one * (GroundSlabOverscanMargin * 2f);
+            Vector2 slabWorldSize = footprintWorldSize + Vector2.one * (GroundSlabOverscanCells * 2f * _grid.CellSize);
             SetSpriteToWorldSize(renderer, _spriteFactory.GetGroundSlabUnitSprite(), slabWorldSize);
             ApplyGroundSlabPropertyBlock(renderer, cell, slabWorldSize);
 
@@ -238,7 +242,7 @@ namespace Game.Presentation
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
-            SetSpriteToWorldSize(renderer, sprite, ArtWorldSize(definition, _grid.CellSize));
+            FitSpriteUniform(renderer, sprite, ArtWorldSize(definition, _grid.CellSize));
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {

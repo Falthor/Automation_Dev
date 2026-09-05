@@ -17,10 +17,12 @@ namespace Game.Presentation
         const int GroundSlabSortingOrder = 5;
         const int OreDepositSortingOrder = 9;
 
-        // How far the concrete slab bleeds past the Core's true footprint on each side, so it
-        // reads as sitting on top of the ground rather than stopping exactly at the grid line -
-        // matches BuildingSpawner.GroundSlabOverscanMargin.
-        const float GroundSlabOverscanMargin = 0.3f;
+        // How far the concrete slab bleeds past the Core's true footprint on each side, in cells,
+        // so it reads as an apron laid around it rather than stopping exactly on the grid line -
+        // matches BuildingSpawner.GroundSlabOverscanCells, and has to: the Core's slab and a
+        // building's slab are the same visual object, and one apron wider than the other reads as a
+        // mistake.
+        const float GroundSlabOverscanCells = 0.5f;
 
         readonly GridRuntime _grid;
         readonly ProceduralSpriteFactory _spriteFactory;
@@ -60,7 +62,7 @@ namespace Game.Presentation
                 slabRenderer.sortingOrder = GroundSlabSortingOrder;
                 slabRenderer.sharedMaterial = _spriteFactory.GetGroundSlabMaterial(_groundSlabSettings);
 
-                Vector2 slabWorldSize = footprintWorldSize + Vector2.one * (GroundSlabOverscanMargin * 2f);
+                Vector2 slabWorldSize = footprintWorldSize + Vector2.one * (GroundSlabOverscanCells * 2f * _grid.CellSize);
                 SetSpriteToWorldSize(slabRenderer, _spriteFactory.GetGroundSlabUnitSprite(), slabWorldSize);
 
                 var random = new System.Random(core.Cell.GetHashCode());
