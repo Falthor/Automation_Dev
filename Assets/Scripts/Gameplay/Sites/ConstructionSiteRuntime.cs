@@ -51,6 +51,13 @@ namespace Game.Gameplay.Sites
 
         readonly List<Reservation> _reservations = new List<Reservation>();
 
+        /// <summary>
+        /// The bill's item ids in the order they were first costed, so a reader gets a stable row
+        /// order. _totalCost is a Dictionary and owes nobody an enumeration order; a panel refreshed
+        /// every frame off it could reshuffle its rows under the player's cursor.
+        /// </summary>
+        readonly List<string> _costOrder = new List<string>();
+
         public IReadOnlyList<BuildingRuntime> Segments => _segments;
         public IReadOnlyList<Reservation> Reservations => _reservations;
         public int MaterializedCount { get; private set; }
@@ -71,7 +78,83 @@ namespace Game.Gameplay.Sites
             foreach (RecipeIngredient ingredient in segment.Definition.Cost)
             {
                 if (ingredient.Item == null || ingredient.Amount <= 0) continue;
+
+                if (!_totalCost.ContainsKey(ingredient.Item.Id)) _costOrder.Add(ingredient.Item.Id);
                 _totalCost[ingredient.Item.Id] = (_totalCost.TryGetValue(ingredient.Item.Id, out int existing) ? existing : 0) + ingredient.Amount;
+            }
+        }
+
+        /// <summary>
+        /// One ingredient of the bill, in the three states a player actually asks about: what has
+        /// physically landed here, what is promised and coming, and what nothing anywhere has been
+        /// found for.
+        ///
+        /// <b>EnRoute is the whole point of this shape.</b> Without it the only honest thing to show
+        /// is "delivered 10 of 15", which cannot tell a site the system is busy serving from one that
+        /// has been forgotten for want of production - the two look identical until one of them
+        /// silently never finishes. It covers both halves of a promise: earmarked in a container and
+        /// not yet collected, and already riding in a robot's cargo. From the outside those are the
+        /// same statement - this is on its way - so they are one number.
+        /// </summary>
+        public readonly struct SupplyLine
+        {
+            public readonly string ItemId;
+            public readonly int Total;
+            public readonly int Delivered;
+            public readonly int EnRoute;
+            public readonly int Missing;
+
+            public SupplyLine(string itemId, int total, int delivered, int enRoute, int missing)
+            {
+                ItemId = itemId;
+                Total = total;
+                Delivered = delivered;
+                EnRoute = enRoute;
+                Missing = missing;
+            }
+
+            /// <summary>Nothing is coming and something is still owed - the site is stalled on this ingredient.</summary>
+            public bool IsStalled => Missing > 0 && EnRoute == 0;
+        }
+
+        /// <summary>
+        /// The bill of materials in its three states, in a stable order. Fills a caller-owned list so
+        /// a panel refreshing every frame allocates nothing.
+        ///
+        /// Assembled here rather than left to the reader: the three numbers are one statement about
+        /// one ingredient and they have to add up to Total. A caller subtracting its own "en route"
+        /// from a delivered count and a cost would be re-deriving that rule outside the only object
+        /// that maintains it.
+        /// </summary>
+        public void GetSupply(List<SupplyLine> into)
+        {
+            into.Clear();
+
+            foreach (string itemId in _costOrder)
+            {
+                int total = _totalCost.TryGetValue(itemId, out int c) ? c : 0;
+                int delivered = _delivered.TryGetValue(itemId, out int d) ? d : 0;
+                int enRoute = _committed.TryGetValue(itemId, out int p) ? p : 0;
+
+                // Delivered can exceed a segment's own share while later segments still owe theirs,
+                // so the clamp is on the total, not per line.
+                delivered = System.Math.Min(delivered, total);
+                enRoute = System.Math.Min(enRoute, total - delivered);
+
+                into.Add(new SupplyLine(itemId, total, delivered, enRoute, System.Math.Max(0, total - delivered - enRoute)));
+            }
+        }
+
+        /// <summary>Whether every ingredient of the bill has been delivered or is on its way - false the moment one of them has nothing coming.</summary>
+        public bool IsFullySupplied
+        {
+            get
+            {
+                foreach (string itemId in _costOrder)
+                {
+                    if (RemainingNeeded(itemId) > 0) return false;
+                }
+                return true;
             }
         }
 

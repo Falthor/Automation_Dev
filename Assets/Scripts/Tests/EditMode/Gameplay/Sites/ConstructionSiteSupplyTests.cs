@@ -1,0 +1,287 @@
+using System.Collections.Generic;
+using Game.Construction;
+using Game.Core;
+using Game.Data;
+using Game.Gameplay.Buildings;
+using Game.Gameplay.Compute;
+using Game.Gameplay.Notifications;
+using Game.Gameplay.Power;
+using Game.Gameplay.Research;
+using Game.Gameplay.Sites;
+using Game.Gameplay.Transport;
+using Game.Grid;
+using Game.Tests.EditMode.TestSupport;
+using NUnit.Framework;
+using UnityEngine;
+
+using SupplyLine = Game.Gameplay.Sites.ConstructionSiteRuntime.SupplyLine;
+
+namespace Game.Tests.EditMode.Gameplay.Sites
+{
+    /// <summary>
+    /// The reservation counter: a site's bill of materials in the three states a player asks about -
+    /// arrived, on its way, missing.
+    ///
+    /// What is really being tested here is that <b>en route</b> is a state of its own. Delivered and
+    /// cost alone can only say "10 of 15", which reads the same for a site the system is actively
+    /// serving and for one that has been forgotten because nothing produces what it needs. Those two
+    /// situations are what the player is trying to tell apart, and only the reservation total
+    /// separates them.
+    /// </summary>
+    public class ConstructionSiteSupplyTests
+    {
+        const string PlateId = "iron_plate";
+        const string GearId = "gear";
+        const float TickSeconds = 0.2f;
+
+        sealed class Fixture
+        {
+            public GridRuntime Grid;
+            public TransportSystem Transport;
+            public ConstructionSiteSystem Sites;
+            public ConstructionService Construction;
+            public ItemDefinition Plate;
+            public ItemDefinition Gear;
+            public StorageRuntime CoreChest;
+
+            public void Simulate(float seconds)
+            {
+                for (float elapsed = 0f; elapsed < seconds; elapsed += TickSeconds)
+                {
+                    Sites.Tick(TickSeconds);
+                }
+            }
+        }
+
+        static Fixture NewFixture(int plates = 0, int gears = 0)
+        {
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+            var notifications = new NotificationSystem();
+            var sites = new ConstructionSiteSystem(transport, grid, notifications, Vector2.zero);
+            var construction = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(),
+                new ResearchSystem(new ComputeSystem()), transport, null, sites);
+
+            var fixture = new Fixture
+            {
+                Grid = grid,
+                Transport = transport,
+                Sites = sites,
+                Construction = construction,
+                Plate = TestDataFactory.NewItem(PlateId),
+                Gear = TestDataFactory.NewItem(GearId)
+            };
+
+            StorageDefinition chestDefinition = TestDataFactory.NewStorage(
+                ConstructionSiteSystem.CoreStorageDefinitionId, 6, 200, rejectsConveyorInput: true);
+            fixture.CoreChest = new StorageRuntime(chestDefinition, new GridCoord(0, 0), Direction.North);
+            grid.SetOccupantFootprint(fixture.CoreChest.Cell, chestDefinition.FootprintSize, fixture.CoreChest);
+            transport.Register(fixture.CoreChest);
+
+            if (plates > 0) fixture.CoreChest.SeedInitialContents(PlateId, plates);
+            if (gears > 0) fixture.CoreChest.SeedInitialContents(GearId, gears);
+
+            return fixture;
+        }
+
+        static ConstructionSiteRuntime PlaceSite(Fixture fixture, BuildingDefinition definition, GridCoord cell)
+        {
+            fixture.Construction.SelectBuilding(definition);
+            Assert.IsTrue(fixture.Construction.TryPlace(cell, Direction.North, out ConstructionSiteRuntime site));
+            return site;
+        }
+
+        static readonly List<SupplyLine> Lines = new List<SupplyLine>();
+
+        static SupplyLine LineFor(ConstructionSiteRuntime site, string itemId)
+        {
+            site.GetSupply(Lines);
+            foreach (SupplyLine line in Lines)
+            {
+                if (line.ItemId == itemId) return line;
+            }
+
+            Assert.Fail("No supply line for " + itemId);
+            return default;
+        }
+
+        /// <summary>
+        /// The distinction the whole counter exists for. Materials earmarked in a container but not
+        /// yet collected have not arrived - counting them as delivered would claim the site is fed
+        /// when nothing has moved - but they are not missing either, because they are spoken for and
+        /// no other site can take them.
+        /// </summary>
+        [Test]
+        public void MaterialsReservedButNotYetCollected_ReadAsEnRoute_NeitherArrivedNorMissing()
+        {
+            Fixture fixture = NewFixture(plates: 4);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
+
+            ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
+
+            SupplyLine line = LineFor(site, PlateId);
+
+            Assert.AreEqual(4, line.Total);
+            Assert.AreEqual(0, line.Delivered, "Placing a site moves nothing physically.");
+            Assert.AreEqual(4, line.EnRoute, "But it does claim what it needs, and that claim is what 'en route' reports.");
+            Assert.AreEqual(0, line.Missing, "Nothing is missing: the plates exist and are spoken for.");
+            Assert.IsFalse(line.IsStalled);
+        }
+
+        /// <summary>
+        /// The other half of the same distinction, and the reason "delivered X of Y" is not enough:
+        /// two ingredients at the same delivered count, one being served and one that nothing in the
+        /// world can supply.
+        /// </summary>
+        [Test]
+        public void WhatNoContainerHolds_ReadsAsMissing_AndMarksTheLineStalled()
+        {
+            Fixture fixture = NewFixture(plates: 4, gears: 0);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, 0f, (fixture.Plate, 4), (fixture.Gear, 3));
+
+            ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
+
+            SupplyLine plates = LineFor(site, PlateId);
+            SupplyLine gears = LineFor(site, GearId);
+
+            Assert.AreEqual(0, plates.Delivered);
+            Assert.AreEqual(0, gears.Delivered);
+            Assert.AreEqual(plates.Delivered, gears.Delivered,
+                "Precondition: on a delivered count alone these two ingredients are indistinguishable.");
+
+            Assert.AreEqual(4, plates.EnRoute, "One of them is being served...");
+            Assert.IsFalse(plates.IsStalled);
+
+            Assert.AreEqual(0, gears.EnRoute, "...and the other has nothing coming at all.");
+            Assert.AreEqual(3, gears.Missing);
+            Assert.IsTrue(gears.IsStalled, "Which is the state a player has to be able to see.");
+
+            Assert.IsFalse(site.IsFullySupplied);
+        }
+
+        /// <summary>A promise becomes an arrival: the same units cross from one column to the other, never appearing in both or neither.</summary>
+        [Test]
+        public void OnDelivery_UnitsCrossFromEnRouteIntoArrived()
+        {
+            Fixture fixture = NewFixture(plates: 4);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
+            ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
+
+            Assert.AreEqual(0, LineFor(site, PlateId).Delivered);
+            Assert.AreEqual(4, LineFor(site, PlateId).EnRoute);
+
+            fixture.Simulate(12f);
+
+            SupplyLine line = LineFor(site, PlateId);
+            Assert.AreEqual(4, line.Delivered, "Everything promised has now physically landed.");
+            Assert.AreEqual(0, line.EnRoute, "And nothing is still on its way.");
+            Assert.AreEqual(0, line.Missing);
+            Assert.IsTrue(site.IsComplete);
+        }
+
+        /// <summary>
+        /// The three states are one statement about one ingredient, so they must account for the
+        /// whole bill at every instant - including mid-flight, where a robot is carrying part of it
+        /// and the rest is still sitting in the chest.
+        /// </summary>
+        [Test]
+        public void TheThreeStates_AlwaysAccountForTheWholeBill()
+        {
+            Fixture fixture = NewFixture(plates: 8, gears: 6);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, 0f, (fixture.Plate, 8), (fixture.Gear, 6));
+            ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(6, 6));
+
+            for (int step = 0; step < 40; step++)
+            {
+                site.GetSupply(Lines);
+                foreach (SupplyLine line in Lines)
+                {
+                    Assert.AreEqual(line.Total, line.Delivered + line.EnRoute + line.Missing,
+                        $"step {step}, {line.ItemId}: {line.Delivered} + {line.EnRoute} + {line.Missing} != {line.Total}");
+                    Assert.GreaterOrEqual(line.Delivered, 0);
+                    Assert.GreaterOrEqual(line.EnRoute, 0);
+                    Assert.GreaterOrEqual(line.Missing, 0);
+                }
+
+                fixture.Simulate(0.6f);
+            }
+
+            Assert.IsTrue(site.IsComplete, "Precondition: the run actually got somewhere.");
+        }
+
+        /// <summary>
+        /// A stalled ingredient stops being stalled the moment production catches up - the panel has
+        /// to show a forgotten site coming back to life, not just going dark.
+        /// </summary>
+        [Test]
+        public void AStalledLine_RecoversWhenTheMaterialAppears()
+        {
+            Fixture fixture = NewFixture(plates: 4, gears: 0);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, 0f, (fixture.Plate, 4), (fixture.Gear, 3));
+            ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
+
+            Assert.IsTrue(LineFor(site, GearId).IsStalled);
+
+            fixture.CoreChest.SeedInitialContents(GearId, 3);
+            fixture.Simulate(0.4f);
+
+            SupplyLine gears = LineFor(site, GearId);
+            Assert.IsFalse(gears.IsStalled, "The retry pass claims newly available stock for the sites already waiting on it.");
+            Assert.AreEqual(3, gears.EnRoute);
+            Assert.AreEqual(0, gears.Missing);
+        }
+
+        /// <summary>
+        /// The rows come back in the order they were costed, every time. A panel refreshed every
+        /// frame off a Dictionary's enumeration order could reshuffle its rows under the cursor, and
+        /// nothing in the Dictionary contract forbids it.
+        /// </summary>
+        [Test]
+        public void TheRowOrder_FollowsTheBill_AndDoesNotMoveBetweenReads()
+        {
+            Fixture fixture = NewFixture(plates: 4, gears: 3);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, 0f, (fixture.Plate, 4), (fixture.Gear, 3));
+            ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
+
+            site.GetSupply(Lines);
+            Assert.AreEqual(2, Lines.Count);
+            Assert.AreEqual(PlateId, Lines[0].ItemId);
+            Assert.AreEqual(GearId, Lines[1].ItemId);
+
+            var firstRead = new List<SupplyLine>(Lines);
+
+            for (int step = 0; step < 15; step++)
+            {
+                fixture.Simulate(0.6f);
+
+                site.GetSupply(Lines);
+                Assert.AreEqual(firstRead.Count, Lines.Count);
+                for (int i = 0; i < Lines.Count; i++)
+                {
+                    Assert.AreEqual(firstRead[i].ItemId, Lines[i].ItemId, "row " + i + " moved at step " + step);
+                }
+            }
+        }
+
+        /// <summary>
+        /// A dragged conveyor run is one site with many segments, so its bill is the sum of theirs -
+        /// the panel speaks about the whole run, which is what the player placed.
+        /// </summary>
+        [Test]
+        public void ADraggedRun_ReportsOneBillForTheWholeSite()
+        {
+            Fixture fixture = NewFixture(plates: 12);
+            ConveyorDefinition belt = TestDataFactory.NewConveyor("belt", (fixture.Plate, 1));
+
+            fixture.Construction.SelectBuilding(belt);
+            Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(4, 4), Direction.East, out ConstructionSiteRuntime site));
+            Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5, 4), Direction.East, out ConstructionSiteRuntime same, site));
+            Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(6, 4), Direction.East, out _, site));
+            Assert.AreSame(site, same, "A drag extends one site rather than starting a new one per cell.");
+
+            SupplyLine line = LineFor(site, PlateId);
+            Assert.AreEqual(3, line.Total, "Three segments at one plate each is one bill of three.");
+            Assert.AreEqual(3, site.Segments.Count);
+        }
+    }
+}
