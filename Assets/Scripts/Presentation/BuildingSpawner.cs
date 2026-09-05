@@ -169,7 +169,7 @@ namespace Game.Presentation
                 renderer.gameObject.AddComponent<SpriteFlipbook>().Initialize(definition.AnimationFrames, definition.AnimationFps);
             }
 
-            AttachShadow(renderer);
+            AttachShadow(runtime, renderer);
 
             if (definition.HasOutputArrow)
             {
@@ -197,13 +197,25 @@ namespace Game.Presentation
         /// instead of a hard cutoff. No-op when no slab texture pair is configured (e.g. EditMode
         /// tests). Not used by conveyors/Splitter/Crossroad - see BuildingSpawner class docs on
         /// SpawnStandardView for why the transport family is excluded.
+        ///
+        /// <paramref name="revealedByNanoFront"/> produces the construction-time slab instead: the
+        /// same pad in every respect, but drawn only where the nano conversion has already passed,
+        /// so the ground the nanites convert becomes this concrete rather than a blue patch fading
+        /// out in front of a slab appearing whole. It is standalone (no parent) and stays out of the
+        /// neighbour linker - see ConstructionSiteVisualSync, which owns it and swaps it for the
+        /// permanent one at the handover.
         /// </summary>
-        void SpawnGroundSlab(Transform parent, GridCoord cell, Vector2Int footprintSize)
+        internal SpriteRenderer SpawnGroundSlab(Transform parent, GridCoord cell, Vector2Int footprintSize, bool revealedByNanoFront = false)
         {
-            if (_groundSlabSettings == null || !_groundSlabSettings.CanRenderSlab) return;
+            if (_groundSlabSettings == null || !_groundSlabSettings.CanRenderSlab) return null;
 
-            var slabGo = new GameObject("GroundSlab");
+            var slabGo = new GameObject(revealedByNanoFront ? "GroundSlab (converting)" : "GroundSlab");
             slabGo.transform.SetParent(parent, false);
+
+            // The permanent slab hangs under a root already standing at the footprint's centre; the
+            // construction one has no such root, so it places itself there.
+            if (parent == null) slabGo.transform.position = _grid.FootprintCenterToWorld(cell, footprintSize);
+
             var renderer = slabGo.AddComponent<SpriteRenderer>();
             renderer.sortingOrder = GroundSlabSortingOrder;
             renderer.sharedMaterial = _spriteFactory.GetGroundSlabMaterial(_groundSlabSettings);
@@ -211,23 +223,30 @@ namespace Game.Presentation
             Vector2 footprintWorldSize = new Vector2(_grid.CellSize, _grid.CellSize) * footprintSize;
             Vector2 slabWorldSize = footprintWorldSize + Vector2.one * (GroundSlabOverscanCells * 2f * _grid.CellSize);
             SetSpriteToWorldSize(renderer, _spriteFactory.GetGroundSlabUnitSprite(), slabWorldSize);
-            ApplyGroundSlabPropertyBlock(renderer, cell, slabWorldSize);
+            ApplyGroundSlabPropertyBlock(renderer, cell, slabWorldSize, revealedByNanoFront);
 
-            _groundSlabNeighborLinker?.Register(cell, footprintSize, renderer);
+            // Seam-linking is between finished neighbours. Registering a slab that is about to be
+            // destroyed and replaced would leave the linker holding a dead renderer the moment a
+            // site is cancelled.
+            if (!revealedByNanoFront) _groundSlabNeighborLinker?.Register(cell, footprintSize, renderer);
+
+            return renderer;
         }
 
         /// <summary>
         /// Per-instance shader inputs that the shared GetGroundSlabMaterial can't carry itself:
         /// a random UV phase (seeded by cell, so it's stable across a view rebuild) so adjacent
-        /// slabs don't tile in visible lockstep, and the footprint's own world size so the
-        /// shader's edge fade reads as the same physical width regardless of footprint size.
+        /// slabs don't tile in visible lockstep, the footprint's own world size so the shader's
+        /// edge fade reads as the same physical width regardless of footprint size, and whether
+        /// this slab is gated by the nano front.
         /// </summary>
-        static void ApplyGroundSlabPropertyBlock(SpriteRenderer renderer, GridCoord cell, Vector2 footprintWorldSize)
+        static void ApplyGroundSlabPropertyBlock(SpriteRenderer renderer, GridCoord cell, Vector2 footprintWorldSize, bool revealedByNanoFront)
         {
             var random = new System.Random(cell.GetHashCode());
             var propertyBlock = new MaterialPropertyBlock();
             propertyBlock.SetVector("_UVOffset", new Vector4((float)random.NextDouble() * 10f, (float)random.NextDouble() * 10f, 0f, 0f));
             propertyBlock.SetVector("_FootprintWorldSize", new Vector4(footprintWorldSize.x, footprintWorldSize.y, 0f, 0f));
+            propertyBlock.SetFloat("_RevealByCoverage", revealedByNanoFront ? 1f : 0f);
             renderer.SetPropertyBlock(propertyBlock);
         }
 
@@ -255,7 +274,7 @@ namespace Game.Presentation
                 renderer.gameObject.AddComponent<SpriteFlipbook>().Initialize(definition.AnimationFrames, definition.AnimationFps);
             }
 
-            AttachShadow(renderer);
+            AttachShadow(runtime, renderer);
 
             int rotationDegrees = runtime.FacingRotation.ToRotationDegrees() - artNativeDirection.ToRotationDegrees();
             root.transform.rotation = Quaternion.Euler(0f, 0f, -rotationDegrees);
@@ -284,11 +303,18 @@ namespace Game.Presentation
         /// Conveyors are excluded too, and belong to their own view: a belt lies flat on the
         /// ground, so it has nothing to cast, and there are hundreds of them.
         /// </summary>
-        void AttachShadow(SpriteRenderer renderer)
+        void AttachShadow(BuildingRuntime runtime, SpriteRenderer renderer)
         {
-            if (_shadowSettings == null) return;
+            if (_shadowSettings == null || !CastsShadow(runtime)) return;
             renderer.gameObject.AddComponent<DropShadow>().Settings = _shadowSettings;
         }
+
+        /// <summary>
+        /// Storage boxes are excluded by request: their art is low and flat-topped, so the offset
+        /// silhouette reads as a second box beside the first rather than as the box's own shadow -
+        /// and they are placed in rows, which multiplies the effect.
+        /// </summary>
+        static bool CastsShadow(BuildingRuntime runtime) => !(runtime is StorageRuntime);
 
         void SpawnDirectionalArrow(Transform parent, Vector3 worldPosition, Direction direction, Color color, int sortingOrder, bool inward)
         {

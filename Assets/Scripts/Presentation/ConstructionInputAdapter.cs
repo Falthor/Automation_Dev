@@ -121,7 +121,16 @@ namespace Game.Presentation
                 // segment's assembly and swap in the real building themselves. A second spawner
                 // built over there would keep its own per-cell view dictionary, and demolition
                 // would stop finding views created by the other.
-                if (gameRuntime.ConstructionSiteVisuals != null) gameRuntime.ConstructionSiteVisuals.SetViewSpawner(_spawner.SpawnView);
+                if (gameRuntime.ConstructionSiteVisuals != null)
+                {
+                    gameRuntime.ConstructionSiteVisuals.SetViewSpawner(_spawner.SpawnView);
+
+                    // And its concrete pad, for the same reason: the slab a site reveals while
+                    // converting has to be the pad the finished building keeps, tiling phase
+                    // included, or the swap at the handover would show.
+                    gameRuntime.ConstructionSiteVisuals.SetGroundSlabSpawner(
+                        (cell, footprint) => _spawner.SpawnGroundSlab(null, cell, footprint, revealedByNanoFront: true));
+                }
 
                 _subscribedToMaterialization = true;
             }

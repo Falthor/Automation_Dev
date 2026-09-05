@@ -57,6 +57,7 @@ namespace Game.Presentation
         readonly List<BuildingRuntime> _scratch = new List<BuildingRuntime>();
 
         System.Action<BuildingRuntime> _spawnRealView;
+        System.Func<GridCoord, Vector2Int, SpriteRenderer> _spawnConvertingSlab;
         ConstructionSiteSystem _sites;
         GridRuntime _grid;
         bool _subscribed;
@@ -94,6 +95,15 @@ namespace Game.Presentation
         /// Called once per segment, at the instant its dissolve finishes.
         /// </summary>
         public void SetViewSpawner(System.Action<BuildingRuntime> spawnRealView) => _spawnRealView = spawnRealView;
+
+        /// <summary>
+        /// Lends the scene's one BuildingSpawner its concrete-pad factory, in the same spirit as
+        /// SetViewSpawner: the slab a site shows while converting must be the very pad the finished
+        /// building will keep, down to its tiling phase and size, or the swap at the handover would
+        /// be visible. Null simply means sites show no slab.
+        /// </summary>
+        public void SetGroundSlabSpawner(System.Func<GridCoord, Vector2Int, SpriteRenderer> spawnConvertingSlab)
+            => _spawnConvertingSlab = spawnConvertingSlab;
 
         /// <summary>
         /// The blue silhouette drawn for this segment, null when none. A view accessor, also what
@@ -135,7 +145,7 @@ namespace Game.Presentation
                 }
                 else displayed = view.AssemblyRenderer != null ? 1f : 0f;
 
-                into.Add(new DrawnSegment(kvp.Key, displayed, flash));
+                into.Add(new DrawnSegment(kvp.Key, displayed, flash, view.Slab));
             }
         }
 
@@ -148,11 +158,20 @@ namespace Game.Presentation
             /// <summary>The dissolve's current flash, so the ground layer can pulse on the same delivery rather than computing its own.</summary>
             public readonly float FlashBoost;
 
-            public DrawnSegment(BuildingRuntime segment, float displayedProgress, float flashBoost = 0f)
+            /// <summary>
+            /// The concrete pad waiting behind the conversion front, for whoever owns the field to
+            /// point at it. Carried here rather than looked up because the ground layer already
+            /// resolves this segment's zone, and the zone is exactly what the slab needs to know.
+            /// Null for a conveyor, and wherever no slab art is configured.
+            /// </summary>
+            public readonly SpriteRenderer ConvertingSlab;
+
+            public DrawnSegment(BuildingRuntime segment, float displayedProgress, float flashBoost = 0f, SpriteRenderer convertingSlab = null)
             {
                 Segment = segment;
                 DisplayedProgress = displayedProgress;
                 FlashBoost = flashBoost;
+                ConvertingSlab = convertingSlab;
             }
         }
 
@@ -291,6 +310,13 @@ namespace Game.Presentation
             if (_views.TryGetValue(segment, out SegmentView existing) && existing.Silhouette != null) return existing;
 
             var view = new SegmentView { Silhouette = NewRenderer($"ConstructionSite {segment.Cell}", SilhouetteSortingOrder) };
+
+            // Conveyors have no concrete pad when finished, so they get none while converting -
+            // the same exclusion SpawnStandardView already makes for the transport family.
+            if (!(segment is ConveyorRuntime))
+            {
+                view.Slab = _spawnConvertingSlab?.Invoke(segment.Cell, segment.Definition.FootprintSize);
+            }
 
             if (AssemblesMaterializedSegments)
             {
@@ -478,6 +504,9 @@ namespace Game.Presentation
             public SpriteRenderer AssemblyRenderer;
             public BuildDissolveView Dissolve;
 
+            /// <summary>The concrete pad appearing behind the conversion front. Null for a conveyor, and wherever no slab art is configured.</summary>
+            public SpriteRenderer Slab;
+
             /// <summary>Set once the segment materialised: the view no longer belongs to a site and finishes assembling on its own.</summary>
             public bool Detached;
 
@@ -493,8 +522,10 @@ namespace Game.Presentation
             {
                 DestroyObject(Silhouette);
                 DestroyObject(AssemblyRenderer);
+                DestroyObject(Slab);
                 Silhouette = null;
                 AssemblyRenderer = null;
+                Slab = null;
                 Dissolve = null;
             }
 

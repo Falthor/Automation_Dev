@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using Game.Core;
 using Game.Data;
 using Game.Gameplay.Buildings;
+using Game.Gameplay.Compute;
+using Game.Gameplay.Power;
 using Game.Grid;
 using Game.Presentation;
 using Game.Tests.EditMode.TestSupport;
@@ -83,18 +85,43 @@ namespace Game.Tests.EditMode.Presentation
             return shadows.Length == 1 ? shadows[0] : null;
         }
 
+        /// <summary>A gas power plant, for no reason beyond being the lightest thing SpawnStandardView draws that is not a Storage.</summary>
+        BuildingRuntime NewStandardBuilding()
+        {
+            ItemDefinition fuel = TestDataFactory.NewItem("gas");
+            _assets.Add(fuel);
+
+            PowerplantGazDefinition definition = TestDataFactory.NewPowerplantGaz(fuel, 10, 100f, 0f, 0f, 1f);
+            _assets.Add(definition);
+
+            return new PowerplantGazRuntime(definition, new GridCoord(0, 0), Direction.North,
+                new ComputeSystem(), new PowerSystem());
+        }
+
         [Test]
         public void AStandardBuilding_CastsAShadow()
         {
             BuildingShadowSettings settings = NewShadowSettings();
 
-            StorageDefinition definition = TestDataFactory.NewStorage("shadowed");
-            var runtime = new StorageRuntime(definition, new GridCoord(0, 0), Direction.North);
-
-            DropShadow shadow = SpawnedShadow(NewSpawner(settings), runtime);
+            DropShadow shadow = SpawnedShadow(NewSpawner(settings), NewStandardBuilding());
 
             Assert.IsNotNull(shadow, "A building drawn by SpawnStandardView must cast a shadow.");
             Assert.AreSame(settings, shadow.Settings, "And read the one shared settings asset, never a copy.");
+        }
+
+        /// <summary>
+        /// Storage boxes are excluded by request: their art is low and flat-topped, so the offset
+        /// silhouette reads as a second box beside the first rather than as the box's own shadow -
+        /// and they are placed in rows, which multiplies it.
+        /// </summary>
+        [Test]
+        public void AStorageBox_CastsNone()
+        {
+            StorageDefinition definition = TestDataFactory.NewStorage("box");
+            var runtime = new StorageRuntime(definition, new GridCoord(0, 0), Direction.North);
+
+            Assert.IsNull(SpawnedShadow(NewSpawner(NewShadowSettings()), runtime),
+                "Storage boxes are deliberately excluded from the shadow pass.");
         }
 
         /// <summary>
@@ -133,10 +160,8 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void WithoutSettings_NothingCastsAShadow()
         {
-            StorageDefinition definition = TestDataFactory.NewStorage("unshadowed");
-            var runtime = new StorageRuntime(definition, new GridCoord(0, 0), Direction.North);
-
-            Assert.IsNull(SpawnedShadow(NewSpawner(null), runtime), "No settings asset means no shadow at all.");
+            Assert.IsNull(SpawnedShadow(NewSpawner(null), NewStandardBuilding()),
+                "No settings asset means no shadow at all.");
         }
     }
 }

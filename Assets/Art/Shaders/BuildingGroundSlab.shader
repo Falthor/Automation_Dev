@@ -32,6 +32,17 @@ Shader "Custom/BuildingGroundSlab"
         _VariationOrigin ("Ground Variation Origin (world)", Vector) = (0, 0, 0, 0)
         _TextureWorldSize ("Ground Texture World Size", Vector) = (4, 4, 0, 0)
 
+        // The nano conversion front, shared verbatim with Custom/GroundCoverage: same texture, same
+        // encoding (0.5 = the front), same zone rectangle. A slab under construction is revealed by
+        // it, so the ground the nanites convert BECOMES the concrete instead of a blue patch fading
+        // out in front of a slab that pops in whole. A finished building's slab leaves
+        // _RevealByCoverage at 0 and ignores all of this - it must not retreat when the conversion
+        // tint does.
+        _CoverageTex ("Nano front distance (R8, 0.5 = the front)", 2D) = "white" {}
+        _CoverageZoneBounds ("Nano zone bounds (minX, minY, sizeX, sizeY)", Vector) = (0, 0, 1, 1)
+        _RevealByCoverage ("Revealed by the nano front (0/1)", Float) = 0
+        _CoverageRevealLag ("Concrete lag behind the front, in threshold units", Float) = 0.06
+
         _ReliefLightDir ("Relief Light Direction (xyz)", Vector) = (0.5, 0.5, 0.7, 0)
         _ReliefLightIntensity ("Relief Light Intensity", Range(0, 2)) = 1.4
         _ReliefAmbient ("Relief Ambient (shadow floor)", Range(0, 1)) = 0.35
@@ -51,6 +62,7 @@ Shader "Custom/BuildingGroundSlab"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma target 3.0     // fwidth, for the nano front's one-pixel edge
             #include "UnityCG.cginc"
 
             struct appdata
@@ -98,6 +110,11 @@ Shader "Custom/BuildingGroundSlab"
             float _BiomeSeed;
             float4 _VariationOrigin;
             float4 _TextureWorldSize;
+
+            sampler2D _CoverageTex;
+            float4 _CoverageZoneBounds;
+            float _RevealByCoverage;
+            float _CoverageRevealLag;
 
             float4 _ReliefLightDir;
             float _ReliefLightIntensity;
@@ -255,6 +272,23 @@ Shader "Custom/BuildingGroundSlab"
                 // Beyond the sand band, the slab still fades out via alpha (same as before) to
                 // avoid a hard geometric cutoff at the far edge of the overscanned quad.
                 diffuse.a *= smoothstep(0.0, max(_EdgeSoftness, 0.0001), edgeDist);
+
+                // The nano front, read exactly as Custom/GroundCoverage reads it - one field, two
+                // layers, so the concrete cannot appear anywhere the conversion has not reached.
+                // The lag holds it a little behind the glowing edge, which is what makes the pair
+                // read as one process converting the ground rather than two things switching on
+                // together.
+                if (_RevealByCoverage > 0.5)
+                {
+                    float2 coverageUV = (i.worldPos.xy - _CoverageZoneBounds.xy)
+                                      / max(_CoverageZoneBounds.zw, float2(0.0001, 0.0001));
+                    float distanceToFront = tex2D(_CoverageTex, coverageUV).r * 2.0 - 1.0;
+                    float behind = distanceToFront - _CoverageRevealLag;
+
+                    // Screen-space antialiasing, one pixel wide at any zoom - the same reason
+                    // Custom/GroundCoverage uses fwidth rather than a tunable softness.
+                    diffuse.a *= smoothstep(0.0, max(fwidth(behind), 1e-5), behind);
+                }
 
                 return diffuse * i.color;
             }

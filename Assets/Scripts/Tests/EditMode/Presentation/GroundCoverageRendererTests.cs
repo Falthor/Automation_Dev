@@ -375,6 +375,54 @@ namespace Game.Tests.EditMode.Presentation
                 "R8_SRGB would have the sampler gamma-decode a signed distance field.");
         }
 
+        /// <summary>
+        /// The concrete pad and the nano conversion say the same thing about the same cells, so
+        /// they have to be driven by the same field: one texture, one zone rectangle, one encoding.
+        /// The pad recomputing its own copy of the threshold in HLSL would put the rule in two
+        /// languages, and they would part company the first time either was tuned.
+        /// </summary>
+        [Test]
+        public void AConvertingSlab_IsPointedAtTheZonesOwnField()
+        {
+            GroundCoverageRenderer renderer = NewRenderer(out _);
+            StorageDefinition definition = TestDataFactory.NewStorage("target");
+            var cell = new GridCoord(2, 2);
+            BuildingRuntime segment = NewSegment(definition, cell);
+
+            var slabGo = new GameObject("ConvertingSlab");
+            _spawned.Add(slabGo);
+            var slab = slabGo.AddComponent<SpriteRenderer>();
+
+            renderer.Tick(0f, OneZone(), new List<DrawnSegment>
+            {
+                new DrawnSegment(segment, 0.5f, 0f, slab)
+            });
+
+            var block = new MaterialPropertyBlock();
+            slab.GetPropertyBlock(block);
+
+            Assert.AreSame(renderer.TextureOf(1), block.GetTexture("_CoverageTex"),
+                "The slab reads the very texture this layer draws, not a copy.");
+            Assert.AreEqual(renderer.ZoneBoundsOf(1), block.GetVector("_CoverageZoneBounds"),
+                "And the same world rectangle, or it would sample the field at an offset.");
+        }
+
+        /// <summary>A conveyor has no pad, and a zone that does not contain the site has no field to hand out. Neither may throw.</summary>
+        [Test]
+        public void ASegmentWithNoSlab_IsHarmless()
+        {
+            GroundCoverageRenderer renderer = NewRenderer(out _);
+            StorageDefinition definition = TestDataFactory.NewStorage("target");
+            BuildingRuntime inside = NewSegment(definition, new GridCoord(2, 2));
+            BuildingRuntime outside = NewSegment(definition, new GridCoord(500, 500));
+
+            Assert.DoesNotThrow(() => renderer.Tick(0f, OneZone(), new List<DrawnSegment>
+            {
+                new DrawnSegment(inside, 0.5f),
+                new DrawnSegment(outside, 0.5f)
+            }));
+        }
+
         // --- The retreat ---
 
         /// <summary>

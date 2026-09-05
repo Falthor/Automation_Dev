@@ -64,6 +64,13 @@ namespace Game.Presentation
         readonly List<ConstructionSiteVisualSync.DrawnSegment> _segmentScratch = new List<ConstructionSiteVisualSync.DrawnSegment>();
         readonly List<int> _closedScratch = new List<int>();
 
+        /// <summary>
+        /// Reused so pointing slabs at the field costs no allocation per frame. Created on demand,
+        /// never in a field initializer: a MaterialPropertyBlock is engine-backed, and Unity refuses
+        /// to construct one from a MonoBehaviour's constructor.
+        /// </summary>
+        MaterialPropertyBlock _slabBlock;
+
         GridRuntime _grid;
 
         /// <summary>Set when a zone is created or resized, so the patches are written into its blank field even on a tick where nothing else moved.</summary>
@@ -111,6 +118,9 @@ namespace Game.Presentation
             public float Progress;
             public float Flash;
             public bool Live;
+
+            /// <summary>The concrete pad this site is revealing behind its front, if it has one. Fed the zone's field so both layers read the same one.</summary>
+            public SpriteRenderer Slab;
         }
 
         sealed class Zone
@@ -125,6 +135,9 @@ namespace Game.Presentation
 
             /// <summary>World position of the zone's bottom-left corner - the noise is sampled in world space, so every patch needs it.</summary>
             public Vector2 MinWorld;
+
+            /// <summary>The world rectangle the texture covers, (minX, minY, sizeX, sizeY) - what both shaders reading this field convert world position to UV with.</summary>
+            public Vector4 Bounds;
 
             /// <summary>Texel rectangles written last rebuild, and therefore the only ones that have to be cleared at the next one.</summary>
             public readonly List<RectInt> Written = new List<RectInt>();
@@ -196,7 +209,7 @@ namespace Game.Presentation
             if (changed || _fieldStale) Rebuild();
             _fieldStale = false;
 
-            UpdateFlashes();
+            PushPerPatchState();
 
             foreach (var kvp in _zones) Upload(kvp.Value);
         }
@@ -238,6 +251,7 @@ namespace Game.Presentation
                 patch.Size = segment.Definition.FootprintSize;
                 patch.Progress = progress;
                 patch.Flash = segments[i].FlashBoost;
+                patch.Slab = segments[i].ConvertingSlab;
                 patch.Live = true;
             }
 
@@ -284,6 +298,29 @@ namespace Game.Presentation
         }
 
         /// <summary>
+        /// Hands a converting site's concrete pad the very field this layer is drawing, so the two
+        /// cannot disagree about where the front is: same texture, same zone rectangle, same
+        /// encoding. The alternative - recomputing the threshold inside the slab shader - would put
+        /// the same rule in two languages, and they would drift the first time either is tuned.
+        ///
+        /// Done here rather than by whoever creates the slab because this is where a segment is
+        /// resolved to a zone, and the zone is the whole of what the slab needs.
+        /// </summary>
+        void PointSlabAtField(Zone zone, Patch patch)
+        {
+            if (patch.Slab == null) return;
+
+            if (_slabBlock == null) _slabBlock = new MaterialPropertyBlock();
+
+            // Read-modify-write: the slab already carries its own tiling phase and footprint size,
+            // and a fresh block would drop them.
+            patch.Slab.GetPropertyBlock(_slabBlock);
+            _slabBlock.SetTexture("_CoverageTex", zone.Texture);
+            _slabBlock.SetVector("_CoverageZoneBounds", zone.Bounds);
+            patch.Slab.SetPropertyBlock(_slabBlock);
+        }
+
+        /// <summary>
         /// Only the texels written last time can hold a stale value, so the field is cleared through
         /// that list rather than wholesale - a zone is 260x260 texels and almost always empty.
         /// </summary>
@@ -308,24 +345,28 @@ namespace Game.Presentation
         }
 
         /// <summary>
+        /// The per-tick material work, which is deliberately outside the rebuild: neither a flash
+        /// nor a slab's texture reference ever changes a single texel, so gating them on the field
+        /// having moved would leave a slab unpointed on any tick where a site is merely paused.
+        ///
         /// One flash per zone, not per site: the layer is one texture and one material, so
         /// concurrent sites in the same zone share the brightest of their flashes. Visible only when
         /// two sites in one zone take deliveries at once, which reads as a single pulse rather than
-        /// a wrong one. Kept out of the rebuild because a flash never changes a single texel.
+        /// a wrong one.
         /// </summary>
-        void UpdateFlashes()
+        void PushPerPatchState()
         {
             foreach (var kvp in _zones) kvp.Value.FlashBoost = 0f;
 
             foreach (var kvp in _patches)
             {
                 Patch patch = kvp.Value;
-                if (patch.Flash <= 0f) continue;
 
                 Zone zone = ZoneContaining(patch.Origin);
                 if (zone == null) continue;
 
-                zone.FlashBoost = Mathf.Max(zone.FlashBoost, patch.Flash);
+                if (patch.Flash > 0f) zone.FlashBoost = Mathf.Max(zone.FlashBoost, patch.Flash);
+                PointSlabAtField(zone, patch);
             }
         }
 
@@ -583,10 +624,11 @@ namespace Game.Presentation
             float extent = zone.SideCells * cellSize;
 
             zone.MinWorld = min;
+            zone.Bounds = new Vector4(min.x, min.y, extent, extent);
             zone.Quad.transform.position = new Vector3(min.x + extent * 0.5f, min.y + extent * 0.5f, 0f);
             BuildingSpawner.SetSpriteToWorldSize(zone.Quad, UnitSprite(), new Vector2(extent, extent));
 
-            zone.Material.SetVector("_ZoneBounds", new Vector4(min.x, min.y, extent, extent));
+            zone.Material.SetVector("_ZoneBounds", zone.Bounds);
         }
 
         static Sprite _unitSprite;
@@ -715,6 +757,9 @@ namespace Game.Presentation
 
         /// <summary>A zone's field texture. Exposed for tests, which have to be able to check it is not an sRGB one.</summary>
         public Texture2D TextureOf(int zoneId) => _zones.TryGetValue(zoneId, out Zone zone) ? zone.Texture : null;
+
+        /// <summary>The world rectangle a zone's texture covers, (minX, minY, sizeX, sizeY). Exposed for tests.</summary>
+        public Vector4 ZoneBoundsOf(int zoneId) => _zones.TryGetValue(zoneId, out Zone zone) ? zone.Bounds : Vector4.zero;
 
         /// <summary>
         /// Smallest front distance over every texel of a footprint - not just its cell centres, which
