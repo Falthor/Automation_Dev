@@ -7,6 +7,7 @@
         "Game.Grid",
         "Game.Gameplay",
         "Game.Construction",
+        "Game.Presentation",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

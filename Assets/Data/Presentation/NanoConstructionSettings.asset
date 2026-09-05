@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c25cb404be8daf43bc1a48d37e9fe57, type: 3}
+  m_Name: NanoConstructionSettings
+  m_EditorClassIdentifier: Game.Presentation::Game.Presentation.NanoConstructionSettings
+  noiseScale: 6.3
+  noiseWeight: 0.3
+  rimWidth: 0.09
+  rimColor: {r: 0.2353, g: 0.7255, b: 0.9216, a: 1}
+  revealMode: 0
+  catchUpRate: 0.25
+  deliveryFlashDuration: 0.4
+  deliveryFlashIntensity: 0.28
+  groundRimColor: {r: 0.1176, g: 0.549, b: 0.7255, a: 1}
+  groundIntensity: 0.15
+  groundRimIntensity: 0.6
+  coverageFadeSeconds: 4
+  dissolveShader: {fileID: 4800000, guid: 0b93921b36faddc448b43faedfefb038, type: 3}
