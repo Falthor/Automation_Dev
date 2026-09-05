@@ -209,7 +209,7 @@ namespace Game.Presentation
 
                 bool conveyorValid = gameRuntime.Construction.CanPlace(cell);
                 Vector3 conveyorWorldPos = gameRuntime.Grid.CellCenterToWorld(cell);
-                ghostView.Show(_spriteFactory, conveyorDefinition, gameRuntime.Construction.PreviewRotation, conveyorWorldPos, conveyorValid);
+                ghostView.Show(_spriteFactory, conveyorDefinition, gameRuntime.Construction.PreviewRotation, conveyorWorldPos, conveyorValid, gameRuntime.Grid.CellSize);
                 return;
             }
 

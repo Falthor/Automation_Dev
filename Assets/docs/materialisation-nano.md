@@ -101,6 +101,7 @@ deux évènements distincts.
 | `Game.Presentation` ajouté aux références de `Game.Tests.EditMode.asmdef` | Sans quoi les tests EditMode de §10 ne voient pas le composant. Changement de configuration de test uniquement ; aucune assembly de production n'a bougé. |
 | Le bruit est un fBm à trois octaves suivi d'un étirement analytique, alors que §5 décrivait « hash + smoothstep » | **Défaut de la spécification, pas de l'implémentation.** « Bruit de valeur, hash plus smoothstep » décrit une seule octave ; le prototype qui a servi à trouver les réglages en empilait trois. Une octave unique n'a qu'une échelle de détail : combinée au dégradé, elle ne produit qu'une ondulation molle, et monter `noiseWeight` amplifie les vagues au lieu de découper le bord. L'étirement `saturate((fbm - 0.25) / 0.5)` est indispensable : un fBm se concentre autour de 0,5 sur une plage utile d'environ 0,25 à 0,75, donc sans lui `noiseWeight` rend moitié moins d'irrégularité que sa valeur ne le suggère. Le prototype normalisait sur toute l'image, ce qu'un fragment ne peut pas faire — d'où les constantes fixes. §5 est corrigée. |
 | `RenderOverscan` sort de `BuildingSpawner` et devient `BuildingSpawner.ArtWorldSize` | L'overscan n'était appliqué que dans `BuildingSpawner`. Tout ce qui prévisualise un bâtiment — aperçu de pose, silhouette de chantier, sprite en dissolve — se dimensionnait sur `FootprintSize` seul et sortait donc plus petit que ce qui allait être construit : **9 % sur la Fonderie**, visible à l'œil nu à côté d'un bâtiment fini. Quatre définitions sont concernées (Fonderie 1,09, Splitter et Crossroad 1,08, Convoyeur Coin 1,02). La taille de l'art est maintenant calculée en un seul endroit, dont tous ces chemins dépendent. Le convoyeur garde l'ajustement uniforme de `ConveyorView`, overscan compris et sous la même condition (uniquement si la bande porte sa propre art, jamais le sprite procédural). **La dalle de béton est délibérément exclue** : elle marque les cases occupées, pas l'étendue de l'art. Verrouillé par `SilhouetteAndAssembly_AreSizedToTheArtTheRealViewWillUse_OverscanIncluded`. |
+| **La paire canonique : `ArtWorldSize` / `FootprintSize`** | `ArtWorldSize` pour tout ce qui doit **coïncider avec le dessin** — aperçu de pose, silhouette, sprite en dissolve, vue réelle. `FootprintSize` pour tout ce qui **marque les cases occupées** — la dalle de béton, et **la couverture au sol de l'étape 2**, qui exprime les cases converties et non l'étendue du dessin. La question est donc tranchée d'avance pour l'étape 2, inutile de la reposer. C'est la même distinction que celle déjà notée pour `_BuildBounds`, qui est l'AABB *visuelle* précisément parce qu'il normalise un dégradé sur ce qui est dessiné. Les deux valeurs coïncident sur un sprite bien cadré sans overscan, ce qui rend l'erreur invisible sur les cas simples et flagrante sur la Fonderie. |
 | Le sens de révélation a été mis en cause, mesuré, et trouvé **déjà correct** | Un doute a été levé sur une inversion du dégradé (bâtiment construit par le haut). Deux mesures indépendantes dans l'éditeur : `BuildDissolveView` écrit bien `renderer.bounds.min` dans `_BuildBounds.xy`, donc `normalized.y` vaut 0 à la base et 1 au sommet ; et un rendu hors écran à l'avancement 0,35 avec `noiseWeight` à 0 montre 768 pixels visibles dans la bande basse contre 0 dans la bande haute. **Le dépôt révèle du sol vers le haut.** Aucune correction appliquée, ni dans le shader ni à la source — un `1.0 - normalized.y` aurait inversé le mode radial avec lui, les deux modes lisant le même `normalized`. Verrouillé par `BuildBounds_CarriesTheWorldAabbsBottomLeftCorner_NotItsCentre`. |
 | Plus de décalage ±0,001 avant le `clip()` | Il compensait un `field` dont on ne savait pas s'il couvrait vraiment [0, 1]. Avec l'étirement, `base` et `n` valent tous deux 0–1, donc `field` aussi, et `_Progress` se compare directement. Retiré. |
 | Aucun prefab | Le projet n'a aucun prefab de bâtiment : toutes les vues sont construites en code (`BuildingSpawner`, `WorldContentSpawner`). Le composant s'ajoute donc à n'importe quel GameObject portant un `SpriteRenderer`. |
@@ -145,6 +146,11 @@ ne traverse jamais l'ensemble « en cours ».
 
 ## Limites connues
 
+- **Les gisements échappent encore à `ArtWorldSize`.** `WorldContentSpawner` garde son propre
+  ajustement par axe pour les gisements, et trois arts de gisement ne sont pas carrés (Cuivre 1,25,
+  Fer 1,21, Charbon 1,03 de rapport largeur/hauteur) sur une emprise 2×2 carrée : ils sont donc
+  étirés verticalement aujourd'hui. Les aligner changerait leur apparence, ce qui n'a pas été
+  demandé — mais c'est le dernier chemin qui répond seul à la question de la taille de l'art.
 - **Le plancher `minAssemblyDuration` ne mord jamais aux valeurs actuelles.** Il plafonne le taux à
   `1 / 0,25 = 4` avancement par seconde, alors qu'un bâtiment d'une case — le plus petit possible —
   tourne déjà à 1,8. Il ne servirait qu'au-delà de `assemblyRate = 4`. C'est un garde-fou pour un
@@ -196,6 +202,9 @@ La couverture au sol a besoin de l'autre notion : les **cases** occupées, c'est
 couverture depuis `renderer.bounds` déborderait sur les cases voisines et donnerait une dalle
 plus large que le bâtiment. Les deux valeurs coïncident pour un sprite bien cadré, ce qui rend
 l'erreur difficile à voir sur les cas simples et flagrante sur la Fonderie ou le Datacenter.
+
+**C'est tranché, pas à rediscuter** : la couverture au sol suit `FootprintSize`, comme la dalle de
+béton — voir la paire canonique dans *Les écarts*.
 
 **Piste notée, non codée :** cliquer une silhouette pourrait ouvrir un panneau de chantier
 listant le livré et le manquant. Avec des livraisons par lots et des chantiers qui peuvent

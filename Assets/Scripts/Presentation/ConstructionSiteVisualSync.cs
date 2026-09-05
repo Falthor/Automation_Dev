@@ -310,30 +310,19 @@ namespace Game.Presentation
                 return;
             }
 
-            renderer.sprite = sprite;
-            Vector2 desiredWorldSize = new Vector2(_grid.CellSize, _grid.CellSize) * definition.FootprintSize;
-            Vector2 nativeSize = sprite.bounds.size;
-            float scale = Mathf.Max(desiredWorldSize.x / nativeSize.x, desiredWorldSize.y / nativeSize.y);
-
-            // ConveyorView overscans only a belt wearing its own art, never the procedural
-            // placeholder - the placeholder already fills its cell, and widening it would push it
-            // over its neighbours.
-            if (UsesOwnConveyorArt(segment, definition)) scale *= definition.RenderOverscan;
-
-            renderer.transform.localScale = new Vector3(scale, scale, 1f);
+            BuildingSpawner.FitSpriteUniform(renderer, sprite,
+                BuildingSpawner.ArtWorldSize(definition, _grid.CellSize, overscanned: UsesOwnConveyorArt(segment, definition)));
         }
 
         /// <summary>
-        /// True when a belt is drawn with its own art rather than the procedural shape sprite - a
-        /// drag-turned segment whose Definition no longer matches its Orientation.Shape falls back
-        /// to the procedural one. ConveyorView hangs both the sprite choice and the overscan off
-        /// this single condition, so it is asked once here instead of being restated in each.
+        /// Whether this segment will be drawn with its own belt art, asked of BuildingSpawner so the
+        /// silhouette, the ghost and ConveyorView cannot disagree. Narrows the runtime to a conveyor
+        /// first, since only a belt has a shape to compare.
         /// </summary>
         static bool UsesOwnConveyorArt(BuildingRuntime segment, BuildingDefinition definition)
             => segment is ConveyorRuntime conveyor
                && definition is ConveyorDefinition conveyorDefinition
-               && conveyorDefinition.OverrideSprite != null
-               && conveyor.Orientation.Shape == conveyorDefinition.DefaultShape;
+               && BuildingSpawner.UsesOwnConveyorArt(conveyorDefinition, conveyor.Orientation.Shape);
 
         /// <summary>
         /// Full tint while nothing has arrived, SitePlaceholderAlpha as soon as the sprite starts

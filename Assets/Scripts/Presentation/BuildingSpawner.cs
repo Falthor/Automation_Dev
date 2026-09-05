@@ -280,12 +280,53 @@ namespace Game.Presentation
         /// those views came out RenderOverscan smaller than what actually got built: 9% on the
         /// Foundry, enough to read as a different building.
         ///
+        /// The one exception is <paramref name="overscanned"/>, for a conveyor wearing the
+        /// procedural placeholder instead of its own art: the placeholder already fills its cell
+        /// exactly, so widening it would push it over its neighbours. Pass
+        /// UsesOwnConveyorArt(definition, shape) rather than restating that rule.
+        ///
         /// Note this is deliberately not the sizing for anything that belongs to the ground rather
-        /// than to the building - the concrete slab follows the footprint, since it marks the cells
-        /// the building occupies, not the extent of its art.
+        /// than to the building. That is the canonical pair: <b>ArtWorldSize for whatever must
+        /// coincide with the drawing, FootprintSize for whatever marks the cells occupied.</b> The
+        /// concrete slab follows the footprint, and so will the nano ground coverage - it expresses
+        /// which cells are converted, not how far the art reaches. Same distinction as the shader's
+        /// _BuildBounds, which is the visual AABB precisely because it normalises a gradient over
+        /// what is drawn.
         /// </summary>
-        public static Vector2 ArtWorldSize(BuildingDefinition definition, float cellSize)
-            => new Vector2(cellSize, cellSize) * definition.FootprintSize * definition.RenderOverscan;
+        public static Vector2 ArtWorldSize(BuildingDefinition definition, float cellSize, bool overscanned = true)
+            => new Vector2(cellSize, cellSize) * definition.FootprintSize * (overscanned ? definition.RenderOverscan : 1f);
+
+        /// <summary>
+        /// True when a belt is drawn with its own art rather than the procedural shape sprite - a
+        /// conveyor reshaped away from its definition's default shape (a straight drag-turned into
+        /// a corner) falls back to the placeholder. This one condition governs both which sprite is
+        /// used and whether RenderOverscan applies, in the real view, the placement ghost and the
+        /// construction silhouette alike, so all three ask it here.
+        /// </summary>
+        public static bool UsesOwnConveyorArt(ConveyorDefinition definition, ConveyorShapeKind shape)
+            => definition != null && definition.OverrideSprite != null && shape == definition.DefaultShape;
+
+        /// <summary>
+        /// Fits a sprite to <paramref name="desiredWorldSize"/> with a single scale factor,
+        /// preserving the art's aspect ratio - the conveyor family's rule. A per-axis stretch is
+        /// what used to make a cropped straight belt look a different thickness than the already
+        /// square corner belt. Takes the larger of the two ratios, so the sprite always covers its
+        /// cell on its shorter native axis.
+        ///
+        /// Preserves the sign of the existing scale on neither axis: callers that mirror (a
+        /// corner's chirality) re-apply the flip after fitting.
+        /// </summary>
+        internal static void FitSpriteUniform(SpriteRenderer renderer, Sprite sprite, Vector2 desiredWorldSize)
+        {
+            renderer.sprite = sprite;
+            Vector2 nativeSize = sprite.bounds.size;
+            float scale = Mathf.Max(desiredWorldSize.x / nativeSize.x, desiredWorldSize.y / nativeSize.y);
+
+            Vector3 localScale = renderer.transform.localScale;
+            localScale.x = scale;
+            localScale.y = scale;
+            renderer.transform.localScale = localScale;
+        }
 
         internal static void SetSpriteToWorldSize(SpriteRenderer renderer, Sprite sprite, Vector2 desiredWorldSize)
         {
