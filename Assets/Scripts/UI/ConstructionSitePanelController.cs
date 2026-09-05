@@ -22,13 +22,17 @@ namespace Game.UI
     /// one of them silently never finishes.
     ///
     /// Reacts to SelectionRuntime.SelectedSite, the same way ExtractorPanelController reacts to
-    /// SelectedBuilding (CONTRACTS.md §7).
+    /// SelectedBuilding (CONTRACTS.md §7). When the site finishes it hands over to the panel of the
+    /// building that has just come into existence rather than closing - see LeaveFinishedSite.
     /// </summary>
     public sealed class ConstructionSitePanelController : MonoBehaviour
     {
         [SerializeField] UIDocument uiDocument;
         [SerializeField] VisualTreeAsset visualTree;
         [SerializeField] GameRuntime gameRuntime;
+
+        /// <summary>The building-to-panel router, borrowed for the handover when a site finishes. Optional: without it a finished site simply closes, as before.</summary>
+        [SerializeField] BuildingSelectionInput selectionRouter;
 
         readonly ProceduralSpriteFactory _spriteFactory = new ProceduralSpriteFactory();
         readonly List<SupplyLine> _lines = new List<SupplyLine>();
@@ -92,17 +96,41 @@ namespace Game.UI
                 return;
             }
 
-            // A site is a temporary thing and the panel outlives none of it: once the last piece
-            // lands the site becomes a building, and once cancelled it stops existing at all. Both
-            // read the same way here - it has left the queue - and both mean this panel is now
-            // describing something that is not there.
             if (!IsStillPending(_selected))
             {
-                Close();
+                LeaveFinishedSite(_selected);
                 return;
             }
 
             Render();
+        }
+
+        /// <summary>
+        /// A site leaves the queue two ways, and they are the same event only from here. <b>Cancelled</b>,
+        /// there is nothing left on that ground and closing is the whole of the right answer.
+        /// <b>Finished</b>, the player is looking at a building that has just come into existence
+        /// under their cursor, in the place they were already watching - and a panel vanishing there
+        /// would be the single discontinuity in a sequence built entirely out of continuity:
+        /// silhouette, dissolve, finished view. So the panel hands over to the building's own.
+        ///
+        /// IsComplete is what tells the two apart: cancelling frees the segments that were never
+        /// built, so a cancelled site is by construction one whose segments did not all materialize.
+        ///
+        /// Not every finished site has somewhere to hand over to - a dragged run is N belts, and a
+        /// belt has no panel - and that question is not answered here. It belongs to the one router
+        /// that already maps a building to its panel, which answers it for a click and for this.
+        /// </summary>
+        void LeaveFinishedSite(ConstructionSiteRuntime site)
+        {
+            if (site.IsComplete && site.Segments.Count == 1 && selectionRouter != null
+                && selectionRouter.TryShowPanelFor(site.Segments[0]))
+            {
+                // The router moved the selection on, which cleared the site slot and closed this
+                // panel on the way - there is deliberately nothing left to do here.
+                return;
+            }
+
+            Close();
         }
 
         bool IsStillPending(ConstructionSiteRuntime site)

@@ -92,40 +92,48 @@ namespace Game.UI
                 return;
             }
 
-            if (occupant is StorageRuntime storage)
+            if (TryShowPanelFor(occupant)) return;
+
+            storagePanel.Hide();
+            gameRuntime.Selection.Clear();
+        }
+
+        /// <summary>
+        /// Opens the panel a building deserves, and answers whether it had one at all. The single
+        /// map from a building to its panel: a click lands here, and so does the construction site
+        /// panel's handover when a site finishes, so a type gaining a panel is never something to
+        /// remember in two routers.
+        ///
+        /// Explicit type checks, not "is BuildingRuntime": only types with an actual info panel may
+        /// become the selection, otherwise a conveyor would block world input (IsUIBlockingInput)
+        /// with no panel able to clear it. ProductionBuildingRuntime is checked at family level
+        /// because every current and near-future one shares ProductionPanelController - as safe as
+        /// the single-type checks, just for the whole family at once.
+        /// </summary>
+        public bool TryShowPanelFor(object occupant)
+        {
+            switch (occupant)
             {
-                storagePanel.Show(storage);
-            }
-            else if (occupant is ExtractorRuntime extractor)
-            {
-                // Explicit type check, not "is BuildingRuntime": only building types with an
-                // actual info panel may become the selection, otherwise clicking e.g. a conveyor
-                // would block world input (IsUIBlockingInput) with no panel able to clear it.
-                gameRuntime.Selection.Select(extractor);
-            }
-            else if (occupant is ProductionBuildingRuntime production)
-            {
-                // Family-level check (not a blanket "is BuildingRuntime"): every current and
-                // near-future ProductionBuildingRuntime shares ProductionPanelController, so this
-                // is as safe as the single-type checks above, just for the whole family at once.
-                gameRuntime.Selection.Select(production);
-            }
-            else if (occupant is PowerplantGazRuntime powerplantGaz)
-            {
-                gameRuntime.Selection.Select(powerplantGaz);
-            }
-            else if (occupant is DataCenterRuntime dataCenter)
-            {
-                gameRuntime.Selection.Select(dataCenter);
-            }
-            else if (occupant is CoreRuntime core)
-            {
-                gameRuntime.Selection.Select(core);
-            }
-            else
-            {
-                storagePanel.Hide();
-                gameRuntime.Selection.Clear();
+                case StorageRuntime storage:
+                    storagePanel.Show(storage);
+                    return true;
+                case ExtractorRuntime extractor:
+                    gameRuntime.Selection.Select(extractor);
+                    return true;
+                case ProductionBuildingRuntime production:
+                    gameRuntime.Selection.Select(production);
+                    return true;
+                case PowerplantGazRuntime powerplantGaz:
+                    gameRuntime.Selection.Select(powerplantGaz);
+                    return true;
+                case DataCenterRuntime dataCenter:
+                    gameRuntime.Selection.Select(dataCenter);
+                    return true;
+                case CoreRuntime core:
+                    gameRuntime.Selection.Select(core);
+                    return true;
+                default:
+                    return false;
             }
         }
 

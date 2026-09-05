@@ -264,6 +264,37 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         }
 
         /// <summary>
+        /// Both a finished site and a cancelled one leave the queue, and the panel has to tell them
+        /// apart: cancelled, there is nothing left and it closes; finished, it hands over to the
+        /// panel of the building that has just appeared under the player's cursor. IsComplete is the
+        /// discriminator it keys off, so this pins it.
+        /// </summary>
+        [Test]
+        public void ACancelledSite_IsNotComplete_UnlikeAFinishedOne()
+        {
+            Fixture finished = NewFixture(plates: 4);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (finished.Plate, 4));
+            ConstructionSiteRuntime completedSite = PlaceSite(finished, costly, new GridCoord(5, 5));
+
+            finished.Simulate(12f);
+
+            Assert.IsTrue(completedSite.IsComplete);
+            Assert.AreEqual(0, finished.Sites.Sites.Count, "A finished site leaves the queue...");
+
+            Fixture abandoned = NewFixture(plates: 4);
+            StorageDefinition sameCost = TestDataFactory.NewStorage("target", cost: (abandoned.Plate, 4));
+            ConstructionSiteRuntime cancelledSite = PlaceSite(abandoned, sameCost, new GridCoord(5, 5));
+
+            Assert.IsTrue(abandoned.Sites.CancelSite(cancelledSite));
+
+            Assert.AreEqual(0, abandoned.Sites.Sites.Count, "...and so does a cancelled one.");
+            Assert.IsFalse(cancelledSite.IsComplete,
+                "But cancelling frees the segments that were never built, so a cancelled site is by "
+                + "construction one whose segments did not all materialize. That is what separates "
+                + "'hand over to the new building' from 'there is nothing there any more'.");
+        }
+
+        /// <summary>
         /// A dragged conveyor run is one site with many segments, so its bill is the sum of theirs -
         /// the panel speaks about the whole run, which is what the player placed.
         /// </summary>
