@@ -39,7 +39,7 @@ namespace Game.Tests.EditMode.Presentation
         /// <summary>Restricted to the scene under test: the suite may run with other scenes loaded.</summary>
         Component FindInScene(Type componentType)
         {
-            foreach (UnityEngine.Object found in UnityEngine.Object.FindObjectsByType(componentType, FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (UnityEngine.Object found in UnityEngine.Object.FindObjectsByType(componentType, FindObjectsInactive.Include))
             {
                 if (found is Component component && component.gameObject.scene == _scene) return component;
             }

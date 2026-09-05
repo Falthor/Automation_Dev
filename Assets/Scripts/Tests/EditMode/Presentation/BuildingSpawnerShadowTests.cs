@@ -79,7 +79,7 @@ namespace Game.Tests.EditMode.Presentation
         {
             spawner.SpawnView(runtime);
 
-            DropShadow[] shadows = Object.FindObjectsByType<DropShadow>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            DropShadow[] shadows = Object.FindObjectsByType<DropShadow>(FindObjectsInactive.Include);
             Assert.LessOrEqual(shadows.Length, 1, "Precondition: one building per test.");
 
             return shadows.Length == 1 ? shadows[0] : null;

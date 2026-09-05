@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 
@@ -11,8 +10,14 @@ namespace Game.Save
     /// Per-building free-form state is stored as JObject rather than a typed DTO per building
     /// type, since each BuildingRuntime subclass already owns its own CaptureState()/RestoreState()
     /// pair - the save layer never interprets that blob, only stores and returns it verbatim.
+    ///
+    /// <b>Deliberately not [Serializable].</b> The save is written and read by Newtonsoft alone
+    /// (SaveService), which does not consult that attribute, and nothing here ever passes through
+    /// JsonUtility or an inspector field. Carrying it anyway claimed these types were Unity-
+    /// serializable, which made the analyzer rightly point at the three JObject fields and the
+    /// nullable int - none of which Unity can serialize - for four warnings about a serializer that
+    /// is not involved. The format is pinned by SaveFormatTests.
     /// </summary>
-    [Serializable]
     public sealed class SaveData
     {
         /// <summary>
@@ -72,7 +77,6 @@ namespace Game.Save
         public List<BuildingSaveData> Buildings = new List<BuildingSaveData>();
     }
 
-    [Serializable]
     public sealed class DepositSaveData
     {
         public string DefinitionId;
@@ -81,7 +85,6 @@ namespace Game.Save
         public int RemainingQuantity;
     }
 
-    [Serializable]
     public sealed class BuildingSaveData
     {
         public string DefinitionId;
