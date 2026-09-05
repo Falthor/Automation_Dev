@@ -4691,6 +4691,7 @@ GameObject:
   - component: {fileID: 2103112252}
   - component: {fileID: 2103112254}
   - component: {fileID: 2103112253}
+  - component: {fileID: 2103112255}
   m_Layer: 0
   m_Name: GameRuntime
   m_TagString: Untagged
@@ -4813,6 +4814,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.ConstructionSiteVisualSync
   gameRuntime: {fileID: 2103112250}
   siteTint: {r: 0.35, g: 0.6, b: 1, a: 0.6}
+  settings: {fileID: 11400000, guid: 79d5e14f36e1222419f95746c4db949e, type: 2}
+--- !u!114 &2103112255
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2103112249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1dea4dda39ee66b49abd9da71264876e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Presentation::Game.Presentation.GroundCoverageRenderer
+  gameRuntime: {fileID: 2103112250}
   settings: {fileID: 11400000, guid: 79d5e14f36e1222419f95746c4db949e, type: 2}
 --- !u!1 &2117863649
 GameObject:

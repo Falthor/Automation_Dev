@@ -83,7 +83,7 @@ namespace Game.Presentation
         /// <summary>Peak value pushed into the shader's _RimBoost when a delivery lands.</summary>
         [SerializeField, Min(0f)] float deliveryFlashIntensity = 0.28f;
 
-        [Header("Ground coverage (step 2 - not read yet)")]
+        [Header("Ground coverage")]
 
         /// <summary>Rim colour of the ground layer, a duller variant of rimColor.</summary>
         [SerializeField] Color groundRimColor = new Color(0.1176f, 0.5490f, 0.7255f, 1f);
@@ -97,6 +97,21 @@ namespace Game.Presentation
         /// <summary>Seconds a cell with no site takes to fade back to zero coverage.</summary>
         [SerializeField, Min(0f)] float coverageFadeSeconds = 4f;
 
+        /// <summary>
+        /// Width of the lit boundary, in coverage units rather than world units: the rim is the band
+        /// where the bilinear field falls from a converted cell's value to zero, so its physical
+        /// width follows the cell size on its own.
+        /// </summary>
+        [SerializeField, Range(0.001f, 1f)] float groundRimWidth = 0.35f;
+
+        /// <summary>
+        /// Between the terrain (0 and 1) and the concrete slab (5). 2 and 4 are left free on either
+        /// side deliberately - the whole ladder is contiguous integers with existing collisions, and
+        /// renumbering it is a separate task, so this only takes a free value rather than making
+        /// room.
+        /// </summary>
+        [SerializeField] int groundCoverageSortingOrder = 3;
+
         [Header("Shader")]
 
         /// <summary>
@@ -106,6 +121,9 @@ namespace Game.Presentation
         /// this dependency cannot silently break a build.
         /// </summary>
         [SerializeField] Shader dissolveShader;
+
+        /// <summary>Custom/GroundCoverage, referenced as an asset for the same reason as dissolveShader.</summary>
+        [SerializeField] Shader coverageShader;
 
         public float NoiseScale => noiseScale;
         public float NoiseWeight => noiseWeight;
@@ -138,7 +156,10 @@ namespace Game.Presentation
         public float GroundIntensity => groundIntensity;
         public float GroundRimIntensity => groundRimIntensity;
         public float CoverageFadeSeconds => coverageFadeSeconds;
+        public float GroundRimWidth => groundRimWidth;
+        public int GroundCoverageSortingOrder => groundCoverageSortingOrder;
 
         public Shader DissolveShader => dissolveShader;
+        public Shader CoverageShader => coverageShader;
     }
 }

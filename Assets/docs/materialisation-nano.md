@@ -3,9 +3,8 @@
 Décisions, écarts et limites. La spécification est `Intro/directive-materialisation-nano.md` ;
 ce document ne la répète pas, il consigne ce qui ne s'y trouve pas.
 
-**État : le dissolve est branché sur les chantiers réels.** Un bâtiment posé s'assemble
-maintenant à l'écran au rythme de ses livraisons. La couverture au sol et les particules ne sont
-pas faites.
+**État : dissolve et couverture au sol faits.** Un bâtiment posé s'assemble à l'écran au rythme de
+ses livraisons, et le sol sous lui se convertit au même rythme. Les particules ne sont pas faites.
 
 ---
 
@@ -16,9 +15,12 @@ pas faites.
 | `Art/Shaders/BuildDissolve.shader` | Découpe le sprite sous un front de révélation bruité, avec liseré lumineux. |
 | `Scripts/Presentation/BuildDissolveView.cs` | Pilote l'effet : lissage de l'avancement, flash de livraison, écriture du `MaterialPropertyBlock`, retrait à l'achèvement. |
 | `Scripts/Presentation/ConstructionSiteVisualSync.cs` | Les trois états d'un segment de chantier, et le passage de main à la vraie vue. |
+| `Art/Shaders/GroundCoverage.shader` | Teinte le sol converti et allume son liseré, à partir de la texture de couverture de la zone. |
+| `Scripts/Presentation/GroundCoverageRenderer.cs` | Le champ de couverture : une texture, un quad et un material **par zone**, réuploadés seulement quand le champ a changé. |
 | `Scripts/Presentation/NanoConstructionSettings.cs` | La classe de réglages. |
 | `Data/Presentation/NanoConstructionSettings.asset` | L'instance unique. C'est le seul fichier à ouvrir pour changer l'aspect. |
 | `Scripts/Tests/EditMode/Presentation/BuildDissolveViewTests.cs` | 17 tests : lissage, flash, achèvement, dépendance à la taille du bâtiment, plancher de durée, isolation entre bâtiments, propagation des réglages. |
+| `Scripts/Tests/EditMode/Presentation/GroundCoverageRendererTests.cs` | 9 tests : écriture sur l'emprise et sur elle seule, avancement affiché, décroissance, réupload conditionnel, cycle de vie des zones. |
 | `Scripts/Tests/EditMode/Presentation/ConstructionSiteVisualSyncTests.cs` | 7 tests : les trois états, la démolition et l'annulation en cours d'assemblage, le glissé multi-segments. |
 | `Scenes/DissolveTest.unity` | Scène de validation à l'œil : une caméra, une Fonderie à sa taille de jeu (3 cases), le composant câblé. Hors Build Settings, sans aucune dépendance au reste du jeu. Ouvrir, lancer le Play, monter `Target Progress` dans l'inspecteur du composant. |
 
@@ -39,12 +41,14 @@ le Play : le composant relit l'asset à chaque tick.
 | `minAssemblyDuration` | Plancher de durée. Inerte aux valeurs actuelles (une case prend déjà 0,56 s) ; garde-fou si `assemblyRate` remonte. |
 | `deliveryFlashDuration` | Durée du flash à chaque arrivée de matière. |
 | `deliveryFlashIntensity` | Puissance de ce flash. |
+| `groundIntensity` | Force de la teinte du sol converti. Volontairement discrète. |
+| `groundRimColor` | Couleur du sol converti **et** de son liseré. |
+| `groundRimIntensity` | Force du liseré au sol. Découplé de `groundIntensity` : régler l'un ne doit pas éteindre l'autre. |
+| `groundRimWidth` | Largeur de la bande lumineuse, **en unités de couverture** et non en unités monde : sa largeur physique suit donc la taille des cases toute seule. |
+| `coverageFadeSeconds` | Temps que met une case sans chantier à revenir à zéro. |
+| `groundCoverageSortingOrder` | Rang de la couche de sol. **3**, entre le terrain (0 et 1) et la dalle de béton (5). |
 | `sitePlaceholderAlpha` | Opacité de la silhouette bleue **pendant** l'assemblage. En attente elle reste à l'alpha de `siteTint` (sur le composant, pas dans l'asset). |
 | `siteSilhouetteSortingOrder` | Rang de la silhouette. À 7 elle passe sous l'ombre portée et sous le sprite — voir *Limites connues* pour le cas de l'Extracteur. |
-
-`groundRimColor`, `groundIntensity`, `groundRimIntensity` et `coverageFadeSeconds` sont présents
-dans l'asset mais **ne sont lus par personne** tant que l'étape 2 n'est pas faite. Ils y sont pour
-que l'asset ne change pas de forme entre les étapes.
 
 `dissolveShader` pointe sur `Custom/BuildDissolve`. Ne le vide pas : sans shader, le composant
 laisse le sprite intact et ne fait rien.
@@ -101,6 +105,10 @@ deux évènements distincts.
 | `Game.Presentation` ajouté aux références de `Game.Tests.EditMode.asmdef` | Sans quoi les tests EditMode de §10 ne voient pas le composant. Changement de configuration de test uniquement ; aucune assembly de production n'a bougé. |
 | Le bruit est un fBm à trois octaves suivi d'un étirement analytique, alors que §5 décrivait « hash + smoothstep » | **Défaut de la spécification, pas de l'implémentation.** « Bruit de valeur, hash plus smoothstep » décrit une seule octave ; le prototype qui a servi à trouver les réglages en empilait trois. Une octave unique n'a qu'une échelle de détail : combinée au dégradé, elle ne produit qu'une ondulation molle, et monter `noiseWeight` amplifie les vagues au lieu de découper le bord. L'étirement `saturate((fbm - 0.25) / 0.5)` est indispensable : un fBm se concentre autour de 0,5 sur une plage utile d'environ 0,25 à 0,75, donc sans lui `noiseWeight` rend moitié moins d'irrégularité que sa valeur ne le suggère. Le prototype normalisait sur toute l'image, ce qu'un fragment ne peut pas faire — d'où les constantes fixes. §5 est corrigée. |
 | `RenderOverscan` sort de `BuildingSpawner` et devient `BuildingSpawner.ArtWorldSize` | L'overscan n'était appliqué que dans `BuildingSpawner`. Tout ce qui prévisualise un bâtiment — aperçu de pose, silhouette de chantier, sprite en dissolve — se dimensionnait sur `FootprintSize` seul et sortait donc plus petit que ce qui allait être construit : **9 % sur la Fonderie**, visible à l'œil nu à côté d'un bâtiment fini. Quatre définitions sont concernées (Fonderie 1,09, Splitter et Crossroad 1,08, Convoyeur Coin 1,02). La taille de l'art est maintenant calculée en un seul endroit, dont tous ces chemins dépendent. Le convoyeur garde l'ajustement uniforme de `ConveyorView`, overscan compris et sous la même condition (uniquement si la bande porte sa propre art, jamais le sprite procédural). **La dalle de béton est délibérément exclue** : elle marque les cases occupées, pas l'étendue de l'art. Verrouillé par `SilhouetteAndAssembly_AreSizedToTheArtTheRealViewWillUse_OverscanIncluded`. |
+| Texture de couverture **allouée au rayon maximal**, pas au rayon courant | Le rayon d'action est extensible par recherche (22 → `CoreRuntime.ExtendedActionRadiusCells` = 32). §7 laisse le choix entre réallouer à l'agrandissement et allouer d'emblée pour le plafond ; c'est la seconde qui est prise, parce qu'elle supprime entièrement le chemin de réallocation. Le coût est dérisoire — 65×65 en R8, soit ~4 Ko par zone — et les cases hors rayon restent simplement à zéro, donc `clip()`. |
+| Le sol converti et son liseré partagent `groundRimColor` | §9 ne prévoit pas de couleur de teinte distincte. Comme la consigne est justement que les deux liserés soient de la même famille, une seule couleur pour la couche de sol est cohérente et fait un réglage de moins. À séparer si le réglage à l'œil le demande. |
+| **Un seul `_RimBoost` par zone**, pas par chantier | La couche est une texture et un material par zone ; le flash ne peut donc pas être par chantier sans un material par chantier, ce qui reviendrait à annuler le regroupement. La zone prend le plus fort flash de ses chantiers. Visible seulement quand deux chantiers d'une même zone reçoivent une livraison en même temps, et ça se lit comme une pulsation unique plutôt que comme une fausse. |
+| La couverture lit `ConstructionSiteVisualSync.CollectDrawnSegments`, pas `ConstructionSiteSystem.Sites` | Il **faut** passer par là : un segment matérialisé mais encore en assemblage a quitté `Sites` alors qu'il est toujours dessiné, et c'est justement le moment où sa couverture doit continuer de monter. C'est aussi le seul endroit qui détient l'avancement *affiché*, que §3 impose aux deux couches. Accesseur en lecture seule, remplissant une liste fournie par l'appelant pour ne rien allouer par frame. |
 | **La paire canonique : `ArtWorldSize` / `FootprintSize`** | `ArtWorldSize` pour tout ce qui doit **coïncider avec le dessin** — aperçu de pose, silhouette, sprite en dissolve, vue réelle. `FootprintSize` pour tout ce qui **marque les cases occupées** — la dalle de béton, et **la couverture au sol de l'étape 2**, qui exprime les cases converties et non l'étendue du dessin. La question est donc tranchée d'avance pour l'étape 2, inutile de la reposer. C'est la même distinction que celle déjà notée pour `_BuildBounds`, qui est l'AABB *visuelle* précisément parce qu'il normalise un dégradé sur ce qui est dessiné. Les deux valeurs coïncident sur un sprite bien cadré sans overscan, ce qui rend l'erreur invisible sur les cas simples et flagrante sur la Fonderie. |
 | Le sens de révélation a été mis en cause, mesuré, et trouvé **déjà correct** | Un doute a été levé sur une inversion du dégradé (bâtiment construit par le haut). Deux mesures indépendantes dans l'éditeur : `BuildDissolveView` écrit bien `renderer.bounds.min` dans `_BuildBounds.xy`, donc `normalized.y` vaut 0 à la base et 1 au sommet ; et un rendu hors écran à l'avancement 0,35 avec `noiseWeight` à 0 montre 768 pixels visibles dans la bande basse contre 0 dans la bande haute. **Le dépôt révèle du sol vers le haut.** Aucune correction appliquée, ni dans le shader ni à la source — un `1.0 - normalized.y` aurait inversé le mode radial avec lui, les deux modes lisant le même `normalized`. Verrouillé par `BuildBounds_CarriesTheWorldAabbsBottomLeftCorner_NotItsCentre`. |
 | Plus de décalage ±0,001 avant le `clip()` | Il compensait un `field` dont on ne savait pas s'il couvrait vraiment [0, 1]. Avec l'étirement, `base` et `n` valent tous deux 0–1, donc `field` aussi, et `_Progress` se compare directement. Retiré. |
@@ -146,6 +154,16 @@ ne traverse jamais l'ensemble « en cours ».
 
 ## Limites connues
 
+- **Le sol converti est plus étroit que le bâtiment sur un art débordant.** La couverture s'écrit
+  sur `FootprintSize`, donc sur une Fonderie (overscan 1,09) ou sur le Noyau (art 4×5 pour une
+  emprise 4×4) la dalle nano s'arrête avant le dessin. C'est la conséquence assumée de la paire
+  canonique, pas un défaut : la couverture dit quelles cases sont converties. Aucun élargissement
+  n'a été ajouté — à juger à l'écran, et un paramètre serait le remède si ça gêne.
+- **Une seule zone existe aujourd'hui**, celle du Noyau. Le composant traite les zones comme un
+  ensemble et le seul endroit à étendre pour un Agent IA est `CollectZones`. Le partitionnement
+  repose sur la garantie qu'un robot ne travaille que dans sa zone ; **les zones ne se recouvrent
+  pas**, et si cela changeait deux quads se superposeraient et leurs couvertures s'additionneraient
+  visuellement — à revoir avant, comme §7 le signale.
 - **Les gisements échappent encore à `ArtWorldSize`.** `WorldContentSpawner` garde son propre
   ajustement par axe pour les gisements, et trois arts de gisement ne sont pas carrés (Cuivre 1,25,
   Fer 1,21, Charbon 1,03 de rapport largeur/hauteur) sur une emprise 2×2 carrée : ils sont donc

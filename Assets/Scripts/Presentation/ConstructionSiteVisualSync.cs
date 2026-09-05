@@ -107,6 +107,56 @@ namespace Game.Presentation
             => segment != null && _views.TryGetValue(segment, out SegmentView view) ? view.Dissolve : null;
 
         /// <summary>
+        /// Every segment this component is currently drawing, with the progress actually shown for
+        /// it - the smoothed value, never the site's raw advancement, so a layer reading this stays
+        /// in step with the sprite instead of jumping at each delivery.
+        ///
+        /// This is the only place a materialized-but-still-assembling segment can be enumerated:
+        /// those have left ConstructionSiteSystem.Sites while still being drawn here. Fills a
+        /// caller-owned list, so a per-frame reader allocates nothing.
+        /// </summary>
+        public void CollectDrawnSegments(List<DrawnSegment> into)
+        {
+            into.Clear();
+
+            foreach (var kvp in _views)
+            {
+                SegmentView view = kvp.Value;
+
+                // A null Dissolve beside a live AssemblyRenderer means the effect completed and
+                // removed itself, so the segment is fully formed; with no AssemblyRenderer at all
+                // there is no dissolve configured and nothing has been assembled.
+                float displayed;
+                float flash = 0f;
+                if (view.Dissolve != null)
+                {
+                    displayed = view.Dissolve.DisplayedProgress;
+                    flash = view.Dissolve.CurrentFlashBoost();
+                }
+                else displayed = view.AssemblyRenderer != null ? 1f : 0f;
+
+                into.Add(new DrawnSegment(kvp.Key, displayed, flash));
+            }
+        }
+
+        /// <summary>A segment being drawn, paired with the progress shown for it and its current delivery flash.</summary>
+        public readonly struct DrawnSegment
+        {
+            public readonly BuildingRuntime Segment;
+            public readonly float DisplayedProgress;
+
+            /// <summary>The dissolve's current flash, so the ground layer can pulse on the same delivery rather than computing its own.</summary>
+            public readonly float FlashBoost;
+
+            public DrawnSegment(BuildingRuntime segment, float displayedProgress, float flashBoost = 0f)
+            {
+                Segment = segment;
+                DisplayedProgress = displayedProgress;
+                FlashBoost = flashBoost;
+            }
+        }
+
+        /// <summary>
         /// Binds the two runtime systems directly instead of through the scene's GameRuntime, for
         /// EditMode tests - which have no GameRuntime to build and no frame loop to run LateUpdate.
         /// </summary>
