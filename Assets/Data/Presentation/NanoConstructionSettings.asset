@@ -13,11 +13,13 @@ MonoBehaviour:
   m_Name: NanoConstructionSettings
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.NanoConstructionSettings
   noiseScale: 6.3
-  noiseWeight: 0.3
-  rimWidth: 0.09
+  noiseWeight: 0.2
+  rimWidth: 0.06
   rimColor: {r: 0.2353, g: 0.7255, b: 0.9216, a: 1}
   revealMode: 0
-  catchUpRate: 0.25
+  sitePlaceholderAlpha: 0.35
+  siteSilhouetteSortingOrder: 7
+  catchUpRate: 0.2
   deliveryFlashDuration: 0.4
   deliveryFlashIntensity: 0.28
   groundRimColor: {r: 0.1176, g: 0.549, b: 0.7255, a: 1}

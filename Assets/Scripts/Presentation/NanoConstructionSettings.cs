@@ -40,6 +40,23 @@ namespace Game.Presentation
         /// <summary>0 = bottom to top, 1 = radial.</summary>
         [SerializeField, Range(0, 1)] int revealMode = 0;
 
+        [Header("Site silhouette")]
+
+        /// <summary>
+        /// Opacity of the blue silhouette once construction has actually started. Constant for the
+        /// whole build rather than fading with progress: a half-erased outline under a half-formed
+        /// building reads as mush, and the clean cut at 1 is what makes completion legible.
+        /// A value posed by reasoning, not yet judged on screen - expect to move it.
+        /// </summary>
+        [SerializeField, Range(0f, 1f)] float sitePlaceholderAlpha = 0.35f;
+
+        /// <summary>
+        /// Sorting order of the silhouette. It must sit under both the shadow and the sprite it
+        /// belongs to, which fixes the whole stack for a building under construction:
+        /// ground slab 5, action radius 6, <b>silhouette 7</b>, drop shadow 8, building sprite 10.
+        /// </summary>
+        [SerializeField] int siteSilhouetteSortingOrder = 7;
+
         [Header("Displayed progress (see the spec's section 3)")]
 
         /// <summary>
@@ -85,6 +102,9 @@ namespace Game.Presentation
         public float RimWidth => rimWidth;
         public Color RimColor => rimColor;
         public int RevealMode => revealMode;
+
+        public float SitePlaceholderAlpha => sitePlaceholderAlpha;
+        public int SiteSilhouetteSortingOrder => siteSilhouetteSortingOrder;
 
         public float CatchUpRate => catchUpRate;
         public float DeliveryFlashDuration => deliveryFlashDuration;
