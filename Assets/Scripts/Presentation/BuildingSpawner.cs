@@ -50,6 +50,7 @@ namespace Game.Presentation
         readonly ConveyorDefinition _cornerConveyorArt;
         readonly GroundSlabSettings _groundSlabSettings;
         readonly GroundSlabNeighborLinker _groundSlabNeighborLinker;
+        readonly BuildingShadowSettings _shadowSettings;
         readonly Dictionary<GridCoord, GameObject> _views = new Dictionary<GridCoord, GameObject>();
 
         /// <summary>
@@ -60,9 +61,11 @@ namespace Game.Presentation
         /// groundSlabSettings is optional; null (or its diffuse/normal being null) means no
         /// concrete slab is spawned under buildings (e.g. EditMode tests with no such art
         /// configured). groundSlabNeighborLinker is optional too; null means slabs never react
-        /// to neighboring buildings being placed/demolished.
+        /// to neighboring buildings being placed/demolished. shadowSettings is optional as well;
+        /// null means buildings cast no drop shadow - the same all-or-nothing convention the Core
+        /// already uses in WorldContentSpawner.
         /// </summary>
-        public BuildingSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory, ConveyorDefinition straightConveyorArt = null, ConveyorDefinition cornerConveyorArt = null, GroundSlabSettings groundSlabSettings = null, GroundSlabNeighborLinker groundSlabNeighborLinker = null)
+        public BuildingSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory, ConveyorDefinition straightConveyorArt = null, ConveyorDefinition cornerConveyorArt = null, GroundSlabSettings groundSlabSettings = null, GroundSlabNeighborLinker groundSlabNeighborLinker = null, BuildingShadowSettings shadowSettings = null)
         {
             _grid = grid;
             _spriteFactory = spriteFactory;
@@ -70,6 +73,7 @@ namespace Game.Presentation
             _cornerConveyorArt = cornerConveyorArt;
             _groundSlabSettings = groundSlabSettings;
             _groundSlabNeighborLinker = groundSlabNeighborLinker;
+            _shadowSettings = shadowSettings;
         }
 
         public void SpawnView(BuildingRuntime runtime)
@@ -165,6 +169,8 @@ namespace Game.Presentation
                 renderer.gameObject.AddComponent<SpriteFlipbook>().Initialize(definition.AnimationFrames, definition.AnimationFps);
             }
 
+            AttachShadow(renderer);
+
             if (definition.HasOutputArrow)
             {
                 SpawnDirectionalArrow(root.transform, _grid.CellCenterToWorld(runtime.GetOutputCell()), runtime.ExitDirection, OutputArrowColor, OutputArrowSortingOrder, inward: false);
@@ -249,6 +255,8 @@ namespace Game.Presentation
                 renderer.gameObject.AddComponent<SpriteFlipbook>().Initialize(definition.AnimationFrames, definition.AnimationFps);
             }
 
+            AttachShadow(renderer);
+
             int rotationDegrees = runtime.FacingRotation.ToRotationDegrees() - artNativeDirection.ToRotationDegrees();
             root.transform.rotation = Quaternion.Euler(0f, 0f, -rotationDegrees);
 
@@ -260,6 +268,28 @@ namespace Game.Presentation
         /// (output) or inward toward it (entry). Facing is entirely determined by `direction`
         /// and `inward`, never by the parent's rotation - the parent (root) never rotates.
         /// </summary>
+        /// <summary>
+        /// Gives a building's own renderer the same drop shadow the Core already casts: a child
+        /// showing that renderer's current sprite in flat black, offset toward the sun. No new art
+        /// is involved, so an animated building's shadow follows its flipbook for free, and the
+        /// Splitter/Crossroad's rotated view keeps its shadow on the same side as everything else -
+        /// DropShadow offsets in world space precisely for that.
+        ///
+        /// Deliberately not attached to the construction views. A site's sprite is cut away by the
+        /// dissolve <b>shader</b>, not by swapping sprites, so a shadow child would show the whole
+        /// building's silhouette from the first frame of a build that has barely started. The
+        /// shadow therefore appears with the real view at the handover, which is also when the
+        /// building stops being a promise and starts having volume.
+        ///
+        /// Conveyors are excluded too, and belong to their own view: a belt lies flat on the
+        /// ground, so it has nothing to cast, and there are hundreds of them.
+        /// </summary>
+        void AttachShadow(SpriteRenderer renderer)
+        {
+            if (_shadowSettings == null) return;
+            renderer.gameObject.AddComponent<DropShadow>().Settings = _shadowSettings;
+        }
+
         void SpawnDirectionalArrow(Transform parent, Vector3 worldPosition, Direction direction, Color color, int sortingOrder, bool inward)
         {
             var arrowGo = new GameObject(inward ? "InputArrow" : "OutputArrow");

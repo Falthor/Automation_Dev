@@ -458,7 +458,7 @@ namespace Game.Presentation
                 // instead, already registered and viewed like any other placed Storage box.
                 if (World.CoreStorage != null)
                 {
-                    var coreStorageSpawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker);
+                    var coreStorageSpawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings);
                     coreStorageSpawner.SpawnView(World.CoreStorage);
                     Transport.Register(World.CoreStorage);
                 }
@@ -510,7 +510,10 @@ namespace Game.Presentation
 
             if (_restoredBuildings.Count > 0)
             {
-                var spawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory());
+                // Passed the same presentation settings as the placement path, which it was not:
+                // a building coming back from a save has to look like the one that was placed, and
+                // this spawner was giving it neither a concrete slab nor a shadow.
+                var spawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings);
                 foreach (BuildingRuntime building in _restoredBuildings)
                 {
                     spawner.SpawnView(building);

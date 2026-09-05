@@ -108,7 +108,7 @@ namespace Game.Presentation
             if (worldCamera == null || gameRuntime == null) return;
             if (_spawner == null)
             {
-                _spawner = new BuildingSpawner(gameRuntime.Grid, _spriteFactory, straightConveyorForDragContinuation, cornerConveyorForReshape, gameRuntime.GroundSlabSettings, gameRuntime.GroundSlabNeighborLinker);
+                _spawner = new BuildingSpawner(gameRuntime.Grid, _spriteFactory, straightConveyorForDragContinuation, cornerConveyorForReshape, gameRuntime.GroundSlabSettings, gameRuntime.GroundSlabNeighborLinker, gameRuntime.ShadowSettings);
             }
 
             // Subscribed here rather than in Start() for the same reason _spawner is built lazily:
