@@ -52,7 +52,7 @@ namespace Game.Presentation
 
             Vector2 footprintWorldSize = WorldFootprintSize(definition.FootprintSize);
 
-            if (_groundSlabSettings != null && _groundSlabSettings.HasSlabTextures)
+            if (_groundSlabSettings != null && _groundSlabSettings.CanRenderSlab)
             {
                 var slabGo = new GameObject("GroundSlab");
                 slabGo.transform.SetParent(go.transform, false);

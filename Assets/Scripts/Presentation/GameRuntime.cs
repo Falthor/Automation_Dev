@@ -46,6 +46,9 @@ namespace Game.Presentation
         [SerializeField] Texture2D groundSlabDiffuse;
         [SerializeField] Texture2D groundSlabNormal;
 
+        /// <summary>Custom/BuildingGroundSlab. Assigned here and handed to ProceduralSpriteFactory through GroundSlabSettings, because that class has no inspector of its own. An asset reference cannot be stripped from a build the way a Shader.Find by name can - see docs/BUILD.md.</summary>
+        [SerializeField] Shader groundSlabShader;
+
         /// <summary>1 = texture's own colors unchanged; lower values darken it (simple RGB multiply, applied in Custom/BuildingGroundSlab).</summary>
         [SerializeField, Range(0f, 1f)] float groundSlabDarken = 1f;
 
@@ -521,6 +524,7 @@ namespace Game.Presentation
             {
                 SlabDiffuse = groundSlabDiffuse,
                 SlabNormal = groundSlabNormal,
+                SlabShader = groundSlabShader,
                 SlabDarken = groundSlabDarken,
                 SandBandWidth = groundSlabSandBandWidth,
                 EdgeSoftness = groundSlabEdgeSoftness,

@@ -195,7 +195,7 @@ namespace Game.Presentation
         /// </summary>
         void SpawnGroundSlab(Transform parent, GridCoord cell, Vector2Int footprintSize)
         {
-            if (_groundSlabSettings == null || !_groundSlabSettings.HasSlabTextures) return;
+            if (_groundSlabSettings == null || !_groundSlabSettings.CanRenderSlab) return;
 
             var slabGo = new GameObject("GroundSlab");
             slabGo.transform.SetParent(parent, false);
