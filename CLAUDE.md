@@ -34,6 +34,12 @@ Entry point for the Unity project's development documentation.
 - ScriptableObjects are definitions, not shared runtime state
 - UI Toolkit is the primary UI technology
 
+## Producing a build
+
+`docs/BUILD.md` — build procedure, and the constraints a build imposes that the Editor never
+reveals. Read it before adding a shader that will be resolved by `Shader.Find`, before changing the
+Build Settings scene order, and before any measurement session run outside the Editor.
+
 ## Source-of-truth order
 
 `DEVELOPMENT_RULES.md` → `PROJECT_ARCHITECTURE.md` → `CONTRACTS.md` → `WORKFLOW.md`
