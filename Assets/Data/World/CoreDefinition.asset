@@ -17,8 +17,20 @@ MonoBehaviour:
   footprintSize: {x: 4, y: 4}
   placeholderColor: {r: 1, g: 1, b: 1, a: 1}
   unlockResearch: {fileID: 0}
-  sprite: {fileID: 21300000, guid: a7c3f81d94e6b2450a1e5c9d3b7f2681, type: 3}
-  animationFrames: []
+  sprite: {fileID: -6622863259242664493, guid: b04c0bc61e7037b49ab5aa32eff28a87, type: 3}
+  animationFrames:
+  - {fileID: -6622863259242664493, guid: b04c0bc61e7037b49ab5aa32eff28a87, type: 3}
+  - {fileID: 4138848172959368440, guid: b04c0bc61e7037b49ab5aa32eff28a87, type: 3}
+  - {fileID: 5823024787834327110, guid: b04c0bc61e7037b49ab5aa32eff28a87, type: 3}
+  - {fileID: -5429809939435209488, guid: b04c0bc61e7037b49ab5aa32eff28a87, type: 3}
+  - {fileID: -7409573511083393705, guid: b04c0bc61e7037b49ab5aa32eff28a87, type: 3}
+  - {fileID: 2402639969742374697, guid: b04c0bc61e7037b49ab5aa32eff28a87, type: 3}
+  - {fileID: 368041112877095050, guid: b04c0bc61e7037b49ab5aa32eff28a87, type: 3}
+  - {fileID: -3326688003119052452, guid: b04c0bc61e7037b49ab5aa32eff28a87, type: 3}
+  - {fileID: 9209089764030810201, guid: b04c0bc61e7037b49ab5aa32eff28a87, type: 3}
+  - {fileID: 7800090583882032772, guid: b04c0bc61e7037b49ab5aa32eff28a87, type: 3}
+  - {fileID: -7160256121808793437, guid: b04c0bc61e7037b49ab5aa32eff28a87, type: 3}
+  - {fileID: -955268259036638798, guid: b04c0bc61e7037b49ab5aa32eff28a87, type: 3}
   animationFps: 18
   cost: []
   actionRadiusCells: 22

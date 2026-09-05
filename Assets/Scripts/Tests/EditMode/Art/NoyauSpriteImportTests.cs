@@ -1,4 +1,3 @@
-using Game.Data;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -6,19 +5,22 @@ using UnityEngine;
 namespace Game.Tests.EditMode.Art
 {
     /// <summary>
-    /// Pins the import settings of the Core's 1024x1024 art. The settings live in the asset's
-    /// .meta (this project has no editor tooling at all, so there is no AssetPostprocessor to hang
-    /// them on) and a .meta is exactly the kind of file a careless re-import silently rewrites -
-    /// hence a test rather than a comment.
+    /// Pins the import settings of the still Core art. The settings live in the asset's .meta
+    /// (this project has no editor tooling at all, so there is no AssetPostprocessor to hang them
+    /// on) and a .meta is exactly the kind of file a careless re-import silently rewrites - hence
+    /// a test rather than a comment.
     ///
     /// The one that actually matters is the size: 1024 px at 256 pixels-per-unit is 4 world units,
-    /// which is exactly the Core's 4x4 footprint at this project's cellSize of 1 - so
-    /// WorldContentSpawner fits it at scale 1 instead of rescaling it.
+    /// which is exactly the Core's 4x4 footprint at this project's cellSize of 1 - so a spawner
+    /// fits it at scale 1 instead of rescaling it.
+    ///
+    /// CoreDefinition currently shows the 12-frame animated sheet instead, so nothing asserts
+    /// which of the two is wired in: that is an art choice, free to change either way, and a test
+    /// pinning it would only have to be rewritten each time it does.
     /// </summary>
     public sealed class NoyauSpriteImportTests
     {
         const string AssetPath = "Assets/Art/Buildings/noyau_1024.png";
-        const string CoreDefinitionPath = "Assets/Data/World/CoreDefinition.asset";
 
         /// <summary>Kept in step with CoreDefinition.footprintSize; the sprite is authored to fill it exactly.</summary>
         const float ExpectedWorldSize = 4f;
@@ -79,30 +81,6 @@ namespace Game.Tests.EditMode.Art
 
             Assert.AreEqual((int)SpriteAlignment.Center, settings.spriteAlignment);
             Assert.AreEqual(new Vector2(0.5f, 0.5f), settings.spritePivot);
-        }
-
-        /// <summary>
-        /// The art is only reachable through CoreDefinition - nothing else in the project points at
-        /// it - so the wiring belongs with the import settings rather than in its own file.
-        /// </summary>
-        [Test]
-        public void CoreDefinition_ShowsThisSpriteAtItsOwnFootprint()
-        {
-            var core = AssetDatabase.LoadAssetAtPath<CoreDefinition>(CoreDefinitionPath);
-            Assert.IsNotNull(core, $"{CoreDefinitionPath} is missing.");
-
-            Assert.AreSame(AssetDatabase.LoadAssetAtPath<Sprite>(AssetPath), core.Sprite);
-            Assert.AreEqual(new Vector2Int(4, 4), core.FootprintSize,
-                "The sprite is authored to fill a 4x4 footprint exactly; a different footprint means the import PPU is now wrong.");
-        }
-
-        /// <summary>WorldContentSpawner hands the frame list to SpriteFlipbook, which then owns the renderer's sprite - two or more frames would simply hide the still image assigned above.</summary>
-        [Test]
-        public void CoreDefinition_HasNoLeftoverFlipbookHidingTheStill()
-        {
-            var core = AssetDatabase.LoadAssetAtPath<CoreDefinition>(CoreDefinitionPath);
-
-            Assert.Less(core.AnimationFrames.Length, 2);
         }
 
         [Test]
