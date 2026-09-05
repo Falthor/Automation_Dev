@@ -65,15 +65,15 @@ namespace Game.Presentation
         /// building's own footprint area, which is why a 9-cell power plant and a 1-cell conveyor
         /// no longer take the same time.
         ///
-        /// 2.25 reproduces the value tuned on the gas power plant (0.25 progress/s over 9 cells),
-        /// so that building's behaviour is unchanged; a conveyor now assembles in 0.44 s.
+        /// 1.8 reproduces the value tuned by eye on the gas power plant (0.2 progress/s over 9
+        /// cells), so that building's behaviour is unchanged; a conveyor assembles in 0.56 s.
         /// </summary>
-        [SerializeField, Min(0.0001f)] float assemblyRate = 2.25f;
+        [SerializeField, Min(0.0001f)] float assemblyRate = 1.8f;
 
         /// <summary>
         /// Floor on how fast any building may assemble, so a small one cannot pop into existence in
         /// a single frame. Caps the derived rate at 1/duration. Inert at the shipped assemblyRate -
-        /// a 1-cell building already takes 0.44 s - and there as a guard for future retuning.
+        /// a 1-cell building already takes 0.56 s - and there as a guard for future retuning.
         /// </summary>
         [SerializeField, Min(0.0001f)] float minAssemblyDuration = 0.25f;
 

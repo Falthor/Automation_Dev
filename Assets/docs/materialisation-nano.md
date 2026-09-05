@@ -18,7 +18,7 @@ pas faites.
 | `Scripts/Presentation/ConstructionSiteVisualSync.cs` | Les trois états d'un segment de chantier, et le passage de main à la vraie vue. |
 | `Scripts/Presentation/NanoConstructionSettings.cs` | La classe de réglages. |
 | `Data/Presentation/NanoConstructionSettings.asset` | L'instance unique. C'est le seul fichier à ouvrir pour changer l'aspect. |
-| `Scripts/Tests/EditMode/Presentation/BuildDissolveViewTests.cs` | 13 tests : lissage, flash, achèvement, isolation entre bâtiments, propagation des réglages. |
+| `Scripts/Tests/EditMode/Presentation/BuildDissolveViewTests.cs` | 16 tests : lissage, flash, achèvement, dépendance à la taille du bâtiment, plancher de durée, isolation entre bâtiments, propagation des réglages. |
 | `Scripts/Tests/EditMode/Presentation/ConstructionSiteVisualSyncTests.cs` | 6 tests : les trois états, la démolition et l'annulation en cours d'assemblage, le glissé multi-segments. |
 | `Scenes/DissolveTest.unity` | Scène de validation à l'œil : une caméra, une Fonderie à sa taille de jeu (3 cases), le composant câblé. Hors Build Settings, sans aucune dépendance au reste du jeu. Ouvrir, lancer le Play, monter `Target Progress` dans l'inspecteur du composant. |
 
@@ -36,7 +36,7 @@ le Play : le composant relit l'asset à chaque tick.
 | `rimColor` | Couleur de cette bande. |
 | `revealMode` | 0 = le bâtiment monte du sol, 1 = il se forme depuis son centre. |
 | `assemblyRate` | Vitesse d'assemblage, **en cases par seconde**. Plus bas = matérialisation plus lente. Un bâtiment de N cases met `N / assemblyRate` secondes. |
-| `minAssemblyDuration` | Plancher de durée. Inerte aux valeurs actuelles (une case prend déjà 0,44 s) ; garde-fou si `assemblyRate` remonte. |
+| `minAssemblyDuration` | Plancher de durée. Inerte aux valeurs actuelles (une case prend déjà 0,56 s) ; garde-fou si `assemblyRate` remonte. |
 | `deliveryFlashDuration` | Durée du flash à chaque arrivée de matière. |
 | `deliveryFlashIntensity` | Puissance de ce flash. |
 | `sitePlaceholderAlpha` | Opacité de la silhouette bleue **pendant** l'assemblage. En attente elle reste à l'alpha de `siteTint` (sur le composant, pas dans l'asset). |
@@ -61,15 +61,15 @@ La centrale fait 3×3 cases, donc 19 ÷ 3 ≈ **6,3 périodes par case**. Comme 
 recalcul : un bâtiment plus grand reçoit plus de périodes, avec un grain de même taille physique.
 **Ne jamais coder 0,06 en dur**, ce serait des dizaines de fois trop grossier.
 
-**`assemblyRate = 2.25`** cases par seconde. Le taux d'avancement d'un bâtiment est
-`assemblyRate / surface en cases`, donc la centrale gaz (9 cases) tourne à 0,25 avancement par
-seconde : une matérialisation complète y prend au minimum 4 secondes même si tous les matériaux
+**`assemblyRate = 1.8`** cases par seconde. Le taux d'avancement d'un bâtiment est
+`assemblyRate / surface en cases`, donc la centrale gaz (9 cases) tourne à 0,2 avancement par
+seconde : une matérialisation complète y prend au minimum 5 secondes même si tous les matériaux
 arrivent d'un coup. C'est ce plancher qui est réglé, pas une durée « moyenne » : la durée réelle
-est proportionnelle à la matière livrée. Un convoyeur (1 case) s'assemble en 0,44 s.
+est proportionnelle à la matière livrée. Un convoyeur (1 case) s'assemble en 0,56 s.
 
-Le 2,25 vient de `0,25 × 9`, c'est-à-dire du réglage validé à l'œil sur la centrale. **Attention :
-l'asset portait 0,20 et non 0,25** — ta valeur réglée à la main. La centrale passe donc de 5 s à
-4 s. Si les 5 s étaient le bon rythme, mets `assemblyRate` à **1.8**.
+Le 1,8 vient de `0,2 × 9`, c'est-à-dire du rythme réglé à l'œil sur la centrale — pas du 0,25 par
+défaut d'origine, qui aurait donné 2,25 et raccourci la centrale à 4 s. **Le repère de réglage est
+la centrale gaz**, et c'est sur elle qu'il faut rejuger toute nouvelle valeur.
 
 **`deliveryFlashDuration = 0.40`** est calé pour être vu sans être clignotant — assez long pour
 que l'œil accroche l'arrivée d'un lot, assez court pour que deux livraisons rapprochées restent
@@ -130,7 +130,7 @@ ne traverse jamais l'ensemble « en cours ».
 
 - **Le plancher `minAssemblyDuration` ne mord jamais aux valeurs actuelles.** Il plafonne le taux à
   `1 / 0,25 = 4` avancement par seconde, alors qu'un bâtiment d'une case — le plus petit possible —
-  tourne déjà à 2,25. Il ne servirait qu'au-delà de `assemblyRate = 4`. C'est un garde-fou pour un
+  tourne déjà à 1,8. Il ne servirait qu'au-delà de `assemblyRate = 4`. C'est un garde-fou pour un
   réglage futur, pas une contrainte active : le test qui le couvre doit donc monter `assemblyRate`
   pour le déclencher.
 - **À `noiseWeight = 1`, « 0 ne montre rien » n'est plus strictement garanti.** Le champ devient le

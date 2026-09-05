@@ -22,12 +22,12 @@ namespace Game.Tests.EditMode.Presentation
     public class BuildDissolveViewTests
     {
         /// <summary>Footprint cells per second, the shipped value - a speed, so the progress rate a view actually runs at depends on how big it is.</summary>
-        const float AssemblyRate = 2.25f;
+        const float AssemblyRate = 1.8f;
 
         /// <summary>The gas power plant this effect was tuned on, and BuildDissolveView's own default footprint.</summary>
         const int ReferenceFootprint = 9;
 
-        /// <summary>Progress per second for the reference building: 2.25 / 9. The value the whole effect was tuned at.</summary>
+        /// <summary>Progress per second for the reference building: 1.8 / 9 = 0.2. The value the whole effect was tuned at by eye.</summary>
         const float ReferenceRate = AssemblyRate / ReferenceFootprint;
 
         const float MinAssemblyDuration = 0.25f;
@@ -286,22 +286,22 @@ namespace Game.Tests.EditMode.Presentation
             BuildDissolveView powerPlant = NewView(settings);
             powerPlant.FootprintCells = ReferenceFootprint;
 
-            Assert.AreEqual(AssemblyRate, conveyor.ProgressRate, 0.0001f, "One cell takes the whole rate: 0.44 s end to end.");
-            Assert.AreEqual(ReferenceRate, powerPlant.ProgressRate, 0.0001f, "Nine cells: 0.25 progress/s, the value the effect was tuned at.");
+            Assert.AreEqual(AssemblyRate, conveyor.ProgressRate, 0.0001f, "One cell takes the whole rate: 0.56 s end to end.");
+            Assert.AreEqual(ReferenceRate, powerPlant.ProgressRate, 0.0001f, "Nine cells: 0.2 progress/s, the value the effect was tuned at.");
             Assert.AreEqual(ReferenceFootprint, conveyor.ProgressRate / powerPlant.ProgressRate, 0.0001f, "Strictly proportional to footprint area.");
 
             conveyor.TargetProgress = 1f;
             powerPlant.TargetProgress = 1f;
-            Advance(conveyor, 0.5f);
-            Advance(powerPlant, 0.5f);
+            Advance(conveyor, 0.7f);
+            Advance(powerPlant, 0.7f);
 
-            Assert.IsTrue(conveyor == null, "Half a second is past the conveyor's 0.44 s, so it finished and removed itself.");
+            Assert.IsTrue(conveyor == null, "0.7 s is past the conveyor's 0.56 s, so it finished and removed itself.");
             Assert.Less(powerPlant.DisplayedProgress, 0.2f, "The power plant is barely started.");
         }
 
         /// <summary>
         /// The floor caps the derived rate so nothing pops into existence in one frame. It does not
-        /// bind at the shipped assemblyRate - a 1-cell building already takes 0.44 s - so this
+        /// bind at the shipped assemblyRate - a 1-cell building already takes 0.56 s - so this
         /// raises the rate until it does, which is the case the floor exists to guard.
         /// </summary>
         [Test]

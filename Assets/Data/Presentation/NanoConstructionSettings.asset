@@ -19,7 +19,7 @@ MonoBehaviour:
   revealMode: 0
   sitePlaceholderAlpha: 0.35
   siteSilhouetteSortingOrder: 7
-  assemblyRate: 2.25
+  assemblyRate: 1.8
   minAssemblyDuration: 0.25
   deliveryFlashDuration: 0.4
   deliveryFlashIntensity: 0.28

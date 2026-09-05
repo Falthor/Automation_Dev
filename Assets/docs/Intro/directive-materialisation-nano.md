@@ -57,8 +57,8 @@ progressRate = assemblyRate / surface du bâtiment en cases
 Un avancement par seconde serait indépendant de la taille : un convoyeur d'une case et une centrale
 de neuf cases mettraient le même temps à s'assembler. C'est trop long sur les convoyeurs, et comme
 les segments d'un glissé se matérialisent en série, une ligne de dix convoyeurs devient
-interminable. Avec `assemblyRate = 2.25`, la centrale garde ses 4 secondes et un convoyeur
-s'assemble en 0,44 s.
+interminable. Avec `assemblyRate = 1.8`, la centrale garde ses 5 secondes et un convoyeur
+s'assemble en 0,56 s.
 
 `minAssemblyDuration` plafonne le taux à `1 / minAssemblyDuration` pour qu'un petit bâtiment ne
 surgisse pas d'un coup. La surface se prend sur l'**emprise logique** (`FootprintSize`), jamais sur
@@ -211,7 +211,7 @@ l'aspect de toute la base depuis un seul asset.
 | `groundIntensity` | `0.15` | teinte du sol converti, volontairement discrète |
 | `groundRimIntensity` | `0.6` | **découplé** de `groundIntensity`, voir ci-dessous |
 | `coverageFadeSeconds` | `4` | |
-| `assemblyRate` | `2.25` | **cases assemblées par seconde** |
+| `assemblyRate` | `1.8` | **cases assemblées par seconde** |
 | `minAssemblyDuration` | `0.25` | secondes, plancher de durée d'assemblage |
 | `deliveryFlashDuration` | `0.40` | secondes |
 | `deliveryFlashIntensity` | `0.28` | |
