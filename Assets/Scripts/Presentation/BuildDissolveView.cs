@@ -33,6 +33,13 @@ namespace Game.Presentation
 
         [SerializeField] NanoConstructionSettings settings;
 
+        /// <summary>
+        /// Serialized rather than a plain auto-property so it shows up in the inspector: with no
+        /// site bound, dragging this by hand during play is how the effect gets judged by eye
+        /// (directive-materialisation-nano.md §11, step 1). A bound site overwrites it every tick.
+        /// </summary>
+        [SerializeField, Range(0f, 1f)] float targetProgress;
+
         SpriteRenderer _renderer;
         MaterialPropertyBlock _propertyBlock;
         Material _dissolveMaterial;
@@ -40,10 +47,13 @@ namespace Game.Presentation
         SpriteFlipbook _flipbook;
         ConstructionSiteRuntime _site;
         float _lastTargetProgress;
-        bool _initialized;
 
         /// <summary>The site's real progress: discrete, jumping at each delivery. Set directly when driving the effect by hand (a test prefab); otherwise fed by the bound site.</summary>
-        public float TargetProgress { get; set; }
+        public float TargetProgress
+        {
+            get => targetProgress;
+            set => targetProgress = Mathf.Clamp01(value);
+        }
 
         /// <summary>What actually drives the shader. Chases TargetProgress at the configured rate and never exceeds it.</summary>
         public float DisplayedProgress { get; private set; }
@@ -83,25 +93,35 @@ namespace Game.Presentation
 
         void Awake() => Initialize();
 
+        /// <summary>
+        /// Gated on the objects themselves rather than on a "done" flag. A script recompile
+        /// reloads the domain, and Unity restores a MonoBehaviour's serializable private fields
+        /// (a bool among them) while everything else - a MaterialPropertyBlock, a Material - comes
+        /// back null. A flag would therefore say "initialised" over a null property block, which
+        /// throws on the next tick. Checking each object means the component simply heals itself.
+        /// </summary>
         void Initialize()
         {
-            if (_initialized) return;
-            _initialized = true;
-
-            _renderer = GetComponent<SpriteRenderer>();
-            _propertyBlock = new MaterialPropertyBlock();
-            _flipbook = GetComponent<SpriteFlipbook>();
+            if (_renderer == null) _renderer = GetComponent<SpriteRenderer>();
+            if (_propertyBlock == null) _propertyBlock = new MaterialPropertyBlock();
+            if (_flipbook == null) _flipbook = GetComponent<SpriteFlipbook>();
 
             // Frozen on its current frame while under construction; the machine only starts moving
             // once it is operational.
-            if (_flipbook != null) _flipbook.enabled = false;
+            if (_flipbook != null && _flipbook.enabled) _flipbook.enabled = false;
 
-            if (settings != null && settings.DissolveShader != null)
-            {
-                _originalMaterial = _renderer.sharedMaterial;
-                _dissolveMaterial = new Material(settings.DissolveShader) { name = "BuildDissolve (Instance)" };
-                _renderer.sharedMaterial = _dissolveMaterial;
-            }
+            if (settings == null || settings.DissolveShader == null) return;
+            if (_dissolveMaterial != null) return;
+
+            // Already wearing the dissolve material means a reload lost the reference rather than
+            // the material never having been installed - taking the branch again would stack a
+            // second instance and record the dissolve material as the one to restore.
+            Material current = _renderer.sharedMaterial;
+            if (current != null && current.shader == settings.DissolveShader) return;
+
+            _originalMaterial = current;
+            _dissolveMaterial = new Material(settings.DissolveShader) { name = "BuildDissolve (Instance)" };
+            _renderer.sharedMaterial = _dissolveMaterial;
         }
 
         void LateUpdate() => Tick(Time.deltaTime);

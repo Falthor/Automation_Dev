@@ -150,6 +150,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.BuildDissolveView
   settings: {fileID: 11400000, guid: 79d5e14f36e1222419f95746c4db949e, type: 2}
+  targetProgress: 0
 --- !u!212 &116779584
 SpriteRenderer:
   serializedVersion: 3
