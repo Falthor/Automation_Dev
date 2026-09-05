@@ -28,11 +28,11 @@ namespace Game.Tests.PlayMode
             _spawned.Clear();
         }
 
-        BuildingShadowSettings NewSettings(float alpha = 0.45f, Vector2? offset = null, int sortingOrder = 8)
+        BuildingShadowSettings NewSettings(float alpha = 0.45f, Vector2? offset = null, int sortingOrder = 8, float scale = 1f)
         {
             var settings = ScriptableObject.CreateInstance<BuildingShadowSettings>();
             _spawned.Add(settings);
-            SetSettings(settings, alpha, offset ?? new Vector2(0.25f, -0.25f), sortingOrder);
+            SetSettings(settings, alpha, offset ?? new Vector2(0.25f, -0.25f), sortingOrder, scale);
             return settings;
         }
 
@@ -42,13 +42,14 @@ namespace Game.Tests.PlayMode
         /// SerializedObject technique the EditMode TestDataFactory uses; editor-only, and these
         /// tests are only ever run in the editor.
         /// </summary>
-        static void SetSettings(BuildingShadowSettings settings, float alpha, Vector2 offset, int sortingOrder)
+        static void SetSettings(BuildingShadowSettings settings, float alpha, Vector2 offset, int sortingOrder, float scale = 1f)
         {
 #if UNITY_EDITOR
             var so = new UnityEditor.SerializedObject(settings);
             so.FindProperty("alpha").floatValue = alpha;
             so.FindProperty("offset").vector2Value = offset;
             so.FindProperty("sortingOrder").intValue = sortingOrder;
+            so.FindProperty("scale").floatValue = scale;
             so.ApplyModifiedPropertiesWithoutUndo();
 #else
             Assert.Ignore("DropShadowTests configures its settings asset through the editor API.");
@@ -158,6 +159,29 @@ namespace Game.Tests.PlayMode
             Assert.AreEqual(offset.y, worldOffset.y, 0.0001f);
         }
 
+        /// <summary>The scale multiplies whatever size the caster already is, so one setting reads the same on a 1x1 conveyor and on the 4x4 Core.</summary>
+        [Test]
+        public void ScaleGrowsTheShadowRelativeToItsCaster()
+        {
+            DropShadow shadow = NewCaster(NewSettings(scale: 1.2f), NewSprite(), Vector3.zero, new Vector3(0.5f, 0.5f, 1f));
+            var caster = shadow.GetComponent<SpriteRenderer>();
+
+            Assert.AreEqual(caster.bounds.size.x * 1.2f, shadow.ShadowRenderer.bounds.size.x, 0.0001f);
+            Assert.AreEqual(caster.bounds.size.y * 1.2f, shadow.ShadowRenderer.bounds.size.y, 0.0001f);
+        }
+
+        /// <summary>Growing the shadow must not drag it off the sun direction - it grows around its own centre.</summary>
+        [Test]
+        public void ScaleLeavesTheOffsetAlone()
+        {
+            var offset = new Vector2(0.25f, -0.25f);
+            DropShadow shadow = NewCaster(NewSettings(offset: offset, scale: 1.5f), NewSprite(), Vector3.zero, Vector3.one);
+
+            Vector3 worldOffset = shadow.ShadowRenderer.transform.position - shadow.transform.position;
+            Assert.AreEqual(offset.x, worldOffset.x, 0.0001f);
+            Assert.AreEqual(offset.y, worldOffset.y, 0.0001f);
+        }
+
         [Test]
         public void FollowsTheCastersSpriteWhenItChanges()
         {
@@ -178,13 +202,14 @@ namespace Game.Tests.PlayMode
             DropShadow first = NewCaster(settings, NewSprite(), Vector3.zero, Vector3.one);
             DropShadow second = NewCaster(settings, NewSprite(), new Vector3(10f, 0f, 0f), Vector3.one);
 
-            SetSettings(settings, 0.8f, new Vector2(-0.5f, 0.5f), 6);
+            SetSettings(settings, 0.8f, new Vector2(-0.5f, 0.5f), 6, 1.3f);
             yield return null;
 
             foreach (DropShadow shadow in new[] { first, second })
             {
                 Assert.AreEqual(0.8f, shadow.ShadowRenderer.color.a, 0.0001f);
                 Assert.AreEqual(6, shadow.ShadowRenderer.sortingOrder);
+                Assert.AreEqual(1.3f, shadow.ShadowRenderer.transform.localScale.x, 0.0001f);
 
                 Vector3 worldOffset = shadow.ShadowRenderer.transform.position - shadow.transform.position;
                 Assert.AreEqual(-0.5f, worldOffset.x, 0.0001f);

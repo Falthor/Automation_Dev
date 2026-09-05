@@ -34,6 +34,7 @@ namespace Game.Presentation
         Color _appliedColor;
         int _appliedSortingOrder;
         Vector2 _appliedOffset;
+        float _appliedScale;
         Quaternion _appliedCasterRotation;
         Vector3 _appliedCasterScale;
         bool _hasApplied;
@@ -97,6 +98,14 @@ namespace Game.Presentation
             {
                 _shadow.sortingOrder = settings.SortingOrder;
                 _appliedSortingOrder = settings.SortingOrder;
+            }
+
+            // A local scale, so it multiplies whatever size the caster already is - including a
+            // negative axis where the caster is mirrored, which must be preserved.
+            if (!_hasApplied || _appliedScale != settings.Scale)
+            {
+                _shadow.transform.localScale = Vector3.one * settings.Scale;
+                _appliedScale = settings.Scale;
             }
 
             // Only the caster's rotation and scale change what local offset produces the wanted

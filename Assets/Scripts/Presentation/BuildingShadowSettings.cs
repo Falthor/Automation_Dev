@@ -29,9 +29,13 @@ namespace Game.Presentation
         /// </summary>
         [SerializeField] int sortingOrder = 8;
 
+        /// <summary>Size of the shadow relative to the building casting it - 1 is the exact silhouette, above 1 grows it around its own centre (which reads as the building standing taller off the ground), below 1 shrinks it.</summary>
+        [SerializeField, Min(0f)] float scale = 1f;
+
         public float Alpha => alpha;
         public Vector2 Offset => offset;
         public int SortingOrder => sortingOrder;
+        public float Scale => scale;
 
         /// <summary>Black at the configured opacity - the shadow renderer's tint over the caster's own silhouette.</summary>
         public Color ShadowColor => new Color(0f, 0f, 0f, alpha);
