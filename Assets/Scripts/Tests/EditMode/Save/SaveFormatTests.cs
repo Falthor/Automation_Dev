@@ -7,7 +7,7 @@ using NUnit.Framework;
 namespace Game.Tests.EditMode.Save
 {
     /// <summary>
-    /// Pins the on-disk save format (CONTRACTS.md §14): the exact set of keys, their order, and the
+    /// Pins the on-disk save format (CONTRACTS.md §14): the exact set of keys, their values, and the
     /// fact that a null still occupies its key rather than vanishing.
     ///
     /// Written for a cleanup that had to touch SaveData without moving the format by one iota, and
@@ -15,6 +15,12 @@ namespace Game.Tests.EditMode.Save
     /// silently disappearing until a player's save failed to load. SaveService is deliberately not
     /// involved - it writes to the real save path, which a test must never touch - so this asserts
     /// on the one call it makes.
+    ///
+    /// <b>The order of the keys is deliberately not asserted.</b> JSON has no ordering, Json.NET
+    /// reads a document whatever order it arrives in, and the set plus the values already catches
+    /// every field added, removed or renamed. Pinning the order would add no protection and would
+    /// make the test fail on a reordering done purely for readability - a failure with no real
+    /// defect behind it, which is how a test gets weakened wholesale instead of understood.
     /// </summary>
     public class SaveFormatTests
     {
@@ -67,16 +73,17 @@ namespace Game.Tests.EditMode.Save
         };
 
         [Test]
-        public void TheSaveFile_HasExactlyTheseKeys_InThisOrder()
+        public void TheSaveFile_HasExactlyTheseKeys()
         {
             var root = JObject.Parse(Serialize(NewPopulatedSave()));
 
             var actual = new List<string>();
             foreach (JProperty property in root.Properties()) actual.Add(property.Name);
 
-            CollectionAssert.AreEqual(ExpectedRootKeys, actual,
-                "The save file's shape changed. A key added, removed or reordered here is a format change, "
-                + "and SaveService refuses any save whose Version does not match exactly.");
+            CollectionAssert.AreEquivalent(ExpectedRootKeys, actual,
+                "The save file's shape changed: a key was added, removed or renamed. That is a format "
+                + "change, and SaveService refuses any save whose Version does not match exactly - so "
+                + "either bump SaveData.CurrentVersion deliberately, or put the key back.");
         }
 
         [Test]
@@ -87,13 +94,13 @@ namespace Game.Tests.EditMode.Save
             var deposit = (JObject)root["Deposits"][0];
             var depositKeys = new List<string>();
             foreach (JProperty property in deposit.Properties()) depositKeys.Add(property.Name);
-            CollectionAssert.AreEqual(
+            CollectionAssert.AreEquivalent(
                 new[] { "DefinitionId", "OriginX", "OriginY", "RemainingQuantity" }, depositKeys);
 
             var building = (JObject)root["Buildings"][0];
             var buildingKeys = new List<string>();
             foreach (JProperty property in building.Properties()) buildingKeys.Add(property.Name);
-            CollectionAssert.AreEqual(
+            CollectionAssert.AreEquivalent(
                 new[] { "DefinitionId", "CellX", "CellY", "FacingRotation", "State" }, buildingKeys);
 
             Assert.AreEqual("Iron_Ingot", building["State"]["recipe"].Value<string>(),
@@ -122,7 +129,7 @@ namespace Game.Tests.EditMode.Save
 
             var actual = new List<string>();
             foreach (JProperty property in root.Properties()) actual.Add(property.Name);
-            CollectionAssert.AreEqual(ExpectedRootKeys, actual, "Nulls do not change the shape either.");
+            CollectionAssert.AreEquivalent(ExpectedRootKeys, actual, "Nulls do not change the shape either.");
         }
 
         [Test]
