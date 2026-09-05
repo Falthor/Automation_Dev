@@ -395,6 +395,39 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Assert.AreEqual(3, site.MaterializedCount);
         }
 
+        /// <summary>
+        /// A pending segment occupies the grid from the moment it is placed, so anything resolving
+        /// a click through Grid.GetOccupant would happily open the panel of a building that has
+        /// received nothing (BuildingSelectionInput guards on exactly this predicate). What matters
+        /// is that the guard keys on the segment being materialized and not on the site still being
+        /// open: in a half-built run, the finished segment is a real, working building and must
+        /// stay selectable while its siblings do not.
+        /// </summary>
+        [Test]
+        public void APartlyBuiltRun_ReportsOnlyItsUnmaterializedSegmentsAsPending()
+        {
+            // One plate in the chest, one plate per segment: segment 0 can be built, 1 and 2 cannot.
+            Fixture fixture = NewFixture(coreChestContents: 1);
+            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 1));
+
+            fixture.Construction.SelectBuilding(conveyor);
+            Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5, 5), Direction.East, out ConstructionSiteRuntime site));
+            for (int i = 1; i < 3; i++)
+            {
+                Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5 + i, 5), Direction.East, out _, site));
+            }
+
+            fixture.Simulate(20f);
+
+            Assert.AreEqual(1, site.MaterializedCount, "Only the first segment had material.");
+
+            Assert.IsFalse(fixture.Sites.TryGetSiteContaining(site.Segments[0], out _),
+                "The built segment is a real building and must stay selectable.");
+            Assert.IsTrue(fixture.Sites.TryGetSiteContaining(site.Segments[1], out _),
+                "A segment still waiting for material must not answer a click.");
+            Assert.IsTrue(fixture.Sites.TryGetSiteContaining(site.Segments[2], out _));
+        }
+
         // --- Save / restore ---
 
         [Test]

@@ -71,6 +71,22 @@ namespace Game.UI
             GridCoord cell = gameRuntime.Grid.WorldToCell(world);
             object occupant = gameRuntime.Grid.GetOccupant(cell);
 
+            // A construction site's pending segment already occupies the grid - that is what stops
+            // anything else being placed on it - but it is not built yet: nothing has been
+            // delivered, it produces nothing, and it has no state worth showing. Clicking the blue
+            // silhouette of an empty Foundry must not open its production panel.
+            //
+            // Neutralized rather than ignored, so the click still closes whatever panel was open,
+            // exactly like a click on bare ground. TryGetSiteContaining only matches segments that
+            // have not materialized yet, so the first conveyor of a three-segment run stays
+            // selectable as soon as it is built while its two siblings do not.
+            if (occupant is BuildingRuntime pendingSegment
+                && gameRuntime.ConstructionSites != null
+                && gameRuntime.ConstructionSites.TryGetSiteContaining(pendingSegment, out _))
+            {
+                occupant = null;
+            }
+
             if (occupant is StorageRuntime storage)
             {
                 storagePanel.Show(storage);
