@@ -85,12 +85,17 @@ namespace Game.Save
         public List<BuildingSaveData> Buildings = new List<BuildingSaveData>();
     }
 
+    /// <summary>
+    /// Where a deposit is and what it is - all of it. A deposit never runs out
+    /// (ALIGNEMENT_PROJET.md §8), so it has no mutable state to carry: no quantity is written, and
+    /// the RemainingQuantity an older save still holds is simply ignored, which is exactly right
+    /// now that the answer is "infinite" whatever the number said.
+    /// </summary>
     public sealed class DepositSaveData
     {
         public string DefinitionId;
         public int OriginX;
         public int OriginY;
-        public int RemainingQuantity;
     }
 
     public sealed class BuildingSaveData

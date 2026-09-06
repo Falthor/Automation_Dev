@@ -32,7 +32,11 @@ dépôt et sa valeur cible. Toutes les valeurs cibles sont des valeurs de test.
   par ressource entre 28 et 34 cellules hors rayon (best-effort). `minDistance` à 10
   pour les grappes dans le rayon.
 - **§8, reste (« Les gisements sont illimités », suppression de `InitialQuantity`/
-  `RemainingQuantity`/`TryExtract`)** — non appliqué.
+  `RemainingQuantity`/`TryExtract`)** — appliqué. `DepositRuntime` n'a plus d'état
+  mutable du tout, `OreDepositDefinition` n'a plus de quantité, l'extracteur n'est plus
+  limité que par son propre tampon, `IsSameExploitableDeposit` ne teste plus qu'un
+  gisement est présent, et `DepositSaveData` a perdu `RemainingQuantity` (sans bump de
+  `Version` : la clé d'une ancienne sauvegarde est simplement ignorée).
 - **§4 (Data Center — baies, amorçage, répartition par axe) et §5 (Usure des
   composants — usure pilotant stabilité et fluctuation, décroissance accélérée, durée
   de vie dispersée par générateur seedé, seuil de remplacement configurable par type)**
@@ -340,14 +344,12 @@ permanente.
 **Règle : un gisement ne s'épuise jamais.** Sa quantité est infinie, un extracteur posé
 dessus produit indéfiniment.
 
-Le projet implémente aujourd'hui l'inverse — `OreDepositDefinition.InitialQuantity` vaut
-1 000 pour les trois types et `DepositRuntime.RemainingQuantity` décroît à chaque
-extraction. **Ce mécanisme est à supprimer**, pas à ajuster : retirer `InitialQuantity`,
-`RemainingQuantity` et `TryExtract`, et avec eux le test
-`deposit.RemainingQuantity > 0` de `ConstructionService.IsSameExploitableDeposit`.
+**Appliqué.** `InitialQuantity`, `RemainingQuantity` et `TryExtract` ont été retirés, avec
+le test `deposit.RemainingQuantity > 0` de `ConstructionService.IsSameExploitableDeposit`.
+Un gisement n'a plus aucun état mutable : il sait où il est et ce qu'il est, rien d'autre.
 
-Supprimer le mécanisme fait disparaître par construction le bug décrit en §6b, ce qui
-vaut mieux que de le corriger dans un système qu'on ne veut pas.
+Supprimer le mécanisme a fait disparaître par construction le bug décrit en §6b, ce qui
+valait mieux que de le corriger dans un système qu'on ne voulait pas.
 
 Conséquence de conception : ce qui pousse le joueur à s'étendre n'est pas la raréfaction
 mais le **débit**. Une grappe n'offre que quatre emplacements d'extracteur ; produire

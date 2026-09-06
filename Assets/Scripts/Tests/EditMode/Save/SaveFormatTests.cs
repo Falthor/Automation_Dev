@@ -46,7 +46,7 @@ namespace Game.Tests.EditMode.Save
             PlayTimeSeconds = 372.5f,
             Deposits = new List<DepositSaveData>
             {
-                new DepositSaveData { DefinitionId = "iron", OriginX = 1, OriginY = 2, RemainingQuantity = 900 }
+                new DepositSaveData { DefinitionId = "iron", OriginX = 1, OriginY = 2 }
             },
             Buildings = new List<BuildingSaveData>
             {
@@ -96,7 +96,7 @@ namespace Game.Tests.EditMode.Save
             var depositKeys = new List<string>();
             foreach (JProperty property in deposit.Properties()) depositKeys.Add(property.Name);
             CollectionAssert.AreEquivalent(
-                new[] { "DefinitionId", "OriginX", "OriginY", "RemainingQuantity" }, depositKeys);
+                new[] { "DefinitionId", "OriginX", "OriginY" }, depositKeys);
 
             var building = (JObject)root["Buildings"][0];
             var buildingKeys = new List<string>();
@@ -160,7 +160,6 @@ namespace Game.Tests.EditMode.Save
 
             Assert.AreEqual(1, restored.Deposits.Count);
             Assert.AreEqual("iron", restored.Deposits[0].DefinitionId);
-            Assert.AreEqual(900, restored.Deposits[0].RemainingQuantity);
 
             Assert.AreEqual(1, restored.Buildings.Count);
             Assert.AreEqual("foundry", restored.Buildings[0].DefinitionId);

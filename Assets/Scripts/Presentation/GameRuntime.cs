@@ -279,7 +279,6 @@ namespace Game.Presentation
 
                     var origin = new GridCoord(depositSave.OriginX, depositSave.OriginY);
                     DepositRuntime deposit = Grid.PlaceDeposit(origin, oreDefinition);
-                    deposit.RestoreState(depositSave.RemainingQuantity);
                     deposits.Add(deposit);
                 }
 
@@ -379,7 +378,6 @@ namespace Game.Presentation
                         DefinitionId = deposit.Definition.Id,
                         OriginX = deposit.Origin.X,
                         OriginY = deposit.Origin.Y,
-                        RemainingQuantity = deposit.RemainingQuantity
                     });
                 }
             }
