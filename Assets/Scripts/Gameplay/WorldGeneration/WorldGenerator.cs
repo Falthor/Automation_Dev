@@ -39,6 +39,24 @@ namespace Game.Gameplay.WorldGeneration
         const float InvitationMinDistanceCells = 26f;
         const float InvitationMaxDistanceCells = 29f;
 
+        /// <summary>
+        /// Clear cells kept between a cluster's outer edge and the action-radius ring, so a cluster
+        /// never lands flush against the boundary. The far corner of a cluster is what has to clear
+        /// it, not its centre - see InRadiusMaxDistance.
+        /// </summary>
+        const float RadiusEdgeMarginCells = 2f;
+
+        /// <summary>
+        /// Clear cells kept around every cluster, so two of them can never end up touching. Checked
+        /// as a ring of empty ground around the candidate footprint rather than as a distance
+        /// between centres: that also keeps a cluster off the Core, off its chest, and off anything
+        /// else already placed, with one rule instead of one per thing to avoid.
+        ///
+        /// One cell is enough to read as separate on screen and to leave a belt a way between two
+        /// fields, which is the practical reason the gap matters at all.
+        /// </summary>
+        const int ClusterClearanceCells = 1;
+
         public CoreRuntime Core { get; private set; }
         public GridCoord CoreOrigin { get; private set; }
 
@@ -109,8 +127,12 @@ namespace Game.Gameplay.WorldGeneration
         float InRadiusMaxDistance(OreDepositDefinition definition)
         {
             if (definition == null) return 0f;
+            // The cluster's own far corner is what must stay inside the ring, so what comes off the
+            // radius is half its diagonal - not its width, which was only ever an approximation that
+            // happened to leave about a cell of slack.
             Vector2Int clusterFootprint = definition.FootprintSize * 2;
-            return ActionRadiusCells - Mathf.Max(clusterFootprint.x, clusterFootprint.y);
+            float halfDiagonal = new Vector2(clusterFootprint.x, clusterFootprint.y).magnitude * 0.5f;
+            return ActionRadiusCells - RadiusEdgeMarginCells - halfDiagonal;
         }
 
         /// <summary>Places the one required cluster for a resource type, or throws if it cannot be placed within the attempt budget - see the Generate() comment on why this is fatal instead of silent.</summary>
@@ -182,18 +204,30 @@ namespace Game.Gameplay.WorldGeneration
             _oreDeposits.AddRange(deposits);
         }
 
+        /// <summary>
+        /// A uniformly random spot in the ring between minDistance and maxDistance, with a clear
+        /// ring of ClusterClearanceCells around it so nothing it lands next to is touching it.
+        ///
+        /// The angle is uniform and the radius is drawn from a square root rather than uniformly:
+        /// a ring's area grows with its radius, so drawing the distance flat crowds every cluster
+        /// toward the inner edge of the band. This makes any point of the band equally likely,
+        /// which is what "aleatoire" has to mean for a layout the player reads as scattered.
+        /// </summary>
         bool TryFindFreeSpot(GridRuntime grid, System.Random random, Vector2 coreCenter, float minDistance, float maxDistance, Vector2Int depositFootprint, out GridCoord origin)
         {
             for (int attempt = 0; attempt < DepositPlacementAttempts && maxDistance > minDistance; attempt++)
             {
                 float angle = (float)(random.NextDouble() * Mathf.PI * 2.0);
-                float distance = minDistance + (float)random.NextDouble() * (maxDistance - minDistance);
+
+                float inner = minDistance * minDistance;
+                float outer = maxDistance * maxDistance;
+                float distance = Mathf.Sqrt(inner + (float)random.NextDouble() * (outer - inner));
 
                 int centerX = Mathf.RoundToInt(coreCenter.x + Mathf.Cos(angle) * distance);
                 int centerY = Mathf.RoundToInt(coreCenter.y + Mathf.Sin(angle) * distance);
                 var candidateOrigin = new GridCoord(centerX - depositFootprint.x / 2, centerY - depositFootprint.y / 2);
 
-                if (grid.IsAreaFree(candidateOrigin, depositFootprint))
+                if (IsAreaFreeWithClearance(grid, candidateOrigin, depositFootprint, ClusterClearanceCells))
                 {
                     origin = candidateOrigin;
                     return true;
@@ -202,6 +236,18 @@ namespace Game.Gameplay.WorldGeneration
 
             origin = default;
             return false;
+        }
+
+        /// <summary>
+        /// Whether the footprint AND a ring of `clearance` cells around it are all free. Asking the
+        /// grid about the padded rectangle is what stops two clusters ending up edge to edge: the
+        /// second one's own cells may be free while its neighbour starts in the very next column.
+        /// </summary>
+        static bool IsAreaFreeWithClearance(GridRuntime grid, GridCoord origin, Vector2Int footprint, int clearance)
+        {
+            var paddedOrigin = new GridCoord(origin.X - clearance, origin.Y - clearance);
+            var paddedSize = new Vector2Int(footprint.x + clearance * 2, footprint.y + clearance * 2);
+            return grid.IsAreaFree(paddedOrigin, paddedSize);
         }
     }
 }

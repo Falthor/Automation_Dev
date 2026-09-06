@@ -14,10 +14,13 @@ namespace Game.Presentation
     /// needs depth: terrain, nano coverage, flat decor and vegetation, concrete, deposits, the grid,
     /// the action radius, and the transport family with the items riding it.</item>
     /// <item><b>Sorted</b> - a single band ordered by depth: every building, the Core, construction
-    /// silhouettes, their shadows and arrows, the raised rocks, the builder robots. Anything whose
-    /// art rises above its base.</item>
-    /// <item><b>Flying</b> - fixed, above everything sorted. Empty for now: the builder robots walk,
-    /// so they belong to the sorted band. Kept for drones, projectiles and aerial effects.</item>
+    /// silhouettes, their shadows and arrows, the raised rocks. Anything whose art rises above its
+    /// base and still stands on it.</item>
+    /// <item><b>Flying</b> - fixed, above everything sorted: the builder drones, and later anything
+    /// else genuinely airborne. They were tried in the sorted band and it put a drone behind the very
+    /// site it was delivering to, swallowed by the nano assembly - a thing in the air does not queue
+    /// for a place on the ground. Its shadow keeps the ground's logic and falls on whatever is
+    /// underneath it.</item>
     /// <item><b>Information</b> - fixed, above the world: placement previews, their arrows and the
     /// hover outline. Not "flying": what flies is in the world and has a depth, while an overlay
     /// annotates it. A preview hidden behind a building would be a preview that failed at its job.
@@ -93,15 +96,24 @@ namespace Game.Presentation
         public const int SubShadow = 1;
         public const int SubSprite = 2;
 
-        /// <summary>Arrows, and the builder robots - drawn over the building they belong to, never under it.</summary>
+        /// <summary>A building's own input/output arrows - drawn over the building they belong to, never under it.</summary>
         public const int SubOverlay = 3;
 
         public const int SortedFirst = 100;
         public const int SortedLast = SortedFirst + Steps * SubLayers - 1;
 
-        // ---- Flying band (empty for now) ----
+        // ---- Flying band ----
 
-        public const int FlyingFirst = SortedLast + 1;
+        /// <summary>
+        /// A flier's shadow. Above everything standing on the ground on purpose: a shadow lands on
+        /// whatever is underneath it, roofs included, which is exactly what says the thing casting it
+        /// is in the air. One slot below the flier itself, which DropShadow relies on - it takes its
+        /// caster's order minus the gap between SubSprite and SubShadow.
+        /// </summary>
+        public const int FlyingShadow = SortedLast + 1;
+
+        /// <summary>The builder drones, and later anything else genuinely airborne. Fixed, above every depth-sorted thing: a drone flies over the base rather than queueing for a place in it.</summary>
+        public const int FlyingFirst = FlyingShadow + 1;
 
         // ---- Information band ----
 
