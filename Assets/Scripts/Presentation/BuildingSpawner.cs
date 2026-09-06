@@ -24,8 +24,27 @@ namespace Game.Presentation
         // world-unit constant only happened to mean 0.3 cells because CellSize is 1.
         const float GroundSlabOverscanCells = 0.5f;
 
-        static readonly Color OutputArrowColor = new Color(0.25f, 0.95f, 0.35f, 1f);
-        static readonly Color InputArrowColor = new Color(0.3f, 0.6f, 1f, 1f);
+        /// <summary>
+        /// The connection arrows' look, owned here because this is what draws the real ones. The
+        /// placement ghost reads these rather than keeping its own copies: it had its own, and a
+        /// preview whose arrows are a different size or colour from the building it previews is the
+        /// same defect as one whose arrows are in a different place.
+        /// </summary>
+        public static readonly Color OutputArrowColor = new Color(0.25f, 0.95f, 0.35f, 1f);
+        public static readonly Color InputArrowColor = new Color(0.3f, 0.6f, 1f, 1f);
+
+        /// <summary>
+        /// The arrow's size as a fraction of one cell. The sprite is a 32px triangle at 32 PPU, so
+        /// this is directly how tall it stands - a quarter of a cell, filling about half that in
+        /// width where the triangle is widest.
+        ///
+        /// In cells rather than world units, for the same reason GroundSlabOverscanCells is: it is a
+        /// statement about how much of a tile the marker covers, not about world distance.
+        /// </summary>
+        public const float ArrowSizeCells = 0.25f;
+
+        /// <summary>The arrow's world-space scale on a given grid - what both the built view and the ghost set on the transform.</summary>
+        public static float ArrowWorldSize(float cellSize) => cellSize * ArrowSizeCells;
 
         readonly GridRuntime _grid;
         readonly ProceduralSpriteFactory _spriteFactory;
@@ -343,7 +362,7 @@ namespace Game.Presentation
             arrowGo.transform.position = worldPosition;
             Direction pointingDirection = inward ? direction.Opposite() : direction;
             arrowGo.transform.rotation = Quaternion.Euler(0f, 0f, -pointingDirection.ToRotationDegrees());
-            arrowGo.transform.localScale = Vector3.one * (_grid.CellSize * 0.4f);
+            arrowGo.transform.localScale = Vector3.one * ArrowWorldSize(_grid.CellSize);
             arrowGo.transform.SetParent(parent, true);
 
             var arrowRenderer = arrowGo.AddComponent<SpriteRenderer>();

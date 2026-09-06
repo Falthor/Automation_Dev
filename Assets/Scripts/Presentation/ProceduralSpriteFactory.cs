@@ -162,12 +162,19 @@ namespace Game.Presentation
             return sprite;
         }
 
-        Sprite _arrowSprite;
+        /// <summary>
+        /// Keyed by colour, like _solidSquareCache. A single cached sprite ignored the colour it was
+        /// asked for and handed back whichever one was built first: a building draws its output
+        /// arrow before its input ones, so every input arrow came out the output's green instead of
+        /// its own blue, and the two ends of a building were indistinguishable.
+        /// </summary>
+        readonly Dictionary<Color32, Sprite> _arrowCache = new Dictionary<Color32, Sprite>();
 
         /// <summary>Small triangle pointing North in the canonical frame (rotate the transform for other directions).</summary>
         public Sprite CreateArrowSprite(Color color)
         {
-            if (_arrowSprite != null) return _arrowSprite;
+            Color32 key = color;
+            if (_arrowCache.TryGetValue(key, out Sprite cached)) return cached;
 
             var texture = NewTexture();
             var pixels = new Color[TextureSize * TextureSize];
@@ -190,13 +197,14 @@ namespace Game.Presentation
             texture.SetPixels(pixels);
             texture.Apply(false, false);
 
-            _arrowSprite = Sprite.Create(
+            var sprite = Sprite.Create(
                 texture,
                 new Rect(0, 0, TextureSize, TextureSize),
                 new Vector2(0.5f, 0.5f),
                 PixelsPerUnit);
 
-            return _arrowSprite;
+            _arrowCache[key] = sprite;
+            return sprite;
         }
 
         public Sprite CreateShapeSprite(ConveyorShapeKind shape, Color color)

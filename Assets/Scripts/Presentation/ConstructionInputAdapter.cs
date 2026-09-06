@@ -57,8 +57,8 @@ namespace Game.Presentation
         /// </summary>
         [SerializeField] ConveyorDefinition cornerConveyorForReshape;
 
-        static readonly Color OutputArrowColor = new Color(0.25f, 0.95f, 0.35f, 1f);
-        static readonly Color InputArrowColor = new Color(0.3f, 0.6f, 1f, 1f);
+        // Arrow colours and size come from BuildingSpawner, which draws the real ones - the ghost
+        // previewing a building must not describe it with a different marker.
 
         readonly ProceduralSpriteFactory _spriteFactory = new ProceduralSpriteFactory();
         BuildingSpawner _spawner;
@@ -299,14 +299,14 @@ namespace Game.Presentation
                 // its arrow one cell away from where it grew it.
                 GridCoord outputCell = BuildingRuntime.ComputeOutputCell(cell, selected.FootprintSize, previewRotation);
                 outputArrowWorldPos = gameRuntime.Grid.CellCenterToWorld(outputCell);
-                outputArrowSprite = _spriteFactory.CreateArrowSprite(OutputArrowColor);
+                outputArrowSprite = _spriteFactory.CreateArrowSprite(BuildingSpawner.OutputArrowColor);
             }
 
             Sprite inputArrowSprite = null;
             List<(Vector3 position, Direction direction)> inputArrows = null;
             if (selected.HasInputArrows)
             {
-                inputArrowSprite = _spriteFactory.CreateArrowSprite(InputArrowColor);
+                inputArrowSprite = _spriteFactory.CreateArrowSprite(BuildingSpawner.InputArrowColor);
                 inputArrows = new List<(Vector3, Direction)>();
                 foreach ((GridCoord edgeCell, Direction fromMySide) in BuildingRuntime.ComputeInputCells(cell, selected.FootprintSize, previewRotation))
                 {
@@ -315,7 +315,7 @@ namespace Game.Presentation
             }
 
             buildingGhostView.Show(sprite, worldSize, worldCenter, previewRotation, valid,
-                outputArrowSprite, outputArrowWorldPos, gameRuntime.Grid.CellSize * 0.4f,
+                outputArrowSprite, outputArrowWorldPos, BuildingSpawner.ArrowWorldSize(gameRuntime.Grid.CellSize),
                 inputArrowSprite, inputArrows, rotateSprite, artNativeDirection);
         }
 
