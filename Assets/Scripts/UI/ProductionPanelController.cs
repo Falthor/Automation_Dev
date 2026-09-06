@@ -50,6 +50,7 @@ namespace Game.UI
         Label _computeValue;
         Label _stateLabel;
         Label _timeLabel;
+        Label _rateLabel;
 
         ProductionBuildingRuntime _selected;
         string _pendingRecipeId = "";
@@ -87,6 +88,7 @@ namespace Game.UI
             if (computeIcon != null) panelRoot.Q<VisualElement>("ProductionComputeIcon").style.backgroundImage = new StyleBackground(computeIcon);
             _stateLabel = panelRoot.Q<Label>("ProductionStateLabel");
             _timeLabel = panelRoot.Q<Label>("ProductionTimeLabel");
+            _rateLabel = panelRoot.Q<Label>("ProductionRateLabel");
 
             panelRoot.Q<Button>("ProductionCloseButton").clicked += Close;
             _tabRecipesButton.clicked += () => SetActiveTab(false);
@@ -236,6 +238,13 @@ namespace Game.UI
             time.AddToClassList("recipe-card-time");
             card.Add(time);
 
+            // Under the duration, what that duration is worth: the yield times the crafts a minute
+            // holds. "4 every 3.0 s" is the recipe; "80/min" is the only half of it a player sizing
+            // a line can use, and working it out in their head for every card is not the game.
+            var rate = new Label(recipe != null ? RateText.PerMinute(recipe.OutputPerMinute) : string.Empty);
+            rate.AddToClassList("recipe-card-rate");
+            card.Add(rate);
+
             return card;
         }
 
@@ -287,9 +296,10 @@ namespace Game.UI
 
             _ingredientsList.Clear();
             IReadOnlyDictionary<string, int> required = _selected.GetRequiredIngredients();
+            float craftsPerMinute = recipe != null ? recipe.CraftsPerMinute : 0f;
             foreach (var kvp in required)
             {
-                _ingredientsList.Add(BuildIngredientRow(kvp.Key, kvp.Value));
+                _ingredientsList.Add(BuildIngredientRow(kvp.Key, kvp.Value, craftsPerMinute));
             }
 
             _powerValue.text = $"{_selected.GetPowerDemandKw():0} kW";
@@ -301,6 +311,11 @@ namespace Game.UI
 
             float remaining = _selected.GetProductionTime() * (1f - progress);
             _timeLabel.text = $"{remaining:0.0}s restantes";
+
+            // The recipe's rating, not a measurement of this building: it assumes the ingredients
+            // keep arriving, and says nothing about whether they are. What is actually happening
+            // right now is the state line at the bottom of this same panel.
+            _rateLabel.text = recipe != null ? RateText.PerMinute(recipe.OutputPerMinute) : string.Empty;
 
             ProductionState state = _selected.GetState();
             _stateLabel.text = "● " + _selected.GetStateLabel();
@@ -348,7 +363,13 @@ namespace Game.UI
             return row;
         }
 
-        VisualElement BuildIngredientRow(string itemId, int need)
+        /// <summary>
+        /// One raw material: what is in the building over what one craft needs, then what a minute
+        /// of running needs. The two answer different questions - "can it craft now" and "what has
+        /// to arrive to keep it crafting" - and only the second one sizes the line feeding it, so
+        /// they sit side by side rather than one replacing the other.
+        /// </summary>
+        VisualElement BuildIngredientRow(string itemId, int need, float craftsPerMinute)
         {
             int have = _selected.GetInputAmount(itemId);
             bool ok = have >= need;
@@ -368,6 +389,10 @@ namespace Game.UI
             var status = new Label($"{have} / {need}  {(ok ? "✓" : "✕")}");
             status.AddToClassList(ok ? "production-ingredient-status-ok" : "production-ingredient-status-missing");
             row.Add(status);
+
+            var demand = new Label(RateText.PerMinute(need * craftsPerMinute));
+            demand.AddToClassList("production-ingredient-rate");
+            row.Add(demand);
 
             return row;
         }

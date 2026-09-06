@@ -293,7 +293,12 @@ namespace Game.Tests.EditMode.TestSupport
             return deposit;
         }
 
-        public static WorldGenerationSettings NewWorldGenerationSettings(CoreDefinition coreDefinition, OreDepositDefinition ironOreDefinition, OreDepositDefinition copperOreDefinition, OreDepositDefinition coalOreDefinition, int resourceSeed)
+        /// <summary>
+        /// Pinned to `resourceSeed` by default, which is what a test asserting a placement rule
+        /// wants: a failure it can reproduce. The shipped asset randomizes instead - pass
+        /// randomizeResourceSeed: true to exercise that.
+        /// </summary>
+        public static WorldGenerationSettings NewWorldGenerationSettings(CoreDefinition coreDefinition, OreDepositDefinition ironOreDefinition, OreDepositDefinition copperOreDefinition, OreDepositDefinition coalOreDefinition, int resourceSeed, bool randomizeResourceSeed = false)
         {
             var settings = ScriptableObject.CreateInstance<WorldGenerationSettings>();
             var so = new SerializedObject(settings);
@@ -301,6 +306,7 @@ namespace Game.Tests.EditMode.TestSupport
             so.FindProperty("ironOreDefinition").objectReferenceValue = ironOreDefinition;
             so.FindProperty("copperOreDefinition").objectReferenceValue = copperOreDefinition;
             so.FindProperty("coalOreDefinition").objectReferenceValue = coalOreDefinition;
+            so.FindProperty("randomizeResourceSeed").boolValue = randomizeResourceSeed;
             so.FindProperty("resourceSeed").intValue = resourceSeed;
             so.ApplyModifiedPropertiesWithoutUndo();
             return settings;

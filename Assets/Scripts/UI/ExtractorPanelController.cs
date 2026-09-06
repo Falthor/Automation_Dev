@@ -27,6 +27,7 @@ namespace Game.UI
         VisualElement _progressFill;
         Label _timeLabel;
         Label _percentLabel;
+        Label _rateLabel;
         VisualElement _storageIcon;
         Label _storageCount;
         ExtractorRuntime _selected;
@@ -47,6 +48,7 @@ namespace Game.UI
             _progressFill = panelRoot.Q<VisualElement>("ExtractorProgressFill");
             _timeLabel = panelRoot.Q<Label>("ExtractorTimeLabel");
             _percentLabel = panelRoot.Q<Label>("ExtractorPercentLabel");
+            _rateLabel = panelRoot.Q<Label>("ExtractorRateLabel");
             _storageIcon = panelRoot.Q<VisualElement>("ExtractorStorageIcon");
             _storageCount = panelRoot.Q<Label>("ExtractorStorageCount");
             panelRoot.Q<Button>("ExtractorCloseButton").clicked += Close;
@@ -92,6 +94,11 @@ namespace Game.UI
             _progressFill.style.width = new StyleLength(Length.Percent(progress * 100f));
             _percentLabel.text = $"{Mathf.RoundToInt(progress * 100f)} %";
             _timeLabel.text = $"{_selected.ExtractionIntervalSeconds * (1f - progress):0.0}s restantes";
+
+            // The rated figure, the same one the Building menu quotes on hover - what this extractor
+            // pulls with power, CU and somewhere to put the ore. Not a reading of the last minute:
+            // a full buffer stops it dead and this number does not move.
+            _rateLabel.text = RateText.PerMinute(_selected.ItemsPerMinute);
 
             _storageIcon.style.backgroundImage = new StyleBackground(ItemSprite(_selected.ItemId));
             _storageCount.text = $"{_selected.BufferedAmount}/{ExtractorRuntime.InternalStorageCapacity}";

@@ -39,6 +39,10 @@
                         <ui:Label name="ProductionTimeLabel" text="" class="production-time-label" />
                         <ui:Label name="ProductionPercentLabel" text="0 %" class="production-percent-label" />
                     </ui:VisualElement>
+                    <ui:VisualElement class="production-rate-row">
+                        <ui:Label text="PRODUCTION" class="production-rate-caption" />
+                        <ui:Label name="ProductionRateLabel" text="" class="production-rate-value" />
+                    </ui:VisualElement>
 
                     <ui:Label text="MATIERES PREMIERES" class="extractor-section-label" />
                     <ui:VisualElement name="ProductionIngredientsList" class="production-ingredients-list" />

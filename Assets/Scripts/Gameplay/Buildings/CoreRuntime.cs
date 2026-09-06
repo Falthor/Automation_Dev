@@ -36,10 +36,13 @@ namespace Game.Gameplay.Buildings
 
         /// <summary>
         /// 32, not the ticket's originally stated 30: the invitation ore clusters WorldGenerator
-        /// actually places (InvitationMinDistanceCells/MaxDistanceCells = 28-34) sit farther out
-        /// than the ticket assumed (25-28), so 30 would only have made each cluster partially
-        /// reachable. Measured in-world with the real fixed ResourceSeed: the farthest invitation
-        /// deposit is ~31.9 cells out (coal); 32 clears all three clusters in full.
+        /// actually places sit farther out than the ticket assumed (25-28), so 30 would only have
+        /// made each cluster partially reachable.
+        ///
+        /// Held against WorldGenerator's band (InvitationMinDistanceCells/MaxDistanceCells = 26-29)
+        /// plus a cluster's own half-diagonal, so it clears every cluster on <b>every</b> seed - the
+        /// world is drawn afresh each new game, and a figure measured on one layout would only ever
+        /// have been true of that layout. WorldGeneratorTests pins the relationship.
         /// </summary>
         public const int ExtendedActionRadiusCells = 32;
 

@@ -530,6 +530,15 @@
     font-size: 8px;
 }
 
+/* Under the craft duration on every recipe card: what that duration is worth per minute. Carries
+   the throughput accent the whole UI uses for a rate, so the eye finds it as one figure across the
+   Building menu, the recipe cards and the production panel. */
+.recipe-card-rate {
+    color: rgb(85, 221, 245);
+    font-size: 10px;
+    -unity-font-style: bold;
+}
+
 .recipe-action-button {
     height: 26px;
     margin: 4px 3px 0 3px;
@@ -599,6 +608,28 @@
     margin-bottom: 5px;
 }
 
+/* Rated output per minute, directly under the progress bar and its countdown - the same row shape
+   in the production panel and the extractor's, because it is the same statement in both. */
+.production-rate-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: -3px;
+    margin-bottom: 6px;
+}
+
+.production-rate-caption {
+    color: rgb(135, 147, 156);
+    font-size: 9px;
+    letter-spacing: 0.5px;
+}
+
+.production-rate-value {
+    color: rgb(85, 221, 245);
+    font-size: 12px;
+    -unity-font-style: bold;
+}
+
 .production-ingredients-list {
     flex-direction: column;
 }
@@ -630,6 +661,16 @@
 .production-ingredient-status-missing {
     color: rgb(220, 105, 95);
     font-size: 10px;
+}
+
+/* What this ingredient demands per minute of running - the throughput accent, not the have/need
+   green or red: it is a property of the recipe, and never says anything is wrong. */
+.production-ingredient-rate {
+    color: rgb(85, 221, 245);
+    font-size: 10px;
+    margin-left: 8px;
+    min-width: 46px;
+    -unity-text-align: middle-right;
 }
 
 .production-consumption-row {

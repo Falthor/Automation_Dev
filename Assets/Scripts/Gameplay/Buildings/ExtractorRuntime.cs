@@ -38,6 +38,9 @@ namespace Game.Gameplay.Buildings
         /// <summary>Duration of one extraction cycle, so a panel can turn ProductionProgress into a remaining time without reading the definition itself.</summary>
         public float ExtractionIntervalSeconds => _definition.ExtractionIntervalSeconds;
 
+        /// <summary>Rated ore per minute (ExtractorDefinition.ItemsPerMinute), passed through for the same reason as the interval above: a panel showing this extractor should not have to reach past it to its definition.</summary>
+        public float ItemsPerMinute => _definition.ItemsPerMinute;
+
         /// <summary>Progress toward the next extraction cycle, in [0,1]. Frozen (does not advance) while the internal buffer is full.</summary>
         public float ProductionProgress
         {

@@ -16,6 +16,10 @@
                     <ui:Label name="ExtractorTimeLabel" text="" class="production-time-label" />
                     <ui:Label name="ExtractorPercentLabel" text="0 %" class="production-percent-label" />
                 </ui:VisualElement>
+                <ui:VisualElement class="production-rate-row">
+                    <ui:Label text="EXTRACTION" class="production-rate-caption" />
+                    <ui:Label name="ExtractorRateLabel" text="" class="production-rate-value" />
+                </ui:VisualElement>
                 <ui:Label text="INTERNAL STORAGE" class="extractor-section-label" />
                 <ui:VisualElement class="storage-card">
                     <ui:VisualElement name="ExtractorStorageIcon" class="storage-card-icon" />

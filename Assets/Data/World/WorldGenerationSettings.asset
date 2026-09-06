@@ -16,6 +16,7 @@ MonoBehaviour:
   ironOreDefinition: {fileID: 11400000, guid: 85cc813140bf25e49a3ac14c51b44f29, type: 2}
   copperOreDefinition: {fileID: 11400000, guid: ffff9edcd441e594f93f7a9402beaea4, type: 2}
   coalOreDefinition: {fileID: 11400000, guid: 24f3c4c440f22c14cb72e74f072b099c, type: 2}
+  randomizeResourceSeed: 1
   resourceSeed: 12345
   startingStock:
   - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}

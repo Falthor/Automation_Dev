@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Linq;
+using Game.Core;
 using Game.Data;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Power;
@@ -16,7 +18,7 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
         const int MapSizeCells = 200;
         const int ResourceSeed = 12345;
 
-        static WorldGenerationSettings NewSettings(int actionRadiusCells, int resourceSeed = ResourceSeed)
+        static WorldGenerationSettings NewSettings(int actionRadiusCells, int resourceSeed = ResourceSeed, bool randomizeResourceSeed = false)
         {
             var ironItem = TestDataFactory.NewItem("iron_ore", ItemType.Ore);
             var copperItem = TestDataFactory.NewItem("copper_ore", ItemType.Ore);
@@ -27,7 +29,14 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
             var copper = TestDataFactory.NewOreDeposit(copperItem, new Vector2Int(2, 2));
             var coal = TestDataFactory.NewOreDeposit(coalItem, new Vector2Int(2, 2));
 
-            return TestDataFactory.NewWorldGenerationSettings(core, iron, copper, coal, resourceSeed);
+            return TestDataFactory.NewWorldGenerationSettings(core, iron, copper, coal, resourceSeed, randomizeResourceSeed);
+        }
+
+        static Game.Gameplay.WorldGeneration.WorldGenerator Generate(WorldGenerationSettings settings)
+        {
+            var generator = new Game.Gameplay.WorldGeneration.WorldGenerator();
+            generator.Generate(new GridRuntime(1f), MapSizeCells, settings, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            return generator;
         }
 
         [Test]
@@ -61,19 +70,66 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
         }
 
         [Test]
-        public void Generate_SameSeed_ProducesIdenticalDepositOrigins()
+        public void Generate_WithAPinnedSeed_ProducesIdenticalDepositOrigins()
         {
-            var settingsA = NewSettings(actionRadiusCells: 22);
-            var generatorA = new Game.Gameplay.WorldGeneration.WorldGenerator();
-            generatorA.Generate(new GridRuntime(1f), MapSizeCells, settingsA, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
-
-            var settingsB = NewSettings(actionRadiusCells: 22);
-            var generatorB = new Game.Gameplay.WorldGeneration.WorldGenerator();
-            generatorB.Generate(new GridRuntime(1f), MapSizeCells, settingsB, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            var generatorA = Generate(NewSettings(actionRadiusCells: 22));
+            var generatorB = Generate(NewSettings(actionRadiusCells: 22));
 
             CollectionAssert.AreEqual(
                 generatorA.OreDeposits.Select(d => d.Origin).ToList(),
                 generatorB.OreDeposits.Select(d => d.Origin).ToList());
+            Assert.AreEqual(ResourceSeed, generatorA.ResourceSeed, "A pinned world reports the seed it was pinned to.");
+        }
+
+        /// <summary>
+        /// The shipped behaviour, and the thing that was missing: placement was random in shape and
+        /// fixed in fact - one seed in the settings asset - so every new game rebuilt the same world
+        /// and the ore looked hand-placed.
+        ///
+        /// Asserted over several worlds rather than two, because two random draws can legitimately
+        /// land a cluster in the same cell; five all matching cannot happen by chance. What it pins
+        /// is that the seed is drawn per generation, not that any particular pair differs.
+        /// </summary>
+        [Test]
+        public void Generate_WithARandomSeed_PutsTheOreSomewhereElseEachNewGame()
+        {
+            var origins = new List<List<GridCoord>>();
+            var seeds = new List<int>();
+
+            for (int i = 0; i < 5; i++)
+            {
+                var generator = Generate(NewSettings(actionRadiusCells: 22, randomizeResourceSeed: true));
+                origins.Add(generator.OreDeposits.Select(d => d.Origin).ToList());
+                seeds.Add(generator.ResourceSeed);
+            }
+
+            Assert.Greater(seeds.Distinct().Count(), 1, "Every new game drew the same seed - nothing was randomized.");
+            Assert.Greater(origins.Distinct(new OriginListComparer()).Count(), 1,
+                "Five worlds, one layout: the ore lands in the same place every game.");
+        }
+
+        sealed class OriginListComparer : IEqualityComparer<List<GridCoord>>
+        {
+            public bool Equals(List<GridCoord> a, List<GridCoord> b) => a.SequenceEqual(b);
+            public int GetHashCode(List<GridCoord> value) => value.Count;
+        }
+
+        /// <summary>
+        /// A random seed changes where the ore lands, never whether the world is playable. The
+        /// guarantee is the same one Generate() throws to protect, checked over many draws rather
+        /// than over the one seed that happened to be stored in the asset.
+        /// </summary>
+        [Test]
+        public void Generate_WithARandomSeed_StillPlacesEveryGuaranteedCluster()
+        {
+            for (int i = 0; i < 25; i++)
+            {
+                var generator = Generate(NewSettings(actionRadiusCells: 22, randomizeResourceSeed: true));
+
+                Assert.AreEqual(8, generator.OreDeposits.Count(d => d.ItemId == "iron_ore"), $"draw {i}, seed {generator.ResourceSeed}");
+                Assert.AreEqual(8, generator.OreDeposits.Count(d => d.ItemId == "copper_ore"), $"draw {i}, seed {generator.ResourceSeed}");
+                Assert.AreEqual(8, generator.OreDeposits.Count(d => d.ItemId == "Coal_ore"), $"draw {i}, seed {generator.ResourceSeed}");
+            }
         }
 
         /// <summary>

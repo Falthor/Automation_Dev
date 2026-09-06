@@ -11,10 +11,15 @@ using UnityEngine;
 namespace Game.Gameplay.WorldGeneration
 {
     /// <summary>
-    /// Deterministic world-content placement run once at game start: the Core building at the
-    /// map center, its starting-resources Storage Box fixture one cell south of it, and its
-    /// resource deposits scattered within its action radius. Not part of Game.Construction -
-    /// this is world generation (like TerrainRuntime), not a player action.
+    /// World-content placement run once at game start: the Core building at the map center, its
+    /// starting-resources Storage Box fixture one cell south of it, and its resource deposits
+    /// scattered within its action radius. Not part of Game.Construction - this is world
+    /// generation (like TerrainRuntime), not a player action.
+    ///
+    /// Seeded per run by default (WorldGenerationSettings.RandomizeResourceSeed), so two new games
+    /// are two different worlds. Placement was always random in shape and fixed in fact, drawn from
+    /// one seed stored in the asset - which is not randomness the player can ever observe. Pinning
+    /// the seed stays available for reproducing a layout; ResourceSeed reports the one used.
     /// </summary>
     public sealed class WorldGenerator
     {
@@ -61,6 +66,15 @@ namespace Game.Gameplay.WorldGeneration
         public GridCoord CoreOrigin { get; private set; }
 
         /// <summary>
+        /// The seed this world's deposits were actually drawn from - the drawn one when
+        /// WorldGenerationSettings.RandomizeResourceSeed is on, the pinned one otherwise. Reported
+        /// rather than left implicit so a layout worth looking at again can be pinned back.
+        /// Meaningless after RestoreState: a loaded world's deposits come from the save file, not
+        /// from a draw.
+        /// </summary>
+        public int ResourceSeed { get; private set; }
+
+        /// <summary>
         /// A Storage Box fixture placed one cell south of the Core and seeded with
         /// WorldGenerationSettings.StartingStock at world generation - the Core itself never
         /// accepts any delivery (see CoreRuntime), so the player's starting resources live here
@@ -101,7 +115,12 @@ namespace Game.Gameplay.WorldGeneration
                 }
             }
 
-            var random = new System.Random(settings.ResourceSeed);
+            // Guid rather than Unity's Random or a tick count: it depends on no global state
+            // anything else in the project could have seeded, and two new games started in the same
+            // millisecond still differ.
+            ResourceSeed = settings.RandomizeResourceSeed ? System.Guid.NewGuid().GetHashCode() : settings.ResourceSeed;
+
+            var random = new System.Random(ResourceSeed);
             Vector2 coreCenter = new Vector2(
                 CoreOrigin.X + coreDefinition.FootprintSize.x / 2f,
                 CoreOrigin.Y + coreDefinition.FootprintSize.y / 2f);

@@ -381,6 +381,13 @@ inatteignable. Le rayon du brouillard de guerre (§10) suit désormais `ActionRa
 pas `ActionRadiusCells` — sans quoi les grappes d'invitation resteraient masquées avant même
 d'être exploitables.
 
+**Le tirage est désormais propre à chaque partie.** `ResourceSeed` n'est plus la graine du jeu
+mais une graine d'épinglage, utilisée seulement quand `RandomizeResourceSeed` est décoché : une
+nouvelle partie en tire une. Le placement était aléatoire dans sa forme et fixe dans les faits,
+ce qui, pour qui lance une deuxième partie, ne se distingue pas d'un placement à la main. Une
+sauvegarde ne bouge pas pour autant : les gisements y sont écrits case par case et relus depuis
+le fichier, jamais régénérés.
+
 Deux points méritent attention.
 
 La distance minimale actuelle de 6 cellules place une grappe presque contre le Noyau,
