@@ -8,12 +8,15 @@
                 <ui:Button name="SiteCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
             <ui:VisualElement class="extractor-body">
+                <ui:VisualElement name="SiteServiceRow" class="site-service-row">
+                    <ui:VisualElement name="SiteServiceRobotIcon" class="site-service-icon" />
+                    <ui:Label name="SiteServiceLabel" text="" class="site-service-waiting" />
+                </ui:VisualElement>
                 <ui:Label text="APPROVISIONNEMENT" class="extractor-section-label" />
                 <ui:VisualElement class="extractor-progress-track">
                     <ui:VisualElement name="SiteProgressFill" class="extractor-progress-fill" />
                 </ui:VisualElement>
-                <ui:VisualElement class="progress-info-row">
-                    <ui:Label name="SiteStateLabel" text="" class="state-idle" />
+                <ui:VisualElement class="progress-info-row site-percent-row">
                     <ui:Label name="SitePercentLabel" text="0 %" class="production-percent-label" />
                 </ui:VisualElement>
                 <ui:VisualElement name="SiteSupplyList" class="production-ingredients-list" />

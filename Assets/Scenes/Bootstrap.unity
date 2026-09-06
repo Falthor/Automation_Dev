@@ -744,6 +744,7 @@ MonoBehaviour:
   visualTree: {fileID: 9197481963319205126, guid: 45be202f65d06db4eadf566a1e775b70, type: 3}
   gameRuntime: {fileID: 2103112250}
   selectionRouter: {fileID: 60635893}
+  robotIcon: {fileID: 21300000, guid: aca9344cf6115774cbf9e8d5069139ba, type: 3}
 --- !u!1 &134080686
 GameObject:
   m_ObjectHideFlags: 0

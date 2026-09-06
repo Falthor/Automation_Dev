@@ -89,32 +89,40 @@ namespace Game.Gameplay.Sites
         /// physically landed here, what is promised and coming, and what nothing anywhere has been
         /// found for.
         ///
-        /// <b>EnRoute is the whole point of this shape.</b> Without it the only honest thing to show
+        /// <b>Reserved is the whole point of this shape.</b> Without it the only honest thing to show
         /// is "delivered 10 of 15", which cannot tell a site the system is busy serving from one that
         /// has been forgotten for want of production - the two look identical until one of them
-        /// silently never finishes. It covers both halves of a promise: earmarked in a container and
-        /// not yet collected, and already riding in a robot's cargo. From the outside those are the
-        /// same statement - this is on its way - so they are one number.
+        /// silently never finishes.
+        ///
+        /// It covers both halves of a promise: earmarked in a container and not yet collected, and
+        /// already riding in a robot's cargo. Both are the same statement about <b>stock</b> - this
+        /// material is spoken for and nothing else may take it - and neither says anything about
+        /// movement. Whether a robot is actually on its way to this site right now is a different
+        /// question with a different answer, and it is not answered here: it is a property of the
+        /// robots, not of the bill.
         /// </summary>
         public readonly struct SupplyLine
         {
             public readonly string ItemId;
             public readonly int Total;
             public readonly int Delivered;
-            public readonly int EnRoute;
+
+            /// <summary>Committed to this site but not yet delivered - earmarked in a container, or already in a robot's cargo.</summary>
+            public readonly int Reserved;
+
             public readonly int Missing;
 
-            public SupplyLine(string itemId, int total, int delivered, int enRoute, int missing)
+            public SupplyLine(string itemId, int total, int delivered, int reserved, int missing)
             {
                 ItemId = itemId;
                 Total = total;
                 Delivered = delivered;
-                EnRoute = enRoute;
+                Reserved = reserved;
                 Missing = missing;
             }
 
             /// <summary>Nothing is coming and something is still owed - the site is stalled on this ingredient.</summary>
-            public bool IsStalled => Missing > 0 && EnRoute == 0;
+            public bool IsStalled => Missing > 0 && Reserved == 0;
         }
 
         /// <summary>
@@ -134,14 +142,14 @@ namespace Game.Gameplay.Sites
             {
                 int total = _totalCost.TryGetValue(itemId, out int c) ? c : 0;
                 int delivered = _delivered.TryGetValue(itemId, out int d) ? d : 0;
-                int enRoute = _committed.TryGetValue(itemId, out int p) ? p : 0;
+                int reserved = _committed.TryGetValue(itemId, out int p) ? p : 0;
 
                 // Delivered can exceed a segment's own share while later segments still owe theirs,
                 // so the clamp is on the total, not per line.
                 delivered = System.Math.Min(delivered, total);
-                enRoute = System.Math.Min(enRoute, total - delivered);
+                reserved = System.Math.Min(reserved, total - delivered);
 
-                into.Add(new SupplyLine(itemId, total, delivered, enRoute, System.Math.Max(0, total - delivered - enRoute)));
+                into.Add(new SupplyLine(itemId, total, delivered, reserved, System.Math.Max(0, total - delivered - reserved)));
             }
         }
 

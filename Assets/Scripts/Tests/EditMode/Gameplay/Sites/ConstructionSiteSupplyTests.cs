@@ -20,13 +20,16 @@ namespace Game.Tests.EditMode.Gameplay.Sites
 {
     /// <summary>
     /// The reservation counter: a site's bill of materials in the three states a player asks about -
-    /// arrived, on its way, missing.
+    /// arrived, reserved, missing.
     ///
-    /// What is really being tested here is that <b>en route</b> is a state of its own. Delivered and
-    /// cost alone can only say "10 of 15", which reads the same for a site the system is actively
-    /// serving and for one that has been forgotten because nothing produces what it needs. Those two
-    /// situations are what the player is trying to tell apart, and only the reservation total
-    /// separates them.
+    /// What is really being tested here is that <b>reserved</b> is a state of its own. Delivered and
+    /// cost alone can only say "10 of 15", which reads the same for a site whose material is secured
+    /// and for one forgotten because nothing produces what it needs. Those two situations are what
+    /// the player is trying to tell apart, and only the reservation total separates them.
+    ///
+    /// Reserved says nothing about movement, deliberately: it is a claim on <b>stock</b>, and it
+    /// holds whether or not a robot has been dispatched. Which site a robot is actually walking
+    /// toward is a separate question, answered by the panel's service line and tested next to it.
     /// </summary>
     public class ConstructionSiteSupplyTests
     {
@@ -112,7 +115,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         /// no other site can take them.
         /// </summary>
         [Test]
-        public void MaterialsReservedButNotYetCollected_ReadAsEnRoute_NeitherArrivedNorMissing()
+        public void MaterialsReservedButNotYetCollected_ReadAsReserved_NeitherArrivedNorMissing()
         {
             Fixture fixture = NewFixture(plates: 4);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
@@ -123,7 +126,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
 
             Assert.AreEqual(4, line.Total);
             Assert.AreEqual(0, line.Delivered, "Placing a site moves nothing physically.");
-            Assert.AreEqual(4, line.EnRoute, "But it does claim what it needs, and that claim is what 'en route' reports.");
+            Assert.AreEqual(4, line.Reserved, "But it does claim what it needs, and that claim is what 'reserved' reports.");
             Assert.AreEqual(0, line.Missing, "Nothing is missing: the plates exist and are spoken for.");
             Assert.IsFalse(line.IsStalled);
         }
@@ -149,10 +152,10 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Assert.AreEqual(plates.Delivered, gears.Delivered,
                 "Precondition: on a delivered count alone these two ingredients are indistinguishable.");
 
-            Assert.AreEqual(4, plates.EnRoute, "One of them is being served...");
+            Assert.AreEqual(4, plates.Reserved, "One of them is being served...");
             Assert.IsFalse(plates.IsStalled);
 
-            Assert.AreEqual(0, gears.EnRoute, "...and the other has nothing coming at all.");
+            Assert.AreEqual(0, gears.Reserved, "...and the other has nothing coming at all.");
             Assert.AreEqual(3, gears.Missing);
             Assert.IsTrue(gears.IsStalled, "Which is the state a player has to be able to see.");
 
@@ -161,20 +164,20 @@ namespace Game.Tests.EditMode.Gameplay.Sites
 
         /// <summary>A promise becomes an arrival: the same units cross from one column to the other, never appearing in both or neither.</summary>
         [Test]
-        public void OnDelivery_UnitsCrossFromEnRouteIntoArrived()
+        public void OnDelivery_UnitsCrossFromReservedIntoArrived()
         {
             Fixture fixture = NewFixture(plates: 4);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
             ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
 
             Assert.AreEqual(0, LineFor(site, PlateId).Delivered);
-            Assert.AreEqual(4, LineFor(site, PlateId).EnRoute);
+            Assert.AreEqual(4, LineFor(site, PlateId).Reserved);
 
             fixture.Simulate(12f);
 
             SupplyLine line = LineFor(site, PlateId);
             Assert.AreEqual(4, line.Delivered, "Everything promised has now physically landed.");
-            Assert.AreEqual(0, line.EnRoute, "And nothing is still on its way.");
+            Assert.AreEqual(0, line.Reserved, "And nothing is still on its way.");
             Assert.AreEqual(0, line.Missing);
             Assert.IsTrue(site.IsComplete);
         }
@@ -196,10 +199,10 @@ namespace Game.Tests.EditMode.Gameplay.Sites
                 site.GetSupply(Lines);
                 foreach (SupplyLine line in Lines)
                 {
-                    Assert.AreEqual(line.Total, line.Delivered + line.EnRoute + line.Missing,
-                        $"step {step}, {line.ItemId}: {line.Delivered} + {line.EnRoute} + {line.Missing} != {line.Total}");
+                    Assert.AreEqual(line.Total, line.Delivered + line.Reserved + line.Missing,
+                        $"step {step}, {line.ItemId}: {line.Delivered} + {line.Reserved} + {line.Missing} != {line.Total}");
                     Assert.GreaterOrEqual(line.Delivered, 0);
-                    Assert.GreaterOrEqual(line.EnRoute, 0);
+                    Assert.GreaterOrEqual(line.Reserved, 0);
                     Assert.GreaterOrEqual(line.Missing, 0);
                 }
 
@@ -227,7 +230,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
 
             SupplyLine gears = LineFor(site, GearId);
             Assert.IsFalse(gears.IsStalled, "The retry pass claims newly available stock for the sites already waiting on it.");
-            Assert.AreEqual(3, gears.EnRoute);
+            Assert.AreEqual(3, gears.Reserved);
             Assert.AreEqual(0, gears.Missing);
         }
 
@@ -341,7 +344,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             foreach (ConstructionSiteRuntime site in sites)
             {
                 SupplyLine line = LineFor(site, PlateId);
-                Assert.AreEqual(5, line.EnRoute, "Every site's bill is claimed, robots or not.");
+                Assert.AreEqual(5, line.Reserved, "Every site's bill is claimed, robots or not.");
                 Assert.AreEqual(0, line.Missing);
             }
 

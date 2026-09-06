@@ -469,9 +469,11 @@ A view that needs a whole site's advancement still computes it from `TotalCost` 
 
 ### `ConstructionSiteRuntime.GetSupply(list)`
 
-The bill of materials in the three states a player asks about, one `SupplyLine` per ingredient: **delivered**, **en route**, **missing**. Read-only, filled into a caller-owned list, and in an order fixed by the bill rather than by a dictionary's enumeration, so a panel rebuilt every frame cannot reshuffle its rows.
+The bill of materials in the three states a player asks about, one `SupplyLine` per ingredient: **delivered**, **reserved**, **missing**. Read-only, filled into a caller-owned list, and in an order fixed by the bill rather than by a dictionary's enumeration, so a panel rebuilt every frame cannot reshuffle its rows.
 
-`EnRoute` covers both halves of a promise - reserved in a container and not yet collected, and already riding in a robot's cargo - because from outside those are the same statement: this is on its way. It is the only thing that separates a site the robots are actively serving from one forgotten because nothing produces what it needs; on a delivered count alone the two read identically until one of them silently never finishes. The three states always account for the whole of that ingredient's cost, mid-flight included.
+`Reserved` covers both halves of a promise - earmarked in a container and not yet collected, and already riding in a robot's cargo. Both are the same statement about **stock**: this material is spoken for and nothing else may take it. It is the only thing that separates a site whose material is secured from one forgotten because nothing produces what it needs; on a delivered count alone the two read identically until one of them silently never finishes. The three states always account for the whole of that ingredient's cost, mid-flight included.
+
+**Reserved says nothing about movement**, and must not be presented as if it did. A reservation holds whether or not a robot has been dispatched, so several sites placed at once are all fully reserved while only one is being served. Which site a robot is actually walking toward is a separate question with a separate answer - the robots whose `TargetSite` is that site and whose state is `MovingToSite` - and it belongs beside the bill, never inside it.
 
 Assembled here rather than left to the reader for the same reason as `SegmentProgress`: the rule maintaining those numbers stays with the object that maintains them.
 
