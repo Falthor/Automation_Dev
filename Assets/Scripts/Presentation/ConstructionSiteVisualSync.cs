@@ -352,9 +352,12 @@ namespace Game.Presentation
 
             var view = new SegmentView { Silhouette = NewRenderer($"ConstructionSite {segment.Cell}", SilhouetteSortingOrder) };
 
-            // Conveyors have no concrete pad when finished, so they get none while converting -
-            // the same exclusion SpawnStandardView already makes for the transport family.
-            if (!(segment is ConveyorRuntime))
+            // A building with no pad when finished gets none while converting - asked of the one
+            // predicate BuildingSpawner answers it with, rather than re-listed here. Naming only
+            // ConveyorRuntime made this narrower than the family it claimed: a Splitter, a
+            // Crossroad and an Extractor each showed a pad they were never going to keep, and lost
+            // it at the handover.
+            if (BuildingSpawner.KeepsGroundSlab(segment))
             {
                 view.Slab = _spawnConvertingSlab?.Invoke(segment.Cell, segment.Definition.FootprintSize);
             }

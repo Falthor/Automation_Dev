@@ -262,6 +262,11 @@ namespace Game.Presentation
                 BuildingRuntime segment = segments[i].Segment;
                 if (segment == null) continue;
 
+                // A transport piece lies flat on the ground it was laid on and changes none of it,
+                // so it converts none of it either - no nano front runs under a belt, a Splitter or
+                // a Crossroad. They are the one family that builds without touching the terrain.
+                if (BuildingSpawner.IsTransportPiece(segment)) continue;
+
                 if (!_patches.TryGetValue(segment, out Patch patch))
                 {
                     patch = new Patch();

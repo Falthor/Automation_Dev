@@ -130,6 +130,26 @@ namespace Game.Presentation
         }
 
         /// <summary>
+        /// A belt, a Splitter or a Crossroad: transport pieces, which lie flat on whatever ground
+        /// they were laid on and change none of it. They pour no concrete and convert no ground,
+        /// while building and once built.
+        /// </summary>
+        public static bool IsTransportPiece(BuildingRuntime runtime) =>
+            runtime is ConveyorRuntime || runtime is SplitterRuntime || runtime is CrossroadRuntime;
+
+        /// <summary>
+        /// Whether this building stands on a concrete pad once finished - the single answer for the
+        /// finished view (SpawnView's own routing) and for the pad a site shows while converting,
+        /// which must be the very pad the building will keep or the swap at the handover shows.
+        ///
+        /// False for the transport family, and for an Extractor: it sits on its ore deposit, not on
+        /// open ground, and a pad there would cover the deposit's own art instead of the building's
+        /// footing.
+        /// </summary>
+        public static bool KeepsGroundSlab(BuildingRuntime runtime) =>
+            !IsTransportPiece(runtime) && !(runtime is ExtractorRuntime);
+
+        /// <summary>
         /// Generic view for every non-conveyor building: a sprite sized to its footprint, plus
         /// an output arrow (and, for a recipe-based production building, entry arrows on every
         /// other side) if its Definition declares one. Covers Extractor/Storage/Foundry/Factory/
@@ -148,9 +168,7 @@ namespace Game.Presentation
             var root = new GameObject($"{definition.DisplayName} {runtime.Cell}");
             root.transform.position = _grid.FootprintCenterToWorld(runtime.Cell, definition.FootprintSize);
 
-            // An Extractor sits on its ore deposit, not open ground - a concrete pad under it
-            // would cover the deposit's own art/terrain instead of the building's real footing.
-            if (!(runtime is ExtractorRuntime))
+            if (KeepsGroundSlab(runtime))
             {
                 SpawnGroundSlab(root.transform, runtime.Cell, definition.FootprintSize);
             }

@@ -275,6 +275,33 @@ namespace Game.Tests.EditMode.Presentation
         }
 
         /// <summary>
+        /// A transport piece lies flat on the ground it was laid on. It pours no concrete once
+        /// built, so it must show none while converting either - the pad would appear for the
+        /// length of the build and vanish at the handover. The exclusion used to name
+        /// ConveyorRuntime alone, which is narrower than the family it meant.
+        /// </summary>
+        [Test]
+        public void ASplitterSite_ShowsNoConcretePad_TheFinishedOneKeepsNone()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 8);
+            var slabbed = new List<GridCoord>();
+            fixture.Views.SetGroundSlabSpawner((cell, footprint) => { slabbed.Add(cell); return null; });
+
+            SplitterDefinition splitter = TestDataFactory.NewSplitter("splitter", (fixture.Plate, 4));
+            PlaceSite(fixture, splitter, new GridCoord(5, 5));
+            fixture.Views.Tick();
+
+            Assert.IsEmpty(slabbed, "A '+' keeps no pad, so its site shows none.");
+
+            // The control: a building that does keep one still gets it while converting.
+            StorageDefinition storage = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
+            PlaceSite(fixture, storage, new GridCoord(12, 12));
+            fixture.Views.Tick();
+
+            Assert.AreEqual(new[] { new GridCoord(12, 12) }, slabbed);
+        }
+
+        /// <summary>
         /// The silhouette, the assembling sprite and the real view must all be the size the
         /// building is actually drawn at - BuildingSpawner.ArtWorldSize, RenderOverscan included.
         /// Overscan used to be applied only inside BuildingSpawner, so everything previewing a
