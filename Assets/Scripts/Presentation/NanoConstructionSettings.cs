@@ -116,26 +116,18 @@ namespace Game.Presentation
         /// </summary>
         [SerializeField, Range(0.05f, 3f)] float groundOverflowCells = 0.45f;
 
-        /// <summary>
-        /// Grain of the ground's noise, in periods per world unit - the same unit as the dissolve's
-        /// noiseScale. Much coarser than the dissolve's 12, because the ground field is sampled at
-        /// groundTexelsPerCell texels per cell and a finer grain than that only aliases.
-        /// </summary>
-        [SerializeField, Min(0f)] float groundNoiseScale = 1.2f;
+        // The ground deliberately has no grain settings of its own. It is handed the dissolve's
+        // noiseScale and noiseWeight above, because the two fronts are meant to be ragged the same
+        // way rather than merely both being ragged - two settings here would be two things that
+        // drift apart, and the layers would go back to reading as separate effects.
 
         /// <summary>
-        /// How far the noise displaces the conversion boundary, in threshold units. Added to the
-        /// threshold rather than blended with it, so it breaks the outline up without flattening the
-        /// centre-outwards order. 0 gives a clean rounded rectangle; higher values give a ragged
-        /// patch. Sampled in world space, so it never changes between frames.
-        /// </summary>
-        [SerializeField, Range(0f, 1f)] float groundNoiseWeight = 0.25f;
-
-        /// <summary>
-        /// Resolution of the coverage field, in texels per grid cell. One texel per cell can only
-        /// draw a boundary that follows the grid; 4 lets the noise break the outline up at a
-        /// quarter-cell scale. Changing it reallocates every zone's texture, which is why it is a
-        /// tuning knob and not something read per frame.
+        /// Resolution of the coverage field, in texels per grid cell. It carries the <b>smooth</b>
+        /// threshold only - the grain is added per fragment by the shader, so this no longer limits
+        /// how fine the front's teeth can be, only how faithfully the underlying sweep and the spill
+        /// boundary are sampled. One texel per cell makes that boundary follow the grid.
+        /// Changing it reallocates every zone's texture, which is why it is a tuning knob and not
+        /// something read per frame.
         /// </summary>
         [SerializeField, Range(1, 8)] int groundTexelsPerCell = 4;
 
@@ -208,8 +200,6 @@ namespace Game.Presentation
         /// </summary>
         public float GroundProgressFor(float displayedProgress)
             => Mathf.Clamp01(displayedProgress / Mathf.Max(groundLeadShare, 0.0001f));
-        public float GroundNoiseScale => groundNoiseScale;
-        public float GroundNoiseWeight => groundNoiseWeight;
         public int GroundTexelsPerCell => groundTexelsPerCell;
         public float GroundRimWidth => groundRimWidth;
         public int GroundCoverageSortingOrder => groundCoverageSortingOrder;

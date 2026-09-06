@@ -50,8 +50,11 @@ namespace Game.Tests.EditMode.Presentation
             var so = new SerializedObject(settings);
             so.FindProperty("coverageFadeSeconds").floatValue = FadeSeconds;
             so.FindProperty("groundOverflowCells").floatValue = OverflowCells;
-            so.FindProperty("groundNoiseWeight").floatValue = noiseWeight;
-            so.FindProperty("groundNoiseScale").floatValue = 1.2f;
+            // The ground has no grain of its own: it is handed the dissolve's, and the shader applies
+            // it per fragment. These two therefore steer what the SHADER will do, never what lands in
+            // the field these tests read.
+            so.FindProperty("noiseWeight").floatValue = noiseWeight;
+            so.FindProperty("noiseScale").floatValue = 12f;
             so.FindProperty("groundTexelsPerCell").intValue = texelsPerCell;
 
             // The ground reads the same reveal mode as the building, so the tests that are about
@@ -185,13 +188,18 @@ namespace Game.Tests.EditMode.Presentation
         }
 
         /// <summary>
-        /// The guarantee the ground's own phase owes: when it ends, the field is past the front over
-        /// every texel of the footprint - not merely at its cell centres, which are the most
-        /// converted points of all. It has to hold by construction and not by luck at the current
-        /// settings, so this pushes the noise to its ceiling and takes the largest footprint in play.
+        /// The guarantee the ground's own phase owes: when it ends, the front has passed every texel
+        /// of the footprint - not merely its cell centres, which are the most converted points of all.
+        ///
+        /// The shader subtracts up to <see cref="GroundCoverageRenderer.MaxNoiseAmplitude"/> from this
+        /// field, so the guarantee is not "past the front" but "past it by at least that much": any
+        /// less and the grain could pull the front back over a corner the field had only just
+        /// converted, leaving an unlit speck exactly where nobody would look for one. It has to hold
+        /// by construction rather than by luck at the current settings, hence the largest footprints
+        /// in play.
         /// </summary>
         [Test]
-        public void AtTheEndOfItsPhase_TheFieldIsPastTheFrontEverywhereOnTheFootprint()
+        public void AtTheEndOfItsPhase_TheFieldClearsTheFootprint_WithRoomForTheGrain()
         {
             foreach (Vector2Int size in new[] { new Vector2Int(1, 1), new Vector2Int(3, 3), new Vector2Int(4, 4), new Vector2Int(1, 5), new Vector2Int(9, 9) })
             {
@@ -202,8 +210,9 @@ namespace Game.Tests.EditMode.Presentation
 
                 renderer.Tick(0f, OneZone(), new List<DrawnSegment> { new DrawnSegment(segment, 1f) });
 
-                Assert.Greater(renderer.MinFrontDistanceOver(origin, size), 0f,
-                    "A " + size.x + "x" + size.y + " footprint still has an unconverted spot at the end of the ground's phase.");
+                Assert.GreaterOrEqual(renderer.MinFrontDistanceOver(origin, size), GroundCoverageRenderer.MaxNoiseAmplitude,
+                    "A " + size.x + "x" + size.y + " footprint has a spot the grain could still pull back "
+                    + "at the end of the ground's phase.");
             }
         }
 
@@ -354,13 +363,64 @@ namespace Game.Tests.EditMode.Presentation
         // --- The noise, and the resolution it needs ---
 
         /// <summary>
-        /// Without noise the field is symmetric about the footprint, so four cells at the same
-        /// distance carry the same value and the patch is a perfectly regular rounded rectangle. The
-        /// noise is what makes the outer boundary irregular - the whole point of pushing the field
-        /// past the footprint in the first place.
+        /// The grain lives in the shader, not in this field, and that is a sampling fact rather than
+        /// a preference: the field is stored at groundTexelsPerCell texels per cell (8 at the very
+        /// most), while the dissolve's noise runs at ~12 periods per world unit and needs at least 24
+        /// samples per cell to be represented at all. Baked, it is below the sampling rate - it comes
+        /// out as a slow undulation, or at low enough resolution as a perfectly flat edge, which is
+        /// exactly what it did.
+        ///
+        /// So the field stays smooth whatever the weight, and the weight only ever reaches the
+        /// shader.
         /// </summary>
         [Test]
-        public void TheNoise_BreaksTheSymmetryOfTheBoundary()
+        public void TheField_StaysSmooth_BecauseTheGrainIsTheShaders()
+        {
+            StorageDefinition wide = NewFootprint(3, 3);
+            var origin = new GridCoord(5, 5);
+            BuildingRuntime segment = NewSegment(wide, origin);
+            var live = new List<DrawnSegment> { new DrawnSegment(segment, 1f) };
+
+            GroundCoverageRenderer clean = NewRenderer(out _, noiseWeight: 0f);
+            clean.Tick(0f, OneZone(), live);
+
+            GroundCoverageRenderer noisy = NewRenderer(out _, noiseWeight: 1f);
+            noisy.Tick(0f, OneZone(), live);
+
+            foreach (Vector2Int offset in wide.FootprintCells)
+            {
+                var cell = new GridCoord(origin.X + offset.x, origin.Y + offset.y);
+                Assert.AreEqual(clean.FrontDistanceAt(cell), noisy.FrontDistanceAt(cell), 0.0001f,
+                    "The stored field must not move with the noise weight: " + offset);
+            }
+        }
+
+        /// <summary>
+        /// The weight handed to the shader is capped, because the shader SUBTRACTS up to half of it
+        /// from the stored distance. Above the cap it could pull the front back past a footprint
+        /// point that this field had only just converted, leaving unlit specks at the end of the
+        /// ground's phase - the one thing the phase guarantees it will not do.
+        /// </summary>
+        [Test]
+        public void TheGrainHandedToTheShader_IsCappedSoTheGuaranteeSurvivesIt()
+        {
+            Assert.AreEqual(0.045f, GroundCoverageRenderer.ShaderNoiseWeight(0.045f), 0.0001f,
+                "A normal dissolve weight passes through untouched.");
+
+            Assert.AreEqual(GroundCoverageRenderer.MaxNoiseWeight, GroundCoverageRenderer.ShaderNoiseWeight(1f), 0.0001f,
+                "A dissolve tuned past the cap is clamped for the ground rather than breaking it.");
+
+            Assert.AreEqual(GroundCoverageRenderer.MaxNoiseWeight * 0.5f, GroundCoverageRenderer.MaxNoiseAmplitude, 0.0001f,
+                "The jitter is centred on zero, so it can only ever pull back by half the weight.");
+        }
+
+        /// <summary>
+        /// Without noise the field is symmetric about the footprint, so cells at the same distance
+        /// carry the same value and the patch is a perfectly regular rounded rectangle. Kept as a
+        /// property of the stored field itself, now that the irregularity has moved to the shader.
+        /// </summary>
+        [Test]
+        public void TheStoredField_IsSymmetricAboutTheFootprint()
         {
             StorageDefinition wide = NewFootprint(3, 3);
             var origin = new GridCoord(5, 5);
@@ -383,19 +443,8 @@ namespace Game.Tests.EditMode.Presentation
             foreach ((GridCoord left, GridCoord right) in pairs)
             {
                 Assert.AreEqual(clean.FrontDistanceAt(left), clean.FrontDistanceAt(right), 0.005f,
-                    "Without noise the two sides are interchangeable at height " + left.Y);
+                    "The two sides are interchangeable at height " + left.Y);
             }
-
-            GroundCoverageRenderer noisy = NewRenderer(out _, noiseWeight: 0.25f);
-            noisy.Tick(0f, OneZone(), live);
-
-            float widest = 0f;
-            foreach ((GridCoord left, GridCoord right) in pairs)
-            {
-                widest = Mathf.Max(widest, Mathf.Abs(noisy.FrontDistanceAt(left) - noisy.FrontDistanceAt(right)));
-            }
-
-            Assert.Greater(widest, 0.02f, "With noise they no longer are, so the outline stops being a shape.");
         }
 
         /// <summary>

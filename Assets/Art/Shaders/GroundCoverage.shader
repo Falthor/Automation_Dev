@@ -25,6 +25,18 @@ Shader "Custom/GroundCoverage"
         // no zone to resolve and no indirection to do - it just converts world position to UV over
         // this rectangle, the same way BuildDissolve normalises over _BuildBounds.
         _ZoneBounds ("Zone bounds (minX, minY, sizeX, sizeY)", Vector) = (0, 0, 1, 1)
+
+        // The grain of the front, applied HERE rather than baked into _CoverageTex, and fed the
+        // building's own values so the two fronts are ragged the same way.
+        //
+        // It cannot live in the texture. The field is stored at groundTexelsPerCell texels per cell
+        // (8 at the very most); the dissolve's noise runs at ~12 periods per world unit, which needs
+        // at least 24 samples per cell to represent at all. Baked, the grain is not merely coarser -
+        // it is below the sampling rate, so it comes out as a smooth undulation or, at low enough
+        // resolution, as a flat edge. The texture therefore carries the smooth threshold only, and
+        // the teeth are computed per fragment exactly as the building computes its own.
+        _NoiseScale ("Noise scale (periods per world unit)", Float) = 12
+        _NoiseWeight ("Noise weight", Range(0, 1)) = 0.045
     }
 
     SubShader
@@ -49,6 +61,7 @@ Shader "Custom/GroundCoverage"
             #pragma fragment frag
             #pragma target 3.0     // fwidth, for the one-pixel edge
             #include "UnityCG.cginc"
+            #include "NanoNoise.hlsl"
 
             struct appdata
             {
@@ -70,6 +83,8 @@ Shader "Custom/GroundCoverage"
             float _RimWidth;
             float _RimBoost;
             float4 _ZoneBounds;
+            float _NoiseScale;
+            float _NoiseWeight;
 
             v2f vert(appdata v)
             {
@@ -84,9 +99,17 @@ Shader "Custom/GroundCoverage"
                 float2 zoneSize = max(_ZoneBounds.zw, float2(0.0001, 0.0001));
                 float2 uv = (i.worldPos.xy - _ZoneBounds.xy) / zoneSize;
 
-                // Exactly BuildDissolve's distanceToFront, only precomputed on the CPU because the
-                // threshold depends on which site owns the cell, which a fragment cannot know.
+                // Exactly BuildDissolve's distanceToFront. The smooth part is precomputed on the CPU,
+                // because the threshold depends on which site owns the cell and how far along it is -
+                // neither of which a fragment can know. The grain is added back here, per fragment,
+                // at the building's own scale and weight: see _NoiseScale for why it cannot be baked
+                // into the texture with the rest.
+                //
+                // GroundCoverageRenderer leaves half the weight of headroom over the whole footprint
+                // precisely so this subtraction can never leave an unconverted speck behind at the
+                // end of the ground's phase.
                 float distanceToFront = tex2D(_CoverageTex, uv).r * 2.0 - 1.0;
+                distanceToFront -= NanoFrontJitter(i.worldPos.xy, _NoiseScale, _NoiseWeight);
 
                 // Untouched terrain costs nothing: no blending, no overdraw, over the whole zone
                 // rectangle that is almost always empty.

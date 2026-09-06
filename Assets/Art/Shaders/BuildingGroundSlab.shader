@@ -43,6 +43,11 @@ Shader "Custom/BuildingGroundSlab"
         _RevealByCoverage ("Revealed by the nano front (0/1)", Float) = 0
         _CoverageRevealLag ("Concrete lag behind the front, in threshold units", Float) = 0.06
 
+        // Fed the same values as Custom/GroundCoverage, so both edges of the same field are the
+        // same edge. Only read on the _RevealByCoverage path.
+        _NoiseScale ("Noise scale (periods per world unit)", Float) = 12
+        _NoiseWeight ("Noise weight", Range(0, 1)) = 0.045
+
         _ReliefLightDir ("Relief Light Direction (xyz)", Vector) = (0.5, 0.5, 0.7, 0)
         _ReliefLightIntensity ("Relief Light Intensity", Range(0, 2)) = 1.4
         _ReliefAmbient ("Relief Ambient (shadow floor)", Range(0, 1)) = 0.35
@@ -64,6 +69,7 @@ Shader "Custom/BuildingGroundSlab"
             #pragma fragment frag
             #pragma target 3.0     // fwidth, for the nano front's one-pixel edge
             #include "UnityCG.cginc"
+            #include "NanoNoise.hlsl"
 
             struct appdata
             {
@@ -115,6 +121,8 @@ Shader "Custom/BuildingGroundSlab"
             float4 _CoverageZoneBounds;
             float _RevealByCoverage;
             float _CoverageRevealLag;
+            float _NoiseScale;
+            float _NoiseWeight;
 
             float4 _ReliefLightDir;
             float _ReliefLightIntensity;
@@ -283,6 +291,13 @@ Shader "Custom/BuildingGroundSlab"
                     float2 coverageUV = (i.worldPos.xy - _CoverageZoneBounds.xy)
                                       / max(_CoverageZoneBounds.zw, float2(0.0001, 0.0001));
                     float distanceToFront = tex2D(_CoverageTex, coverageUV).r * 2.0 - 1.0;
+
+                    // The same per-fragment grain Custom/GroundCoverage applies to the same field.
+                    // Omitting it here would leave the concrete with a smooth edge trailing a
+                    // toothed glowing one - the pair would stop reading as one boundary, which is
+                    // the whole reason the two layers share a texture in the first place.
+                    distanceToFront -= NanoFrontJitter(i.worldPos.xy, _NoiseScale, _NoiseWeight);
+
                     float behind = distanceToFront - _CoverageRevealLag;
 
                     // Screen-space antialiasing, one pixel wide at any zoom - the same reason

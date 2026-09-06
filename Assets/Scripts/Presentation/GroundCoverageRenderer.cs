@@ -46,8 +46,8 @@ namespace Game.Presentation
         /// Ground progress at which the front has just finished crossing the footprint - every one
         /// of its points, corners included - and starts spilling into the ring around it. A constant
         /// rather than a setting: it is a proportion of the animation, so it needs no retuning per
-        /// building, and the two knobs that do change the look - groundOverflowCells and
-        /// groundNoiseWeight - are enough to shape the halo.
+        /// building, and the knobs that do change the look - groundOverflowCells, and the dissolve's
+        /// own noiseScale/noiseWeight which this layer shares - are enough to shape the halo.
         /// </summary>
         const float FootprintShare = 0.8f;
 
@@ -58,7 +58,23 @@ namespace Game.Presentation
         /// on the footprint by the end of its own phase, and that has to hold by construction rather
         /// than by arithmetic luck at the current settings.
         /// </summary>
-        const float MaxNoiseWeight = 2f * (1f - FootprintShare);
+        public const float MaxNoiseWeight = 2f * (1f - FootprintShare);
+
+        /// <summary>
+        /// The most the shader's jitter can ever pull the front back, and therefore the headroom this
+        /// field has to leave over the whole footprint at the end of the ground's phase. Half the
+        /// weight, because the jitter is centred on zero.
+        /// </summary>
+        public const float MaxNoiseAmplitude = MaxNoiseWeight * 0.5f;
+
+        /// <summary>
+        /// The grain handed to the two ground shaders: the <b>dissolve's own</b> scale and weight, so
+        /// the building's front and the ground's are ragged the same way rather than merely both
+        /// being ragged. Capped so the completeness guarantee above holds whatever the dissolve is
+        /// tuned to.
+        /// </summary>
+        public static float ShaderNoiseWeight(float dissolveNoiseWeight)
+            => Mathf.Clamp(dissolveNoiseWeight, 0f, MaxNoiseWeight);
 
         [SerializeField] GameRuntime gameRuntime;
         [SerializeField] NanoConstructionSettings settings;
@@ -363,6 +379,12 @@ namespace Game.Presentation
             patch.Slab.GetPropertyBlock(_slabBlock);
             _slabBlock.SetTexture("_CoverageTex", zone.Texture);
             _slabBlock.SetVector("_CoverageZoneBounds", zone.Bounds);
+
+            // The grain too, or the concrete would trail a smooth edge behind a toothed glowing one
+            // and the pair would stop reading as one boundary.
+            _slabBlock.SetFloat("_NoiseScale", settings.NoiseScale);
+            _slabBlock.SetFloat("_NoiseWeight", ShaderNoiseWeight(settings.NoiseWeight));
+
             patch.Slab.SetPropertyBlock(_slabBlock);
         }
 
@@ -426,8 +448,7 @@ namespace Game.Presentation
             float inner = Mathf.Min(halfX, halfY);
             float round = inner * 0.5f;
             float overflow = Mathf.Max(settings.GroundOverflowCells, 0.01f);
-            float noiseWeight = Mathf.Min(settings.GroundNoiseWeight, MaxNoiseWeight);
-            float noiseScale = settings.GroundNoiseScale;
+            float noiseWeight = ShaderNoiseWeight(settings.NoiseWeight);
             float cellSize = _grid.CellSize;
 
             // Distance to the furthest point of the footprint itself. The threshold is normalised on
@@ -468,12 +489,12 @@ namespace Game.Presentation
                 float py = (ty + 0.5f) / texels;
                 float worldY = zone.MinWorld.y + py * cellSize;
 
+
                 // Deliberately the same expression as Custom/BuildDissolve's
                 // saturate((worldPos.y - _BuildBounds.y) / _BuildBounds.w), over the same rectangle:
                 // that identity is the whole of what makes the two fronts one wave.
                 float heightRank = Mathf.Clamp01((worldY - sweepMinY) / sweepSpanY);
 
-                float noiseY = worldY * noiseScale;
                 int row = ty * zone.TexelSide;
 
                 for (int tx = texMinX; tx < texMaxX; tx++)
@@ -487,13 +508,14 @@ namespace Game.Presentation
                     // so everything downstream is written once for the two of them.
                     float rank = bottomUp ? heightRank : Mathf.Clamp01((sdf + inner) / (inner + corner));
 
+                    // Smooth, and deliberately so: the grain is added per fragment by
+                    // Custom/GroundCoverage, not baked in here. This field is stored at
+                    // groundTexelsPerCell texels per cell - 8 at the very most - while the grain runs
+                    // at the dissolve's ~12 periods per world unit, which needs at least 24 samples
+                    // per cell to represent at all. Baked, it is not merely coarser than the
+                    // building's: it is below the sampling rate, so it comes out as a slow undulation
+                    // and, at low enough resolution, as a perfectly flat edge.
                     float threshold = Threshold(rank, sdf, corner, overflow);
-
-                    if (noiseWeight > 0f)
-                    {
-                        float worldX = (zone.MinWorld.x + px * cellSize) * noiseScale;
-                        threshold += (ValueNoise(worldX, noiseY) - 0.5f) * noiseWeight;
-                    }
 
                     float distance = patch.Progress - Mathf.Max(threshold, 0f);
                     if (distance <= -1f) continue;
@@ -543,51 +565,6 @@ namespace Game.Presentation
 
             return outside + inside - round;
         }
-
-        /// <summary>
-        /// Dave Hoskins' "hash without sine", the same pair Custom/BuildDissolve and
-        /// Custom/ShadedGroundTiled already use, so the ground's grain belongs to the same family as
-        /// the building's. Sampled in <b>world</b> space for the same reason as the dissolve's: two
-        /// neighbouring sites share one continuous field instead of restarting the same pattern.
-        /// </summary>
-        static float Hash21(float x, float y)
-        {
-            float px = Frac(x * 0.1031f);
-            float py = Frac(y * 0.1031f);
-            float pz = px;
-
-            float d = px * (py + 33.33f) + py * (pz + 33.33f) + pz * (px + 33.33f);
-            px += d;
-            py += d;
-            pz += d;
-
-            return Frac((px + py) * pz);
-        }
-
-        /// <summary>
-        /// One octave, unlike the dissolve's three: the field is quantised to groundTexelsPerCell
-        /// texels per cell, so octaves finer than that alias instead of adding detail.
-        /// </summary>
-        static float ValueNoise(float x, float y)
-        {
-            float ix = Mathf.Floor(x);
-            float iy = Mathf.Floor(y);
-            float fx = x - ix;
-            float fy = y - iy;
-
-            float a = Hash21(ix, iy);
-            float b = Hash21(ix + 1f, iy);
-            float c = Hash21(ix, iy + 1f);
-            float d = Hash21(ix + 1f, iy + 1f);
-
-            float ux = fx * fx * (3f - 2f * fx);
-            float uy = fy * fy * (3f - 2f * fy);
-
-            return Mathf.Lerp(a, b, ux) + (c - a) * uy * (1f - ux) + (d - b) * ux * uy;
-        }
-
-        static float Frac(float value) => value - Mathf.Floor(value);
-
         /// <summary>Signed distance to the front, [-1, 1], packed into a byte. 128 is the front, so the shader can clip on it without knowing anything about thresholds.</summary>
         static byte Encode(float distance) => (byte)Mathf.RoundToInt(Mathf.Clamp01(0.5f + 0.5f * distance) * 255f);
 
@@ -751,6 +728,12 @@ namespace Game.Presentation
             zone.Material.SetFloat("_RimIntensity", settings.GroundRimIntensity);
             zone.Material.SetFloat("_RimWidth", settings.GroundRimWidth);
             zone.Material.SetFloat("_RimBoost", zone.FlashBoost);
+
+            // The dissolve's own grain, not a ground-specific one: the two fronts are meant to be
+            // ragged the same way, and two settings would be two things that drift apart.
+            zone.Material.SetFloat("_NoiseScale", settings.NoiseScale);
+            zone.Material.SetFloat("_NoiseWeight", ShaderNoiseWeight(settings.NoiseWeight));
+
             zone.Quad.sortingOrder = settings.GroundCoverageSortingOrder;
         }
 
