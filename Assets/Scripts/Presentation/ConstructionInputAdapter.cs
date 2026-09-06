@@ -583,12 +583,21 @@ namespace Game.Presentation
 
         void PlaceAt(GridCoord cell, Direction rotation)
         {
-            // Captured before TryPlace: a conveyor placed onto an existing conveyor "overtakes"
-            // it (see ConstructionService), which would otherwise leave the replaced instance
-            // stuck registered in Transport forever with no grid cell pointing to it. A masked
-            // multi-cell footprint (Splitter/Crossroad's "+" shape) can overtake several distinct
-            // conveyor instances at once across its footprint, not just the one at the clicked
-            // cell - scan every footprint cell, not just `cell` itself.
+            // A belt dragged over a belt that already exists just turns it. Handled before anything
+            // else because it is not a placement at all: no cost, no chantier, no destruction, and
+            // the items riding it stay on it. See ConstructionService.TryRedirectExistingConveyor.
+            if (gameRuntime.Construction.TryRedirectExistingConveyor(cell, rotation, out ConveyorRuntime redirected))
+            {
+                RefreshViewIfMaterialized(redirected);
+                return;
+            }
+
+            // Captured before TryPlace: overtaking replaces conveyors that are already there, and
+            // the replaced instances would otherwise stay registered in Transport forever with no
+            // grid cell pointing at them. A masked multi-cell footprint (Splitter/Crossroad's "+")
+            // can overtake several distinct conveyors at once, so scan every footprint cell rather
+            // than just `cell`. What each of them OWES is settled inside TryPlace, the layer that
+            // knows whether a belt was ever paid for.
             var previousOccupants = new HashSet<BuildingRuntime>();
             if (gameRuntime.Construction.Selected != null)
             {
@@ -601,14 +610,6 @@ namespace Game.Presentation
                 }
             }
 
-            // Overtaking a cell that belongs to another still-pending site cancels that whole site
-            // first (releasing its reservations and freeing its cells) - half a chantier cannot be
-            // overtaken and left behind with segments that no longer own their ground.
-            foreach (BuildingRuntime previousBuilding in previousOccupants)
-            {
-                gameRuntime.Construction.TryCancelSiteAt(previousBuilding.Cell);
-            }
-
             bool placingIntoConveyorRun = _isDragPlacing && _activeConveyorSite != null && IsConveyorRunDefinition(gameRuntime.Construction.Selected);
 
             if (gameRuntime.Construction.TryPlace(cell, rotation, out ConstructionSiteRuntime site, placingIntoConveyorRun ? _activeConveyorSite : null))
@@ -618,9 +619,10 @@ namespace Game.Presentation
                 // until robots have delivered its full cost - OnSegmentMaterialized does that part.
                 if (IsConveyorRunDefinition(gameRuntime.Construction.Selected)) _activeConveyorSite = site;
 
+                // The view/registration half of the overtake TryPlace has just settled. Harmless on
+                // a segment that was still pending: it was never registered and never had a view.
                 foreach (BuildingRuntime previousBuilding in previousOccupants)
                 {
-                    if (site.Segments.Count > 0 && ReferenceEquals(previousBuilding, site.Segments[site.Segments.Count - 1])) continue;
                     _spawner.RemoveView(previousBuilding.Cell);
                     gameRuntime.Transport.Unregister(previousBuilding);
                     if (gameRuntime.ItemVisuals != null) gameRuntime.ItemVisuals.Unregister(previousBuilding);

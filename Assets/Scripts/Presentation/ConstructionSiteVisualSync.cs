@@ -271,9 +271,30 @@ namespace Game.Presentation
         }
 
         /// <summary>
+        /// Whether this segment still holds any of the ground it was placed on - the liveness test
+        /// for a detached entry, since it has left every site's pending range and the grid is the
+        /// only thing left that knows whether it was demolished or overtaken meanwhile.
+        ///
+        /// Asked of its whole footprint rather than of its origin cell. A Splitter/Crossroad's "+"
+        /// deliberately leaves the four corners of its 3x3 box free, its origin among them, so
+        /// asking the origin gets null for a building that is perfectly alive - which discarded
+        /// every splitter the frame it materialised, cutting its dissolve and leaving no view at
+        /// all behind it.
+        /// </summary>
+        bool StillOwnsItsGround(BuildingRuntime segment)
+        {
+            foreach (Vector2Int offset in segment.Definition.FootprintCells)
+            {
+                var cell = new GridCoord(segment.Cell.X + offset.x, segment.Cell.Y + offset.y);
+                if (ReferenceEquals(_grid.GetOccupant(cell), segment)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Segments that materialised while still assembling. They are no longer in any site's
-        /// pending range, so liveness comes from the grid: an entry whose own cell no longer holds
-        /// it was demolished or overtaken, and goes away without ever becoming a real view.
+        /// pending range, so liveness comes from the grid: an entry that no longer holds any of its
+        /// ground was demolished or overtaken, and goes away without ever becoming a real view.
         /// </summary>
         void SyncDetachedSegments()
         {
@@ -289,7 +310,7 @@ namespace Game.Presentation
             {
                 SegmentView view = _views[segment];
 
-                if (!ReferenceEquals(_grid.GetOccupant(segment.Cell), segment))
+                if (!StillOwnsItsGround(segment))
                 {
                     Discard(segment, view);
                     continue;
@@ -331,9 +352,12 @@ namespace Game.Presentation
 
             var view = new SegmentView { Silhouette = NewRenderer($"ConstructionSite {segment.Cell}", SilhouetteSortingOrder) };
 
-            // Conveyors have no concrete pad when finished, so they get none while converting -
-            // the same exclusion SpawnStandardView already makes for the transport family.
-            if (!(segment is ConveyorRuntime))
+            // A building with no pad when finished gets none while converting - asked of the one
+            // predicate BuildingSpawner answers it with, rather than re-listed here. Naming only
+            // ConveyorRuntime made this narrower than the family it claimed: a Splitter, a
+            // Crossroad and an Extractor each showed a pad they were never going to keep, and lost
+            // it at the handover.
+            if (BuildingSpawner.KeepsGroundSlab(segment))
             {
                 view.Slab = _spawnConvertingSlab?.Invoke(segment.Cell, segment.Definition.FootprintSize);
             }

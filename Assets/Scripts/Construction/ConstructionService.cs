@@ -206,17 +206,7 @@ namespace Game.Construction
                 return false;
             }
 
-            // Overtake exception: placing a conveyor/splitter/crossroad onto existing conveyor
-            // segments replaces them instead of being blocked by the normal occupancy check
-            // (see IsPlaceable) - lets the player drop a junction piece onto belts already laid.
-            if (Selected is ConveyorDefinition && _grid.GetOccupant(cell) is ConveyorRuntime)
-            {
-                _grid.ClearOccupant(cell);
-            }
-            else if (Selected is SplitterDefinition || Selected is CrossroadDefinition)
-            {
-                ClearOvertakenConveyors(cell, Selected.FootprintCells);
-            }
+            ReleaseOvertakenConveyors(cell);
 
             BuildingRuntime segment = CreateAndRegister(Selected, cell, rotation);
             if (segment == null) return false;
@@ -242,6 +232,50 @@ namespace Game.Construction
             if (!_constructionSites.TryGetSiteContaining(occupant, out ConstructionSiteRuntime site)) return false;
 
             return _constructionSites.CancelSite(site);
+        }
+
+        /// <summary>
+        /// Re-points a belt that already exists instead of replacing it, and answers whether it did.
+        ///
+        /// Dragging across a belt that is already built is a change of direction, not a demolition
+        /// followed by a new chantier. The belt is there and it is paid for: rebuilding it charged a
+        /// second plate, destroyed the first one silently, and dropped a working belt back to a blue
+        /// silhouette until a robot came round - for a gesture whose whole intent was "this one goes
+        /// that way now". Nothing is spent here and no site is opened; the items riding it keep
+        /// riding it.
+        ///
+        /// Only a belt already delivered qualifies. One still pending is a segment of somebody's
+        /// chantier and belongs to TryDetachPendingSegment, and anything that is not a conveyor at
+        /// all was already refused by the occupancy check.
+        /// </summary>
+        public bool TryRedirectExistingConveyor(GridCoord cell, Direction rotation, out ConveyorRuntime redirected)
+        {
+            redirected = null;
+
+            if (!(Selected is ConveyorDefinition definition)) return false;
+            if (!(_grid.GetOccupant(cell) is ConveyorRuntime existing)) return false;
+            if (_constructionSites != null && _constructionSites.TryGetSiteContaining(existing, out _)) return false;
+
+            // Every gate still applies except affordability, which is the one a redirect has no
+            // business reading: it spends nothing, so an empty chest is no reason to refuse turning
+            // a belt the player already owns.
+            PlacementRefusalReason refusal = GetPlacementRefusalReason(cell);
+            if (refusal != PlacementRefusalReason.None && refusal != PlacementRefusalReason.CannotAfford) return false;
+
+            // The same shaping CreateAndRegister would have given a fresh one, applied in place, so
+            // a redirected belt and a rebuilt one are never a different belt.
+            if (definition.DefaultShape == ConveyorShapeKind.Corner)
+            {
+                existing.ConfigureAsCornerShape();
+                existing.SetRotation(rotation);
+            }
+            else
+            {
+                existing.ConfigureAsStraight(rotation);
+            }
+
+            redirected = existing;
+            return true;
         }
 
         /// <summary>
@@ -494,12 +528,41 @@ namespace Game.Construction
             return true;
         }
 
-        void ClearOvertakenConveyors(GridCoord origin, Vector2Int[] cells)
+        /// <summary>
+        /// Frees the conveyor cells this placement is about to take, and settles what each of them
+        /// owes. The overtake exception (see IsPlaceable) lets a Conveyor/Splitter/Crossroad be
+        /// dropped onto belts already laid instead of forcing the player to demolish them first;
+        /// this is where that is paid for.
+        ///
+        /// A belt <b>still pending</b> was paid for by nobody: it simply leaves its chantier, and
+        /// only it - the rest of a dragged run keeps its own ground
+        /// (ConstructionSiteSystem.RemovePendingSegment).
+        ///
+        /// A belt <b>already built</b> is being demolished, so its cost becomes a repatriation job a
+        /// robot hauls back, exactly like TryDemolish. It used to be dropped where it stood, which
+        /// destroyed the material silently - the one thing demolition is careful never to do.
+        ///
+        /// Runs after the placement is known to be valid, never before: a refused placement must not
+        /// cost the player the belts that were already there. None of the gates it reads changes by
+        /// removing them - a belt counts against no cap, and a demolition credits no stock.
+        ///
+        /// Only conveyors are ever overtaken; every other occupant was already refused.
+        /// </summary>
+        void ReleaseOvertakenConveyors(GridCoord origin)
         {
-            foreach (Vector2Int offset in cells)
+            if (!(Selected is ConveyorDefinition || Selected is SplitterDefinition || Selected is CrossroadDefinition)) return;
+
+            foreach (Vector2Int offset in Selected.FootprintCells)
             {
                 var coord = new GridCoord(origin.X + offset.x, origin.Y + offset.y);
-                if (_grid.GetOccupant(coord) is ConveyorRuntime) _grid.ClearOccupant(coord);
+                if (!(_grid.GetOccupant(coord) is ConveyorRuntime overtaken)) continue;
+
+                if (!_constructionSites.RemovePendingSegment(overtaken))
+                {
+                    _constructionSites.EnqueueRepatriation(coord, overtaken.Definition.Cost);
+                }
+
+                _grid.ClearOccupant(coord);
             }
         }
 
