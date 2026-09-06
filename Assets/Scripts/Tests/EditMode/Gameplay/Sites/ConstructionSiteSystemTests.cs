@@ -695,6 +695,59 @@ namespace Game.Tests.EditMode.Gameplay.Sites
                 "A trip called off claims nothing - otherwise that stock stays unreachable for the rest of the game.");
         }
 
+        /// <summary>
+        /// An Extractor stands on its ore deposit, covering it. Cancelling the site before it is
+        /// built has to give that deposit back: clearing the cells outright takes the ore off the
+        /// grid while its art stays on screen, so the ground looks untouched and no extractor can
+        /// ever be placed there again. Reported from play, and invisible from anywhere else.
+        /// </summary>
+        [Test]
+        public void CancellingAnExtractorSite_GivesItsDepositBack()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 20);
+            var cell = new GridCoord(6, 6);
+
+            ItemDefinition ore = TestDataFactory.NewItem("iron_ore");
+            OreDepositDefinition depositDefinition = TestDataFactory.NewOreDeposit(ore, Vector2Int.one);
+            DepositRuntime deposit = fixture.Grid.PlaceDeposit(cell, depositDefinition);
+
+            ExtractorDefinition extractor = TestDataFactory.NewExtractor(cost: (fixture.Plate, 1));
+
+            fixture.Construction.SelectBuilding(extractor);
+            Assert.IsTrue(fixture.Construction.TryPlace(cell, Direction.North, out ConstructionSiteRuntime site));
+            Assert.IsFalse(fixture.Grid.GetOccupant(cell) is DepositRuntime,
+                "The premise: while it is being built, the site covers the ore.");
+
+            Assert.IsTrue(fixture.Sites.CancelSite(site));
+
+            Assert.AreSame(deposit, fixture.Grid.GetOccupant(cell), "The ore is back on the grid...");
+
+            fixture.Construction.SelectBuilding(extractor);
+            Assert.IsTrue(fixture.Construction.TryPlace(cell, Direction.North, out _),
+                "...so the ground is genuinely free again, which is the thing the player noticed.");
+        }
+
+        /// <summary>The same rule from the other side: demolishing a built Extractor has always restored its deposit, and both paths now read it from one place.</summary>
+        [Test]
+        public void DemolishingABuiltExtractor_AlsoGivesItsDepositBack()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 20);
+            var cell = new GridCoord(6, 6);
+
+            ItemDefinition ore = TestDataFactory.NewItem("iron_ore");
+            DepositRuntime deposit = fixture.Grid.PlaceDeposit(cell, TestDataFactory.NewOreDeposit(ore, Vector2Int.one));
+
+            ExtractorDefinition extractor = TestDataFactory.NewExtractor(cost: (fixture.Plate, 1));
+            fixture.Construction.SelectBuilding(extractor);
+            Assert.IsTrue(fixture.Construction.TryPlace(cell, Direction.North, out ConstructionSiteRuntime site));
+
+            fixture.Simulate(20f);
+            Assert.IsTrue(site.IsComplete, "It has to be really built for this to be a demolition.");
+
+            Assert.IsTrue(fixture.Construction.TryDemolish(cell, out _));
+            Assert.AreSame(deposit, fixture.Grid.GetOccupant(cell));
+        }
+
         // --- Save / restore ---
 
         [Test]

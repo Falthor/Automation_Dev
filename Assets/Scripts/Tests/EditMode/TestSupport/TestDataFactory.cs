@@ -260,6 +260,29 @@ namespace Game.Tests.EditMode.TestSupport
             return core;
         }
 
+        /// <summary>Extractor definition. Its footprint has to match the deposit it will be placed on - ConstructionService.IsSameExploitableDeposit requires every covered cell to be the same deposit.</summary>
+        public static ExtractorDefinition NewExtractor(string id = "extractor", float extractionIntervalSeconds = 4f, int itemsPerCycle = 1, float cuCostPerCycle = 2f, float powerDemandKw = 0f, params (ItemDefinition item, int amount)[] cost)
+        {
+            var definition = ScriptableObject.CreateInstance<ExtractorDefinition>();
+            var so = new SerializedObject(definition);
+            so.FindProperty("id").stringValue = id;
+            so.FindProperty("extractionIntervalSeconds").floatValue = extractionIntervalSeconds;
+            so.FindProperty("itemsPerCycle").intValue = itemsPerCycle;
+            so.FindProperty("cuCostPerCycle").floatValue = cuCostPerCycle;
+            so.FindProperty("powerDemandKw").floatValue = powerDemandKw;
+
+            SerializedProperty array = so.FindProperty("cost");
+            array.arraySize = cost.Length;
+            for (int i = 0; i < cost.Length; i++)
+            {
+                SerializedProperty element = array.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("item").objectReferenceValue = cost[i].item;
+                element.FindPropertyRelative("amount").intValue = cost[i].amount;
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return definition;
+        }
+
         public static OreDepositDefinition NewOreDeposit(ItemDefinition item, Vector2Int footprintSize)
         {
             var deposit = ScriptableObject.CreateInstance<OreDepositDefinition>();

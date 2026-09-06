@@ -6,7 +6,6 @@ using Game.Gameplay.Power;
 using Game.Grid;
 using Game.Tests.EditMode.TestSupport;
 using NUnit.Framework;
-using UnityEditor;
 using UnityEngine;
 
 namespace Game.Tests.EditMode.Gameplay.Buildings
@@ -25,17 +24,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         const float TickSeconds = 1f / 60f;
 
         static ExtractorDefinition NewExtractor(float intervalSeconds, int itemsPerCycle, float cuCostPerCycle)
-        {
-            var definition = ScriptableObject.CreateInstance<ExtractorDefinition>();
-            var so = new SerializedObject(definition);
-            so.FindProperty("id").stringValue = "extractor";
-            so.FindProperty("extractionIntervalSeconds").floatValue = intervalSeconds;
-            so.FindProperty("itemsPerCycle").intValue = itemsPerCycle;
-            so.FindProperty("cuCostPerCycle").floatValue = cuCostPerCycle;
-            so.FindProperty("powerDemandKw").floatValue = 0f;
-            so.ApplyModifiedPropertiesWithoutUndo();
-            return definition;
-        }
+            => TestDataFactory.NewExtractor(extractionIntervalSeconds: intervalSeconds, itemsPerCycle: itemsPerCycle, cuCostPerCycle: cuCostPerCycle);
 
         /// <summary>
         /// A plain deposit. Nothing is done to top it up: a deposit is meant never to run out

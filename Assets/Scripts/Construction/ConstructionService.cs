@@ -397,10 +397,11 @@ namespace Game.Construction
 
         /// <summary>
         /// Demolishes whatever building occupies the cell (its whole footprint, not just the
-        /// clicked cell - removed.Cell is always the footprint's origin regardless of which
-        /// cell was clicked). Demolishing an Extractor restores the deposit underneath instead
-        /// of leaving the cells empty: ore deposits are world/terrain entities, not buildings,
-        /// and outlive whatever gets built and later removed on top of them.
+        /// clicked cell - removed.Cell is always the footprint's origin regardless of which cell was
+        /// clicked). What the ground gets back is BuildingRuntime.ReleaseFootprint's business, not
+        /// this method's - an Extractor puts its deposit back rather than leaving empty cells, and
+        /// stating that rule here as well as in the cancellation path is how the two came to
+        /// disagree in the first place.
         ///
         /// The building disappears immediately - the player wants the space back, which is usually
         /// the whole point of demolishing - but its materials are no longer refunded anywhere on
@@ -426,16 +427,7 @@ namespace Game.Construction
 
             _constructionSites?.EnqueueRepatriation(removed.Cell, removed.Definition.Cost);
 
-            Vector2Int footprint = removed.Definition.FootprintSize;
-
-            if (removed is ExtractorRuntime extractor)
-            {
-                _grid.SetOccupantFootprint(extractor.Cell, footprint, extractor.Deposit);
-            }
-            else
-            {
-                _grid.ClearOccupantFootprint(removed.Cell, removed.Definition.FootprintCells);
-            }
+            BuildingRuntime.ReleaseFootprint(_grid, removed);
 
             return true;
         }

@@ -3,6 +3,7 @@ using Game.Core;
 using Game.Data;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Power;
+using Game.Grid;
 using Newtonsoft.Json.Linq;
 
 namespace Game.Gameplay.Buildings
@@ -14,6 +15,31 @@ namespace Game.Gameplay.Buildings
     /// </summary>
     public class BuildingRuntime
     {
+        /// <summary>
+        /// Frees the cells a building holds, putting back whatever was under it.
+        ///
+        /// An Extractor stands <b>on its ore deposit</b>, not on open ground: the deposit is a world
+        /// entity that outlives anything built over it (PROJECT_ARCHITECTURE.md §12), and placing the
+        /// Extractor merely covered it up. Releasing the footprint therefore restores the deposit
+        /// rather than leaving bare cells - anything else destroys the ore by side effect.
+        ///
+        /// One place for the rule because there are two ways a building lets go of its ground, and
+        /// only one of them had it: demolishing a built Extractor put the deposit back, while
+        /// cancelling one still under construction cleared the cells outright. The ore vanished from
+        /// the grid while its art stayed on screen, so the ground looked exactly as it had before -
+        /// and no extractor could ever be placed there again.
+        /// </summary>
+        public static void ReleaseFootprint(GridRuntime grid, BuildingRuntime building)
+        {
+            if (building is ExtractorRuntime extractor && extractor.Deposit != null)
+            {
+                grid.SetOccupantFootprint(extractor.Cell, building.Definition.FootprintSize, extractor.Deposit);
+                return;
+            }
+
+            grid.ClearOccupantFootprint(building.Cell, building.Definition.FootprintCells);
+        }
+
         static readonly IReadOnlyDictionary<string, int> EmptyContents = new Dictionary<string, int>();
         static readonly Direction[] AllDirections = { Direction.North, Direction.East, Direction.South, Direction.West };
 

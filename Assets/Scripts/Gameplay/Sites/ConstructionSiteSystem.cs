@@ -120,8 +120,9 @@ namespace Game.Gameplay.Sites
 
             for (int i = site.MaterializedCount; i < site.Segments.Count; i++)
             {
-                BuildingRuntime segment = site.Segments[i];
-                _grid.ClearOccupantFootprint(segment.Cell, segment.Definition.FootprintCells);
+                // Not a bare clear: a cancelled Extractor site has to give its deposit back, or the
+                // ore is gone from the grid and nothing can ever be built on it again.
+                BuildingRuntime.ReleaseFootprint(_grid, site.Segments[i]);
             }
 
             CloseSite(site);
