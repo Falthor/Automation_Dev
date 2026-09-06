@@ -37,9 +37,9 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _research = new ResearchSystem(_compute);
         }
 
-        FoundryRuntime NewFoundry(int maxStackPerItem = 20, float powerDemandKw = 2f, float intakeIntervalSeconds = 2f)
+        FoundryRuntime NewFoundry(float powerDemandKw = 2f, float intakeIntervalSeconds = 2f)
         {
-            FoundryDefinition definition = TestDataFactory.NewFoundry(maxStackPerItem, powerDemandKw, intakeIntervalSeconds, "Iron_Ingot", "lingot_cuivre");
+            FoundryDefinition definition = TestDataFactory.NewFoundry(powerDemandKw, intakeIntervalSeconds, "Iron_Ingot", "lingot_cuivre");
             return new FoundryRuntime(definition, new GridCoord(0, 0), Direction.North, _recipeDatabase, _itemDatabase, _compute, _power, _research);
         }
 
@@ -161,18 +161,62 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             Assert.AreEqual(1, foundry.GetInputAmount("minerai_fer")); // not consumed
         }
 
+        /// <summary>
+        /// The output buffer is a flat ProductionBuildingRuntime.OutputStackCapacity for every
+        /// building and every recipe, so this fills it rather than shrinking it: there is no longer
+        /// a per-definition ceiling to turn down.
+        /// </summary>
         [Test]
         public void OutputFull_StateIsOutputBlocked_NothingConsumed()
         {
-            FoundryRuntime foundry = NewFoundry(maxStackPerItem: 1);
+            FoundryRuntime foundry = NewFoundry();
             foundry.SetSelectedRecipe("Iron_Ingot");
-            foundry.AddOutput("Iron_Ingot", 1); // fill output to its cap
+            foundry.AddOutput("Iron_Ingot", ProductionBuildingRuntime.OutputStackCapacity); // filled to its cap
             foundry.AddInput("minerai_fer", 1, Direction.South);
 
             foundry.Tick(0.1f);
 
             Assert.AreEqual(ProductionState.OutputBlocked, foundry.GetState());
             Assert.AreEqual(1, foundry.GetInputAmount("minerai_fer")); // not consumed
+        }
+
+        /// <summary>
+        /// A building's intake is sized by what it actually consumes: three crafts' worth of each
+        /// ingredient, not one number shared by every building and every recipe. The Iron_Ingot
+        /// recipe takes 1 ore, so 3 fit and the fourth is refused.
+        /// </summary>
+        [Test]
+        public void InputCapacity_IsThreeCraftsWorthOfTheIngredient()
+        {
+            FoundryRuntime foundry = NewFoundry();
+            foundry.SetSelectedRecipe("Iron_Ingot");
+
+            for (int i = 0; i < ProductionBuildingRuntime.InputCraftsHeld; i++)
+            {
+                Assert.IsTrue(foundry.CanAcceptInput("minerai_fer", 1, Direction.South), $"unit {i + 1} must fit");
+                foundry.AddInput("minerai_fer", 1, Direction.South);
+            }
+
+            Assert.AreEqual(3, foundry.GetInputAmount("minerai_fer"));
+            Assert.IsFalse(foundry.CanAcceptInput("minerai_fer", 1, Direction.South),
+                "One ore per craft, three crafts held: the fourth has nowhere to go.");
+        }
+
+        /// <summary>
+        /// The ceiling is read live rather than captured, so it follows the selected recipe. Nothing
+        /// else would work: a building is reconfigured freely and its buffers have to move with it.
+        /// </summary>
+        [Test]
+        public void InputCapacity_FollowsTheSelectedRecipe()
+        {
+            FoundryRuntime foundry = NewFoundry();
+
+            Assert.IsFalse(foundry.CanAcceptInput("minerai_fer", 1, Direction.South),
+                "No recipe selected: the building consumes nothing, so it holds nothing.");
+
+            foundry.SetSelectedRecipe("Iron_Ingot");
+            Assert.IsTrue(foundry.CanAcceptInput("minerai_fer", 3, Direction.South));
+            Assert.IsFalse(foundry.CanAcceptInput("minerai_fer", 4, Direction.South));
         }
 
         [Test]

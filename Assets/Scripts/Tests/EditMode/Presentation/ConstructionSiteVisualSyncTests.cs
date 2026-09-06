@@ -324,7 +324,7 @@ namespace Game.Tests.EditMode.Presentation
         public void SilhouetteAndAssembly_AreSizedToTheArtTheRealViewWillUse_OverscanIncluded()
         {
             Fixture fixture = NewFixture(coreChestContents: 4);
-            FoundryDefinition foundry = TestDataFactory.NewFoundry(10, 0f, 0f);
+            FoundryDefinition foundry = TestDataFactory.NewFoundry(0f, 0f);
             Assert.AreNotEqual(1f, foundry.RenderOverscan, "Precondition: the Foundry is the overscanned case this guards.");
 
             // A cost, so the site actually waits on robots and can be sampled while still pending.

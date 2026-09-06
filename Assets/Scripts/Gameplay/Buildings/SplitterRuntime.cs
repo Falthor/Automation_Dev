@@ -39,6 +39,16 @@ namespace Game.Gameplay.Buildings
         /// <summary>Absolute cell one step beyond the arm tip - where a neighbor must sit to count as touching this side.</summary>
         public GridCoord NeighborCell(Direction direction) => CrossFootprint.NeighborCell(Cell, direction);
 
+        /// <summary>Every side but the entry one, since round-robin will eventually send an item down each of them. The base answer would name the entry side itself, FacingRotation being what EntrySide reads.</summary>
+        public override bool FeedsCell(GridCoord cell)
+        {
+            foreach (Direction direction in AllDirections)
+            {
+                if (direction != EntrySide && NeighborCell(direction) == cell) return true;
+            }
+            return false;
+        }
+
         public override bool CanAcceptInput(string itemId, int amount, Direction fromDirection)
         {
             return HeldItemId == null && fromDirection == EntrySide;

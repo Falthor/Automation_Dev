@@ -14,7 +14,7 @@ namespace Game.Gameplay.Buildings
         public AdvancedFoundryRuntime(AdvancedFoundryDefinition definition, GridCoord cell, Direction facingRotation,
             RecipeDatabase recipeDatabase, ComputeSystem computeSystem, PowerSystem powerSystem, ResearchSystem researchSystem)
             : base(definition, cell, facingRotation, recipeDatabase, computeSystem, powerSystem, researchSystem,
-                definition.MaxStackPerItem, definition.PowerDemandKw, definition.AcceptedItemIds)
+                definition.PowerDemandKw, definition.AcceptedItemIds)
         {
             _definition = definition;
         }

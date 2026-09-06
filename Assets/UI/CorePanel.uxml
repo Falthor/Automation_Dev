@@ -15,7 +15,35 @@
                 <ui:VisualElement name="CorePowerIcon" class="inline-icon" />
                 <ui:Label name="CorePowerLabel" text="Power: 0 kW" class="extractor-section-label" />
             </ui:VisualElement>
-            <ui:Label text="INVENTAIRE" class="extractor-section-label" />
+            <!-- The directive the Core is currently asking for. Hidden entirely once there are
+                 none left, which is the whole of "plus rien ne s'affiche". -->
+            <ui:VisualElement name="CoreDirective" class="core-directive hidden">
+                <ui:Label name="CoreDirectiveTitle" text="DIRECTIVE" class="extractor-section-label" />
+                <ui:VisualElement name="CoreDirectiveRequirements" class="core-directive-requirements" />
+
+                <ui:Label name="CoreDirectiveRewardTitle" text="RECOMPENSE" class="extractor-section-label" />
+                <ui:VisualElement name="CoreDirectiveRewardItem" class="core-directive-reward">
+                    <ui:VisualElement name="CoreDirectiveRewardIcon" class="core-directive-reward-icon" />
+                    <ui:Label name="CoreDirectiveRewardName" text="" class="core-directive-reward-name" />
+                </ui:VisualElement>
+                <!-- Rewards that are not items. Each gets its own row rather than text appended to
+                     the item's name, so a directive granting only one of them shows exactly that
+                     one. -->
+                <!-- Worded by the directive itself (CoreDirectiveDefinition.RewardLabel), not by the
+                     unlock it grants: one directive opens three researches and can only be described
+                     in general, another opens exactly one and names it. -->
+                <ui:VisualElement name="CoreDirectiveRewardResearch" class="core-directive-reward hidden">
+                    <ui:VisualElement class="core-directive-reward-glyph" />
+                    <ui:Label name="CoreDirectiveRewardResearchName" text="" class="core-directive-reward-name" />
+                </ui:VisualElement>
+                <ui:VisualElement name="CoreDirectiveRewardMenu" class="core-directive-reward hidden">
+                    <ui:VisualElement class="core-directive-reward-glyph" />
+                    <ui:Label text="Menu Recherche" class="core-directive-reward-name" />
+                </ui:VisualElement>
+
+                <ui:Button name="CoreDirectiveValidate" text="VALIDER" class="recipe-action-button" />
+            </ui:VisualElement>
+
             <ui:VisualElement name="CoreItemsList" class="production-ingredients-list" />
         </ui:VisualElement>
     </ui:VisualElement>

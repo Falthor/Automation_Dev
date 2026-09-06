@@ -84,6 +84,45 @@ namespace Game.Tests.EditMode.Gameplay.Research
             Assert.IsTrue(research.ArePrerequisitesMet(combined));
         }
 
+        /// <summary>
+        /// A prerequisite the Core granted counts exactly like one the player researched. That is
+        /// what lets a directive gate a branch of the tree without a second notion of "done": the
+        /// Assembler waits on Circuit Imprime and on the Core's second directive, and neither of the
+        /// two is special-cased anywhere.
+        /// </summary>
+        [Test]
+        public void AGrantedUnlock_SatisfiesAPrerequisite_LikeAResearchedOne()
+        {
+            var research = new ResearchSystem(new ComputeSystem());
+            ResearchDefinition researched = TestDataFactory.NewResearch("researched", 10f);
+            ResearchDefinition granted = TestDataFactory.NewResearch("granted_by_the_core", 0f);
+            ResearchDefinition gated = TestDataFactory.NewResearch("gated", 10f, prerequisites: new[] { researched, granted });
+
+            research.Enqueue(researched);
+            research.Tick(1f);
+            Assert.IsFalse(research.ArePrerequisitesMet(gated), "Researching one of the two is not enough.");
+
+            research.Grant(granted.Id);
+
+            Assert.IsTrue(research.ArePrerequisitesMet(gated));
+            Assert.IsTrue(research.Enqueue(gated), "And it can actually be started, not merely reported as open.");
+        }
+
+        /// <summary>The other order, so neither condition can quietly become the only one that matters.</summary>
+        [Test]
+        public void AGrantedUnlockAlone_DoesNotOpenAResearchThatAlsoNeedsAResearchedOne()
+        {
+            var research = new ResearchSystem(new ComputeSystem());
+            ResearchDefinition researched = TestDataFactory.NewResearch("researched", 10f);
+            ResearchDefinition granted = TestDataFactory.NewResearch("granted_by_the_core", 0f);
+            ResearchDefinition gated = TestDataFactory.NewResearch("gated", 10f, prerequisites: new[] { researched, granted });
+
+            research.Grant(granted.Id);
+
+            Assert.IsFalse(research.ArePrerequisitesMet(gated));
+            Assert.IsFalse(research.Enqueue(gated));
+        }
+
         [Test]
         public void Enqueue_Fails_WhenAPrerequisiteIsMissing()
         {

@@ -36,4 +36,4 @@ MonoBehaviour:
   actionRadiusCells: 22
   cuOutput: 0
   cuOutputIntervalSeconds: 5
-  powerOutputKw: 20
+  powerOutputKw: 30

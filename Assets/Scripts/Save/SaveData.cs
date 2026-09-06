@@ -59,6 +59,9 @@ namespace Game.Save
         /// </summary>
         public JObject ConstructionSites;
 
+        /// <summary>Which Core directive is current (CoreDirectiveSystem.CaptureState). Absent in an older save, which restores as "the first one", the same state a new game starts in.</summary>
+        public JObject CoreDirectives;
+
         public string CoreDefinitionId;
         public int CoreCellX;
         public int CoreCellY;

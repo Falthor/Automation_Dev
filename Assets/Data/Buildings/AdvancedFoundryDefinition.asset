@@ -25,7 +25,6 @@ MonoBehaviour:
     amount: 20
   - item: {fileID: 11400000, guid: b82ad7bebf2efd84898c65e6b86fffd9, type: 2}
     amount: 10
-  maxStackPerItem: 100
   powerDemandKw: 4
   recipeIds:
   - Steel

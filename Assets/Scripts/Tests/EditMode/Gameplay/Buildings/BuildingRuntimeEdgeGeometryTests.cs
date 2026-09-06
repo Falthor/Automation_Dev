@@ -1,4 +1,5 @@
 using Game.Core;
+using Game.Tests.EditMode.TestSupport;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -96,6 +97,70 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             Assert.AreEqual(2, edge.Length, "Precondition: a two-cell edge, where first and middle differ.");
             Assert.AreEqual(edge[1], chosen);
             Assert.AreNotEqual(edge[0], chosen, "cells[0] is what the ghost used to take.");
+        }
+
+        /// <summary>
+        /// A rectangular building feeds every cell of its output edge, not only the representative
+        /// middle one - that whole edge is what transport pushes across, so a belt laid on either
+        /// cell of a 2-wide edge is fed by it.
+        /// </summary>
+        [Test]
+        public void ARectangularBuilding_FeedsEveryCellOfItsOutputEdge()
+        {
+            Game.Data.BuildingDefinition definition = NewDefinition(new Vector2Int(2, 2));
+            var runtime = new Game.Gameplay.Buildings.BuildingRuntime(definition, Origin, Direction.North);
+
+            foreach (GridCoord cell in runtime.GetOutputCells()) Assert.IsTrue(runtime.FeedsCell(cell));
+            Assert.IsFalse(runtime.FeedsCell(new GridCoord(0, -1)), "The south side takes deliveries, it does not make them.");
+        }
+
+        /// <summary>
+        /// A Crossroad's two lanes both leave it, and neither of them is the side ExitDirection
+        /// names: that falls back to FacingRotation, which on a Crossroad is lane B's <b>entry</b>.
+        ///
+        /// This is what made a belt started at a Crossroad's exit behave as if it stood on open
+        /// ground - nothing was found feeding it, so a drag that turned straight away re-pointed the
+        /// anchor instead of cornering it.
+        /// </summary>
+        [TestCase(Direction.North)]
+        [TestCase(Direction.East)]
+        [TestCase(Direction.South)]
+        [TestCase(Direction.West)]
+        public void ACrossroad_FeedsBothOfItsExits_AndNeitherOfItsEntries(Direction rotation)
+        {
+            var crossroad = new Game.Gameplay.Buildings.CrossroadRuntime(TestDataFactory.NewCrossroad(), Origin, rotation);
+
+            Assert.IsTrue(crossroad.FeedsCell(crossroad.NeighborCell(crossroad.ExitA)), "Lane A leaves here.");
+            Assert.IsTrue(crossroad.FeedsCell(crossroad.NeighborCell(crossroad.ExitB)), "Lane B leaves here.");
+            Assert.IsFalse(crossroad.FeedsCell(crossroad.NeighborCell(crossroad.EntryA)));
+            Assert.IsFalse(crossroad.FeedsCell(crossroad.NeighborCell(crossroad.EntryB)));
+        }
+
+        /// <summary>The exit ExitDirection would have named is an entry - stated once so the regression cannot come back through the base implementation.</summary>
+        [Test]
+        public void ACrossroadsRectangularOutputCell_IsNotOneOfItsExits()
+        {
+            var crossroad = new Game.Gameplay.Buildings.CrossroadRuntime(TestDataFactory.NewCrossroad(), Origin, Direction.North);
+
+            Assert.AreEqual(crossroad.NeighborCell(crossroad.EntryB), crossroad.GetOutputCell(),
+                "Precondition: the generic output cell lands on an entry side.");
+            Assert.IsFalse(crossroad.FeedsCell(crossroad.GetOutputCell()));
+        }
+
+        /// <summary>A Splitter sends items down every side but its entry, so a belt on any of the three is fed by it.</summary>
+        [TestCase(Direction.North)]
+        [TestCase(Direction.East)]
+        [TestCase(Direction.South)]
+        [TestCase(Direction.West)]
+        public void ASplitter_FeedsEverySideButItsEntry(Direction rotation)
+        {
+            var splitter = new Game.Gameplay.Buildings.SplitterRuntime(TestDataFactory.NewSplitter(), Origin, rotation);
+
+            foreach (Direction side in new[] { Direction.North, Direction.East, Direction.South, Direction.West })
+            {
+                bool isEntry = side == splitter.EntrySide;
+                Assert.AreEqual(!isEntry, splitter.FeedsCell(splitter.NeighborCell(side)), $"side {side}");
+            }
         }
 
         static DummySquareDefinition NewDefinition(Vector2Int footprintSize)

@@ -199,7 +199,7 @@ namespace Game.Tests.EditMode.Construction
             var sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
             var service = new ConstructionService(grid, null, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()), transport, null, sites);
 
-            var factoryDefinition = TestDataFactory.NewFactory(50, 0f, System.Array.Empty<string>(), System.Array.Empty<string>());
+            var factoryDefinition = TestDataFactory.NewFactory(0f, System.Array.Empty<string>(), System.Array.Empty<string>());
             var factory = new FactoryRuntime(factoryDefinition, new GridCoord(5, 5), Direction.North, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
             factory.AddOutput("iron_plate", 10);
             transport.Register(factory);
@@ -286,18 +286,42 @@ namespace Game.Tests.EditMode.Construction
 
         static StorageDefinition NewFreeStorageDefinition() => ScriptableObject.CreateInstance<StorageDefinition>();
 
+        /// <summary>A costless 1x1 building that does take a cap slot - what the cap tests fill the world with, now that Storage is exempt like the transport pieces.</summary>
+        static FactoryDefinition NewFreeCountingDefinition() => ScriptableObject.CreateInstance<FactoryDefinition>();
+
+        /// <summary>
+        /// A box is somewhere to put things, not a machine - it takes no slot, and a world full of
+        /// them still has room for a factory.
+        /// </summary>
+        [Test]
+        public void StorageBoxes_DoNotCountAgainstTheBuildingCap()
+        {
+            var (service, transport, _, _) = NewServiceWithCore(1000);
+
+            for (int i = 0; i < ConstructionService.DefaultBuildingCap + 5; i++)
+            {
+                PlaceAndRegister(service, transport, NewFreeStorageDefinition(), new GridCoord(10 + i * 2, 10));
+            }
+
+            Assert.AreEqual(0, service.OccupiedBuildingSlots, "Boxes take no slots at all.");
+
+            service.SelectBuilding(NewFreeCountingDefinition());
+            Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(new GridCoord(-20, -20)),
+                "And a machine can still be built past a wall of them.");
+        }
+
         [Test]
         public void TryPlace_AtBuildingCap_RefusesWithBuildingCapReached()
         {
             var (service, transport, _, _) = NewServiceWithCore(1000);
             for (int i = 0; i < ConstructionService.DefaultBuildingCap; i++)
             {
-                PlaceAndRegister(service, transport, NewFreeStorageDefinition(), new GridCoord(10 + i * 2, 10));
+                PlaceAndRegister(service, transport, NewFreeCountingDefinition(), new GridCoord(10 + i * 2, 10));
             }
             Assert.AreEqual(ConstructionService.DefaultBuildingCap, service.OccupiedBuildingSlots);
 
             var cell = new GridCoord(10 + ConstructionService.DefaultBuildingCap * 2, 10);
-            service.SelectBuilding(NewFreeStorageDefinition());
+            service.SelectBuilding(NewFreeCountingDefinition());
 
             Assert.AreEqual(PlacementRefusalReason.BuildingCapReached, service.GetPlacementRefusalReason(cell));
             Assert.IsFalse(service.TryPlace(cell, Direction.North, out ConstructionSiteRuntime site));
@@ -310,7 +334,7 @@ namespace Game.Tests.EditMode.Construction
             var (service, transport, _, _) = NewServiceWithCore(1000);
             for (int i = 0; i < ConstructionService.DefaultBuildingCap; i++)
             {
-                PlaceAndRegister(service, transport, NewFreeStorageDefinition(), new GridCoord(10 + i * 2, 10));
+                PlaceAndRegister(service, transport, NewFreeCountingDefinition(), new GridCoord(10 + i * 2, 10));
             }
 
             service.SelectBuilding(NewConveyorDefinition());
@@ -349,17 +373,17 @@ namespace Game.Tests.EditMode.Construction
         }
 
         [Test]
-        public void MemoryAllocation_Completed_RaisesBuildingCapTo52()
+        public void MemoryAllocation_Completed_RaisesBuildingCapTo50()
         {
             var (service, _, research, _) = NewServiceWithCore(1000);
-            Assert.AreEqual(40, service.BuildingCap);
+            Assert.AreEqual(30, service.BuildingCap, "A run starts at 30 slots.");
 
             ResearchDefinition memoryAllocation = TestDataFactory.NewResearch("memory_allocation", 10f);
             research.Enqueue(memoryAllocation);
             research.Tick(60f);
 
             Assert.IsTrue(research.IsUnlocked("memory_allocation"));
-            Assert.AreEqual(52, service.BuildingCap);
+            Assert.AreEqual(50, service.BuildingCap);
         }
 
         [Test]
@@ -402,9 +426,9 @@ namespace Game.Tests.EditMode.Construction
         {
             var (service, _, _, _) = NewServiceWithCore(1000);
 
-            service.RestoreBuildingCap(52);
+            service.RestoreBuildingCap(50);
 
-            Assert.AreEqual(52, service.BuildingCap);
+            Assert.AreEqual(50, service.BuildingCap);
         }
 
         [Test]

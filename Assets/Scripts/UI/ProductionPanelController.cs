@@ -49,6 +49,7 @@ namespace Game.UI
         Label _powerValue;
         Label _computeValue;
         Label _stateLabel;
+        Button _pauseButton;
         Label _timeLabel;
         Label _rateLabel;
 
@@ -90,6 +91,9 @@ namespace Game.UI
             _timeLabel = panelRoot.Q<Label>("ProductionTimeLabel");
             _rateLabel = panelRoot.Q<Label>("ProductionRateLabel");
 
+            _pauseButton = panelRoot.Q<Button>("ProductionPauseButton");
+            _pauseButton.clicked += TogglePaused;
+
             panelRoot.Q<Button>("ProductionCloseButton").clicked += Close;
             _tabRecipesButton.clicked += () => SetActiveTab(false);
             _tabProductionButton.clicked += () => SetActiveTab(true);
@@ -117,6 +121,7 @@ namespace Game.UI
             // RECETTES - matches the source project exactly.
             SetActiveTab(_selected.GetSelectedRecipe() != string.Empty);
             RefreshActionButton();
+            RefreshPauseButton();
             RefreshProductionTab();
         }
 
@@ -323,7 +328,30 @@ namespace Game.UI
             _stateLabel.RemoveFromClassList("state-waiting");
             _stateLabel.RemoveFromClassList("state-blocked");
             _stateLabel.RemoveFromClassList("state-idle");
+            _stateLabel.RemoveFromClassList("state-paused");
             _stateLabel.AddToClassList(StateClass(state));
+        }
+
+        /// <summary>
+        /// Switches the inspected building off and on. Lit while paused, so the button says which
+        /// state the building is in rather than only what clicking it would do - the state line at
+        /// the bottom is the other half of the same answer, and the two must never disagree.
+        /// </summary>
+        void TogglePaused()
+        {
+            if (_selected == null) return;
+            _selected.SetPaused(!_selected.IsPaused);
+            RefreshPauseButton();
+        }
+
+        void RefreshPauseButton()
+        {
+            if (_pauseButton == null || _selected == null) return;
+
+            bool paused = _selected.IsPaused;
+            _pauseButton.text = paused ? "▶" : "II";
+            _pauseButton.tooltip = paused ? "Reprendre" : "Mettre en pause";
+            _pauseButton.EnableInClassList("header-toggle-button-on", paused);
         }
 
         /// <summary>Everything the building currently holds internally - raw materials waiting on a cycle (input) and finished goods waiting to be pushed out (output) - regardless of whether a recipe is selected, so a jam (e.g. output backing up) is visible at a glance.</summary>
@@ -416,6 +444,7 @@ namespace Game.UI
             ProductionState.WaitingResources => "state-waiting",
             ProductionState.WaitingCompute => "state-waiting",
             ProductionState.OutputBlocked => "state-blocked",
+            ProductionState.Paused => "state-paused",
             _ => "state-idle"
         };
     }

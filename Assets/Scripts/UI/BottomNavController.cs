@@ -30,6 +30,12 @@ namespace Game.UI
         VisualElement _categoryRow;
         VisualElement _toolbarRow;
         readonly (string panelName, VisualElement button)[] _categoryButtons = new (string, VisualElement)[3];
+
+        /// <summary>Kept apart from the array because it is the one category that can be absent: the Research menu is handed over by the Core's first directive, not owned from the start.</summary>
+        VisualElement _researchCategoryButton;
+
+        /// <summary>False until the player has opened the Research panel once - what ends the "this is new" pulse on the icon that just appeared.</summary>
+        bool _researchMenuSeen;
         readonly VisualElement[] _slotRoots = new VisualElement[BuildingMenuController.ToolbarSlotCount];
         readonly VisualElement[] _slotIcons = new VisualElement[BuildingMenuController.ToolbarSlotCount];
         readonly Label[] _slotBadges = new Label[BuildingMenuController.ToolbarSlotCount];
@@ -70,6 +76,27 @@ namespace Game.UI
             AddCategoryButton(0, StoragePanelController.PanelName, storageIcon);
             AddCategoryButton(1, BuildingMenuController.PanelName, buildingIcon);
             AddCategoryButton(2, ResearchPanelController.PanelName, researchIcon);
+            _researchCategoryButton = _categoryButtons[2].button;
+            RefreshResearchAvailability();
+        }
+
+        /// <summary>
+        /// The Research icon exists only once the Core has handed the menu over (the first
+        /// directive's reward, alongside its item). Re-asked every frame rather than wired to an
+        /// event: the directive completes when a robot lands its last crate, and this is the same
+        /// per-frame refresh every other panel controller already runs.
+        /// </summary>
+        void RefreshResearchAvailability()
+        {
+            if (_researchCategoryButton == null) return;
+
+            bool unlocked = gameRuntime.CoreDirectives == null || gameRuntime.CoreDirectives.IsResearchMenuUnlocked;
+            _researchCategoryButton.EnableInClassList("hidden", !unlocked);
+
+            // Pulsed in step with the Top Bar card (both read NewUnlockPulse's shared phase), and
+            // both stop on the same event: the player opening the panel they point at.
+            if (gameRuntime.Selection.ActiveGlobalPanel == ResearchPanelController.PanelName) _researchMenuSeen = true;
+            NewUnlockPulse.Apply(_researchCategoryButton, unlocked && !_researchMenuSeen);
         }
 
         void AddCategoryButton(int index, string panelName, Sprite icon)
@@ -189,6 +216,8 @@ namespace Game.UI
 
         void Update()
         {
+            RefreshResearchAvailability();
+
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null || IsTextFieldFocused()) return;
 

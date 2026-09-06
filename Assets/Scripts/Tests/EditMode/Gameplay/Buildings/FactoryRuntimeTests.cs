@@ -42,7 +42,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         FactoryRuntime NewFactory()
         {
             FactoryDefinition definition = TestDataFactory.NewFactory(
-                100, 3f,
+                3f,
                 new[] { "Iron_Plate", "Memory_MK1" },
                 new[] { "Iron_Ingot", "Iron_Plate" });
             return new FactoryRuntime(definition, new GridCoord(0, 0), Direction.North, _recipeDatabase, _compute, _power, _research);
@@ -88,6 +88,47 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             // building's accepted list would ever reject on its own - use an item outside both
             // the accepted list and the current recipe to prove the accepted-list filter fires.
             Assert.IsFalse(factory.CanAcceptInput("Memory_MK1", 1, Direction.South));
+        }
+
+        /// <summary>
+        /// Two recipes consuming different amounts give the same building different ceilings: 2 iron
+        /// per plate buffers 6, 3 plates per memory module buffers 9. A single number could not have
+        /// said both, which is why the cap is asked for per item rather than held as one.
+        /// </summary>
+        [Test]
+        public void InputCapacity_DiffersPerIngredientAndPerRecipe()
+        {
+            FactoryRuntime factory = NewFactory();
+
+            factory.SetSelectedRecipe("Iron_Plate");
+            Assert.IsTrue(factory.CanAcceptInput("Iron_Ingot", 6, Direction.South), "2 per craft x 3 crafts.");
+            Assert.IsFalse(factory.CanAcceptInput("Iron_Ingot", 7, Direction.South));
+
+            _research.Enqueue(_memoireResearch);
+            _research.Tick(60f);
+            factory.SetSelectedRecipe("Memory_MK1");
+
+            Assert.IsTrue(factory.CanAcceptInput("Iron_Plate", 9, Direction.South), "3 per craft x 3 crafts.");
+            Assert.IsFalse(factory.CanAcceptInput("Iron_Plate", 10, Direction.South));
+            Assert.IsFalse(factory.CanAcceptInput("Iron_Ingot", 1, Direction.South),
+                "The previous recipe's ingredient is not consumed any more, so none of it is held.");
+        }
+
+        /// <summary>The output buffer is flat: ten of whatever is produced, whatever the recipe or the building.</summary>
+        [Test]
+        public void OutputCapacity_IsTenRegardlessOfTheRecipe()
+        {
+            FactoryRuntime factory = NewFactory();
+            factory.SetSelectedRecipe("Iron_Plate");
+
+            Assert.AreEqual(10, ProductionBuildingRuntime.OutputStackCapacity);
+
+            factory.AddInput("Iron_Ingot", 6, Direction.South);
+            factory.AddOutput("Iron_Plate", ProductionBuildingRuntime.OutputStackCapacity);
+            factory.Tick(0.1f);
+
+            Assert.AreEqual(ProductionState.OutputBlocked, factory.GetState());
+            Assert.AreEqual(6, factory.GetInputAmount("Iron_Ingot"), "A blocked output consumes nothing.");
         }
     }
 }

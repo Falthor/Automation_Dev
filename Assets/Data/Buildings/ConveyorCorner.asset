@@ -44,9 +44,7 @@ MonoBehaviour:
   - {fileID: 6572390972167545787, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
   - {fileID: -7232345791147969388, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
   animationFps: 12
-  cost:
-  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
-    amount: 1
+  cost: []
   defaultShape: 1
   overrideSprite: {fileID: 8034552057565475545, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}
   artNativeDirection: 1

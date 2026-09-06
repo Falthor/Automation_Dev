@@ -490,6 +490,10 @@ namespace Game.Gameplay.Transport
                     BuildingRuntime occupant = ActiveBuildingAt(cell);
                     if (occupant == null) continue;
 
+                    // The consumer's own cell touching that neighbour - one step back inside itself
+                    // from the edge cell it just scanned.
+                    if (!occupant.HandsOutTo(cell + fromMySide.Opposite())) continue;
+
                     object item = occupant.PeekPullableItem();
                     if (item == null || !(item is string itemId)) continue;
                     if (!building.CanAcceptInput(itemId, 1, fromMySide)) continue;
@@ -609,17 +613,10 @@ namespace Game.Gameplay.Transport
         }
 
         /// <summary>
-        /// Whether that cell is anywhere along the building's output edge. The whole edge counts,
-        /// not just its first cell (GetOutputCell()): a footprint wider than one cell hands its
-        /// output to every cell it faces, so a belt may take from any of them.
+        /// Whether items leaving that building land in that cell - asked of the building itself,
+        /// which is the only thing that knows: a Splitter or a Crossroad has several exits and no
+        /// single output edge to read.
         /// </summary>
-        static bool OutputsTo(BuildingRuntime building, GridCoord cell)
-        {
-            foreach (GridCoord outputCell in building.GetOutputCells())
-            {
-                if (outputCell == cell) return true;
-            }
-            return false;
-        }
+        static bool OutputsTo(BuildingRuntime building, GridCoord cell) => building.FeedsCell(cell);
     }
 }

@@ -4769,6 +4769,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 236d03fb6a80953469db3eb917b43016, type: 2}
   - {fileID: 11400000, guid: b32fa419afa8927e913cf91edff080bb, type: 2}
   researchDatabase: {fileID: 11400000, guid: 225538095e214a39811378724843599a, type: 2}
+  coreDirectiveDatabase: {fileID: 11400000, guid: 27ab887668cf75646a488831440929fd, type: 2}
 --- !u!4 &2103112251
 Transform:
   m_ObjectHideFlags: 0

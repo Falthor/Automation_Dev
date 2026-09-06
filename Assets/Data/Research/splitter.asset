@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72c3c39fefc96e1488e1fdd7ff1eb525, type: 3}
-  m_Name: storage_box
+  m_Name: splitter
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
-  id: storage_box
-  displayName: Boite de stockage
-  description: Debloque le batiment de stockage.
+  id: splitter
+  displayName: Repartiteur
+  description: Debloque la possibilite de repartir equitablement les convoyeurs entre plusieurs lignes.
   icon: {fileID: 0}
   cuCost: 1000
   prerequisites: []

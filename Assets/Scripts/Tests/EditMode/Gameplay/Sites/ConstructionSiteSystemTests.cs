@@ -356,7 +356,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             AddStorage(fixture, new GridCoord(20, 20), contents: 7);
 
             var recipeDatabase = TestDataFactory.NewRecipeDatabase();
-            FactoryDefinition factoryDefinition = TestDataFactory.NewFactory(50, 0f, System.Array.Empty<string>(), System.Array.Empty<string>());
+            FactoryDefinition factoryDefinition = TestDataFactory.NewFactory(0f, System.Array.Empty<string>(), System.Array.Empty<string>());
             var factory = new FactoryRuntime(factoryDefinition, new GridCoord(30, 30), Direction.North, recipeDatabase,
                 new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
             factory.AddOutput(PlateId, 3);
@@ -424,7 +424,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         {
             Fixture fixture = NewFixture(coreChestContents: 20);
 
-            FactoryDefinition factoryDefinition = TestDataFactory.NewFactory(50, 0f, System.Array.Empty<string>(), System.Array.Empty<string>());
+            FactoryDefinition factoryDefinition = TestDataFactory.NewFactory(0f, System.Array.Empty<string>(), System.Array.Empty<string>());
             var factory = new FactoryRuntime(factoryDefinition, new GridCoord(30, 30), Direction.North,
                 TestDataFactory.NewRecipeDatabase(), new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
             factory.AddOutput(PlateId, 10);
@@ -448,7 +448,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         {
             Fixture fixture = NewFixture(coreChestContents: 20);
 
-            FactoryDefinition factoryDefinition = TestDataFactory.NewFactory(50, 0f, System.Array.Empty<string>(), System.Array.Empty<string>());
+            FactoryDefinition factoryDefinition = TestDataFactory.NewFactory(0f, System.Array.Empty<string>(), System.Array.Empty<string>());
             var factory = new FactoryRuntime(factoryDefinition, new GridCoord(30, 30), Direction.North,
                 TestDataFactory.NewRecipeDatabase(), new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
             factory.AddOutput(PlateId, 10);
@@ -1013,6 +1013,49 @@ namespace Game.Tests.EditMode.Gameplay.Sites
 
             restored.Simulate(30f);
             Assert.IsTrue(restoredSite.IsComplete, "A restored chantier keeps building where it left off.");
+        }
+
+        /// <summary>
+        /// Belts cost nothing, so their chantier has no bill and no robot will ever visit it. It
+        /// still has to build - it just builds on the assembly clock alone.
+        ///
+        /// Worth pinning because a chantier that waits for a delivery it was never owed is a
+        /// deadlock with no symptom to read: the run would simply sit there in blue forever, on a
+        /// world with a full chest and idle robots.
+        /// </summary>
+        [Test]
+        public void AFreeSegment_BuildsItself_WithNoDeliveryAndNoRobot()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 0);
+            ConveyorDefinition free = TestDataFactory.NewConveyor("free_belt");
+            Assert.AreEqual(0, free.Cost.Length, "Precondition: the belt is free.");
+
+            ConstructionSiteRuntime site = null;
+            for (int i = 0; i < 5; i++)
+            {
+                var belt = new ConveyorRuntime(free, new GridCoord(i + 4, 0), Direction.East);
+                fixture.Grid.SetOccupantFootprint(belt.Cell, free.FootprintSize, belt);
+                if (site == null) site = fixture.Sites.CreateSite(belt);
+                else fixture.Sites.AppendSegment(site, belt);
+            }
+
+            fixture.Simulate(20f);
+
+            Assert.IsTrue(site.IsComplete, "Five free belts, an empty chest, and the run is built.");
+            Assert.IsFalse(site.Segments[0].IsUnderConstruction, "And they work, rather than sitting there materialized but inert.");
+        }
+
+        /// <summary>The other half of the same rule: free means free, not "unpaid buildings now build themselves too".</summary>
+        [Test]
+        public void ACostedSegment_StillWaits_WhenNothingCanPayForIt()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 0);
+            StorageDefinition costed = TestDataFactory.NewStorage("paid_box", 4, 100, false, 0f, (TestDataFactory.NewItem(PlateId), 2));
+
+            ConstructionSiteRuntime site = PlaceSite(fixture, costed, new GridCoord(6, 6));
+            fixture.Simulate(20f);
+
+            Assert.AreEqual(0, site.MaterializedCount);
         }
 
         [Test]

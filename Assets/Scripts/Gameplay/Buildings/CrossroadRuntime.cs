@@ -41,6 +41,9 @@ namespace Game.Gameplay.Buildings
         public GridCoord ArmCell(Direction direction) => CrossFootprint.ArmCell(Cell, direction);
         public GridCoord NeighborCell(Direction direction) => CrossFootprint.NeighborCell(Cell, direction);
 
+        /// <summary>Both lanes leave, so both count. The base answer - one edge derived from ExitDirection - would name FacingRotation, which here is lane B's <b>entry</b>.</summary>
+        public override bool FeedsCell(GridCoord cell) => cell == NeighborCell(ExitA) || cell == NeighborCell(ExitB);
+
         public void ReceiveA(object item)
         {
             _itemA = item;

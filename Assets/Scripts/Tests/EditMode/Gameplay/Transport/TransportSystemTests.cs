@@ -14,6 +14,79 @@ namespace Game.Tests.EditMode.Gameplay.Transport
 {
     public class TransportSystemTests
     {
+        /// <summary>
+        /// A building with an output arrow hands out on that cell and on no other, whether the
+        /// receiver is pushed to or pulls for itself.
+        ///
+        /// Reported as a box beside a Factory's arrow filling up with wire. Two separate paths were
+        /// feeding it: the push walked the whole output edge (three cells for a 3-wide building,
+        /// one arrow), and the Storage's own pull reached into any neighbour it merely touched -
+        /// so a box parked against the back of the Factory was served too. Both now ask the source
+        /// where it actually hands out, which is the same promise the entry arrows already make.
+        /// </summary>
+        [Test]
+        public void ABuildingWithAnOutputArrow_FeedsOnlyTheCellThatArrowMarks()
+        {
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+
+            ItemDefinition ingot = TestDataFactory.NewItem("copper_Ingot");
+            RecipeDatabase recipes = TestDataFactory.NewRecipeDatabase(
+                TestDataFactory.NewRecipe("copper_wire", 3f, 0f, 2, (ingot, 1)));
+
+            // 3x3 facing East: its output edge spans (3,0) (3,1) (3,2), the arrow sits on (3,1).
+            FactoryDefinition definition = TestDataFactory.NewFactory(0f, new[] { "copper_wire" }, new[] { "copper_Ingot" });
+            var so = new UnityEditor.SerializedObject(definition);
+            so.FindProperty("footprintSize").vector2IntValue = new Vector2Int(3, 3);
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            var factory = new FactoryRuntime(definition, new GridCoord(0, 0), Direction.East, recipes,
+                new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            grid.SetOccupantFootprint(factory.Cell, definition.FootprintSize, factory);
+            transport.Register(factory);
+
+            Assert.AreEqual(new GridCoord(3, 1), factory.GetOutputCell(), "Precondition: the arrow is on the middle cell of the edge.");
+            CollectionAssert.AreEqual(new[] { new GridCoord(3, 1) }, factory.GetOutputCells(), "And that is the only cell it hands out on.");
+
+            StorageRuntime beside = AddBox(grid, transport, new GridCoord(3, 0));   // on the output edge, beside the arrow
+            StorageRuntime inFront = AddBox(grid, transport, new GridCoord(3, 1));  // on the arrow
+            StorageRuntime behind = AddBox(grid, transport, new GridCoord(-1, 1));  // touching a side with no output at all
+
+            for (int i = 0; i < 200; i++)
+            {
+                factory.AddOutput("copper_wire", 1);
+                transport.Tick(0.1f);
+            }
+
+            Assert.Greater(inFront.GetInputAmount("copper_wire"), 0, "The box the arrow points at is fed.");
+            Assert.AreEqual(0, beside.GetInputAmount("copper_wire"), "The box beside it is not - the edge is wide, the outlet is not.");
+            Assert.AreEqual(0, behind.GetInputAmount("copper_wire"), "And neither is one against a side that shows nothing.");
+        }
+
+        /// <summary>
+        /// The rule is about a <b>declared</b> output side, not about being multi-cell. A Storage
+        /// declares none - it is meant to be taken from wherever it is touched - and keeps behaving
+        /// that way, or half the belt layouts in the game would quietly stop working.
+        /// </summary>
+        [Test]
+        public void ABuildingWithNoOutputArrow_StillHandsOutWhereverItIsTouched()
+        {
+            StorageDefinition definition = TestDataFactory.NewStorage("box", 4, 100);
+            var box = new StorageRuntime(definition, new GridCoord(10, 10), Direction.North);
+
+            Assert.IsFalse(definition.HasOutputArrow, "Precondition.");
+            foreach (var (cell, _) in box.GetEdgeCells()) Assert.IsTrue(box.HandsOutTo(cell), $"cell {cell}");
+        }
+
+        static StorageRuntime AddBox(GridRuntime grid, TransportSystem transport, GridCoord cell)
+        {
+            StorageDefinition definition = TestDataFactory.NewStorage("box", 4, 100);
+            var box = new StorageRuntime(definition, cell, Direction.North);
+            grid.SetOccupantFootprint(cell, definition.FootprintSize, box);
+            transport.Register(box);
+            return box;
+        }
+
         [Test]
         public void Tick_TwoConsumersSharingOneInputCell_AlternateWhichOneIsFed()
         {
@@ -30,8 +103,8 @@ namespace Game.Tests.EditMode.Gameplay.Transport
             var recipe = TestDataFactory.NewRecipe("iron_ore_sink", 100f, 0f, 1, (ironOre, 1000));
             var recipeDatabase = TestDataFactory.NewRecipeDatabase(recipe);
 
-            var definitionA = TestDataFactory.NewFactory(50, 0f, new[] { "iron_ore_sink" }, System.Array.Empty<string>());
-            var definitionB = TestDataFactory.NewFactory(50, 0f, new[] { "iron_ore_sink" }, System.Array.Empty<string>());
+            var definitionA = TestDataFactory.NewFactory(0f, new[] { "iron_ore_sink" }, System.Array.Empty<string>());
+            var definitionB = TestDataFactory.NewFactory(0f, new[] { "iron_ore_sink" }, System.Array.Empty<string>());
 
             var conveyorCell = new GridCoord(5, 5);
             // North of the conveyor, entry pointing South at it.
@@ -80,7 +153,7 @@ namespace Game.Tests.EditMode.Gameplay.Transport
             var ironOre = TestDataFactory.NewItem("iron_ore", ItemType.Ore);
             var recipe = TestDataFactory.NewRecipe("iron_ore_sink", 100f, 0f, 1, (ironOre, 1000));
             var recipeDatabase = TestDataFactory.NewRecipeDatabase(recipe);
-            var factoryDefinition = TestDataFactory.NewFactory(50, 0f, new[] { "iron_ore_sink" }, System.Array.Empty<string>());
+            var factoryDefinition = TestDataFactory.NewFactory(0f, new[] { "iron_ore_sink" }, System.Array.Empty<string>());
 
             var splitterDefinition = ScriptableObject.CreateInstance<SplitterDefinition>();
             var splitterOrigin = new GridCoord(5, 5);

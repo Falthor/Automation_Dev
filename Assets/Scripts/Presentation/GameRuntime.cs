@@ -4,6 +4,7 @@ using Game.Core;
 using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
+using Game.Gameplay.Directives;
 using Game.Gameplay.Notifications;
 using Game.Gameplay.Power;
 using Game.Gameplay.Research;
@@ -83,16 +84,6 @@ namespace Game.Presentation
         [SerializeField] ActionRadiusView actionRadiusView;
         [SerializeField] FogOfWarView fogOfWarView;
 
-        /// <summary>
-        /// Cells the fog reveal extends beyond the Core's current action radius
-        /// (TASK_04_PLAFOND_RAYON.md's follow-up correction) - the invitation ore clusters
-        /// WorldGenerator places just outside the constructible radius must be visible before
-        /// extended_bandwidth makes them constructible, or the whole invitation never gets seen.
-        /// A named, tunable value rather than a buried literal: likely to be retouched once the
-        /// invitation band (WorldGenerator.InvitationMinDistanceCells/MaxDistanceCells) itself is.
-        /// </summary>
-        [SerializeField, Min(0)] int fogRadiusMarginCells = 10;
-
         [SerializeField] ItemVisualSync itemVisuals;
 
         /// <summary>
@@ -107,6 +98,9 @@ namespace Game.Presentation
 
         [Header("Research (CONTRACTS.md §11)")]
         [SerializeField] ResearchDatabase researchDatabase;
+
+        [Header("Core directives - what the Core asks the player for, in order")]
+        [SerializeField] CoreDirectiveDatabase coreDirectiveDatabase;
 
         public GridRuntime Grid { get; private set; }
         public TerrainRuntime Terrain { get; private set; }
@@ -145,6 +139,9 @@ namespace Game.Presentation
         public PowerSystem Power { get; private set; }
         public ComputeSystem Compute { get; private set; }
         public ResearchSystem Research { get; private set; }
+
+        /// <summary>What the Core is currently asking for. Built after ConstructionSiteSystem, which carries the deliveries it starts.</summary>
+        public CoreDirectiveSystem CoreDirectives { get; private set; }
 
         /// <summary>
         /// GlobalStock keeps its name but its contract is inverted since TASK_05_ROBOT_CONSTRUCTEUR.md:
@@ -234,6 +231,7 @@ namespace Game.Presentation
                 }
 
                 ConstructionSites = new ConstructionSiteSystem(Transport, Grid, Notifications, RobotParkOrigin());
+                CoreDirectives = new CoreDirectiveSystem(coreDirectiveDatabase, ConstructionSites, Research);
                 Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core, ConstructionSites);
             }
 
@@ -287,6 +285,8 @@ namespace Game.Presentation
             }
 
             ConstructionSites = new ConstructionSiteSystem(Transport, Grid, Notifications, RobotParkOrigin());
+            CoreDirectives = new CoreDirectiveSystem(coreDirectiveDatabase, ConstructionSites, Research);
+            CoreDirectives.RestoreState(save.CoreDirectives);
             Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core, ConstructionSites);
             Construction.RestoreBuildingCap(save.BuildingCap);
             Clock.Restore(save.PlayTimeSeconds);
@@ -358,7 +358,8 @@ namespace Game.Presentation
                 ResearchUnlocked = new List<string>(Research.GetUnlockedIds()),
                 BuildingCap = Construction.BuildingCap,
                 PlayTimeSeconds = Clock.ElapsedSeconds,
-                ConstructionSites = ConstructionSites?.CaptureState()
+                ConstructionSites = ConstructionSites?.CaptureState(),
+                CoreDirectives = CoreDirectives?.CaptureState()
             };
 
             if (World?.Core != null)
@@ -496,15 +497,14 @@ namespace Game.Presentation
 
                 if (fogOfWarView != null)
                 {
-                    // fogRadiusMarginCells beyond the constructible radius, not the same value as
-                    // ActionRadiusView: the invitation ore clusters WorldGenerator places just
-                    // outside the constructible radius must already be visible before
-                    // extended_bandwidth makes them constructible, or the player never sees the
-                    // invitation at all. Refreshed on every research completion for the same
-                    // reason as actionRadiusView above - this was wrongly left out of scope in
-                    // TASK_04_PLAFOND_RAYON.md and is corrected here, not a new feature.
-                    fogOfWarView.Initialize(coreCenter, (World.ActionRadiusCells + fogRadiusMarginCells) * Grid.CellSize);
-                    Research.ResearchCompleted += _ => fogOfWarView.Initialize(coreCenter, (World.ActionRadiusCells + fogRadiusMarginCells) * Grid.CellSize);
+                    // Exactly the constructible radius, the same value ActionRadiusView draws: the
+                    // fog ends where the Core's reach ends, and what the player can see is what the
+                    // player can build on. The invitation ore clusters WorldGenerator places just
+                    // outside it therefore stay hidden until extended_bandwidth reaches them - they
+                    // are a reward for extending, not a preview of one. Refreshed on every research
+                    // completion for the same reason as actionRadiusView above.
+                    fogOfWarView.Initialize(coreCenter, World.ActionRadiusCells * Grid.CellSize);
+                    Research.ResearchCompleted += _ => fogOfWarView.Initialize(coreCenter, World.ActionRadiusCells * Grid.CellSize);
                 }
 
                 // Start the camera centered on the Core - otherwise its fixed scene position

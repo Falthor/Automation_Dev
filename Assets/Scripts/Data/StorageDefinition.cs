@@ -6,6 +6,9 @@ namespace Game.Data
     [CreateAssetMenu(fileName = "StorageDefinition", menuName = "Game/Buildings/Storage Definition")]
     public sealed class StorageDefinition : BuildingDefinition
     {
+        /// <summary>Somewhere to put things, not a machine that does anything - see BuildingDefinition.CountsAgainstBuildingCap.</summary>
+        public override bool CountsAgainstBuildingCap => false;
+
         /// <summary>
         /// Minimum delay (seconds) between two accepted deliveries, on every side alike (pushed
         /// into, or pulled off a neighbor's raw pooled output). Without this, a Storage sitting

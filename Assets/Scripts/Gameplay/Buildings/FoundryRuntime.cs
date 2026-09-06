@@ -22,7 +22,7 @@ namespace Game.Gameplay.Buildings
         public FoundryRuntime(FoundryDefinition definition, GridCoord cell, Direction facingRotation,
             RecipeDatabase recipeDatabase, ItemDatabase itemDatabase, ComputeSystem computeSystem, PowerSystem powerSystem, ResearchSystem researchSystem)
             : base(definition, cell, facingRotation, recipeDatabase, computeSystem, powerSystem, researchSystem,
-                definition.MaxStackPerItem, definition.PowerDemandKw)
+                definition.PowerDemandKw)
         {
             _definition = definition;
             _itemDatabase = itemDatabase;

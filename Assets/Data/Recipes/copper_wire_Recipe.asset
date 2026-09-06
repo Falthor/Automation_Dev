@@ -17,6 +17,6 @@ MonoBehaviour:
   - item: {fileID: 11400000, guid: 65d78e7c331fda945b089ab7a130f97c, type: 2}
     amount: 1
   outputAmount: 2
-  timeSeconds: 2
+  timeSeconds: 3
   computeCost: 4
   unlockResearch: {fileID: 0}

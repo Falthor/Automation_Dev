@@ -12,6 +12,9 @@ namespace Game.Data
     [CreateAssetMenu(fileName = "SplitterDefinition", menuName = "Game/Buildings/Splitter Definition")]
     public sealed class SplitterDefinition : BuildingDefinition
     {
+        /// <summary>Transport, not machinery - see BuildingDefinition.CountsAgainstBuildingCap.</summary>
+        public override bool CountsAgainstBuildingCap => false;
+
         [SerializeField] Direction artNativeEntrySide = Direction.West;
 
         public override Vector2Int[] FootprintCells => CrossShapeCells;

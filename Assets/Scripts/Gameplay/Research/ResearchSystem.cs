@@ -53,6 +53,22 @@ namespace Game.Gameplay.Research
         /// <summary>Every unlocked research id, for the save/load system (CONTRACTS.md §14). No other consumer should need to enumerate this - query IsUnlocked(id) instead.</summary>
         public IEnumerable<string> GetUnlockedIds() => _unlocked;
 
+        /// <summary>
+        /// Grants an unlock that was never queued and never cost CU - how a source other than the
+        /// research tree opens something, a Core directive being the first. It fires
+        /// ResearchCompleted exactly like a real completion, so everything downstream (recipe
+        /// availability, building cap, the save's unlocked ids) reacts identically and needs no
+        /// second notion of "unlocked".
+        ///
+        /// Idempotent: granting the same unlock twice is silent, so a directive re-validated after
+        /// a reload does not announce itself again.
+        /// </summary>
+        public void Grant(string researchId)
+        {
+            if (string.IsNullOrEmpty(researchId) || !_unlocked.Add(researchId)) return;
+            ResearchCompleted?.Invoke(researchId);
+        }
+
         /// <summary>Whether every one of this research's prerequisites is already completed. Always true for a research with none.</summary>
         public bool ArePrerequisitesMet(ResearchDefinition research)
         {

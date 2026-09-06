@@ -7,6 +7,9 @@ namespace Game.Gameplay.Buildings
         Producing,
         WaitingResources,
         OutputBlocked,
-        WaitingCompute
+        WaitingCompute,
+
+        /// <summary>Switched off by the player. Distinct from Idle, which is "nothing to do": a paused building has been told to stop, draws no power, and stays exactly where it was until switched back on.</summary>
+        Paused
     }
 }

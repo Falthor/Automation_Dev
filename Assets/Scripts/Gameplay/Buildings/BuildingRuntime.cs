@@ -96,9 +96,8 @@ namespace Game.Gameplay.Buildings
         /// <summary>
         /// The single representative cell for this building's output side - the middle cell of
         /// the output edge (so a straight conveyor lines up with it visually), or the only cell
-        /// for a 1-wide edge. Kept as a convenience for callers (output arrow placement, ghost
-        /// preview, transport pull alignment) that only need one canonical cell rather than the
-        /// whole edge (GetOutputCells(), which is what actual item transport pushes across).
+        /// for a 1-wide edge. This is where the output arrow is drawn, and for a building that
+        /// draws one it is also the only cell items actually leave from (GetOutputCells()).
         /// </summary>
         public GridCoord GetOutputCell() => ComputeOutputCell(Cell, Definition.FootprintSize, ExitDirection);
 
@@ -128,11 +127,57 @@ namespace Game.Gameplay.Buildings
         static int MiddleIndex(int length) => length / 2;
 
         /// <summary>
-        /// Every cell immediately outside this building along its output edge - width/height
-        /// aware, so a multi-cell-wide edge (e.g. a 3-wide footprint facing North) returns every
-        /// cell across that edge, not just one.
+        /// The cells items actually leave this building through.
+        ///
+        /// For a building declaring an output arrow (<see cref="Data.BuildingDefinition.HasOutputArrow"/>)
+        /// that is the single cell the arrow is drawn on, and nothing else - the same promise
+        /// GetInputCells() already makes on the way in: what is drawn is what happens, and there
+        /// are no invisible outlets. A 3-wide Factory handed its production to any of the three
+        /// cells it faced while marking one of them, so a box parked beside the arrow was fed by a
+        /// side of the building that showed nothing.
+        ///
+        /// For one declaring none (Storage, Core, a belt) it stays the whole edge, which for those
+        /// is a single cell anyway or genuinely means "this whole side".
         /// </summary>
-        public GridCoord[] GetOutputCells() => ComputeOutputCells(Cell, Definition.FootprintSize, ExitDirection);
+        public GridCoord[] GetOutputCells()
+        {
+            GridCoord[] edge = ComputeOutputCells(Cell, Definition.FootprintSize, ExitDirection);
+            if (!Definition.HasOutputArrow || edge.Length <= 1) return edge;
+            return new[] { edge[MiddleIndex(edge.Length)] };
+        }
+
+        /// <summary>
+        /// Whether this building will hand an item to a consumer occupying <paramref name="cell"/>.
+        ///
+        /// Asked by the generic pull, which otherwise reaches into a neighbour from any side it
+        /// touches: a declared output side has to hold on the way out as well as on the way in, or
+        /// the arrow is decoration. A building declaring no output side may still be taken from
+        /// wherever it is touched - that is what Storage and the Core are for.
+        /// </summary>
+        public bool HandsOutTo(GridCoord cell) => !Definition.HasOutputArrow || FeedsCell(cell);
+
+        /// <summary>
+        /// Whether items leaving this building land in <paramref name="cell"/> - i.e. whether a belt
+        /// built there would be fed by this one.
+        ///
+        /// It exists because "where does this building output" is not one cell for every building,
+        /// and asking through GetOutputCell() quietly assumed it was. A Splitter and a Crossroad
+        /// have several exits and no single ExitDirection at all: both inherit FacingRotation for
+        /// it, which on those two types names their <b>entry</b> side. So a belt started at a
+        /// Crossroad's exit found no neighbour feeding it, was taken for a belt on open ground, and
+        /// a drag that turned immediately re-pointed the anchor straight instead of cornering it.
+        ///
+        /// The default answer is the whole output edge, not its middle cell: that is the edge
+        /// transport actually pushes across, so a 2-wide building feeds either of its two cells.
+        /// </summary>
+        public virtual bool FeedsCell(GridCoord cell)
+        {
+            foreach (GridCoord outputCell in GetOutputCells())
+            {
+                if (outputCell == cell) return true;
+            }
+            return false;
+        }
 
         /// <summary>
         /// Every cell touching this building's footprint on any of its 4 sides, paired with the

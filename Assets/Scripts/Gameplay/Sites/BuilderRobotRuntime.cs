@@ -14,8 +14,8 @@ namespace Game.Gameplay.Sites
     /// </summary>
     public sealed class BuilderRobotRuntime
     {
-        public const int Capacity = 4;
-        public const float SpeedCellsPerSecond = 4.4f;
+        public const int Capacity = 5;
+        public const float SpeedCellsPerSecond = 5.5f;
         public const float BlockedDestructionSeconds = 20f;
 
         public int Index { get; }
@@ -43,6 +43,9 @@ namespace Game.Gameplay.Sites
         public Vector2 MoveTarget { get; set; }
 
         public ConstructionSiteRuntime TargetSite { get; set; }
+
+        /// <summary>The Core delivery this robot is carrying for, when it is not serving a site. Exactly one of TargetSite/TargetHaul is ever set.</summary>
+        public CoreHaulJob TargetHaul { get; set; }
         public object SourceContainer { get; set; }
         public object DestinationContainer { get; set; }
 

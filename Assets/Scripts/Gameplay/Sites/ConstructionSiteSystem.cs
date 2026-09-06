@@ -48,6 +48,14 @@ namespace Game.Gameplay.Sites
         int? _stuckSiteId;
         int? _stuckNotificationId;
 
+        /// <summary>The Core delivery in flight, or null. One at a time: a directive is validated, carried and finished before the next is offered.</summary>
+        CoreHaulJob _coreHaul;
+
+        /// <summary>Fired when a Core delivery has fully landed - what turns a validated directive into its reward.</summary>
+        public event Action CoreHaulCompleted;
+
+        public CoreHaulJob CoreHaul => _coreHaul;
+
         /// <summary>Fired the instant a segment (a whole building for a single-building site, one belt piece for a conveyor/splitter run) has received its full cost and becomes a real, registered building - the caller (Presentation) spawns its view and registers it with Transport/ItemVisuals, exactly like an immediate TryPlace used to.</summary>
         public event Action<BuildingRuntime> SegmentMaterialized;
 
@@ -91,8 +99,7 @@ namespace Game.Gameplay.Sites
                 int count = 0;
                 foreach (ConstructionSiteRuntime site in _queue)
                 {
-                    BuildingDefinition definition = site.PrimaryDefinition;
-                    if (definition is ConveyorDefinition || definition is SplitterDefinition || definition is CrossroadDefinition) continue;
+                    if (!site.PrimaryDefinition.CountsAgainstBuildingCap) continue;
                     count++;
                 }
                 return count;
@@ -227,6 +234,33 @@ namespace Game.Gameplay.Sites
             _repatriationJobs.Add(new RepatriationJob { Remaining = remaining });
         }
 
+        /// <summary>
+        /// Starts hauling a Core directive's materials to `destination`. One at a time - a second
+        /// call while one is in flight is refused rather than queued, because the Core only ever
+        /// asks for one thing at a time.
+        /// </summary>
+        public bool BeginCoreHaul(BuildingRuntime destination, IReadOnlyDictionary<string, int> items)
+        {
+            if (_coreHaul != null || destination == null || items == null) return false;
+
+            _coreHaul = new CoreHaulJob(destination, items);
+            if (_coreHaul.IsComplete)
+            {
+                // Asked for nothing: finished before it started.
+                CompleteCoreHaul();
+                return true;
+            }
+
+            RunReservationPass();
+            return true;
+        }
+
+        void CompleteCoreHaul()
+        {
+            _coreHaul = null;
+            CoreHaulCompleted?.Invoke();
+        }
+
         public void Tick(float deltaTime)
         {
             RunReservationPass();
@@ -292,6 +326,47 @@ namespace Game.Gameplay.Sites
                     }
                 }
             }
+
+            ReserveForCoreHaul();
+        }
+
+        /// <summary>
+        /// The Core delivery earmarks last, out of whatever the sites left - it is a request the
+        /// player took on, and must not starve a building already waiting on its material. Same
+        /// collection order and same claim accounting; only the owner of the earmark differs.
+        /// </summary>
+        void ReserveForCoreHaul()
+        {
+            if (_coreHaul == null) return;
+
+            foreach (string itemId in new List<string>(_coreHaul.Needed.Keys))
+            {
+                int remaining = _coreHaul.RemainingToReserve(itemId);
+                if (remaining <= 0) continue;
+
+                foreach (StorageRuntime storage in StoragesInCollectionOrder())
+                {
+                    if (remaining <= 0) break;
+                    int available = storage.GetInputAmount(itemId) - TotalReserved(storage, itemId);
+                    if (available <= 0) continue;
+                    int reserve = Mathf.Min(available, remaining);
+                    _coreHaul.AddReservation(storage, itemId, reserve);
+                    remaining -= reserve;
+                }
+
+                if (remaining <= 0) continue;
+
+                foreach (ProductionBuildingRuntime production in ProductionOutputsInOrder())
+                {
+                    if (remaining <= 0) break;
+                    int outputAmount = production.GetOutputContents().TryGetValue(itemId, out int amount) ? amount : 0;
+                    int available = outputAmount - TotalReserved(production, itemId);
+                    if (available <= 0) continue;
+                    int reserve = Mathf.Min(available, remaining);
+                    _coreHaul.AddReservation(production, itemId, reserve);
+                    remaining -= reserve;
+                }
+            }
         }
 
         /// <summary>
@@ -308,6 +383,10 @@ namespace Game.Gameplay.Sites
         int TotalReserved(object container, string itemId)
         {
             int total = 0;
+
+            // The Core delivery claims stock on exactly the same footing as a site: leaving it out
+            // would offer the same stack to both.
+            if (_coreHaul != null) total += _coreHaul.ReservedIn(container, itemId);
             foreach (ConstructionSiteRuntime site in _queue)
             {
                 foreach (Reservation reservation in site.Reservations)
@@ -481,6 +560,24 @@ namespace Game.Gameplay.Sites
                 return;
             }
 
+            // A Core delivery comes after every construction site: a directive is a request the
+            // player chose to take on, and it must not starve the buildings already waiting.
+            if (_coreHaul != null && _coreHaul.Reservations.Count > 0)
+            {
+                Reservation chosen = _coreHaul.Reservations[0];
+                int available = _coreHaul.ReservedIn(chosen.Container, chosen.ItemId);
+                int amount = Mathf.Min(BuilderRobotRuntime.Capacity, available);
+                _coreHaul.ReleaseReservationForPickup(chosen.Container, chosen.ItemId, amount);
+
+                robot.TargetHaul = _coreHaul;
+                robot.SourceContainer = chosen.Container;
+                robot.PendingItemId = chosen.ItemId;
+                robot.PendingAmount = amount;
+                robot.MoveTarget = ContainerPosition(chosen.Container);
+                robot.State = BuilderRobotState.MovingToSource;
+                return;
+            }
+
             if (_repatriationJobs.Count > 0)
             {
                 AssignRepatriation(robot);
@@ -493,15 +590,20 @@ namespace Game.Gameplay.Sites
 
             int taken = ContainerTake(robot.SourceContainer, robot.PendingItemId, robot.PendingAmount);
             robot.AddCargo(robot.PendingItemId, taken);
-            if (taken < robot.PendingAmount && robot.TargetSite != null)
+
+            int shortfall = robot.PendingAmount - taken;
+            if (shortfall > 0)
             {
-                robot.TargetSite.ReleaseCommitment(robot.PendingItemId, robot.PendingAmount - taken);
+                robot.TargetSite?.ReleaseCommitment(robot.PendingItemId, shortfall);
+                robot.TargetHaul?.ReleaseCommitment(robot.PendingItemId, shortfall);
             }
 
             robot.SourceContainer = null;
             robot.PendingItemId = null;
             robot.PendingAmount = 0;
-            robot.MoveTarget = SitePosition(robot.TargetSite);
+            robot.MoveTarget = robot.TargetHaul != null
+                ? ContainerPosition(robot.TargetHaul.Destination)
+                : SitePosition(robot.TargetSite);
             robot.State = BuilderRobotState.MovingToSite;
         }
 
@@ -521,8 +623,23 @@ namespace Game.Gameplay.Sites
                 // not a building until it has assembled. AdvanceAssemblies takes it from here.
             }
 
+            CoreHaulJob haul = robot.TargetHaul;
+            if (haul != null)
+            {
+                foreach (var kvp in new List<KeyValuePair<string, int>>(robot.Cargo))
+                {
+                    haul.RegisterDelivery(kvp.Key, kvp.Value);
+                }
+
+                // The Core consumes what it asked for rather than storing it: a directive is a
+                // hand-over, not a deposit, and the Core takes no delivery of its own accord
+                // (CoreRuntime.CanAcceptInput is false for everything).
+                if (haul.IsComplete) CompleteCoreHaul();
+            }
+
             robot.ClearCargo();
             robot.TargetSite = null;
+            robot.TargetHaul = null;
             robot.State = BuilderRobotState.Idle;
             robot.MoveTarget = robot.ParkPosition;
         }

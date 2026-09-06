@@ -35,10 +35,21 @@ namespace Game.Gameplay.Buildings
         float _timer;
         ProductionState _state = ProductionState.Idle;
 
+        /// <summary>
+        /// How many crafts' worth of each raw material a production building holds at most: the
+        /// recipe's per-craft amount times this. A recipe needing 2 iron and 4 screws therefore
+        /// buffers 6 and 12 - a building's intake is sized by what it actually consumes, not by one
+        /// number shared across every ingredient and every building.
+        /// </summary>
+        public const int InputCraftsHeld = 3;
+
+        /// <summary>Finished goods a production building stacks before it stops and reports OutputBlocked. Flat, unlike the input: the output is a buffer against a stalled belt, and how big that buffer should be has nothing to do with the recipe.</summary>
+        public const int OutputStackCapacity = 10;
+
         protected ProductionBuildingRuntime(
             BuildingDefinition definition, GridCoord cell, Direction facingRotation,
             RecipeDatabase recipeDatabase, ComputeSystem computeSystem, PowerSystem powerSystem, ResearchSystem researchSystem,
-            int maxStackPerItem, float powerDemandKw, string[] acceptedItemIds = null)
+            float powerDemandKw, string[] acceptedItemIds = null)
             : base(definition, cell, facingRotation)
         {
             _recipeDatabase = recipeDatabase;
@@ -47,8 +58,28 @@ namespace Game.Gameplay.Buildings
             _researchSystem = researchSystem;
             _acceptedItemIds = acceptedItemIds;
             _powerDemandKw = powerDemandKw;
-            _input = new PooledItemStock(maxStackPerItem);
-            _output = new PooledItemStock(maxStackPerItem);
+
+            // Read live, not captured: the ceilings follow the selected recipe as it changes.
+            _input = new PooledItemStock(InputCapacityFor);
+            _output = new PooledItemStock(_ => OutputStackCapacity);
+        }
+
+        /// <summary>
+        /// How much of one raw material this building may hold: what the selected recipe consumes of
+        /// it per craft, times InputCraftsHeld. Zero for anything the recipe does not use - including
+        /// everything, while no recipe is selected - which is the same answer CanAcceptInput already
+        /// gives from the other direction.
+        /// </summary>
+        int InputCapacityFor(string itemId)
+        {
+            RecipeDefinition recipe = SelectedRecipeDefinition;
+            if (recipe == null) return 0;
+
+            foreach (RecipeIngredient ingredient in recipe.Ingredients)
+            {
+                if (ingredient.Item != null && ingredient.Item.Id == itemId) return ingredient.Amount * InputCraftsHeld;
+            }
+            return 0;
         }
 
         RecipeDefinition SelectedRecipeDefinition => _recipeDatabase.Get(_selectedRecipeId);
@@ -160,8 +191,20 @@ namespace Game.Gameplay.Buildings
             ProductionState.WaitingResources => "EN ATTENTE DE RESSOURCES",
             ProductionState.OutputBlocked => "SORTIE PLEINE",
             ProductionState.WaitingCompute => "COMPUTE INSUFFISANT",
+            ProductionState.Paused => "EN PAUSE",
             _ => "ARRET"
         };
+
+        /// <summary>
+        /// Switched off by the player: no power reported, no Compute spent, no cycle advanced.
+        ///
+        /// An in-progress craft freezes rather than being abandoned - its ingredients and its CU are
+        /// already spent and are not refunded, exactly as they are not when the power drops. Pausing
+        /// is a way to stop a building drawing on a strained network, not a way to take a cycle back.
+        /// </summary>
+        public bool IsPaused { get; private set; }
+
+        public void SetPaused(bool paused) => IsPaused = paused;
 
         /// <summary>
         /// Advances the production state machine; call once per simulation tick. Power demand
@@ -174,6 +217,16 @@ namespace Game.Gameplay.Buildings
         /// </summary>
         public override void Tick(float deltaTime)
         {
+            // Before anything reports demand: a paused building must be invisible to the power
+            // network, not merely idle on it. Returning here is what makes "consumes nothing" true -
+            // ComputeEffectivePerformance below is the only thing that ever reports this building's
+            // draw, and it is never reached.
+            if (IsPaused)
+            {
+                _state = ProductionState.Paused;
+                return;
+            }
+
             float performance = ComputeEffectivePerformance(_powerDemandKw, powerActive: _state == ProductionState.Producing, _powerSystem);
 
             float effectiveDeltaTime = deltaTime * performance;
@@ -211,7 +264,7 @@ namespace Game.Gameplay.Buildings
                     return;
                 }
 
-                if (_output.GetAmount(recipe.Id) + recipe.OutputAmount > _output.MaxStackPerItem)
+                if (_output.GetAmount(recipe.Id) + recipe.OutputAmount > _output.CapacityFor(recipe.Id))
                 {
                     _state = ProductionState.OutputBlocked;
                     return;
@@ -291,6 +344,9 @@ namespace Game.Gameplay.Buildings
                 ["crafting"] = _crafting,
                 ["timer"] = _timer,
                 ["state"] = (int)_state,
+                // A switched-off building must come back switched off: reloading is not a reason to
+                // put a factory back onto a network the player deliberately took it off.
+                ["paused"] = IsPaused,
                 ["input"] = JObject.FromObject(_input.Contents),
                 ["output"] = JObject.FromObject(_output.Contents)
             };
@@ -303,6 +359,7 @@ namespace Game.Gameplay.Buildings
             _crafting = state.Value<bool?>("crafting") ?? false;
             _timer = state.Value<float?>("timer") ?? 0f;
             _state = (ProductionState)(state.Value<int?>("state") ?? 0);
+            IsPaused = state.Value<bool?>("paused") ?? false;
             _input.RestoreContents(state["input"]?.ToObject<Dictionary<string, int>>());
             _output.RestoreContents(state["output"]?.ToObject<Dictionary<string, int>>());
         }

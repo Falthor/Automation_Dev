@@ -13,6 +13,9 @@ namespace Game.Data
     [CreateAssetMenu(fileName = "CrossroadDefinition", menuName = "Game/Buildings/Crossroad Definition")]
     public sealed class CrossroadDefinition : BuildingDefinition
     {
+        /// <summary>Transport, not machinery - see BuildingDefinition.CountsAgainstBuildingCap.</summary>
+        public override bool CountsAgainstBuildingCap => false;
+
         public override Vector2Int[] FootprintCells => CrossShapeCells;
 
         /// <summary>

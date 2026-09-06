@@ -99,6 +99,21 @@ namespace Game.Data
         };
 
         /// <summary>
+        /// Whether one of these takes a slot against the building cap (ConstructionService.BuildingCap).
+        ///
+        /// True by default. Transport pieces (Conveyor, Splitter, Crossroad) and Storage boxes say
+        /// no: the cap limits how much *machinery* stands in the world, and counting the belts
+        /// between machines - or the boxes they fill - would make connecting a factory the expensive
+        /// part of building one.
+        ///
+        /// Declared per type here rather than as a list of type checks, because the list was already
+        /// written out three times in two assemblies (the live counter, the placement gate, and the
+        /// pending-site counter) and nothing tied them together: a type added to one of them was
+        /// silently missing from the others.
+        /// </summary>
+        public virtual bool CountsAgainstBuildingCap => true;
+
+        /// <summary>
         /// Whether this building has a single fixed output side (drawn as an arrow, both on the
         /// construction ghost and the built view). False by default - most buildings have no
         /// directional output (e.g. Storage accepts input from any side and has none).

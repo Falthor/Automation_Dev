@@ -4,7 +4,12 @@
     <ui:VisualElement name="ProductionPanelRoot" class="overlay-root overlay-root-right hidden" picking-mode="Ignore">
         <ui:VisualElement class="panel panel-accent production-panel" picking-mode="Position">
             <ui:VisualElement class="header-row">
-                <ui:Label name="ProductionTitle" text="FOUNDRY" class="title" />
+                <!-- Title and pause grouped so the button sits against the name rather than being
+                     pushed to the middle by the row's space-between. -->
+                <ui:VisualElement class="header-title-group">
+                    <ui:Label name="ProductionTitle" text="FOUNDRY" class="title" />
+                    <ui:Button name="ProductionPauseButton" text="II" class="header-toggle-button" />
+                </ui:VisualElement>
                 <ui:Button name="ProductionCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
 

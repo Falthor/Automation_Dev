@@ -1,6 +1,7 @@
-using System.Linq;
+using System.Collections.Generic;
 using Game.Data;
 using Game.Gameplay.Compute;
+using Game.Gameplay.Directives;
 using Game.Gameplay.Session;
 using Game.Presentation;
 using UnityEngine;
@@ -29,6 +30,9 @@ namespace Game.UI
         /// <summary>How long a refusal message (ShowRefusalMessage) stays visible before auto-hiding.</summary>
         const float RefusalMessageSeconds = 2.5f;
 
+        /// <summary>Share of production being drawn past which the Power card turns amber - a warning that the network is nearly saturated, distinct from the red of an actual deficit.</summary>
+        const float PowerStrainThreshold = 0.85f;
+
         [SerializeField] UIDocument uiDocument;
         [SerializeField] VisualTreeAsset visualTree;
         [SerializeField] GameRuntime gameRuntime;
@@ -49,8 +53,12 @@ namespace Game.UI
         float _refusalMessageHideAt = -1f;
         bool _paused;
 
+        /// <summary>False until the player has opened the Research panel once - what ends the "this is new" pulse on the card the Core just handed them.</summary>
+        bool _researchMenuSeen;
+
         Card _powerCard;
         Card _computeCard;
+        Card _directiveCard;
         Card _researchCard;
         Card _buildingCard;
 
@@ -62,6 +70,10 @@ namespace Game.UI
             public VisualElement Detail;
             public VisualElement BarFill;
             public Label[] Lines;
+
+            /// <summary>Only the directive card has this: what it asks for is a list that changes with the directive, so its header is rebuilt rather than filled in.</summary>
+            public VisualElement Requirements;
+
             public float RefWidth, MinWidth, MaxWidth;
             public float DetailHeight;
         }
@@ -85,6 +97,10 @@ namespace Game.UI
             // (SetExpanded below), never width, so this has no effect on the hover-expand behavior.
             _powerCard = BuildCard(powerIcon, PowerPanelController.PanelName, 170f, 130f, 210f, 66f, 3, "top-bar-card-bar-fill-power");
             _computeCard = BuildCard(computeIcon, ComputePanelController.PanelName, 190f, 145f, 230f, 56f, 2, "top-bar-card-bar-fill-compute");
+            // Built between Compute and Research so the row keeps one order for the whole run: the
+            // directive card is what stands there before Research exists, and the two coexist from
+            // the second directive on rather than one taking the other's place.
+            _directiveCard = BuildDirectiveCard();
             _researchCard = BuildCard(researchIcon, ResearchPanelController.PanelName, 170f, 130f, 210f, 56f, 2, "top-bar-card-bar-fill-research");
             _buildingCard = BuildCard(buildingIcon, BuildingMenuController.PanelName, 150f, 115f, 190f, 40f, 1, "top-bar-card-bar-fill-buildings");
 
@@ -154,6 +170,44 @@ namespace Game.UI
             return card;
         }
 
+        /// <summary>
+        /// The card for what the Core is currently asking for: a row of item chips, and nothing
+        /// else. No detail block and no hover-expand, unlike every other card - what it has to say
+        /// is already fully said in the collapsed header, so there would be nothing behind the
+        /// expansion but the same numbers written out again.
+        ///
+        /// Not a Button either: every other card opens a global panel, and a directive lives in the
+        /// Core's own inspector, reached by clicking the Core in the world.
+        /// </summary>
+        Card BuildDirectiveCard()
+        {
+            var card = new Card { RefWidth = 200f, MinWidth = 150f, MaxWidth = 250f, DetailHeight = 0f };
+
+            var root = new VisualElement();
+            root.AddToClassList("top-bar-card");
+            card.Root = root;
+
+            var header = new VisualElement();
+            header.AddToClassList("top-bar-card-header");
+
+            // Which directive this is, ahead of what it wants: the bill on its own says nothing
+            // about how far into the Core's sequence the player is.
+            var number = new Label();
+            number.AddToClassList("top-bar-directive-number");
+            header.Add(number);
+            card.Value = number;
+
+            var requirements = new VisualElement();
+            requirements.AddToClassList("top-bar-directive-requirements");
+            header.Add(requirements);
+            card.Requirements = requirements;
+
+            root.Add(header);
+
+            _cardsRow.Add(root);
+            return card;
+        }
+
         static void SetExpanded(Card card, bool expanded)
         {
             card.Root.EnableInClassList("top-bar-card-collapsing", !expanded);
@@ -187,6 +241,7 @@ namespace Game.UI
             RefreshWidths();
             RefreshPower();
             RefreshCompute();
+            RefreshDirective();
             RefreshResearch();
             RefreshBuildings();
 
@@ -214,6 +269,7 @@ namespace Game.UI
             float widthScale = Screen.width / ReferenceWidth;
             _powerCard.Root.style.width = ClampedWidth(_powerCard, widthScale);
             _computeCard.Root.style.width = ClampedWidth(_computeCard, widthScale);
+            _directiveCard.Root.style.width = ClampedWidth(_directiveCard, widthScale);
             _researchCard.Root.style.width = ClampedWidth(_researchCard, widthScale);
             _buildingCard.Root.style.width = ClampedWidth(_buildingCard, widthScale);
         }
@@ -221,6 +277,23 @@ namespace Game.UI
         static float ClampedWidth(Card card, float widthScale)
         {
             return Mathf.Clamp(card.RefWidth * widthScale, card.MinWidth, card.MaxWidth);
+        }
+
+        /// <summary>
+        /// Whether the network is drawing more than PowerStrainThreshold of what it produces: still
+        /// working, but one more building away from not.
+        ///
+        /// False once demand actually exceeds supply, because that is a deficit - a worse thing that
+        /// keeps its own red. The amber is the warning before it, not a milder shade of it.
+        ///
+        /// A plain function of the two figures so the threshold can be pinned without a running
+        /// player: read off a live PowerSystem it would only ever report whatever this frame happens
+        /// to be.
+        /// </summary>
+        public static bool IsPowerStrained(float demand, float supply)
+        {
+            if (demand > supply) return false;
+            return supply > 0f && demand / supply > PowerStrainThreshold;
         }
 
         void RefreshPower()
@@ -232,16 +305,20 @@ namespace Game.UI
             float balance = supply - demand;
             string sign = balance >= 0f ? "+" : "";
 
+            float usage = supply > 0f ? demand / supply : 0f;
+            bool strained = IsPowerStrained(demand, supply);
+
             _powerCard.Value.text = $"{Mathf.RoundToInt(demand)} / {Mathf.RoundToInt(supply)} kW";
             _powerCard.Value.EnableInClassList("top-bar-card-value-deficit", deficit);
+            _powerCard.Value.EnableInClassList("top-bar-card-value-strained", strained);
 
             _powerCard.Lines[0].text = $"Consumption: {Mathf.RoundToInt(demand)} kW";
             _powerCard.Lines[1].text = $"Production: {Mathf.RoundToInt(supply)} kW";
             _powerCard.Lines[2].text = $"Balance: {sign}{Mathf.RoundToInt(balance)} kW";
             _powerCard.Lines[2].EnableInClassList("top-bar-card-detail-line-deficit", deficit);
+            _powerCard.Lines[2].EnableInClassList("top-bar-card-detail-line-strained", strained);
 
-            float ratio = supply > 0f ? Mathf.Clamp01(demand / supply) : 0f;
-            _powerCard.BarFill.style.width = new StyleLength(Length.Percent(ratio * 100f));
+            _powerCard.BarFill.style.width = new StyleLength(Length.Percent(Mathf.Clamp01(usage) * 100f));
         }
 
         void RefreshCompute()
@@ -259,9 +336,79 @@ namespace Game.UI
             _computeCard.BarFill.style.width = new StyleLength(Length.Percent(Mathf.Clamp01(compute.Reserve / ComputeSystem.ReserveCap) * 100f));
         }
 
+        /// <summary>
+        /// What the Core is asking for, shown for as long as it is asking.
+        ///
+        /// Two states, not one. Before validation the card is a shopping list: each requirement
+        /// against the aggregate stock a robot could actually go and claim - the same figure, read
+        /// the same way, as the Core panel's own, so the two can never disagree. Once the player has
+        /// validated, there is nothing left to shop for and the card simply says the convoy is out.
+        /// A counter there would be answering a question nobody is asking any more, and answering it
+        /// with a number that moves for reasons the player cannot see.
+        /// </summary>
+        void RefreshDirective()
+        {
+            CoreDirectiveSystem directives = gameRuntime.CoreDirectives;
+            CoreDirectiveDefinition current = directives?.Current;
+
+            _directiveCard.Root.EnableInClassList("hidden", current == null);
+            if (current == null) return;
+
+            _directiveCard.Value.text = $"Directive {directives.CurrentNumber}";
+            _directiveCard.Requirements.Clear();
+
+            if (directives.IsDelivering)
+            {
+                var status = new Label("Approvisionnement en cours");
+                status.AddToClassList("top-bar-card-value");
+                _directiveCard.Requirements.Add(status);
+                return;
+            }
+
+            IReadOnlyDictionary<string, int> available = gameRuntime.GlobalStock;
+            foreach (RecipeIngredient requirement in current.Requirements)
+            {
+                if (requirement.Item == null || requirement.Amount <= 0) continue;
+
+                int stock = available != null && available.TryGetValue(requirement.Item.Id, out int inStock) ? inStock : 0;
+                _directiveCard.Requirements.Add(BuildDirectiveChip(requirement, Mathf.Min(stock, requirement.Amount)));
+            }
+        }
+
+        static VisualElement BuildDirectiveChip(RecipeIngredient requirement, int held)
+        {
+            var chip = new VisualElement();
+            chip.AddToClassList("top-bar-directive-chip");
+
+            var icon = new VisualElement();
+            icon.AddToClassList("top-bar-directive-icon");
+            if (requirement.Item.Icon != null) icon.style.backgroundImage = new StyleBackground(requirement.Item.Icon);
+            chip.Add(icon);
+
+            var amount = new Label($"{held}/{requirement.Amount}");
+            amount.AddToClassList("top-bar-directive-amount");
+            amount.EnableInClassList("top-bar-directive-amount-met", held >= requirement.Amount);
+            chip.Add(amount);
+
+            return chip;
+        }
+
         void RefreshResearch()
         {
             var research = gameRuntime.Research;
+
+            // Research is the first directive's reward, so before that there is no card to fill in -
+            // and nothing to fill it from. A run with no directives at all keeps it, since then
+            // nothing was ever going to hand it over.
+            bool menuUnlocked = gameRuntime.CoreDirectives == null || gameRuntime.CoreDirectives.IsResearchMenuUnlocked;
+            _researchCard.Root.EnableInClassList("hidden", !menuUnlocked);
+
+            // A card that appears mid-run appears among three the player has long stopped looking
+            // at, so it announces itself until they act on it - and then stops, which is the point.
+            if (gameRuntime.Selection.ActiveGlobalPanel == ResearchPanelController.PanelName) _researchMenuSeen = true;
+            NewUnlockPulse.Apply(_researchCard.Root, menuUnlocked && !_researchMenuSeen);
+
+            if (!menuUnlocked) return;
 
             if (research.HasActiveResearch())
             {
@@ -278,10 +425,11 @@ namespace Game.UI
             else
             {
                 int queued = research.GetQueue().Count;
-                // "Aucune" only when nothing has ever been researched - once at least one
-                // completes with nothing queued next, the top bar should confirm that instead
-                // of reading as if research had never started.
-                bool finished = queued == 0 && research.GetUnlockedIds().Any();
+                // "Recherche finie" means the tree is finished, not that something was unlocked
+                // once. Read the other way round it fired on the very first unlock - including the
+                // one the Core grants for a directive, which the player never researched at all -
+                // and announced the end of a tree they had not started.
+                bool finished = queued == 0 && IsWholeTreeUnlocked();
                 string idleText = finished ? "Recherche finie" : "Aucune";
                 _researchCard.Value.text = queued > 0 ? $"{queued} en file" : idleText;
                 _researchCard.Lines[0].text = "0%";
@@ -290,6 +438,22 @@ namespace Game.UI
 
                 SetResearchFinished(finished);
             }
+        }
+
+        /// <summary>Whether every research the tree lists has been unlocked - asked of the database, the one thing that knows how many there are.</summary>
+        bool IsWholeTreeUnlocked()
+        {
+            ResearchDatabase database = gameRuntime.Researches;
+            if (database == null) return false;
+
+            IReadOnlyList<ResearchDefinition> all = database.GetAll();
+            if (all.Count == 0) return false;
+
+            foreach (ResearchDefinition research in all)
+            {
+                if (research != null && !gameRuntime.Research.IsUnlocked(research.Id)) return false;
+            }
+            return true;
         }
 
         /// <summary>

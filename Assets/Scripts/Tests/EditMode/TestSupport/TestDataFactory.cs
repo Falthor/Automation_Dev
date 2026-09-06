@@ -111,6 +111,17 @@ namespace Game.Tests.EditMode.TestSupport
             return definition;
         }
 
+        /// <summary>Crossroad definition - the same "+" footprint as the Splitter, with two straight-through lanes instead of a round-robin split.</summary>
+        public static CrossroadDefinition NewCrossroad(string id = "crossroad")
+        {
+            var definition = ScriptableObject.CreateInstance<CrossroadDefinition>();
+            var so = new SerializedObject(definition);
+            so.FindProperty("id").stringValue = id;
+            so.FindProperty("footprintSize").vector2IntValue = new Vector2Int(3, 3);
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return definition;
+        }
+
         public static RecipeDefinition NewRecipe(string id, float timeSeconds, float computeCost, int outputAmount, ResearchDefinition unlockResearch, params (ItemDefinition item, int amount)[] ingredients)
         {
             var recipe = ScriptableObject.CreateInstance<RecipeDefinition>();
@@ -190,11 +201,10 @@ namespace Game.Tests.EditMode.TestSupport
             return database;
         }
 
-        public static FoundryDefinition NewFoundry(int maxStackPerItem, float powerDemandKw, float intakeIntervalSeconds, params string[] recipeIds)
+        public static FoundryDefinition NewFoundry(float powerDemandKw, float intakeIntervalSeconds, params string[] recipeIds)
         {
             var foundry = ScriptableObject.CreateInstance<FoundryDefinition>();
             var so = new SerializedObject(foundry);
-            so.FindProperty("maxStackPerItem").intValue = maxStackPerItem;
             so.FindProperty("powerDemandKw").floatValue = powerDemandKw;
             so.FindProperty("intakeIntervalSeconds").floatValue = intakeIntervalSeconds;
 
@@ -208,11 +218,10 @@ namespace Game.Tests.EditMode.TestSupport
             return foundry;
         }
 
-        public static FactoryDefinition NewFactory(int maxStackPerItem, float powerDemandKw, string[] recipeIds, string[] acceptedItemIds)
+        public static FactoryDefinition NewFactory(float powerDemandKw, string[] recipeIds, string[] acceptedItemIds)
         {
             var factory = ScriptableObject.CreateInstance<FactoryDefinition>();
             var so = new SerializedObject(factory);
-            so.FindProperty("maxStackPerItem").intValue = maxStackPerItem;
             so.FindProperty("powerDemandKw").floatValue = powerDemandKw;
             SetStringArray(so, "recipeIds", recipeIds);
             SetStringArray(so, "acceptedItemIds", acceptedItemIds);
@@ -220,11 +229,10 @@ namespace Game.Tests.EditMode.TestSupport
             return factory;
         }
 
-        public static AssemblerDefinition NewAssembler(int maxStackPerItem, float powerDemandKw, string[] recipeIds, string[] acceptedItemIds, ResearchDefinition unlockResearch)
+        public static AssemblerDefinition NewAssembler(float powerDemandKw, string[] recipeIds, string[] acceptedItemIds, ResearchDefinition unlockResearch)
         {
             var assembler = ScriptableObject.CreateInstance<AssemblerDefinition>();
             var so = new SerializedObject(assembler);
-            so.FindProperty("maxStackPerItem").intValue = maxStackPerItem;
             so.FindProperty("powerDemandKw").floatValue = powerDemandKw;
             so.FindProperty("unlockResearch").objectReferenceValue = unlockResearch;
             SetStringArray(so, "recipeIds", recipeIds);
@@ -233,11 +241,10 @@ namespace Game.Tests.EditMode.TestSupport
             return assembler;
         }
 
-        public static AdvancedFoundryDefinition NewAdvancedFoundry(int maxStackPerItem, float powerDemandKw, string[] recipeIds, string[] acceptedItemIds)
+        public static AdvancedFoundryDefinition NewAdvancedFoundry(float powerDemandKw, string[] recipeIds, string[] acceptedItemIds)
         {
             var advancedFoundry = ScriptableObject.CreateInstance<AdvancedFoundryDefinition>();
             var so = new SerializedObject(advancedFoundry);
-            so.FindProperty("maxStackPerItem").intValue = maxStackPerItem;
             so.FindProperty("powerDemandKw").floatValue = powerDemandKw;
             SetStringArray(so, "recipeIds", recipeIds);
             SetStringArray(so, "acceptedItemIds", acceptedItemIds);

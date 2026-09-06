@@ -39,7 +39,6 @@ MonoBehaviour:
     amount: 10
   - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
     amount: 5
-  maxStackPerItem: 100
   powerDemandKw: 4
   recipeIds:
   - cpu_mkI

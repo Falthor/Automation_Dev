@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 768dc22d07d6a804d8d86da88ec6e9d4, type: 3}
+  m_Name: FirstDirective
+  m_EditorClassIdentifier: Game.Data::Game.Data.CoreDirectiveDefinition
+  id: first_gear
+  requirements:
+  - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
+    amount: 40
+  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+    amount: 50
+  rewardItem: {fileID: 11400000, guid: d5be11fa9d151e345a38f4254d3f1430, type: 2}
+  grants: {fileID: 11400000, guid: 7da5509ab8e403b46baa0bb47edbe69a, type: 2}
+  unlocksResearchMenu: 1
+  rewardLabel: 

@@ -90,7 +90,7 @@ namespace Game.Tests.EditMode.Gameplay.Transport
 
             ItemDefinition ore = Game.Tests.EditMode.TestSupport.TestDataFactory.NewItem("iron_ore");
             FoundryDefinition sourceDefinition = Game.Tests.EditMode.TestSupport.TestDataFactory.NewFoundry(
-                maxStackPerItem: 100000, powerDemandKw: 0f, intakeIntervalSeconds: 0f);
+                powerDemandKw: 0f, intakeIntervalSeconds: 0f);
 
             var source = new FoundryRuntime(sourceDefinition, new GridCoord(0, 0), Direction.East,
                 null, null, new Game.Gameplay.Compute.ComputeSystem(), new Game.Gameplay.Power.PowerSystem(), null);

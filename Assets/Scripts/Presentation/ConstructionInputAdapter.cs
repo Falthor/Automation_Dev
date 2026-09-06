@@ -356,7 +356,13 @@ namespace Game.Presentation
 
                 _activeConveyorSite = null; // a new gesture always opens its own chantier
                 PlaceAt(cell, rotation);
-                _isDragPlacing = true;
+
+                // Only a belt is laid by dragging. A Splitter or a Crossroad used to start a drag
+                // too, and the drag is what decides a segment's rotation: moving the mouse a few
+                // cells along the line the player was aiming at dropped extra copies of the piece,
+                // each turned to face the drag's axis instead of the rotation being previewed. One
+                // click, one piece, facing the way the ghost showed it.
+                _isDragPlacing = IsDraggableRun(gameRuntime.Construction.Selected);
                 _dragAnchorCell = cell;
                 _lastPlacedCell = cell;
                 _dragAxis = null;
@@ -395,24 +401,47 @@ namespace Game.Presentation
         }
 
         /// <summary>
-        /// The neighbor (if any) whose own configured output points exactly into `cell`,
-        /// expressed as the direction FROM that neighbor TOWARD cell - i.e. the direction flow
-        /// naturally enters from. Unlike a plain "is there any conveyor next door" check, this
-        /// requires actual alignment (GetOutputCell() == cell), so a neighbor pointed elsewhere
-        /// is correctly ignored instead of producing a bogus inherited direction.
+        /// The side (if any) `cell` is fed from: the direction toward a neighbor whose own output
+        /// lands in this cell. Unlike a plain "is there any conveyor next door" check, this requires
+        /// actual alignment (BuildingRuntime.FeedsCell), so a neighbor pointed elsewhere is ignored
+        /// instead of producing a bogus inherited direction - and a Splitter or Crossroad answers
+        /// for every exit it has, not for one edge derived from a rotation that names its entry.
         /// </summary>
-        Direction? FindEntryDirection(GridCoord cell)
+        Direction? FindEntryDirection(GridCoord cell, Direction? excluding = null)
         {
             foreach (Direction dir in AllDirections)
             {
+                if (excluding.HasValue && dir == excluding.Value) continue;
+
                 GridCoord neighborCell = cell + dir;
-                if (gameRuntime.Grid.GetOccupant(neighborCell) is BuildingRuntime candidate && candidate.GetOutputCell() == cell)
+                if (gameRuntime.Grid.GetOccupant(neighborCell) is BuildingRuntime candidate && candidate.FeedsCell(cell))
                 {
                     return dir;
                 }
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// The side the anchor is fed from, reconciled against the axis the drag turned out to take.
+        ///
+        /// The feeder is found at click time, before the axis is known, and it can turn out to sit
+        /// on the side the drag then heads for - a storage box directly below the anchor, dragged
+        /// downward. A belt cannot enter and leave by the same side, so that candidate is dropped
+        /// and the question asked again ignoring that side: another neighbour may well feed the
+        /// anchor from somewhere the drag can actually leave.
+        ///
+        /// Without this the reshape asked for a corner whose entry equalled its exit,
+        /// ConfigureAsCorner refused it as the non-corner it is, and the anchor kept pointing back
+        /// into the very thing feeding it - never once facing the way the player dragged.
+        /// </summary>
+        Direction? ResolveInheritedEntry(Direction newAxis)
+        {
+            if (!_pendingCornerEntry.HasValue) return null;
+            if (_pendingCornerEntry.Value != newAxis) return _pendingCornerEntry;
+
+            return FindEntryDirection(_dragAnchorCell, excluding: newAxis);
         }
 
         /// <summary>
@@ -438,11 +467,13 @@ namespace Game.Presentation
                 // nothing to reshape - it just keeps facing however it was placed.
                 if (gameRuntime.Construction.Selected is ConveyorDefinition selectedConveyor)
                 {
-                    if (_pendingCornerEntry.HasValue)
+                    Direction? inheritedEntry = ResolveInheritedEntry(newAxis);
+
+                    if (inheritedEntry.HasValue)
                     {
-                        if (_pendingCornerEntry.Value.Opposite() != newAxis)
+                        if (inheritedEntry.Value.Opposite() != newAxis)
                         {
-                            ReshapeAnchorAsCorner(_dragAnchorCell, _pendingCornerEntry.Value, newAxis);
+                            ReshapeAnchorAsCorner(_dragAnchorCell, inheritedEntry.Value, newAxis);
                         }
                         // else: the inherited entry is already collinear with the discovered
                         // axis - the anchor was placed facing the right way, nothing to redo.
@@ -611,14 +642,14 @@ namespace Game.Presentation
                 }
             }
 
-            bool placingIntoConveyorRun = _isDragPlacing && _activeConveyorSite != null && IsConveyorRunDefinition(gameRuntime.Construction.Selected);
+            bool placingIntoConveyorRun = _isDragPlacing && _activeConveyorSite != null && IsDraggableRun(gameRuntime.Construction.Selected);
 
             if (gameRuntime.Construction.TryPlace(cell, rotation, out ConstructionSiteRuntime site, placingIntoConveyorRun ? _activeConveyorSite : null))
             {
                 // Nothing is spawned or registered here any more: the segment exists as runtime
                 // state occupying its cells, but stays inert (no view, not in TransportSystem)
                 // until robots have delivered its full cost - OnSegmentMaterialized does that part.
-                if (IsConveyorRunDefinition(gameRuntime.Construction.Selected)) _activeConveyorSite = site;
+                if (IsDraggableRun(gameRuntime.Construction.Selected)) _activeConveyorSite = site;
 
                 // The view/registration half of the overtake TryPlace has just settled. Harmless on
                 // a segment that was still pending: it was never registered and never had a view.
@@ -648,8 +679,15 @@ namespace Game.Presentation
             _ => null
         };
 
-        static bool IsConveyorRunDefinition(BuildingDefinition definition) =>
-            definition is ConveyorDefinition || definition is SplitterDefinition || definition is CrossroadDefinition;
+        /// <summary>
+        /// Whether this tool lays a <b>run</b> - a line of pieces drawn in one gesture, gathered into
+        /// a single chantier.
+        ///
+        /// Belts only. A Splitter and a Crossroad are single pieces placed one per click: they were
+        /// counted as runs, which made a click-and-slide drop several of them, each rotated to the
+        /// drag's axis rather than to the rotation the ghost was showing.
+        /// </summary>
+        static bool IsDraggableRun(BuildingDefinition definition) => definition is ConveyorDefinition;
 
         void HandleDemolition(GridCoord cell)
         {

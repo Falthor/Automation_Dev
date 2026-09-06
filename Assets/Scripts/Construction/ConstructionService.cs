@@ -38,7 +38,7 @@ namespace Game.Construction
     /// </summary>
     public sealed class ConstructionService
     {
-        public const int DefaultBuildingCap = 40;
+        public const int DefaultBuildingCap = 30;
         const string MemoryAllocationResearchId = "memory_allocation";
         const int ExtendedBuildingCap = 52;
 
@@ -90,7 +90,7 @@ namespace Game.Construction
                     // player decision (TASK_05_ROBOT_CONSTRUCTEUR.md §1b) - a player-built Storage
                     // Box still counts.
                     if (building.Definition.Id == CoreStorageDefinitionId) continue;
-                    if (building is ConveyorRuntime || building is SplitterRuntime || building is CrossroadRuntime) continue;
+                    if (!building.Definition.CountsAgainstBuildingCap) continue;
                     count++;
                 }
                 return count;
@@ -485,8 +485,7 @@ namespace Game.Construction
                 return PlacementRefusalReason.CannotAfford;
             }
 
-            bool countsAgainstCap = !(Selected is ConveyorDefinition || Selected is SplitterDefinition || Selected is CrossroadDefinition);
-            if (countsAgainstCap && OccupiedBuildingSlots >= BuildingCap)
+            if (Selected.CountsAgainstBuildingCap && OccupiedBuildingSlots >= BuildingCap)
             {
                 return PlacementRefusalReason.BuildingCapReached;
             }

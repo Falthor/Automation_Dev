@@ -6,12 +6,10 @@ namespace Game.Data
     [CreateAssetMenu(fileName = "AssemblerDefinition", menuName = "Game/Buildings/Assembler Definition")]
     public sealed class AssemblerDefinition : BuildingDefinition
     {
-        [SerializeField, Min(1)] int maxStackPerItem = 100;
         [SerializeField, Min(0f)] float powerDemandKw = 4f;
         [SerializeField] string[] recipeIds = { "cpu_mkI", "mechanical_component" };
         [SerializeField] string[] acceptedItemIds = { "copper_Ingot", "Gear", "Printed_Circuit_Board", "cpu_mkI", "Memory_MK1", "Iron_Plate" };
 
-        public int MaxStackPerItem => maxStackPerItem;
         public override float PowerDemandKw => powerDemandKw;
         public string[] RecipeIds => recipeIds;
         public string[] AcceptedItemIds => acceptedItemIds;

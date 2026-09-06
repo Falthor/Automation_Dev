@@ -630,6 +630,74 @@
     -unity-font-style: bold;
 }
 
+/* Core directive: what the Core is asking for, big enough to be the point of the panel rather than
+   another list inside it. */
+.core-directive {
+    margin-bottom: 6px;
+}
+
+.core-directive-requirements {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 6px;
+}
+
+.core-directive-requirement {
+    align-items: center;
+    margin: 4px 10px;
+}
+
+.core-directive-requirement-icon {
+    width: 48px;
+    height: 48px;
+    -unity-background-scale-mode: scale-to-fit;
+    margin-bottom: 3px;
+}
+
+.core-directive-requirement-amount {
+    color: rgb(200, 205, 210);
+    font-size: 13px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+/* Green once that requirement is covered - the same "nothing to do here" green the production
+   panel's ingredient rows use. */
+.core-directive-requirement-met {
+    color: rgb(100, 210, 130);
+}
+
+.core-directive-reward {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.core-directive-reward-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 6px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.core-directive-reward-name {
+    color: rgb(85, 221, 245);
+    font-size: 12px;
+    -unity-font-style: bold;
+}
+
+/* Stands in the icon's place for a reward that has no item to show (the Research menu), so both
+   reward lines start at the same left edge. */
+.core-directive-reward-glyph {
+    width: 24px;
+    height: 24px;
+    margin-right: 6px;
+    border-width: 1px;
+    border-color: rgb(85, 221, 245);
+    background-color: rgb(22, 50, 58);
+}
+
 .production-ingredients-list {
     flex-direction: column;
 }
@@ -1088,10 +1156,54 @@
     color: rgb(242, 83, 83);
 }
 
+/* Nearly saturated, not yet short: the same amber the Building menu uses for "you cannot afford
+   this yet" - a warning, deliberately not the red kept for something actually going wrong. */
+.top-bar-card-value-strained {
+    color: rgb(255, 216, 102);
+}
+
 /* Research finished: the one Top Bar state that is good news, so it gets its own colour rather
    than the neutral text every other idle state uses. */
 .top-bar-card-value-done {
     color: rgb(96, 226, 130);
+}
+
+/* The Core's current directive, named item by item in the collapsed card: the player has to be
+   able to read WHAT is being asked for without hovering, which one icon and one figure cannot do. */
+.top-bar-directive-number {
+    color: rgb(85, 221, 245);
+    font-size: 10px;
+    -unity-font-style: bold;
+    margin-right: 8px;
+}
+
+.top-bar-directive-requirements {
+    flex-direction: row;
+    align-items: center;
+}
+
+.top-bar-directive-chip {
+    flex-direction: row;
+    align-items: center;
+    margin-right: 9px;
+}
+
+.top-bar-directive-icon {
+    width: 15px;
+    height: 15px;
+    margin-right: 4px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.top-bar-directive-amount {
+    color: rgb(239, 242, 244);
+    font-size: 10px;
+    -unity-font-style: bold;
+}
+
+/* Same "this one is covered" green as the Core panel's own requirement rows. */
+.top-bar-directive-amount-met {
+    color: rgb(100, 210, 130);
 }
 
 .top-bar-card-done {
@@ -1116,6 +1228,10 @@
 
 .top-bar-card-detail-line-deficit {
     color: rgb(242, 83, 83);
+}
+
+.top-bar-card-detail-line-strained {
+    color: rgb(255, 216, 102);
 }
 
 .top-bar-card-bar-track {
@@ -1442,6 +1558,44 @@
     color: rgb(135, 147, 156);
 }
 
+/* Switched off by the player. Yellow rather than the grey of "nothing to do": the building is not
+   idle, someone stopped it, and that is worth noticing when wondering why nothing comes out. */
+.state-paused {
+    color: rgb(255, 216, 102);
+}
+
+/* The pause control, sat against the panel title. Built on the close button's dimensions so the
+   header keeps one button size, with a lit state for "this building is currently off". */
+.header-title-group {
+    flex-direction: row;
+    align-items: center;
+}
+
+.header-toggle-button {
+    width: 22px;
+    height: 22px;
+    margin-left: 8px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    color: rgb(200, 205, 210);
+    font-size: 10px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    padding: 0;
+}
+
+.header-toggle-button:hover {
+    border-color: rgb(85, 221, 245);
+    color: rgb(85, 221, 245);
+}
+
+.header-toggle-button-on {
+    border-color: rgb(255, 216, 102);
+    color: rgb(255, 216, 102);
+    background-color: rgba(90, 74, 26, 0.55);
+}
+
 /* Notification banner (left edge) - generic feed, never interactive. */
 
 .notification-banner-root {
@@ -1634,4 +1788,16 @@
 /* The state label used to share this row; only the percentage is left, and it belongs on the right. */
 .site-percent-row {
     justify-content: flex-end;
+}
+
+/* "Something new here": the green frame that pulses on a control the player has just been handed
+   (see NewUnlockPulse, which drives the blink - USS has no keyframe animation). Green because it
+   is good news, unlike every red state on these bars.
+
+   Deliberately last in the file and deliberately silent about border-width: it must win over the
+   Bottom Nav's own selected-state border colour at equal specificity, and it must not resize the
+   frame it lights, or the control would jump by a pixel twice a second. */
+.newly-unlocked {
+    border-color: rgb(100, 210, 130);
+    background-color: rgba(40, 90, 55, 0.55);
 }

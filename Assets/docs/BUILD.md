@@ -22,9 +22,13 @@ cost is irrelevant to the measurements.
 ## 2. Before building
 
 - The console must be clean. A build started on a project with compile errors is wasted time.
-- **Build Settings scene order**: `MainMenu.unity` at index 0, `Bootstrap.unity` at index 1, nothing
-  else enabled. `GameRuntime.Awake()` branches on `PendingGameStart.LoadedSave`, which only
-  `MainMenu` ever sets — a build that opens `Bootstrap` first has no way to reach New Game/Load.
+- **Build Settings scene order**: `MainMenu.unity` at index 0, then `Intro`, `Genesis` and
+  `Bootstrap`, all four enabled. Index 0 is what the build opens, and it must be `MainMenu`:
+  `GameRuntime.Awake()` branches on `PendingGameStart.LoadedSave`, which only `MainMenu` ever sets,
+  so a build opening `Bootstrap` first has no way to reach New Game/Load. The other three are
+  reached by name (`SceneManager.LoadScene(<name>)` in `MainMenuController` → `IntroController` →
+  `GenesisController`), so **disabling any of them breaks that chain at runtime** — their order
+  among themselves does not matter, their presence does.
 - **Project Settings > Player > Run In Background** must be on, or the build suffers the same
   out-of-focus throttling as the Editor and the measurement is worthless.
 

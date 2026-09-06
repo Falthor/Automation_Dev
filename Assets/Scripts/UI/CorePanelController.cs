@@ -1,4 +1,7 @@
+using System.Collections.Generic;
+using Game.Data;
 using Game.Gameplay.Buildings;
+using Game.Gameplay.Directives;
 using Game.Presentation;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -13,6 +16,9 @@ namespace Game.UI
     /// </summary>
     public sealed class CorePanelController : MonoBehaviour
     {
+        /// <summary>What a directive's REWARD line says when it grants an unlock but names no wording of its own - the honest thing to say when a directive opens several researches at once.</summary>
+        const string GenericResearchReward = "Deverrouille des recherches";
+
         [SerializeField] UIDocument uiDocument;
         [SerializeField] VisualTreeAsset visualTree;
         [SerializeField] GameRuntime gameRuntime;
@@ -24,6 +30,17 @@ namespace Game.UI
         Label _powerLabel;
         VisualElement _itemsList;
         CoreRuntime _selected;
+
+        VisualElement _directive;
+        VisualElement _requirements;
+        VisualElement _rewardTitle;
+        VisualElement _rewardItem;
+        VisualElement _rewardMenu;
+        VisualElement _rewardResearch;
+        Label _rewardResearchName;
+        VisualElement _rewardIcon;
+        Label _rewardName;
+        Button _validateButton;
 
         void Start()
         {
@@ -39,6 +56,18 @@ namespace Game.UI
             if (computeIcon != null) panelRoot.Q<VisualElement>("CoreComputeIcon").style.backgroundImage = new StyleBackground(computeIcon);
             if (powerIcon != null) panelRoot.Q<VisualElement>("CorePowerIcon").style.backgroundImage = new StyleBackground(powerIcon);
             panelRoot.Q<Button>("CoreCloseButton").clicked += Close;
+
+            _directive = panelRoot.Q<VisualElement>("CoreDirective");
+            _requirements = panelRoot.Q<VisualElement>("CoreDirectiveRequirements");
+            _rewardTitle = panelRoot.Q<Label>("CoreDirectiveRewardTitle");
+            _rewardItem = panelRoot.Q<VisualElement>("CoreDirectiveRewardItem");
+            _rewardMenu = panelRoot.Q<VisualElement>("CoreDirectiveRewardMenu");
+            _rewardResearch = panelRoot.Q<VisualElement>("CoreDirectiveRewardResearch");
+            _rewardResearchName = panelRoot.Q<Label>("CoreDirectiveRewardResearchName");
+            _rewardIcon = panelRoot.Q<VisualElement>("CoreDirectiveRewardIcon");
+            _rewardName = panelRoot.Q<Label>("CoreDirectiveRewardName");
+            _validateButton = panelRoot.Q<Button>("CoreDirectiveValidate");
+            _validateButton.clicked += OnValidateClicked;
 
             _root.EnableInClassList("hidden", true);
             gameRuntime.Selection.SelectionChanged += OnSelectionChanged;
@@ -69,8 +98,94 @@ namespace Game.UI
             Render();
         }
 
+        void OnValidateClicked()
+        {
+            gameRuntime.CoreDirectives?.Validate(gameRuntime.GlobalStock, _selected);
+        }
+
+        /// <summary>
+        /// The Core's current directive, or nothing at all once they are done. Rebuilt every frame
+        /// like the rest of this panel: the numbers move as the world produces, and the button has
+        /// to grey and un-grey with them.
+        ///
+        /// Before validating, each requirement reads against the stock a robot could actually go and
+        /// claim - the same aggregate the button is enabled from, so the figures and the button can
+        /// never disagree. After validating it reads what has physically reached the Core, which is
+        /// the only number that still means anything: the material has left the chests already.
+        /// </summary>
+        void RenderDirective()
+        {
+            CoreDirectiveSystem directives = gameRuntime.CoreDirectives;
+            CoreDirectiveDefinition current = directives?.Current;
+
+            _directive.EnableInClassList("hidden", current == null);
+            if (current == null) return;
+
+            bool delivering = directives.IsDelivering;
+            IReadOnlyDictionary<string, int> available = gameRuntime.GlobalStock;
+
+            _requirements.Clear();
+            foreach (RecipeIngredient requirement in current.Requirements)
+            {
+                if (requirement.Item == null || requirement.Amount <= 0) continue;
+
+                int held = delivering
+                    ? directives.DeliveredOf(requirement.Item.Id)
+                    : available != null && available.TryGetValue(requirement.Item.Id, out int stock) ? stock : 0;
+
+                _requirements.Add(BuildRequirement(requirement, Mathf.Min(held, requirement.Amount)));
+            }
+
+            // A directive can reward an item, an unlock, the Research menu, or several of those -
+            // and the whole REWARD block steps aside when there is nothing to promise, rather than
+            // showing a heading over an empty row.
+            //
+            // The unlock is announced only when no item stands for it. Every directive grants one, so
+            // showing it unconditionally would put a second line under the Gear icon that already
+            // says exactly the same thing: the reward is named once, by whichever names it best.
+            ItemDefinition reward = current.RewardItem;
+            bool hasItemReward = reward != null;
+            bool hasMenuReward = current.UnlocksResearchMenu;
+            bool hasResearchReward = !hasItemReward && current.Grants != null;
+
+            if (hasItemReward && reward.Icon != null) _rewardIcon.style.backgroundImage = new StyleBackground(reward.Icon);
+            _rewardName.text = hasItemReward ? reward.DisplayName : string.Empty;
+            _rewardResearchName.text = hasResearchReward
+                ? (string.IsNullOrEmpty(current.RewardLabel) ? GenericResearchReward : current.RewardLabel)
+                : string.Empty;
+
+            _rewardItem.EnableInClassList("hidden", !hasItemReward);
+            _rewardResearch.EnableInClassList("hidden", !hasResearchReward);
+            _rewardMenu.EnableInClassList("hidden", !hasMenuReward);
+            _rewardTitle.EnableInClassList("hidden", !hasItemReward && !hasMenuReward && !hasResearchReward);
+
+            _validateButton.text = delivering ? "LIVRAISON EN COURS" : "VALIDER";
+            _validateButton.SetEnabled(directives.CanValidate(available));
+        }
+
+        /// <summary>One requirement: a large icon with stock-over-target underneath, per the Core panel's own layout rather than the compact ingredient rows used elsewhere.</summary>
+        VisualElement BuildRequirement(RecipeIngredient requirement, int held)
+        {
+            var box = new VisualElement();
+            box.AddToClassList("core-directive-requirement");
+
+            var icon = new VisualElement();
+            icon.AddToClassList("core-directive-requirement-icon");
+            if (requirement.Item.Icon != null) icon.style.backgroundImage = new StyleBackground(requirement.Item.Icon);
+            box.Add(icon);
+
+            var amount = new Label($"{held}/{requirement.Amount}");
+            amount.AddToClassList("core-directive-requirement-amount");
+            amount.EnableInClassList("core-directive-requirement-met", held >= requirement.Amount);
+            box.Add(amount);
+
+            return box;
+        }
+
         void Render()
         {
+            RenderDirective();
+
             _computeLabel.text = $"Compute: {Mathf.RoundToInt(gameRuntime.Compute.IncomePerSecond)} CU/s";
             _powerLabel.text = $"Power: {Mathf.RoundToInt(gameRuntime.Power.SettledSupply)} kW";
 

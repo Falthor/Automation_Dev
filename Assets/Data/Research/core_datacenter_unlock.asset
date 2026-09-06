@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 72c3c39fefc96e1488e1fdd7ff1eb525, type: 3}
+  m_Name: core_datacenter_unlock
+  m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
+  id: core_datacenter_unlock
+  displayName: Directive 3 du Noyau
+  description: Accordee par le Noyau a la directive 3. Ouvre la recherche Datacenter.
+  icon: {fileID: 0}
+  cuCost: 0
+  prerequisites: []
+  revealedBy: {fileID: 0}
+  absorptionRatePerSecond: 0
+  tier: 0

@@ -16,9 +16,9 @@ MonoBehaviour:
   ingredients:
   - item: {fileID: 11400000, guid: 0ff6217112897ef44ae6bdf7d7d711de, type: 2}
     amount: 2
-  - item: {fileID: 11400000, guid: b96b1a8817e8abf4bacd918c5be7b859, type: 2}
-    amount: 3
+  - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
+    amount: 2
   outputAmount: 1
   timeSeconds: 4
-  computeCost: 48
+  computeCost: 30
   unlockResearch: {fileID: 11400000, guid: fa419e54f5704ee1a217b98290259090, type: 2}

@@ -6,6 +6,9 @@ namespace Game.Data
     [CreateAssetMenu(fileName = "ConveyorDefinition", menuName = "Game/Buildings/Conveyor Definition")]
     public sealed class ConveyorDefinition : BuildingDefinition
     {
+        /// <summary>A belt is transport, not machinery - see BuildingDefinition.CountsAgainstBuildingCap.</summary>
+        public override bool CountsAgainstBuildingCap => false;
+
         [SerializeField] ConveyorShapeKind defaultShape = ConveyorShapeKind.Straight;
 
         [Header("Art override (optional - falls back to a procedural placeholder shape)")]
