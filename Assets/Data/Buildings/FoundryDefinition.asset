@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.FoundryDefinition
   id: foundry
   displayName: Foundry
-  footprintSize: {x: 3, y: 3}
+  footprintSize: {x: 2, y: 2}
   placeholderColor: {r: 0.6, g: 0.4, b: 0.2, a: 1}
   unlockResearch: {fileID: 0}
   sprite: {fileID: -6622863259242664493, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
