@@ -66,6 +66,19 @@ namespace Game.Gameplay.WorldGeneration
         public GridCoord CoreOrigin { get; private set; }
 
         /// <summary>
+        /// The middle of the Core's footprint, in cell space - what every distance from the Core is
+        /// measured from (deposit placement, and the radius that writes into the discovery state).
+        ///
+        /// Derived rather than stored, so it is the same value whether the world was generated or
+        /// restored from a save: both paths set CoreOrigin and Core, and this reads them.
+        /// </summary>
+        public Vector2 CoreCenterCells => Core != null
+            ? new Vector2(
+                CoreOrigin.X + Core.Definition.FootprintSize.x / 2f,
+                CoreOrigin.Y + Core.Definition.FootprintSize.y / 2f)
+            : Vector2.zero;
+
+        /// <summary>
         /// The seed this world's deposits were actually drawn from - the drawn one when
         /// WorldGenerationSettings.RandomizeResourceSeed is on, the pinned one otherwise. Reported
         /// rather than left implicit so a layout worth looking at again can be pinned back.
@@ -121,9 +134,7 @@ namespace Game.Gameplay.WorldGeneration
             ResourceSeed = settings.RandomizeResourceSeed ? System.Guid.NewGuid().GetHashCode() : settings.ResourceSeed;
 
             var random = new System.Random(ResourceSeed);
-            Vector2 coreCenter = new Vector2(
-                CoreOrigin.X + coreDefinition.FootprintSize.x / 2f,
-                CoreOrigin.Y + coreDefinition.FootprintSize.y / 2f);
+            Vector2 coreCenter = CoreCenterCells;
 
             // One guaranteed cluster per resource (one iron, one copper, one coal), placed first
             // and inside the radius - 4 deposit slots each, exactly covering the 4/4/2 extractors
