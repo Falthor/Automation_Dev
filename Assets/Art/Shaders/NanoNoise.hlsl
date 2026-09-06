@@ -9,6 +9,13 @@
 // ONE process. Three copies of a noise function are three things that can be tuned apart, and the
 // moment two of them differ the effect reads as several animations that happen to coincide.
 //
+// Custom/FogOfWar also calls NanoFrontJitter, and is NOT part of that process. It is here for the
+// hash and the octaves only - a fourth hand-rolled hash is what produced the banding this file
+// exists to avoid - and it runs at its own scale and weight, some thirty times coarser, because a
+// fog border has to be readable across cells rather than to have sub-cell teeth. Changing the
+// octave weights below therefore moves the fog's border as well as the materialisation's grain;
+// changing either caller's scale or weight does not.
+//
 // Always sampled in WORLD space by every caller, never in UVs: the pattern stays pinned to the
 // terrain, so it survives a sprite sheet frame change and two neighbouring sites share one
 // continuous field instead of restarting the same pattern side by side.

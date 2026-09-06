@@ -537,14 +537,12 @@ namespace Game.Presentation
 
                 if (fogOfWarView != null)
                 {
-                    // Exactly the constructible radius, the same value ActionRadiusView draws: the
-                    // fog ends where the Core's reach ends, and what the player can see is what the
-                    // player can build on. The invitation ore clusters WorldGenerator places just
-                    // outside it therefore stay hidden until extended_bandwidth reaches them - they
-                    // are a reward for extending, not a preview of one. Refreshed on every research
-                    // completion for the same reason as actionRadiusView above.
-                    fogOfWarView.Initialize(coreCenter, World.ActionRadiusCells * Grid.CellSize);
-                    Research.ResearchCompleted += _ => fogOfWarView.Initialize(coreCenter, World.ActionRadiusCells * Grid.CellSize);
+                    // Neither the Core nor the radius: the fog draws the discovery state, and the
+                    // radius only writes into it (RevealDiscoveredByCore). There is deliberately no
+                    // research hook here either, unlike actionRadiusView above - extending the
+                    // radius reveals cells, and revealed cells are what the fog already reads. A
+                    // radius passed to this view is how it used to be a disc with no memory.
+                    fogOfWarView.Initialize(Discovery, Grid);
                 }
 
                 // Start the camera centered on the Core - otherwise its fixed scene position

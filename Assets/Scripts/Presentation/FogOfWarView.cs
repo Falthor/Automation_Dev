@@ -1,34 +1,72 @@
+using Game.Core;
+using Game.Grid;
 using UnityEngine;
 
 namespace Game.Presentation
 {
     /// <summary>
-    /// Real fog-of-war overlay: everything outside the Core's action radius is hidden under a
-    /// dark, soft-edged fog, not just visually indicated by a ring (see ActionRadiusView, which
-    /// stays as the thin boundary line). The Core is the only vision source that exists today, so
-    /// this is a single static circular reveal, not a multi-source/explored-memory system.
+    /// Draws the fog of war from the discovery state, and from nothing else.
     ///
-    /// The fog quad itself always resizes/recenters to the main camera's current view every
-    /// frame (camera panning/zooming is unbounded - see CameraPanController), so the fog covers
-    /// whatever is on screen rather than a fixed area around the Core.
+    /// <b>It reads, it does not decide.</b> This used to be a disc computed from the Core's
+    /// position and current radius - which meant the map had no memory: nothing was "discovered",
+    /// so nothing could ever be revealed by anything other than the radius itself. The radius now
+    /// writes into <see cref="DiscoveryRuntime"/> and this reads that state, so a mission revealing
+    /// a region needs no change here at all. There is deliberately no Core reference and no radius
+    /// in this file: recomputing a distance here would quietly restore the old behaviour.
+    ///
+    /// One quad over the whole map with one texel per cell, in FilterMode.Bilinear. The
+    /// interpolation between texels is what turns a per-cell binary field into a boundary the
+    /// shader can cut anywhere, and the shader's noise then breaks that boundary up so it does not
+    /// read as a circle. The texture is re-uploaded only when the state's version has moved.
     /// </summary>
     public sealed class FogOfWarView : MonoBehaviour
     {
-        const float ViewportMargin = 2f; // world units of slack so a resize/rotation never leaves a visible seam.
-
         /// <summary>Custom/FogOfWar. An asset reference, not a Shader.Find by name - see ActionRadiusView for why, and docs/BUILD.md.</summary>
         [SerializeField] Shader fogShader;
 
         [SerializeField] Color fogColor = new Color(0.02f, 0.03f, 0.05f, 0.96f);
-        [SerializeField, Min(0f)] float edgeSoftness = 2f;
 
+        /// <summary>How far the fog fades over its own edge, in threshold units (not world units - the old disc's edgeSoftness was, hence the new name).</summary>
+        [SerializeField, Range(0f, 1f)] float borderSoftness = 0.18f;
+
+        [SerializeField, Min(0.01f)] float noiseScale = 0.4f;
+        [SerializeField, Range(0f, 1f)] float noiseWeight = 0.35f;
+
+        /// <summary>
+        /// Texels per cell along each axis. One is enough for a border broken up by the shader's
+        /// own noise; raise it if the edge still reads as too coarse, at the cost of the square of
+        /// this in texels (a 300-cell map is 90 000 at 1, 360 000 at 2).
+        /// </summary>
+        [SerializeField, Range(1, 4)] int texelsPerCell = 1;
+
+        /// <summary>
+        /// How far past the map the quad extends, in cells. The camera is unbounded, so without
+        /// this, panning off the edge of the world shows unfogged nothing. Sampling out there
+        /// clamps to the border texel, which is unknown - so the fog just carries on.
+        /// </summary>
+        [SerializeField, Min(0f)] float outsideMarginCells = 400f;
+
+        DiscoveryRuntime _discovery;
         SpriteRenderer _renderer;
         Material _material;
-        Camera _camera;
-        bool _initialized;
+        Texture2D _texture;
 
-        public void Initialize(Vector3 centerWorld, float radiusWorld)
+        /// <summary>Allocated once, at Initialize, and refilled in place - this must not allocate on a frame.</summary>
+        byte[] _texels;
+
+        /// <summary>The discovery version already on the GPU. -1 is "nothing uploaded yet", which no real version equals.</summary>
+        int _uploadedVersion = -1;
+
+        public void Initialize(DiscoveryRuntime discovery, GridRuntime grid)
         {
+            if (discovery == null || grid == null || discovery.Size <= 0) return;
+
+            _discovery = discovery;
+
+            int side = discovery.Size * texelsPerCell;
+            float mapWorldSize = discovery.Size * grid.CellSize;
+            Vector3 mapMin = grid.CellToWorld(new GridCoord(0, 0));
+
             if (_renderer == null)
             {
                 _renderer = gameObject.AddComponent<SpriteRenderer>();
@@ -38,26 +76,76 @@ namespace Game.Presentation
                 _renderer.sharedMaterial = _material;
             }
 
-            _material.SetVector("_Center", centerWorld);
-            _material.SetFloat("_Radius", radiusWorld);
-            _material.SetFloat("_EdgeSoftness", edgeSoftness);
-            _material.SetColor("_FogColor", fogColor);
+            // linear: true, like GroundCoverage's own field texture and for the same reason - an R8
+            // sampled through a gamma curve arrives at the shader as a different number than it was
+            // written, and this one is compared against a threshold.
+            _texture = new Texture2D(side, side, TextureFormat.R8, mipChain: false, linear: true)
+            {
+                name = "FogOfWar Discovery",
+                filterMode = FilterMode.Bilinear,   // the per-cell field only reads as a boundary because of this
+                wrapMode = TextureWrapMode.Clamp    // and the fog continues past the map because of this
+            };
+            _texels = new byte[side * side];
 
-            _initialized = true;
+            _material.SetTexture("_FogTex", _texture);
+            _material.SetVector("_MapBounds", new Vector4(mapMin.x, mapMin.y, mapWorldSize, mapWorldSize));
+            _material.SetColor("_FogColor", fogColor);
+            _material.SetFloat("_EdgeSoftness", borderSoftness);
+            _material.SetFloat("_NoiseScale", noiseScale);
+            _material.SetFloat("_NoiseWeight", noiseWeight);
+
+            // Centred on the map, and larger than it by the margin on every side.
+            float quadSize = mapWorldSize + outsideMarginCells * grid.CellSize * 2f;
+            transform.position = new Vector3(mapMin.x + mapWorldSize * 0.5f, mapMin.y + mapWorldSize * 0.5f, transform.position.z);
+            transform.localScale = new Vector3(quadSize, quadSize, 1f);
+
+            _uploadedVersion = -1;
+            Upload();
         }
 
+        /// <summary>
+        /// One integer comparison per frame, and an upload only when the state has actually moved -
+        /// which is a handful of times in a run (the starting disc, an extended radius, a mission).
+        /// </summary>
         void LateUpdate()
         {
-            if (!_initialized) return;
+            if (_discovery == null || _discovery.Version == _uploadedVersion) return;
+            Upload();
+        }
 
-            if (_camera == null) _camera = Camera.main;
-            if (_camera == null) return;
+        void Upload()
+        {
+            PackTexels(_discovery, texelsPerCell, _texels);
+            _texture.SetPixelData(_texels, 0);
+            _texture.Apply(updateMipmaps: false);
+            _uploadedVersion = _discovery.Version;
+        }
 
-            float height = _camera.orthographicSize * 2f + ViewportMargin * 2f;
-            float width = height * _camera.aspect;
+        /// <summary>
+        /// Fills a texel buffer from the discovery state, row-major from the bottom row up.
+        ///
+        /// That order is not a choice: Texture2D's row 0 is the bottom one and v=0 is the bottom of
+        /// the UV range, so writing cell row y into texel row y is what makes the texture line up
+        /// with the world instead of arriving mirrored. Public and pure so exactly that can be
+        /// asserted without a camera.
+        /// </summary>
+        public static void PackTexels(DiscoveryRuntime discovery, int texelsPerCell, byte[] texels)
+        {
+            if (discovery == null || texels == null || texelsPerCell < 1) return;
 
-            transform.position = new Vector3(_camera.transform.position.x, _camera.transform.position.y, transform.position.z);
-            transform.localScale = new Vector3(width, height, 1f);
+            int side = discovery.Size * texelsPerCell;
+            if (texels.Length < side * side) return;
+
+            for (int y = 0; y < side; y++)
+            {
+                int cellY = y / texelsPerCell;
+                int row = y * side;
+
+                for (int x = 0; x < side; x++)
+                {
+                    texels[row + x] = discovery.IsDiscovered(new GridCoord(x / texelsPerCell, cellY)) ? (byte)255 : (byte)0;
+                }
+            }
         }
 
         static Sprite CreateCenteredUnitSprite()
