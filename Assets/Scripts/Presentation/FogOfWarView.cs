@@ -14,7 +14,6 @@ namespace Game.Presentation
     /// </summary>
     public sealed class FogOfWarView : MonoBehaviour
     {
-        const int SortingOrder = 50; // above every building/item/arrow sprite, still below UI Toolkit's screen-space overlay.
         const float ViewportMargin = 2f; // world units of slack so a resize/rotation never leaves a visible seam.
 
         /// <summary>Custom/FogOfWar. An asset reference, not a Shader.Find by name - see ActionRadiusView for why, and docs/BUILD.md.</summary>
@@ -34,7 +33,7 @@ namespace Game.Presentation
             {
                 _renderer = gameObject.AddComponent<SpriteRenderer>();
                 _renderer.sprite = CreateCenteredUnitSprite();
-                _renderer.sortingOrder = SortingOrder;
+                _renderer.sortingOrder = SortingBands.Fog;
                 _material = new Material(fogShader) { name = "FogOfWar (Instance)" };
                 _renderer.sharedMaterial = _material;
             }

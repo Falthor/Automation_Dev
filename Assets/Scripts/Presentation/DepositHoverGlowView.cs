@@ -12,7 +12,6 @@ namespace Game.Presentation
     /// </summary>
     public sealed class DepositHoverGlowView : MonoBehaviour
     {
-        const int SortingOrder = 8; // below the deposit sprite (9) - reads as a halo behind/around it.
 
         [SerializeField] Color glowColor = new Color(1f, 0.85f, 0.3f, 0.75f);
         [SerializeField, Min(1f)] float paddingFactor = 1.5f;
@@ -26,7 +25,7 @@ namespace Game.Presentation
 
             _renderer = gameObject.AddComponent<SpriteRenderer>();
             _renderer.sprite = spriteFactory.CreateRadialGlowSprite(glowColor);
-            _renderer.sortingOrder = SortingOrder;
+            _renderer.sortingOrder = SortingBands.DepositGlow;
 
             gameObject.SetActive(false);
         }

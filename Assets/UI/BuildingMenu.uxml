@@ -2,7 +2,7 @@
     <Style src="GameUI.uss" />
 
     <ui:VisualElement name="BuildingMenuRoot" class="overlay-root hidden" picking-mode="Ignore">
-        <ui:VisualElement class="panel panel-accent" picking-mode="Position">
+        <ui:VisualElement class="panel panel-accent building-panel" picking-mode="Position">
             <ui:VisualElement class="header-row">
                 <ui:Label text="BUILDING" class="title" />
                 <ui:Button name="BuildingCloseButton" text="&#215;" class="close-button" />

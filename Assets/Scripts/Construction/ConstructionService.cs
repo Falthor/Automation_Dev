@@ -619,7 +619,8 @@ namespace Game.Construction
                 }
             }
 
-            return deposit != null && deposit.RemainingQuantity > 0;
+            // No "still has ore left" test: a deposit never runs out (ALIGNEMENT_PROJET.md §8).
+            return deposit != null;
         }
     }
 }

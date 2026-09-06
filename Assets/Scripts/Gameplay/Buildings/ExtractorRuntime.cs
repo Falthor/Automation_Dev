@@ -89,12 +89,10 @@ namespace Game.Gameplay.Buildings
             _productionTimer = 0f;
             _cycleCharged = false;
 
+            // The deposit is inexhaustible (ALIGNEMENT_PROJET.md §8), so the only thing that can
+            // limit a cycle's yield is this extractor's own buffer.
             int room = InternalStorageCapacity - _bufferedAmount;
-            int toExtract = System.Math.Min(_definition.ItemsPerCycle, room);
-            if (_deposit.TryExtract(toExtract, out int extracted) && extracted > 0)
-            {
-                _bufferedAmount += extracted;
-            }
+            _bufferedAmount += System.Math.Min(_definition.ItemsPerCycle, room);
         }
 
         public override object PeekPullableItem() => _bufferedAmount > 0 ? (object)_deposit.ItemId : null;

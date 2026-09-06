@@ -28,11 +28,11 @@ namespace Game.Tests.PlayMode
             _spawned.Clear();
         }
 
-        BuildingShadowSettings NewSettings(float alpha = 0.45f, Vector2? offset = null, int sortingOrder = 8, float scale = 1f)
+        BuildingShadowSettings NewSettings(float alpha = 0.45f, Vector2? offset = null, float scale = 1f)
         {
             var settings = ScriptableObject.CreateInstance<BuildingShadowSettings>();
             _spawned.Add(settings);
-            SetSettings(settings, alpha, offset ?? new Vector2(0.25f, -0.25f), sortingOrder, scale);
+            SetSettings(settings, alpha, offset ?? new Vector2(0.25f, -0.25f), scale);
             return settings;
         }
 
@@ -42,13 +42,12 @@ namespace Game.Tests.PlayMode
         /// SerializedObject technique the EditMode TestDataFactory uses; editor-only, and these
         /// tests are only ever run in the editor.
         /// </summary>
-        static void SetSettings(BuildingShadowSettings settings, float alpha, Vector2 offset, int sortingOrder, float scale = 1f)
+        static void SetSettings(BuildingShadowSettings settings, float alpha, Vector2 offset, float scale = 1f)
         {
 #if UNITY_EDITOR
             var so = new UnityEditor.SerializedObject(settings);
             so.FindProperty("alpha").floatValue = alpha;
             so.FindProperty("offset").vector2Value = offset;
-            so.FindProperty("sortingOrder").intValue = sortingOrder;
             so.FindProperty("scale").floatValue = scale;
             so.ApplyModifiedPropertiesWithoutUndo();
 #else
@@ -66,13 +65,18 @@ namespace Game.Tests.PlayMode
         }
 
         /// <summary>A caster shaped like a real building view: a sprite scaled to fit its footprint, which is exactly the case where a naive local offset would come out the wrong size.</summary>
-        DropShadow NewCaster(BuildingShadowSettings settings, Sprite sprite, Vector3 position, Vector3 scale)
+        DropShadow NewCaster(BuildingShadowSettings settings, Sprite sprite, Vector3 position, Vector3 scale, int casterOrder = 500)
         {
             var go = new GameObject("Caster");
             _spawned.Add(go);
             go.transform.position = position;
             go.transform.localScale = scale;
-            go.AddComponent<SpriteRenderer>().sprite = sprite;
+            SpriteRenderer casterRenderer = go.AddComponent<SpriteRenderer>();
+            casterRenderer.sprite = sprite;
+
+            // Set before Apply: the shadow reads its order off the caster, so a caster ranked after
+            // the fact would be a caster the shadow never saw.
+            casterRenderer.sortingOrder = casterOrder;
 
             var shadow = go.AddComponent<DropShadow>();
             shadow.Settings = settings;
@@ -91,19 +95,35 @@ namespace Game.Tests.PlayMode
             Assert.AreSame(sprite, shadow.ShadowRenderer.sprite, "The shadow must reuse the caster's sprite, not a new asset.");
         }
 
+        /// <summary>
+        /// The shadow takes its rank from the caster rather than from a setting of its own. It has
+        /// to: in the sorted band every row has a different order, and one shared value would have
+        /// put every shadow in the world at a single depth - over buildings standing behind them and
+        /// under buildings standing in front.
+        /// </summary>
         [Test]
-        public void UsesTheSortingLayerOfItsCasterAndTheConfiguredOrder()
+        public void TakesItsOrderFromItsCaster_OneSubLayerUnderIt()
         {
-            DropShadow shadow = NewCaster(NewSettings(sortingOrder: 8), NewSprite(), Vector3.zero, Vector3.one);
+            int casterOrder = SortingBands.Sorted(12f, SortingBands.SubSprite);
+            DropShadow shadow = NewCaster(NewSettings(), NewSprite(), Vector3.zero, Vector3.one, casterOrder);
             var caster = shadow.GetComponent<SpriteRenderer>();
 
-            // 10 is what BuildingSpawner/WorldContentSpawner give a building's own sprite.
-            caster.sortingOrder = 10;
-
             Assert.AreEqual(caster.sortingLayerID, shadow.ShadowRenderer.sortingLayerID);
-            Assert.AreEqual(8, shadow.ShadowRenderer.sortingOrder);
+            Assert.AreEqual(SortingBands.Sorted(12f, SortingBands.SubShadow), shadow.ShadowRenderer.sortingOrder,
+                "Same row as its caster, one sub-layer below.");
             Assert.Less(shadow.ShadowRenderer.sortingOrder, caster.sortingOrder,
                 "The shadow must draw under the building casting it.");
+        }
+
+        /// <summary>Two casters a row apart: their shadows must be a row apart too, which a single shared order could never express.</summary>
+        [Test]
+        public void ShadowsOfDifferentRows_KeepTheirCastersOrder()
+        {
+            DropShadow near = NewCaster(NewSettings(), NewSprite(), Vector3.zero, Vector3.one, SortingBands.Sorted(4f, SortingBands.SubSprite));
+            DropShadow far = NewCaster(NewSettings(), NewSprite(), Vector3.zero, Vector3.one, SortingBands.Sorted(9f, SortingBands.SubSprite));
+
+            Assert.Greater(near.ShadowRenderer.sortingOrder, far.ShadowRenderer.sortingOrder,
+                "The lower building's shadow draws in front of the higher building's.");
         }
 
         [Test]
@@ -222,13 +242,12 @@ namespace Game.Tests.PlayMode
             DropShadow first = NewCaster(settings, NewSprite(), Vector3.zero, Vector3.one);
             DropShadow second = NewCaster(settings, NewSprite(), new Vector3(10f, 0f, 0f), Vector3.one);
 
-            SetSettings(settings, 0.8f, new Vector2(-0.5f, 0.5f), 6, 1.3f);
+            SetSettings(settings, 0.8f, new Vector2(-0.5f, 0.5f), 1.3f);
             yield return null;
 
             foreach (DropShadow shadow in new[] { first, second })
             {
                 Assert.AreEqual(0.8f, shadow.ShadowRenderer.color.a, 0.0001f);
-                Assert.AreEqual(6, shadow.ShadowRenderer.sortingOrder);
                 Assert.AreEqual(1.3f, shadow.ShadowRenderer.transform.localScale.x, 0.0001f);
 
                 Vector3 worldOffset = shadow.ShadowRenderer.transform.position - shadow.transform.position;

@@ -7,6 +7,7 @@ using Game.Gameplay.Compute;
 using Game.Gameplay.Notifications;
 using Game.Gameplay.Power;
 using Game.Gameplay.Research;
+using Game.Gameplay.Session;
 using Game.Gameplay.Selection;
 using Game.Gameplay.Sites;
 using Game.Gameplay.Transport;
@@ -161,6 +162,9 @@ namespace Game.Presentation
         /// <summary>Generic notification banner feed (TASK_05_ROBOT_CONSTRUCTEUR.md §6) - a robot unable to unload is its first user, not its only intended one.</summary>
         public NotificationSystem Notifications { get; private set; }
 
+        /// <summary>How long this run has been played, in simulated seconds - stops with the pause and survives a save/load. Read by the Top Bar; see PlayClock for why it never has to check whether the game is paused.</summary>
+        public PlayClock Clock { get; private set; }
+
         /// <summary>
         /// True while a UI panel (Building menu, Storage panel, ...) is open and should own
         /// mouse input exclusively. World input adapters (construction, storage selection) must
@@ -192,6 +196,7 @@ namespace Game.Presentation
             Research = new ResearchSystem(Compute);
             Transport = new TransportSystem(Grid);
             Notifications = new NotificationSystem();
+            Clock = new PlayClock();
 
             SaveData loadedSave = PendingGameStart.LoadedSave;
             PendingGameStart.RequestNewGame(); // consume immediately - never read a second time this session
@@ -274,7 +279,6 @@ namespace Game.Presentation
 
                     var origin = new GridCoord(depositSave.OriginX, depositSave.OriginY);
                     DepositRuntime deposit = Grid.PlaceDeposit(origin, oreDefinition);
-                    deposit.RestoreState(depositSave.RemainingQuantity);
                     deposits.Add(deposit);
                 }
 
@@ -285,6 +289,7 @@ namespace Game.Presentation
             ConstructionSites = new ConstructionSiteSystem(Transport, Grid, Notifications, RobotParkOrigin());
             Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core, ConstructionSites);
             Construction.RestoreBuildingCap(save.BuildingCap);
+            Clock.Restore(save.PlayTimeSeconds);
 
             foreach (BuildingSaveData buildingSave in save.Buildings)
             {
@@ -352,6 +357,7 @@ namespace Game.Presentation
                 ResearchQueue = BuildResearchQueueIds(),
                 ResearchUnlocked = new List<string>(Research.GetUnlockedIds()),
                 BuildingCap = Construction.BuildingCap,
+                PlayTimeSeconds = Clock.ElapsedSeconds,
                 ConstructionSites = ConstructionSites?.CaptureState()
             };
 
@@ -372,7 +378,6 @@ namespace Game.Presentation
                         DefinitionId = deposit.Definition.Id,
                         OriginX = deposit.Origin.X,
                         OriginY = deposit.Origin.Y,
-                        RemainingQuantity = deposit.RemainingQuantity
                     });
                 }
             }
@@ -419,6 +424,11 @@ namespace Game.Presentation
             Notifications?.Tick(Time.deltaTime);
 
             Research.Tick(Time.deltaTime);
+
+            // Scaled deltaTime, like every system above it - which is the whole of how the run
+            // clock pauses and resumes. Pause sets Time.timeScale to 0, so this is fed 0 and stops
+            // where it stood, without knowing pause exists. See PlayClock.
+            Clock.Advance(Time.deltaTime);
 
             // The cell grid is a construction aid, not permanent decoration: it shows only while
             // a building is armed for placement. Driven from here rather than from the

@@ -13,14 +13,11 @@ namespace Game.Presentation
 
         SpriteRenderer _spriteRenderer;
 
-        // Terrain layers use sortingOrder 0 (Base) and 1 (Top); ConveyorView uses 10 - the
-        // ghost must render above both (>=10, and above real buildings so it's never obscured).
-        const int SortingOrder = 11;
 
         void Awake()
         {
             _spriteRenderer = GetComponent<SpriteRenderer>();
-            _spriteRenderer.sortingOrder = SortingOrder;
+            _spriteRenderer.sortingOrder = SortingBands.PlacementPreview;
         }
 
         /// <summary>

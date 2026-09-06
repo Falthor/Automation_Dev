@@ -19,7 +19,6 @@ namespace Game.Presentation
     /// </summary>
     public sealed class BuilderRobotVisualSync : MonoBehaviour
     {
-        const int SortingOrder = 14;
 
         [SerializeField] GameRuntime gameRuntime;
 
@@ -101,7 +100,12 @@ namespace Game.Presentation
             var renderer = view.AddComponent<SpriteRenderer>();
             renderer.sprite = robotSprite != null ? robotSprite : _spriteFactory.CreateSolidSquareSprite(Color.white);
             renderer.color = robotColor;
-            renderer.sortingOrder = SortingOrder;
+
+            // The flying band, fixed, above everything depth-sorted - and the only thing in it. A
+            // drone flies over the base: depth-sorting it put it behind whatever it was serving,
+            // so it vanished under the nano assembly of the very site it was delivering to. Its
+            // shadow says the same thing (HeightMultiplier below): it is above the ground, not on it.
+            renderer.sortingOrder = SortingBands.FlyingFirst;
 
             // Uniform fit, so the drone's own proportions survive - a per-axis stretch would squash
             // a 1275x1233 sprite into a square.

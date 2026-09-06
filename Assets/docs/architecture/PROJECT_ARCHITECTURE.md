@@ -228,6 +228,29 @@ Purely visual configuration (e.g. TerrainView's ground texture set and tiling) i
 
 Runtime must not depend on presentation classes.
 
+### 10.1 Draw order
+
+One sorting layer (`Default`); depth is resolved entirely by `sortingOrder`, and every one of them comes from `SortingBands`. No view writes a literal.
+
+**The rule.** An element lower on the grid draws in front of one above it, because its art may overhang the cell above. Four bands, plus fog over all of them:
+
+| Band | Ordering | Contents |
+|---|---|---|
+| Ground | fixed | terrain, nano coverage, flat decor and vegetation, concrete, deposits, grid, action radius, belts, the items riding them, Splitter/Crossroad |
+| Sorted | by depth | every building, the Core, construction silhouettes, their shadows and arrows, raised rocks, the builder robots |
+| Flying | fixed | empty - the robots walk, so they are in the sorted band. Kept for drones, projectiles, aerial effects |
+| Information | fixed | placement previews, their arrows, the hover outline |
+
+**The sort key is the bottom edge, never the centre of the art** (`SortingBands.Sorted(worldBottomY, subLayer)`): the footprint's bottom row for a building, the sprite's bottom for free-standing decor, its own position for a robot. Stated as a world coordinate so grid-aligned buildings and scattered decor go through one function. Within a row, four sub-layers: silhouette, shadow, sprite, overlay. A row's difference always outweighs a sub-layer's.
+
+**Why not Unity's Transparency Sort Mode in Custom Axis.** It sorts on each transform's own position, and every building root here stands at its footprint's *centre* (`FootprintCenterToWorld`) - precisely the key the rule forbids, so every asset pivot and every spawn would have to be re-anchored first. It would also replace the belts' cell-parity tie-break at an overscanned seam with Y, and a horizontal run shares one Y - back to an undefined winner. And it cannot be asserted outside a running camera, where a computed order is a pure function with tests.
+
+**What is in which band is a judgement about the art, not about the type.** Vegetation splits: flowers, bushes, dead wood and pebbles are drawn top-down with no rising silhouette and stay on the ground; large and big rocks are drawn at an angle with a mass well above their base, and are sorted. Ore deposits are a scatter of small chunks lying flat, so they are ground - which is what keeps an Extractor's construction silhouette from being hidden behind the ore it stands on, with no exception to write down.
+
+**Permanent marks stay with the thing they mark.** A placed building's own input/output arrows are world decoration and belong to the sorted band, ranked by the cell each arrow sits on. The information band is for what answers a gesture in progress - a preview hidden behind a building would be a preview that failed at its job.
+
+Baked scene decor (`WildDecorationGenerator`) calls `SortingBands` rather than copying the formula: a rank written into a scene is frozen there and is the one draw order nothing recomputes at load. `SortingBandsTests` reads back every scene and fails on drift.
+
 ## 11. UI
 
 `Game.UI` uses UI Toolkit.

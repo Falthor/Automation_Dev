@@ -70,6 +70,14 @@
     color: rgb(85, 221, 245);
 }
 
+/* The Building menu is 20% larger than the shared panel default, frame included - it is the one
+   panel the player reads a catalogue in, not a couple of figures. Scoped to this panel rather than
+   applied to .panel, which every other overlay shares. */
+.building-panel {
+    padding: 12px;
+    border-width: 2px;
+}
+
 .building-body {
     flex-direction: column;
 }
@@ -85,8 +93,8 @@
 }
 
 .category-column {
-    width: 150px;
-    margin-right: 10px;
+    width: 180px;
+    margin-right: 12px;
 }
 
 .v-separator {
@@ -96,17 +104,17 @@
 }
 
 .category-button {
-    height: 40px;
-    margin-bottom: 6px;
+    height: 48px;
+    margin-bottom: 7px;
     background-color: rgb(20, 24, 29);
     border-width: 1px;
     border-color: rgb(48, 59, 66);
     color: rgb(200, 205, 210);
-    font-size: 13px;
+    font-size: 16px;
     flex-direction: row;
     align-items: center;
     justify-content: flex-start;
-    padding: 0 8px;
+    padding: 0 10px;
 }
 
 .category-button:hover {
@@ -120,15 +128,15 @@
 }
 
 .category-button-icon {
-    width: 20px;
-    height: 20px;
-    margin-right: 8px;
+    width: 24px;
+    height: 24px;
+    margin-right: 10px;
     -unity-background-scale-mode: scale-to-fit;
 }
 
 .category-button-label {
     color: rgb(200, 205, 210);
-    font-size: 12px;
+    font-size: 14px;
     -unity-text-align: middle-left;
 }
 
@@ -137,8 +145,8 @@
 }
 
 .building-grid-scroll {
-    width: 360px;
-    max-height: 200px;
+    width: 432px;
+    max-height: 240px;
 }
 
 .building-grid-scroll .unity-scroller--vertical {
@@ -170,9 +178,9 @@
 }
 
 .building-card {
-    width: 112px;
-    height: 90px;
-    margin: 4px;
+    width: 134px;
+    height: 108px;
+    margin: 5px;
     background-color: rgb(24, 29, 35);
     border-width: 1px;
     border-color: rgb(48, 59, 66);
@@ -204,15 +212,15 @@
 }
 
 .building-card-icon {
-    width: 40px;
-    height: 40px;
-    margin-bottom: 6px;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 7px;
     -unity-background-scale-mode: scale-to-fit;
 }
 
 .building-card-label {
     color: rgb(220, 220, 220);
-    font-size: 12px;
+    font-size: 14px;
     -unity-text-align: middle-center;
 }
 
@@ -479,12 +487,13 @@
     margin-bottom: 3px;
 }
 
+/* Wraps rather than clipping: "COMPOSANT MECANIQUE" does not fit one line of a card this wide,
+   and an ellipsis on an item name tells the player nothing. The card grows to fit instead. */
 .recipe-card-name {
     color: rgb(215, 224, 229);
     font-size: 9px;
     -unity-text-align: middle-center;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    white-space: normal;
     width: 100%;
     margin-bottom: 3px;
 }
@@ -495,6 +504,12 @@
     justify-content: center;
     align-items: center;
     margin-bottom: 3px;
+}
+
+/* One ingredient: its icon and its quantity, wrapped together by the row above. */
+.recipe-card-ingredient {
+    flex-direction: row;
+    align-items: center;
 }
 
 .recipe-card-ingredient-icon {
@@ -688,6 +703,28 @@
 .research-list-scroll {
     flex-grow: 1;
     max-height: 420px;
+}
+
+/* Same slim treatment the building grid already uses - the default scroller is far too wide for
+   a list this narrow, and its stepper buttons are dead weight. */
+.research-list-scroll .unity-scroller--vertical {
+    width: 6px;
+}
+
+.research-list-scroll .unity-scroller--vertical .unity-scroller__low-button,
+.research-list-scroll .unity-scroller--vertical .unity-scroller__high-button {
+    display: none;
+}
+
+.research-list-scroll .unity-scroller--vertical .unity-base-slider__tracker {
+    width: 4px;
+    border-radius: 2px;
+}
+
+.research-list-scroll .unity-scroller--vertical .unity-base-slider__dragger {
+    width: 4px;
+    border-radius: 2px;
+    background-color: rgb(85, 221, 245);
 }
 
 .research-list {
@@ -995,6 +1032,17 @@
     color: rgb(242, 83, 83);
 }
 
+/* Research finished: the one Top Bar state that is good news, so it gets its own colour rather
+   than the neutral text every other idle state uses. */
+.top-bar-card-value-done {
+    color: rgb(96, 226, 130);
+}
+
+.top-bar-card-done {
+    border-color: rgb(96, 226, 130);
+    background-color: rgb(20, 40, 27);
+}
+
 .top-bar-card-detail {
     padding: 0 7px 0 7px;
     height: 0;
@@ -1164,26 +1212,26 @@
 .building-details {
     flex-direction: row;
     align-items: flex-start;
-    min-height: 60px;
+    min-height: 72px;
 }
 
 .building-details-header {
     flex-direction: row;
     align-items: center;
-    width: 150px;
-    margin-right: 16px;
+    width: 180px;
+    margin-right: 19px;
 }
 
 .building-details-icon {
-    width: 36px;
-    height: 36px;
-    margin-right: 8px;
+    width: 43px;
+    height: 43px;
+    margin-right: 10px;
     -unity-background-scale-mode: scale-to-fit;
 }
 
 .building-details-name {
     color: rgb(220, 220, 220);
-    font-size: 12px;
+    font-size: 14px;
     -unity-font-style: bold;
     white-space: normal;
     flex-shrink: 1;
@@ -1195,7 +1243,7 @@
 
 .building-details-section-title {
     color: rgb(160, 168, 175);
-    font-size: 9px;
+    font-size: 11px;
     margin-top: 2px;
     margin-bottom: 3px;
 }
@@ -1204,25 +1252,25 @@
     flex-direction: row;
     align-items: center;
     margin-bottom: 2px;
-    width: 220px;
+    width: 264px;
 }
 
 .building-details-cost-icon {
-    width: 16px;
-    height: 16px;
-    margin-right: 4px;
+    width: 19px;
+    height: 19px;
+    margin-right: 5px;
     -unity-background-scale-mode: scale-to-fit;
 }
 
 .building-details-cost-name {
     color: rgb(200, 205, 210);
-    font-size: 9px;
+    font-size: 11px;
     flex-grow: 1;
 }
 
 .building-details-cost-have {
     color: rgb(160, 168, 175);
-    font-size: 9px;
+    font-size: 11px;
 }
 
 .building-details-cost-have-insufficient {
@@ -1248,11 +1296,20 @@
 
 .building-details-consumption-text {
     color: rgb(85, 221, 245);
-    font-size: 10px;
+    font-size: 12px;
+}
+
+/* Belt throughput on hover - the accent colour the consumption pills use, since it answers the
+   same kind of question (what this building does per unit of time), with no pill around it: there
+   is one figure, not a row of them. */
+.building-details-throughput {
+    color: rgb(85, 221, 245);
+    font-size: 12px;
+    margin-bottom: 4px;
 }
 
 .building-details-status {
-    font-size: 9px;
+    font-size: 11px;
     -unity-font-style: bold;
     margin-top: 4px;
 }
@@ -1274,6 +1331,20 @@
     color: rgb(85, 221, 245);
     font-size: 11px;
     -unity-font-style: bold;
+}
+
+/* Run chronometer - a reading, not a control: no border, no hover, and picking-mode Ignore in the
+   UXML so it never swallows a wheel or a click the way the pause overlay once did. Tabular-ish
+   spacing so the digits do not jitter as the seconds roll over. */
+.top-bar-clock {
+    position: absolute;
+    left: 16px;
+    top: 0;
+    height: 36px;
+    -unity-text-align: middle-left;
+    color: rgb(215, 224, 229);
+    font-size: 13px;
+    letter-spacing: 1px;
 }
 
 .top-bar-pause-overlay {

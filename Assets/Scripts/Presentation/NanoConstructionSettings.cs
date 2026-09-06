@@ -50,13 +50,6 @@ namespace Game.Presentation
         /// </summary>
         [SerializeField, Range(0f, 1f)] float sitePlaceholderAlpha = 0.35f;
 
-        /// <summary>
-        /// Sorting order of the silhouette. It must sit under both the shadow and the sprite it
-        /// belongs to, which fixes the whole stack for a building under construction:
-        /// ground slab 5, action radius 6, <b>silhouette 7</b>, drop shadow 8, building sprite 10.
-        /// </summary>
-        [SerializeField] int siteSilhouetteSortingOrder = 7;
-
         [Header("Displayed progress (see the spec's section 3)")]
 
         /// <summary>
@@ -138,14 +131,6 @@ namespace Game.Presentation
         /// </summary>
         [SerializeField, Range(0f, 1f)] float groundRimWidth = 0.08f;
 
-        /// <summary>
-        /// Between the terrain (0 and 1) and the concrete slab (5). 2 and 4 are left free on either
-        /// side deliberately - the whole ladder is contiguous integers with existing collisions, and
-        /// renumbering it is a separate task, so this only takes a free value rather than making
-        /// room.
-        /// </summary>
-        [SerializeField] int groundCoverageSortingOrder = 3;
-
         [Header("Shader")]
 
         /// <summary>
@@ -166,7 +151,6 @@ namespace Game.Presentation
         public int RevealMode => revealMode;
 
         public float SitePlaceholderAlpha => sitePlaceholderAlpha;
-        public int SiteSilhouetteSortingOrder => siteSilhouetteSortingOrder;
 
         public float AssemblyRate => assemblyRate;
         public float MinAssemblyDuration => minAssemblyDuration;
@@ -202,7 +186,6 @@ namespace Game.Presentation
             => Mathf.Clamp01(displayedProgress / Mathf.Max(groundLeadShare, 0.0001f));
         public int GroundTexelsPerCell => groundTexelsPerCell;
         public float GroundRimWidth => groundRimWidth;
-        public int GroundCoverageSortingOrder => groundCoverageSortingOrder;
 
         public Shader DissolveShader => dissolveShader;
         public Shader CoverageShader => coverageShader;

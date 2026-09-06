@@ -652,7 +652,7 @@ namespace Game.Presentation
             go.transform.SetParent(transform, false);
             zone.Quad = go.AddComponent<SpriteRenderer>();
             zone.Quad.sharedMaterial = zone.Material;
-            zone.Quad.sortingOrder = settings.GroundCoverageSortingOrder;
+            zone.Quad.sortingOrder = SortingBands.GroundCoverage;
 
             PlaceQuad(zone);
 
@@ -739,7 +739,7 @@ namespace Game.Presentation
             zone.Material.SetFloat("_NoiseScale", settings.NoiseScale);
             zone.Material.SetFloat("_NoiseWeight", ShaderNoiseWeight(settings.NoiseWeight));
 
-            zone.Quad.sortingOrder = settings.GroundCoverageSortingOrder;
+            zone.Quad.sortingOrder = SortingBands.GroundCoverage;
         }
 
         // --- Test seams ---

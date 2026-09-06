@@ -11,9 +11,7 @@ namespace Game.Data
     public sealed class OreDepositDefinition : BuildingDefinition
     {
         [SerializeField] ItemDefinition item;
-        [SerializeField, Min(1)] int initialQuantity = 1000;
 
         public ItemDefinition Item => item;
-        public int InitialQuantity => initialQuantity;
     }
 }

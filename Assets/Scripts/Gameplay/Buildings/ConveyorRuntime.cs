@@ -33,8 +33,22 @@ namespace Game.Gameplay.Buildings
 
         public bool HasItem => _slots.Count > 0;
 
-        /// <summary>True while another item can be accepted at the back edge - either the queue isn't full, or the back-most item has already moved far enough ahead to leave room.</summary>
-        public bool HasRoomForNewItem => _slots.Count < MaxItemsPerCell && (_slots.Count == 0 || _slots[_slots.Count - 1].Progress >= MinItemSpacing);
+        /// <summary>
+        /// True while another item can be accepted at the back edge - either the queue isn't full,
+        /// or the back-most item has already moved far enough ahead to leave room.
+        ///
+        /// <b>Purely a spacing question, never a timed one.</b> A belt hands over the moment the
+        /// next one physically has room, so an item crosses a whole line at a constant speed instead
+        /// of stopping at every cell boundary. Metering each belt at the line's own rate looks
+        /// equivalent on a throughput graph and is not: an item reaches the boundary two thirds of a
+        /// second after entering, a meter set to one second makes it wait the remaining third, and a
+        /// player watching a line sees every item stutter at every seam. What a line carries per
+        /// minute is set once, upstream, by whatever is feeding it - see
+        /// TransportSystem.RawOutputPullIntervalSeconds.
+        /// </summary>
+        public bool HasRoomForNewItem =>
+            _slots.Count < MaxItemsPerCell
+            && (_slots.Count == 0 || _slots[_slots.Count - 1].Progress >= MinItemSpacing);
 
         readonly List<ConveyorItemSlot> _slots = new List<ConveyorItemSlot>();
 

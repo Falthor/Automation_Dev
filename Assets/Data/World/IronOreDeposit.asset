@@ -22,4 +22,3 @@ MonoBehaviour:
   animationFps: 8
   cost: []
   item: {fileID: 11400000, guid: 929b7f451c0471e4792a67bdfa782512, type: 2}
-  initialQuantity: 1000

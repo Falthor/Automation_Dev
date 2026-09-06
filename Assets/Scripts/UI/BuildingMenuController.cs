@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Data;
+using Game.Gameplay.Transport;
 using Game.Presentation;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -321,6 +322,18 @@ namespace Game.UI
                 }
             }
 
+            float? throughputPerMinute = RatedThroughputPerMinute(definition);
+            if (throughputPerMinute.HasValue)
+            {
+                var throughputTitle = new Label("DEBIT");
+                throughputTitle.AddToClassList("building-details-section-title");
+                info.Add(throughputTitle);
+
+                var throughput = new Label($"{throughputPerMinute.Value:0.#} objets / min");
+                throughput.AddToClassList("building-details-throughput");
+                info.Add(throughput);
+            }
+
             if (definition.PowerDemandKw > 0f || definition.CuCostPerCycle > 0f)
             {
                 var consumptionTitle = new Label("CONSOMMATION");
@@ -356,6 +369,30 @@ namespace Game.UI
             info.Add(status);
 
             _details.Add(info);
+        }
+
+        /// <summary>
+        /// The rated throughput of a building whose output is a rate, in items per minute, or null
+        /// where there is no single figure to give.
+        ///
+        /// Each answer is read from whoever owns the numbers it comes from - TransportSystem for the
+        /// belt's metered intake, the definition itself for the extractor's interval and yield - so
+        /// the menu never restates a rate of its own and cannot drift from the simulation. Both
+        /// conveyor shapes quote the same figure because they are the same belt: that turning a line
+        /// costs nothing is itself the answer.
+        ///
+        /// Null for a Foundry/Factory/Assembler on purpose. Their rate is a property of the recipe
+        /// currently selected, not of the building, so there is no honest number to put on a
+        /// catalogue card - it belongs in the production panel, beside the recipe.
+        /// </summary>
+        static float? RatedThroughputPerMinute(BuildingDefinition definition)
+        {
+            switch (definition)
+            {
+                case ConveyorDefinition _: return TransportSystem.ConveyorItemsPerMinute;
+                case ExtractorDefinition extractor: return extractor.ItemsPerMinute;
+                default: return null;
+            }
         }
 
         VisualElement BuildConsumptionPill(Sprite icon, string text)

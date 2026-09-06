@@ -48,6 +48,7 @@ MonoBehaviour:
   acceptedItemIds:
   - copper_Ingot
   - Gear
+  - Screw
   - Printed_Circuit_Board
   - cpu_mkI
   - Memory_MK1

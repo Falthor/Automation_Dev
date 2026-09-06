@@ -1,6 +1,7 @@
 using System.Linq;
 using Game.Data;
 using Game.Gameplay.Compute;
+using Game.Gameplay.Session;
 using Game.Presentation;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -42,6 +43,7 @@ namespace Game.UI
         [SerializeField] Sprite buildingIcon;
 
         VisualElement _cardsRow;
+        Label _clock;
         Label _pauseOverlay;
         Label _refusalMessage;
         float _refusalMessageHideAt = -1f;
@@ -72,6 +74,7 @@ namespace Game.UI
             panelRoot.pickingMode = PickingMode.Ignore;
 
             _cardsRow = panelRoot.Q<VisualElement>("TopBarCardsRow");
+            _clock = panelRoot.Q<Label>("TopBarClock");
             _pauseOverlay = panelRoot.Q<Label>("TopBarPauseOverlay");
             _refusalMessage = panelRoot.Q<Label>("TopBarRefusalMessage");
 
@@ -180,6 +183,7 @@ namespace Game.UI
                 TogglePause();
             }
 
+            RefreshClock();
             RefreshWidths();
             RefreshPower();
             RefreshCompute();
@@ -191,6 +195,18 @@ namespace Game.UI
                 _refusalMessage.EnableInClassList("hidden", true);
                 _refusalMessageHideAt = -1f;
             }
+        }
+
+        /// <summary>
+        /// The run's elapsed time. Read every frame from a clock that is itself only advanced by the
+        /// simulation's own tick, so this keeps refreshing while paused and keeps showing the same
+        /// value - which is exactly what a paused chronometer should do. Nothing here checks whether
+        /// the game is paused, and nothing here should.
+        /// </summary>
+        void RefreshClock()
+        {
+            if (_clock == null || gameRuntime.Clock == null) return;
+            _clock.text = PlayClock.Format(gameRuntime.Clock.ElapsedSeconds);
         }
 
         void RefreshWidths()
@@ -256,6 +272,8 @@ namespace Game.UI
                 _researchCard.Lines[0].text = $"{Mathf.RoundToInt(progress * 100f)}%";
                 _researchCard.Lines[1].text = $"Temps restant  {FormatTime(research.GetEstimatedSecondsRemaining())}";
                 _researchCard.BarFill.style.width = new StyleLength(Length.Percent(Mathf.Clamp01(progress) * 100f));
+
+                SetResearchFinished(false);
             }
             else
             {
@@ -263,12 +281,27 @@ namespace Game.UI
                 // "Aucune" only when nothing has ever been researched - once at least one
                 // completes with nothing queued next, the top bar should confirm that instead
                 // of reading as if research had never started.
-                string idleText = research.GetUnlockedIds().Any() ? "Recherche finie" : "Aucune";
+                bool finished = queued == 0 && research.GetUnlockedIds().Any();
+                string idleText = finished ? "Recherche finie" : "Aucune";
                 _researchCard.Value.text = queued > 0 ? $"{queued} en file" : idleText;
                 _researchCard.Lines[0].text = "0%";
                 _researchCard.Lines[1].text = "Temps restant  --:--";
                 _researchCard.BarFill.style.width = new StyleLength(Length.Percent(0f));
+
+                SetResearchFinished(finished);
             }
+        }
+
+        /// <summary>
+        /// The one Top Bar state that is good news rather than a warning: everything researched and
+        /// nothing queued. It gets a green frame and a green value, so it reads as finished at a
+        /// glance instead of looking like the "Aucune" it sits next to in the same slot. Cleared as
+        /// soon as anything is being researched again, or the halo would outlive what it announced.
+        /// </summary>
+        void SetResearchFinished(bool finished)
+        {
+            _researchCard.Root.EnableInClassList("top-bar-card-done", finished);
+            _researchCard.Value.EnableInClassList("top-bar-card-value-done", finished);
         }
 
         /// <summary>Occupied/cap counter (TASK_04_PLAFOND_RAYON.md §5) - the second Top Bar figure the survival-phase UI shows, alongside CU. Turns alert-colored within BuildingCapAlertMargin slots of the cap; the cap itself is read live from ConstructionService, so memory_allocation's 40->52 jump shows immediately.</summary>

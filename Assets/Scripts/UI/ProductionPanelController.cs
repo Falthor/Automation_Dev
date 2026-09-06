@@ -213,14 +213,21 @@ namespace Game.UI
             {
                 foreach (RecipeIngredient ingredient in recipe.Ingredients)
                 {
+                    // Icon and quantity go in one box, so the wrap moves the pair to the next line
+                    // instead of stranding a bare "x4" under an icon it no longer sits beside.
+                    var pair = new VisualElement();
+                    pair.AddToClassList("recipe-card-ingredient");
+
                     var ingredientIcon = new VisualElement();
                     ingredientIcon.AddToClassList("recipe-card-ingredient-icon");
                     ingredientIcon.style.backgroundImage = new StyleBackground(ResolveItemIcon(ingredient.Item.Id));
-                    ingredientsRow.Add(ingredientIcon);
+                    pair.Add(ingredientIcon);
 
                     var qty = new Label($"×{ingredient.Amount}");
                     qty.AddToClassList("recipe-card-ingredient-qty");
-                    ingredientsRow.Add(qty);
+                    pair.Add(qty);
+
+                    ingredientsRow.Add(pair);
                 }
             }
             card.Add(ingredientsRow);

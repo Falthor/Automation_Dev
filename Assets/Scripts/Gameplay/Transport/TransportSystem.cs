@@ -30,7 +30,30 @@ namespace Game.Gameplay.Transport
     {
         static readonly Direction[] AllDirections = { Direction.North, Direction.East, Direction.South, Direction.West };
 
-        const float ConveyorSpeedCellsPerSecond = 1.5f;
+        public const float ConveyorSpeedCellsPerSecond = 1.5f;
+
+        /// <summary>
+        /// What a belt line carries, in items per minute - the figure the Building menu quotes on
+        /// hover.
+        ///
+        /// <b>The rate is set upstream, not on the belt.</b> A line's cadence is whatever is feeding
+        /// it, and every source that is not itself a belt hands over at RawOutputPullIntervalSeconds
+        /// - so that is where this comes from, rather than being restated. At 1.5 cells/s the items
+        /// then sit 1.5 cells apart and simply travel; nothing along the way has to meter anything.
+        ///
+        /// Metering each belt to the same rate was tried and reverted: it gives the same figure on a
+        /// throughput graph and makes every item stop at every cell boundary, because an item
+        /// reaches the seam two thirds of a second after entering and a one-second gate makes it
+        /// wait out the rest. See ConveyorRuntime.HasRoomForNewItem.
+        ///
+        /// Not the belt's <b>capacity</b>, which is speed times MaxItemsPerCell - what it can hold
+        /// when the line ahead is blocked and items pack up. That is a buffer, and quoting it told
+        /// the player a belt did four times what a line does.
+        ///
+        /// The same for a corner as for a straight: one cell at one speed either way, so turning a
+        /// line costs nothing.
+        /// </summary>
+        public const float ConveyorItemsPerMinute = 60f / RawOutputPullIntervalSeconds;
 
         /// <summary>
         /// Immutable rule, enforced here rather than by each building type: a source that isn't
@@ -42,9 +65,12 @@ namespace Game.Gameplay.Transport
         /// output has no throughput cap of its own. Living at the transport layer means no current
         /// or future building type can bypass it by simply omitting its own intake cooldown - it
         /// is not an opt-in a building author could forget. 1 second matches our fastest conveyor
-        /// today (60 items/min); retune when a faster conveyor tier ships. A conveyor pulling from
-        /// the same kind of source is unaffected - HasRoomForNewItem already caps it at the belt's
-        /// own physical throughput, which this must not slow down further.
+        /// today (60 items/min); retune when a faster conveyor tier ships. It applies to a conveyor
+        /// pulling from such a source too, through the belt-specific loop's own check
+        /// (MayEnterBeltNetwork): a belt taking straight from a production output is an entry into
+        /// the belt network, and rating entries is what gives a line its throughput. It was once
+        /// believed HasRoomForNewItem covered that case - it does not, it is a spacing rule, and a
+        /// line fed by a Foundry measured 257/min against a documented 60.
         /// </summary>
         public const float RawOutputPullIntervalSeconds = 1f;
 
@@ -175,10 +201,11 @@ namespace Game.Gameplay.Transport
                 if (!conveyor.HasRoomForNewItem) continue;
 
                 GridCoord behind = conveyor.Cell + conveyor.Orientation.Rotation.Opposite();
-                if (TryPullFromNeighbor(behind, conveyor.Cell, out object item, out BuildingRuntime source))
+                if (TryPullFromNeighbor(behind, conveyor.Cell, out object item, out BuildingRuntime source) && MayEnterBeltNetwork(source))
                 {
                     conveyor.ReceiveItem(item);
                     source.ConsumePulledItem(item);
+                    NoteEnteredBeltNetwork(source);
                 }
                 else
                 {
@@ -232,9 +259,11 @@ namespace Game.Gameplay.Transport
 
                 object item = neighbor.PeekPullableItem();
                 if (item == null) continue;
+                if (!MayEnterBeltNetwork(neighbor)) continue;
 
                 conveyor.ReceiveItem(item);
                 neighbor.ConsumePulledItem(item);
+                NoteEnteredBeltNetwork(neighbor);
                 return;
             }
         }
@@ -494,6 +523,25 @@ namespace Game.Gameplay.Transport
 
         static bool IsBeltGated(BuildingRuntime building) =>
             building is ConveyorRuntime || building is SplitterRuntime || building is CrossroadRuntime;
+
+        /// <summary>
+        /// Whether this source may put another item onto the belt network right now.
+        ///
+        /// A belt, Splitter or Crossroad always may: passing an item along <b>inside</b> the network
+        /// costs nothing and must not be metered, or every item stops at every seam waiting for a
+        /// gate - which is precisely what a per-belt intake interval did.
+        ///
+        /// Anything else is an <b>entry point</b>, and is rated at RawOutputPullIntervalSeconds. One
+        /// gate, where the items come from, is what gives a whole line its throughput: past it the
+        /// items simply travel, spaced by the rate they entered at.
+        /// </summary>
+        bool MayEnterBeltNetwork(BuildingRuntime source) =>
+            IsBeltGated(source) || !_rawOutputPullCooldown.ContainsKey(source);
+
+        void NoteEnteredBeltNetwork(BuildingRuntime source)
+        {
+            if (!IsBeltGated(source)) _rawOutputPullCooldown[source] = RawOutputPullIntervalSeconds;
+        }
 
         /// <summary>Decrements every source's RawOutputPullIntervalSeconds cooldown, dropping it once it reaches zero (see _rawOutputPullCooldown).</summary>
         void TickRawOutputPullCooldowns(float deltaTime)
