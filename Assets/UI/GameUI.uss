@@ -1276,6 +1276,20 @@
     -unity-font-style: bold;
 }
 
+/* Run chronometer - a reading, not a control: no border, no hover, and picking-mode Ignore in the
+   UXML so it never swallows a wheel or a click the way the pause overlay once did. Tabular-ish
+   spacing so the digits do not jitter as the seconds roll over. */
+.top-bar-clock {
+    position: absolute;
+    left: 16px;
+    top: 0;
+    height: 36px;
+    -unity-text-align: middle-left;
+    color: rgb(215, 224, 229);
+    font-size: 13px;
+    letter-spacing: 1px;
+}
+
 .top-bar-pause-overlay {
     position: absolute;
     left: 0;

@@ -43,6 +43,7 @@ namespace Game.Tests.EditMode.Save
             CoreCellY = -4,
             CoreState = new JObject { ["cuTimer"] = 1.5f },
             BuildingCap = 42,
+            PlayTimeSeconds = 372.5f,
             Deposits = new List<DepositSaveData>
             {
                 new DepositSaveData { DefinitionId = "iron", OriginX = 1, OriginY = 2, RemainingQuantity = 900 }
@@ -68,7 +69,7 @@ namespace Game.Tests.EditMode.Save
             "ResearchActiveId", "ResearchProgress", "ResearchQueue", "ResearchUnlocked",
             "ConstructionSites",
             "CoreDefinitionId", "CoreCellX", "CoreCellY", "CoreState",
-            "BuildingCap",
+            "BuildingCap", "PlayTimeSeconds",
             "Deposits", "Buildings"
         };
 
@@ -155,6 +156,7 @@ namespace Game.Tests.EditMode.Save
             Assert.AreEqual(original.CoreCellY, restored.CoreCellY);
             Assert.AreEqual(1.5f, restored.CoreState["cuTimer"].Value<float>());
             Assert.AreEqual(42, restored.BuildingCap);
+            Assert.AreEqual(372.5f, restored.PlayTimeSeconds);
 
             Assert.AreEqual(1, restored.Deposits.Count);
             Assert.AreEqual("iron", restored.Deposits[0].DefinitionId);
@@ -176,6 +178,7 @@ namespace Game.Tests.EditMode.Save
 
             Assert.AreEqual(3, restored.Version);
             Assert.IsNull(restored.BuildingCap, "Absent means absent, never 0.");
+            Assert.IsNull(restored.PlayTimeSeconds, "A save from before the run clock is not a run that lasted zero seconds.");
             Assert.IsNull(restored.ConstructionSites, "A save from before the robots restores without one.");
         }
     }

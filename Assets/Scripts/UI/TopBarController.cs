@@ -1,6 +1,7 @@
 using System.Linq;
 using Game.Data;
 using Game.Gameplay.Compute;
+using Game.Gameplay.Session;
 using Game.Presentation;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -42,6 +43,7 @@ namespace Game.UI
         [SerializeField] Sprite buildingIcon;
 
         VisualElement _cardsRow;
+        Label _clock;
         Label _pauseOverlay;
         Label _refusalMessage;
         float _refusalMessageHideAt = -1f;
@@ -72,6 +74,7 @@ namespace Game.UI
             panelRoot.pickingMode = PickingMode.Ignore;
 
             _cardsRow = panelRoot.Q<VisualElement>("TopBarCardsRow");
+            _clock = panelRoot.Q<Label>("TopBarClock");
             _pauseOverlay = panelRoot.Q<Label>("TopBarPauseOverlay");
             _refusalMessage = panelRoot.Q<Label>("TopBarRefusalMessage");
 
@@ -180,6 +183,7 @@ namespace Game.UI
                 TogglePause();
             }
 
+            RefreshClock();
             RefreshWidths();
             RefreshPower();
             RefreshCompute();
@@ -191,6 +195,18 @@ namespace Game.UI
                 _refusalMessage.EnableInClassList("hidden", true);
                 _refusalMessageHideAt = -1f;
             }
+        }
+
+        /// <summary>
+        /// The run's elapsed time. Read every frame from a clock that is itself only advanced by the
+        /// simulation's own tick, so this keeps refreshing while paused and keeps showing the same
+        /// value - which is exactly what a paused chronometer should do. Nothing here checks whether
+        /// the game is paused, and nothing here should.
+        /// </summary>
+        void RefreshClock()
+        {
+            if (_clock == null || gameRuntime.Clock == null) return;
+            _clock.text = PlayClock.Format(gameRuntime.Clock.ElapsedSeconds);
         }
 
         void RefreshWidths()

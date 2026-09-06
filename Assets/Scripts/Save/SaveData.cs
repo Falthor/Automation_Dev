@@ -73,6 +73,14 @@ namespace Game.Save
         /// </summary>
         public int? BuildingCap;
 
+        /// <summary>
+        /// Seconds of simulated time this run has been played (Game.Gameplay.Session.PlayClock).
+        /// Nullable so a save from before the clock existed restores as zero rather than as a run
+        /// that has never been played being indistinguishable from one whose key is missing - the
+        /// same convention BuildingCap uses.
+        /// </summary>
+        public float? PlayTimeSeconds;
+
         public List<DepositSaveData> Deposits = new List<DepositSaveData>();
         public List<BuildingSaveData> Buildings = new List<BuildingSaveData>();
     }

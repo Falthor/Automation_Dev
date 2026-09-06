@@ -6,6 +6,7 @@
             <ui:VisualElement name="TopBarCardsArea" class="top-bar-cards-area" picking-mode="Ignore">
                 <ui:VisualElement name="TopBarCardsRow" picking-mode="Ignore" style="flex-direction: row;" />
             </ui:VisualElement>
+            <ui:Label name="TopBarClock" text="00:00" picking-mode="Ignore" class="top-bar-clock" />
             <ui:Button name="TopBarMenuButton" text="&#9776;" class="top-bar-icon-button top-bar-menu-button" />
             <ui:Button name="TopBarPauseButton" text="II" class="top-bar-icon-button top-bar-pause-button" />
         </ui:VisualElement>
