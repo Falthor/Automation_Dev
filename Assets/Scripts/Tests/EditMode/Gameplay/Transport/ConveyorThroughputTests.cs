@@ -9,155 +9,185 @@ using UnityEngine;
 namespace Game.Tests.EditMode.Gameplay.Transport
 {
     /// <summary>
-    /// What a belt actually carries, measured on a belt actually running - never against the same
-    /// arithmetic that produces the constant. A figure checked only against its own formula agrees
-    /// with itself while both drift away from the simulation, which is how a displayed number starts
-    /// lying. This one caught its formula being 6% optimistic on the first run.
+    /// What a belt line carries, and how it carries it.
+    ///
+    /// Both halves matter and only one of them shows on a throughput graph. Metering each belt at the
+    /// line's own rate gave the right items-per-minute and made every item stop dead at every cell
+    /// boundary - an item reaches the seam two thirds of a second after entering, and a one-second
+    /// gate makes it wait out the remaining third, forever, at every belt. TransitIsContinuous is the
+    /// test that would have caught it.
     /// </summary>
     public class ConveyorThroughputTests
     {
         const float TickSeconds = 1f / 60f;
 
-        /// <summary>
-        /// A belt fed as fast as it will accept and emptied as fast as it delivers - its own ceiling,
-        /// with nothing upstream or downstream limiting it. Warms up first, then counts a clean
-        /// minute: the cold start costs the time the first item needs to cross the cell, which would
-        /// otherwise be charged against the rate.
-        /// </summary>
-        static int SteadyStateItemsPerMinute(ConveyorRuntime belt, TransportSystem transport)
+        static ConveyorRuntime AddBelt(GridRuntime grid, TransportSystem transport, GridCoord cell, Direction exit)
         {
-            int ticksPerMinute = Mathf.RoundToInt(60f / TickSeconds);
-            int delivered = 0;
-
-            for (int tick = 0; tick < ticksPerMinute * 2; tick++)
-            {
-                transport.Tick(TickSeconds);
-
-                object atFront = belt.PeekPullableItem();
-                if (atFront != null)
-                {
-                    belt.ConsumePulledItem(atFront);
-                    if (tick >= ticksPerMinute) delivered++;
-                }
-
-                if (belt.HasRoomForNewItem) belt.ReceiveItem(new object());
-            }
-
-            return delivered;
-        }
-
-        static ConveyorRuntime Register(GridRuntime grid, TransportSystem transport, ConveyorRuntime belt)
-        {
-            grid.SetOccupant(belt.Cell, belt);
+            var definition = ScriptableObject.CreateInstance<ConveyorDefinition>();
+            var belt = new ConveyorRuntime(definition, cell, exit);
+            belt.ConfigureAsStraight(exit);
+            grid.SetOccupant(cell, belt);
             transport.Register(belt);
             return belt;
         }
 
-        static ConveyorRuntime NewStraight(GridRuntime grid, TransportSystem transport)
-        {
-            var definition = ScriptableObject.CreateInstance<ConveyorDefinition>();
-            var belt = new ConveyorRuntime(definition, new GridCoord(0, 0), Direction.East);
-            belt.ConfigureAsStraight(Direction.East);
-            return Register(grid, transport, belt);
-        }
-
-        static ConveyorRuntime NewCorner(GridRuntime grid, TransportSystem transport)
-        {
-            var definition = ScriptableObject.CreateInstance<ConveyorDefinition>();
-            var belt = new ConveyorRuntime(definition, new GridCoord(0, 0), Direction.East);
-            belt.ConfigureAsCorner(Direction.South, Direction.East);
-            return Register(grid, transport, belt);
-        }
-
-        [Test]
-        public void ASaturatedStraight_CarriesTheCadenceTheConstantsImply()
+        /// <summary>
+        /// One item, one line, nothing else moving: how long it takes to travel end to end. With
+        /// nothing metering the seams that is exactly the time it takes to cross the cells at the
+        /// belt speed, and any waiting at a boundary shows up here as extra seconds.
+        /// </summary>
+        static float TransitSecondsAcross(int beltCount)
         {
             var grid = new GridRuntime(1f);
             var transport = new TransportSystem(grid);
 
-            int measured = SteadyStateItemsPerMinute(NewStraight(grid, transport), transport);
+            var belts = new ConveyorRuntime[beltCount];
+            for (int i = 0; i < beltCount; i++)
+            {
+                belts[i] = AddBelt(grid, transport, new GridCoord(i, 0), Direction.East);
+            }
 
-            Assert.AreEqual(TransportSystem.ConveyorItemsPerMinute, measured, 1f,
-                "A belt takes one item per intake interval, whatever is trying to feed it.");
-        }
-
-        /// <summary>
-        /// Straight and corner are the same belt - one cell at one speed - and that turning a line
-        /// costs nothing in throughput is itself the useful answer. The day a corner is given a speed
-        /// of its own, this is what says the menu needs two figures rather than one.
-        /// </summary>
-        [Test]
-        public void ACorner_CarriesAsMuchAsAStraight()
-        {
-            var grid = new GridRuntime(1f);
-            var transport = new TransportSystem(grid);
-
-            int measured = SteadyStateItemsPerMinute(NewCorner(grid, transport), transport);
-
-            Assert.AreEqual(TransportSystem.ConveyorItemsPerMinute, measured, 1f);
-        }
-
-        /// <summary>
-        /// The quoted figure is the belt's intake rate, not a value of its own, and it matches the
-        /// cap on a raw production output - the two are balanced against each other, so one source
-        /// fills exactly one belt.
-        /// </summary>
-        [Test]
-        public void TheQuotedFigure_IsTheIntakeRate_AndMatchesARawOutput()
-        {
-            Assert.AreEqual(60f / ConveyorRuntime.IntakeIntervalSeconds, TransportSystem.ConveyorItemsPerMinute, 0.0001f);
-            Assert.AreEqual(TransportSystem.RawOutputPullIntervalSeconds, ConveyorRuntime.IntakeIntervalSeconds, 0.0001f,
-                "A production building's output and the belt carrying it away are rated the same.");
-        }
-
-        /// <summary>
-        /// Metering the intake must not have slowed anything down: an item still crosses its cell at
-        /// the full belt speed. A belt that took one item per second by moving at a third of its
-        /// speed would be a different, much worse change with the same throughput.
-        /// </summary>
-        [Test]
-        public void MeteringTheIntake_DoesNotSlowWhatIsAlreadyOnTheBelt()
-        {
-            var grid = new GridRuntime(1f);
-            var transport = new TransportSystem(grid);
-            ConveyorRuntime belt = NewStraight(grid, transport);
-
-            belt.ReceiveItem(new object());
+            belts[0].ReceiveItem(new object());
 
             int ticks = 0;
-            while (belt.PeekPullableItem() == null && ticks < 600)
+            while (belts[beltCount - 1].PeekPullableItem() == null && ticks < 60 * 60)
             {
                 transport.Tick(TickSeconds);
                 ticks++;
             }
 
-            float crossingSeconds = ticks * TickSeconds;
-            Assert.AreEqual(1f / TransportSystem.ConveyorSpeedCellsPerSecond, crossingSeconds, 0.02f,
-                "One cell at 1.5 cells/s is still two thirds of a second.");
+            return ticks * TickSeconds;
+        }
+
+        [Test]
+        public void TransitIsContinuous_AnItemNeverWaitsAtACellBoundary()
+        {
+            float oneCell = 1f / TransportSystem.ConveyorSpeedCellsPerSecond;
+
+            // One tick of slack per seam: an item becomes handoverable when it reaches the end of a
+            // cell, and the pass that moves it on runs on the next tick. That is granularity, not
+            // waiting - the per-belt meter this replaced cost a third of a second at every seam,
+            // which is twenty times larger and is what the tolerances below would catch.
+            float tick = TickSeconds;
+
+            Assert.AreEqual(oneCell, TransitSecondsAcross(1), 2f * tick);
+            Assert.AreEqual(3f * oneCell, TransitSecondsAcross(3), 4f * tick,
+                "Three cells cost three crossings and nothing else - no pause at either seam.");
+            Assert.AreEqual(6f * oneCell, TransitSecondsAcross(6), 7f * tick,
+                "And the cost stays linear however long the line is.");
         }
 
         /// <summary>
-        /// The jam buffer survives the metering: a blocked belt still packs items up against each
-        /// other instead of holding one at a time. That is what MaxItemsPerCell is for, and it is a
-        /// buffer rather than a rate.
+        /// The rate a real line runs at, measured through the path a real line uses: a source that is
+        /// not itself a belt, handing over at RawOutputPullIntervalSeconds. Nothing on the belt meters
+        /// anything - what sets the cadence is upstream, which is the whole design.
         /// </summary>
         [Test]
-        public void ABlockedBelt_StillPacksItemsUpBehindTheBlockage()
+        public void ALineFedByASource_CarriesWhatTheMenuQuotes()
         {
             var grid = new GridRuntime(1f);
             var transport = new TransportSystem(grid);
-            ConveyorRuntime belt = NewStraight(grid, transport);
 
-            // Nothing consumes the front, so the line ahead is blocked.
-            for (int tick = 0; tick < 60 * 10; tick++)
+            ItemDefinition ore = Game.Tests.EditMode.TestSupport.TestDataFactory.NewItem("iron_ore");
+            FoundryDefinition sourceDefinition = Game.Tests.EditMode.TestSupport.TestDataFactory.NewFoundry(
+                maxStackPerItem: 100000, powerDemandKw: 0f, intakeIntervalSeconds: 0f);
+
+            var source = new FoundryRuntime(sourceDefinition, new GridCoord(0, 0), Direction.East,
+                null, null, new Game.Gameplay.Compute.ComputeSystem(), new Game.Gameplay.Power.PowerSystem(), null);
+            grid.SetOccupantFootprint(source.Cell, sourceDefinition.FootprintSize, source);
+            transport.Register(source);
+            source.AddOutput(ore.Id, 10000);
+
+            ConveyorRuntime last = null;
+            for (int i = 1; i <= 3; i++) last = AddBelt(grid, transport, new GridCoord(i, 0), Direction.East);
+
+            int delivered = 0;
+            int ticks = Mathf.RoundToInt(60f / TickSeconds);
+            for (int tick = 0; tick < ticks * 2; tick++)
+            {
+                transport.Tick(TickSeconds);
+
+                object atEnd = last.PeekPullableItem();
+                if (atEnd != null)
+                {
+                    last.ConsumePulledItem(atEnd);
+                    if (tick >= ticks) delivered++;
+                }
+            }
+
+            Assert.AreEqual(TransportSystem.ConveyorItemsPerMinute, delivered, 1f,
+                $"A real line carries {delivered}/min and the Building menu says {TransportSystem.ConveyorItemsPerMinute:0}/min.");
+        }
+
+        [Test]
+        public void TheQuotedFigure_IsTheRateOfWhateverFeedsTheLine()
+        {
+            Assert.AreEqual(60f / TransportSystem.RawOutputPullIntervalSeconds,
+                TransportSystem.ConveyorItemsPerMinute, 0.0001f);
+        }
+
+        /// <summary>
+        /// The jam buffer: with the line ahead blocked, items pack up against each other instead of
+        /// the belt holding one at a time. That is what MaxItemsPerCell is for - a buffer, never a
+        /// rate - and it is also what lets a line clear a bottleneck at full speed rather than
+        /// trickling out of it.
+        /// </summary>
+        [Test]
+        public void ABlockedBelt_PacksItemsUpBehindTheBlockage()
+        {
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+            ConveyorRuntime belt = AddBelt(grid, transport, new GridCoord(0, 0), Direction.East);
+
+            for (int tick = 0; tick < 60 * 5; tick++)
             {
                 transport.Tick(TickSeconds);
                 if (belt.HasRoomForNewItem) belt.ReceiveItem(new object());
             }
 
-            Assert.AreEqual(ConveyorRuntime.MaxItemsPerCell, belt.Items.Count,
-                "A jam fills the belt to its buffer, which metering the intake must not have taken away.");
+            Assert.AreEqual(ConveyorRuntime.MaxItemsPerCell, belt.Items.Count);
         }
 
+        /// <summary>
+        /// Coming out of a bottleneck, the packed items must leave at the belt's own speed rather
+        /// than being metered back down to the line's rate - "60/min même en cas de goulot" means the
+        /// line recovers, not that it trickles.
+        /// </summary>
+        [Test]
+        public void ClearingAJam_LetsThePackedItemsLeaveAtBeltSpeed()
+        {
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+            ConveyorRuntime belt = AddBelt(grid, transport, new GridCoord(0, 0), Direction.East);
+
+            for (int tick = 0; tick < 60 * 5; tick++)
+            {
+                transport.Tick(TickSeconds);
+                if (belt.HasRoomForNewItem) belt.ReceiveItem(new object());
+            }
+
+            // The blockage clears: drain the belt and time how fast the queue comes off it.
+            int drained = 0;
+            int ticks = 0;
+            while (belt.Items.Count > 0 && ticks < 60 * 10)
+            {
+                transport.Tick(TickSeconds);
+                ticks++;
+
+                object atFront = belt.PeekPullableItem();
+                if (atFront != null)
+                {
+                    belt.ConsumePulledItem(atFront);
+                    drained++;
+                }
+            }
+
+            Assert.AreEqual(ConveyorRuntime.MaxItemsPerCell, drained, "The whole queue comes off.");
+
+            float perItem = ticks * TickSeconds / drained;
+            float spacingTravelTime = 1f / ConveyorRuntime.MaxItemsPerCell / TransportSystem.ConveyorSpeedCellsPerSecond;
+            Assert.LessOrEqual(perItem, spacingTravelTime * 1.5f,
+                "A queue must drain at the speed the belt runs, not at the rate a source feeds it.");
+        }
     }
 }

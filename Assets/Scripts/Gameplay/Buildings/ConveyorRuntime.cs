@@ -34,39 +34,23 @@ namespace Game.Gameplay.Buildings
         public bool HasItem => _slots.Count > 0;
 
         /// <summary>
-        /// Seconds between two items entering the same belt - the belt's rated throughput, one per
-        /// second, 60 a minute.
+        /// True while another item can be accepted at the back edge - either the queue isn't full,
+        /// or the back-most item has already moved far enough ahead to leave room.
         ///
-        /// Three different things are deliberately kept apart here, and confusing them is what made
-        /// a belt carry four times its rating. <b>This</b> is how often a belt takes something in.
-        /// <b>TransportSystem.ConveyorSpeedCellsPerSecond</b> is how fast what is already on it
-        /// travels, and does not change: a metered belt is not a slow belt. <b>MinItemSpacing</b> is
-        /// how tightly items may pack once the line ahead is blocked, which is a buffer, not a rate.
-        /// In free flow the intake spaces items 1.5 cells apart on its own; only a jam brings them
-        /// up against each other.
-        /// </summary>
-        public const float IntakeIntervalSeconds = 1f;
-
-        /// <summary>
-        /// True while another item can be accepted at the back edge: the intake interval has
-        /// elapsed, the queue isn't full, and the back-most item has moved far enough ahead to
-        /// leave room.
-        ///
-        /// The rate lives here rather than in the callers on purpose - three separate paths inject
-        /// onto a belt (the straight-through pull, a side merge, a Splitter/Crossroad's output), and
-        /// a cadence each of them had to remember to apply is a cadence one of them would forget.
-        /// Same reasoning as TransportSystem.RawOutputPullIntervalSeconds being immutable there
-        /// rather than a per-building opt-in.
+        /// <b>Purely a spacing question, never a timed one.</b> A belt hands over the moment the
+        /// next one physically has room, so an item crosses a whole line at a constant speed instead
+        /// of stopping at every cell boundary. Metering each belt at the line's own rate looks
+        /// equivalent on a throughput graph and is not: an item reaches the boundary two thirds of a
+        /// second after entering, a meter set to one second makes it wait the remaining third, and a
+        /// player watching a line sees every item stutter at every seam. What a line carries per
+        /// minute is set once, upstream, by whatever is feeding it - see
+        /// TransportSystem.RawOutputPullIntervalSeconds.
         /// </summary>
         public bool HasRoomForNewItem =>
-            _sinceLastIntake >= IntakeIntervalSeconds
-            && _slots.Count < MaxItemsPerCell
+            _slots.Count < MaxItemsPerCell
             && (_slots.Count == 0 || _slots[_slots.Count - 1].Progress >= MinItemSpacing);
 
         readonly List<ConveyorItemSlot> _slots = new List<ConveyorItemSlot>();
-
-        /// <summary>Starts ready, so a belt that has just been built accepts its first item at once rather than idling for a second nobody asked it to wait.</summary>
-        float _sinceLastIntake = IntakeIntervalSeconds;
 
         public ConveyorRuntime(ConveyorDefinition definition, GridCoord cell, Direction facingRotation)
             : base(definition, cell, facingRotation)
@@ -78,7 +62,6 @@ namespace Game.Gameplay.Buildings
         public void ReceiveItem(object item)
         {
             _slots.Add(new ConveyorItemSlot(item));
-            _sinceLastIntake = 0f;
         }
 
         /// <summary>
@@ -88,10 +71,6 @@ namespace Game.Gameplay.Buildings
         /// </summary>
         public void AdvanceItem(float deltaTime, float speedCellsPerSecond)
         {
-            // The intake meter runs on the same tick as the belt itself, so a belt that is not being
-            // advanced is not quietly becoming ready to accept either.
-            _sinceLastIntake += deltaTime;
-
             float delta = deltaTime * speedCellsPerSecond;
             for (int i = 0; i < _slots.Count; i++)
             {
