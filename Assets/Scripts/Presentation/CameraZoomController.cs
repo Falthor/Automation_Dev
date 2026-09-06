@@ -46,7 +46,11 @@ namespace Game.Presentation
                 _targetSize = Mathf.Clamp(_targetSize - scroll * zoomSpeed * 0.01f * _targetSize, minOrthographicSize, maxOrthographicSize);
             }
 
-            _camera.orthographicSize = Mathf.Lerp(_camera.orthographicSize, _targetSize, Time.deltaTime * smoothing);
+            // Unscaled on purpose. Pause sets Time.timeScale to 0, which makes Time.deltaTime 0 and
+            // this Lerp a no-op: the wheel moved _targetSize and the camera never travelled to it,
+            // so zooming looked broken while paused. Where the player is LOOKING is not part of the
+            // simulation the pause freezes - reading a frozen board is precisely what pause is for.
+            _camera.orthographicSize = Mathf.Lerp(_camera.orthographicSize, _targetSize, Time.unscaledDeltaTime * smoothing);
         }
     }
 }

@@ -9,7 +9,7 @@
             <ui:Button name="TopBarMenuButton" text="&#9776;" class="top-bar-icon-button top-bar-menu-button" />
             <ui:Button name="TopBarPauseButton" text="II" class="top-bar-icon-button top-bar-pause-button" />
         </ui:VisualElement>
-        <ui:Label name="TopBarPauseOverlay" text="PAUSE" class="top-bar-pause-overlay hidden" />
+        <ui:Label name="TopBarPauseOverlay" text="PAUSE" picking-mode="Ignore" class="top-bar-pause-overlay hidden" />
         <ui:Label name="TopBarRefusalMessage" text="" picking-mode="Ignore" class="top-bar-refusal-message hidden" />
     </ui:VisualElement>
 </ui:UXML>
