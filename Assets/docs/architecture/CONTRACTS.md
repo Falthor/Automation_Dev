@@ -259,7 +259,7 @@ public PlacementRefusalReason GetPlacementRefusalReason(GridCoord cell)
 public bool TryPlace(GridCoord cell, Direction rotation, out ConstructionSiteRuntime site,
     ConstructionSiteRuntime conveyorRunSite = null)
 public bool TryCancelSiteAt(GridCoord cell)
-public bool TryDetachPendingSegment(BuildingRuntime segment)
+public bool TryRedirectExistingConveyor(GridCoord cell, Direction rotation, out ConveyorRuntime redirected)
 public bool TryDemolish(GridCoord cell, out BuildingRuntime removed)
 
 public bool CanAfford(BuildingDefinition definition)   // the placement gate, and the menu's styling
@@ -274,7 +274,12 @@ public void RestoreBuildingCap(int? cap)
 
 `TryDemolish` removes the building immediately (the player wants the space back) but refunds nothing anywhere: the cost becomes a repatriation job a robot must physically haul back (§15). `TryCancelSiteAt` is the counterpart for a still-pending site - it releases the site's reservations and frees the cells its unbuilt segments held, and is what the demolition input routes to when the clicked cell belongs to a chantier rather than a finished building.
 
-`TryDetachPendingSegment` is the narrow counterpart of the same idea, for **placement** rather than demolition: overtaking a cell that a pending site holds takes that one segment out of its site (its cost comes off the bill, the earmarks it alone justified are released) and leaves the rest standing. The cell's ground is deliberately not freed - the placement that took it owns it now. The two must not be confused: overtaking is a statement about one cell, and cancelling a whole chantier there deletes a run the player is still laying, which is what a second conveyor drag started on the end of the first used to do. A site left with no segment at all is closed exactly like a cancelled one.
+**Overtaking.** The occupancy check lets a Conveyor/Splitter/Crossroad be placed onto belts already laid instead of forcing a demolition first, and `TryPlace` settles what each overtaken cell owes - after the placement is known valid, never before, so a refused placement costs the player nothing:
+
+- a belt **still pending** was paid for by nobody, so it simply leaves its chantier - *only it*, its cost off the bill and the earmarks it alone justified released. The rest of a dragged run keeps its own ground; cancelling the whole chantier there deleted a run the player was still laying, which is what a second conveyor drag started on the end of the first used to do. A site left with no segment at all is closed exactly like a cancelled one.
+- a belt **already built** is being demolished, so its cost becomes a repatriation job like any other demolition. Dropping it where it stood destroyed the material silently, which is the one thing demolition is careful never to do.
+
+`TryRedirectExistingConveyor` is what the input layer reaches for first, and it is not a placement at all: dragging a belt across a belt already built re-points that belt in place. Nothing is spent, no site is opened, nothing is demolished, and the items riding it keep riding it. Every gate still applies except affordability - a redirect spends nothing, so an empty chest is no reason to refuse turning a belt the player already owns. A pending belt is never redirected: it is somebody's chantier, and turning it would build something nobody asked for.
 
 `CanAfford`/`GetAvailableAmount` both read the §15 aggregate, unreserved stock only. `CanAfford` is read twice over: by the Building menu for its "you can/cannot pay for this yet" styling, and by the placement gate itself (`PlacementRefusalReason.CannotAfford`), so the greyed-out card and the refused click can never disagree about what is affordable.
 

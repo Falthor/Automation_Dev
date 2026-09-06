@@ -87,6 +87,30 @@ namespace Game.Tests.EditMode.TestSupport
             return definition;
         }
 
+        /// <summary>
+        /// Splitter definition with a real cost. Its footprint is the "+" shape, whose 3x3 bounding
+        /// box leaves all four corners free - the placement origin among them - so this is the
+        /// fixture for anything that asks the grid whether a building still owns its ground.
+        /// </summary>
+        public static SplitterDefinition NewSplitter(string id = "splitter", params (ItemDefinition item, int amount)[] cost)
+        {
+            var definition = ScriptableObject.CreateInstance<SplitterDefinition>();
+            var so = new SerializedObject(definition);
+            so.FindProperty("id").stringValue = id;
+            so.FindProperty("footprintSize").vector2IntValue = new Vector2Int(3, 3);
+
+            SerializedProperty array = so.FindProperty("cost");
+            array.arraySize = cost.Length;
+            for (int i = 0; i < cost.Length; i++)
+            {
+                SerializedProperty element = array.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("item").objectReferenceValue = cost[i].item;
+                element.FindPropertyRelative("amount").intValue = cost[i].amount;
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return definition;
+        }
+
         public static RecipeDefinition NewRecipe(string id, float timeSeconds, float computeCost, int outputAmount, ResearchDefinition unlockResearch, params (ItemDefinition item, int amount)[] ingredients)
         {
             var recipe = ScriptableObject.CreateInstance<RecipeDefinition>();

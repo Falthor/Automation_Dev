@@ -243,6 +243,38 @@ namespace Game.Tests.EditMode.Presentation
         }
 
         /// <summary>
+        /// A Splitter/Crossroad's "+" occupies five cells of a 3x3 box and deliberately leaves the
+        /// four corners free - its placement origin among them. A detached segment's liveness was
+        /// read off that origin cell, so the grid answered "nothing there" for a building that was
+        /// perfectly alive: every splitter was discarded the frame it materialised, its dissolve cut
+        /// on the spot and no real view ever spawned behind it. It simply vanished once built.
+        /// </summary>
+        [Test]
+        public void AMaterializedSplitter_IsNotDiscarded_ThoughItsOriginCellIsFreeByDesign()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 4);
+            SplitterDefinition splitter = TestDataFactory.NewSplitter("splitter", (fixture.Plate, 4));
+            ConstructionSiteRuntime site = PlaceSite(fixture, splitter, new GridCoord(5, 5));
+            BuildingRuntime segment = site.Segments[0];
+
+            Assert.IsNull(fixture.Grid.GetOccupant(segment.Cell), "The premise: a '+' does not stand on its own origin.");
+
+            fixture.Views.Tick();
+            fixture.Simulate(12f);
+
+            Assert.IsTrue(site.IsComplete);
+
+            fixture.Views.Tick();
+            Assert.IsTrue(fixture.Views.Draws(segment), "It keeps assembling like any other segment.");
+
+            fixture.Assemble(segment, 1f);
+            fixture.Views.Tick();
+
+            Assert.AreEqual(1, fixture.SpawnedRealViews.Count, "And hands over to a real view instead of disappearing.");
+            Assert.AreSame(segment, fixture.SpawnedRealViews[0]);
+        }
+
+        /// <summary>
         /// The silhouette, the assembling sprite and the real view must all be the size the
         /// building is actually drawn at - BuildingSpawner.ArtWorldSize, RenderOverscan included.
         /// Overscan used to be applied only inside BuildingSpawner, so everything previewing a

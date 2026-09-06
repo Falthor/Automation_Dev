@@ -563,11 +563,9 @@ namespace Game.Tests.EditMode.Gameplay.Sites
 
             ConstructionSiteRuntime first = PlaceRun(fixture, conveyor, new GridCoord(5, 5), 4);
             var reused = new GridCoord(8, 5);
-            var overtaken = (BuildingRuntime)fixture.Grid.GetOccupant(reused);
 
-            // The pair of calls the placement input makes when a drag lands on a pending cell.
+            // A fresh drag anchored on the last belt of the previous one, turning north.
             fixture.Construction.SelectBuilding(conveyor);
-            Assert.IsTrue(fixture.Construction.TryDetachPendingSegment(overtaken));
             Assert.IsTrue(fixture.Construction.TryPlace(reused, Direction.North, out ConstructionSiteRuntime second));
 
             Assert.IsTrue(IsQueued(fixture, first), "The first run is still being built.");
@@ -578,7 +576,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         }
 
         [Test]
-        public void OvertakingTheOnlySegmentOfASite_ClosesIt_AndGivesItsEarmarkBack()
+        public void OvertakingTheOnlySegmentOfASite_ClosesIt_AndDoesNotClaimItsPlateTwice()
         {
             Fixture fixture = NewFixture(coreChestContents: 4);
             ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 1));
@@ -588,10 +586,84 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Assert.IsTrue(fixture.Construction.TryPlace(cell, Direction.East, out ConstructionSiteRuntime lone));
             Assert.AreEqual(3, fixture.Construction.GetAvailableAmount(PlateId), "One plate is spoken for.");
 
-            Assert.IsTrue(fixture.Construction.TryDetachPendingSegment((BuildingRuntime)fixture.Grid.GetOccupant(cell)));
+            Assert.IsTrue(fixture.Construction.TryPlace(cell, Direction.North, out ConstructionSiteRuntime replacement));
 
             Assert.IsFalse(IsQueued(fixture, lone), "A site with nothing left to build is over.");
-            Assert.AreEqual(4, fixture.Construction.GetAvailableAmount(PlateId), "Its earmark went back to the chest.");
+            Assert.IsTrue(IsQueued(fixture, replacement));
+            Assert.AreEqual(1, fixture.Sites.Sites.Count, "Exactly one chantier holds that cell.");
+            Assert.AreEqual(3, fixture.Construction.GetAvailableAmount(PlateId),
+                "The old earmark went back before the new one was taken - one plate is claimed, not two.");
+        }
+
+        /// <summary>
+        /// Overtaking a belt that is already built demolishes it, and a demolition never destroys
+        /// material: the plate comes back the only way anything comes back here, carried by a robot.
+        /// It used to be dropped where it stood - view removed, unregistered, cost gone silently.
+        /// </summary>
+        [Test]
+        public void OvertakingABuiltBelt_HaulsItsPlateBack_InsteadOfDestroyingIt()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 4);
+            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 4));
+
+            fixture.Construction.SelectBuilding(conveyor);
+            Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(6, 5), Direction.East, out ConstructionSiteRuntime belt));
+            fixture.Simulate(20f);
+
+            Assert.IsTrue(belt.IsComplete, "The belt has to be really built for this to be a demolition at all.");
+            Assert.AreEqual(0, fixture.CoreChest.GetInputAmount(PlateId), "Its plates left the chest.");
+
+            // A Splitter's "+" covers (6,5) among its five cells, so the belt loses its ground.
+            SplitterDefinition splitter = TestDataFactory.NewSplitter("splitter");
+            fixture.Construction.SelectBuilding(splitter);
+            Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5, 5), Direction.North, out _));
+
+            fixture.Simulate(30f);
+
+            Assert.AreEqual(4, fixture.CoreChest.GetInputAmount(PlateId),
+                "The overtaken belt's cost is repatriated, exactly like any other demolition.");
+        }
+
+        /// <summary>
+        /// Dragging across a belt that already exists is a change of direction, not a demolition
+        /// followed by a new chantier. Rebuilding it charged a second plate, destroyed the first
+        /// silently, and dropped a working belt back to a blue silhouette until a robot came round -
+        /// for a gesture whose whole intent was "this one goes that way now".
+        /// </summary>
+        [Test]
+        public void DraggingOverABuiltBelt_TurnsItInPlace_WithoutSpendingOrRebuilding()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 4);
+            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 4));
+            var cell = new GridCoord(6, 5);
+
+            fixture.Construction.SelectBuilding(conveyor);
+            Assert.IsTrue(fixture.Construction.TryPlace(cell, Direction.East, out ConstructionSiteRuntime belt));
+            fixture.Simulate(20f);
+            Assert.IsTrue(belt.IsComplete);
+
+            var built = (ConveyorRuntime)fixture.Grid.GetOccupant(cell);
+            Assert.IsTrue(fixture.Construction.TryRedirectExistingConveyor(cell, Direction.North, out ConveyorRuntime redirected));
+
+            Assert.AreSame(built, redirected, "The very same belt, re-pointed - never a replacement.");
+            Assert.AreSame(built, fixture.Grid.GetOccupant(cell));
+            Assert.AreEqual(Direction.North, built.Orientation.Rotation, "It runs north now.");
+            Assert.AreEqual(0, fixture.Sites.Sites.Count, "No chantier is opened for a belt that already exists.");
+            Assert.AreEqual(0, fixture.Construction.GetAvailableAmount(PlateId), "And the empty chest is no obstacle - nothing is spent.");
+        }
+
+        [Test]
+        public void APendingBelt_IsNeverRedirected_ItIsStillSomebodysChantier()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 4);
+            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 4));
+            var cell = new GridCoord(6, 5);
+
+            fixture.Construction.SelectBuilding(conveyor);
+            Assert.IsTrue(fixture.Construction.TryPlace(cell, Direction.East, out _));
+
+            Assert.IsFalse(fixture.Construction.TryRedirectExistingConveyor(cell, Direction.North, out _),
+                "Turning it would leave its chantier building something nobody asked for.");
         }
 
         /// <summary>
