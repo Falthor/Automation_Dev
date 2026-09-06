@@ -23,8 +23,8 @@ Authoritative subsystem document for terrain: the gameplay-side terrain data own
 
 `TerrainView` (`Assets/Scripts/Presentation/TerrainView.cs`) renders the map as flat sprite layers driven entirely by shader parameters — there is no per-cell mesh or tile grid on the presentation side. `Initialize(TerrainRuntime, GridRuntime)` creates:
 
-- **Ground** (sorting order 0): a single sprite scaled to the full map, material `Custom/ShadedGroundTiled`. All texture/biome/relief parameters below are pushed to this material once, at initialization.
-- **Clouds** (sorting order 1, optional): an animated shadow overlay, material `Custom/CloudShadowOverlay`. Unrelated to the biome system; purely a moving tint on top.
+- **Ground** (`SortingBands.TerrainBase`): a single sprite scaled to the full map, material `Custom/ShadedGroundTiled`. All texture/biome/relief parameters below are pushed to this material once, at initialization.
+- **Clouds** (`SortingBands.TerrainTop`, optional): an animated shadow overlay, material `Custom/CloudShadowOverlay`. Unrelated to the biome system; purely a moving tint on top.
 
 Ground rendering reads no gameplay state beyond `TerrainRuntime.Size` and `GridRuntime.CellSize/CellToWorld` (for scale/origin) — **it does not read `TerrainType` at all**. There is no per-cell brightness/type modulation; all visual variety described below is independent, presentation-only noise.
 

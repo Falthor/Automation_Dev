@@ -37,14 +37,14 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             return definition;
         }
 
-        /// <summary>A deposit far deeper than a minute of extraction can exhaust, so what is measured is the extractor's rate and never the ore running out.</summary>
+        /// <summary>
+        /// A plain deposit. Nothing is done to top it up: a deposit is meant never to run out
+        /// (ALIGNEMENT_PROJET.md §8 - the depletion still in the code is a tracked removal, not a
+        /// rule), and even the stock it currently carries outlasts the measured minute many times
+        /// over. What is measured here is the extractor's rate, never the ore.
+        /// </summary>
         static DepositRuntime NewDeposit(ItemDefinition item)
-        {
-            OreDepositDefinition definition = TestDataFactory.NewOreDeposit(item, Vector2Int.one);
-            var deposit = new DepositRuntime(definition, new GridCoord(0, 0));
-            deposit.RestoreState(100000);
-            return deposit;
-        }
+            => new DepositRuntime(TestDataFactory.NewOreDeposit(item, Vector2Int.one), new GridCoord(0, 0));
 
         /// <summary>
         /// Runs an extractor for a minute with its output emptied every tick, so the buffer never
