@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Data;
+using Game.Gameplay.Transport;
 using Game.Presentation;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -319,6 +320,21 @@ namespace Game.UI
                     if (ingredient.Item == null) continue;
                     info.Add(BuildCostRow(ingredient));
                 }
+            }
+
+            // A belt's one interesting number, and the one thing a player sizing a line needs before
+            // placing it. Read from TransportSystem, which owns the speed and the spacing it comes
+            // from - the menu never restates a rate of its own. Straight and corner quote the same
+            // figure because they are the same belt: that a turn costs nothing is the answer.
+            if (definition is ConveyorDefinition)
+            {
+                var throughputTitle = new Label("DEBIT");
+                throughputTitle.AddToClassList("building-details-section-title");
+                info.Add(throughputTitle);
+
+                var throughput = new Label($"{TransportSystem.ConveyorItemsPerMinute:0} objets / min");
+                throughput.AddToClassList("building-details-throughput");
+                info.Add(throughput);
             }
 
             if (definition.PowerDemandKw > 0f || definition.CuCostPerCycle > 0f)

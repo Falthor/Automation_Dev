@@ -30,7 +30,27 @@ namespace Game.Gameplay.Transport
     {
         static readonly Direction[] AllDirections = { Direction.North, Direction.East, Direction.South, Direction.West };
 
-        const float ConveyorSpeedCellsPerSecond = 1.5f;
+        public const float ConveyorSpeedCellsPerSecond = 1.5f;
+
+        /// <summary>
+        /// What a belt carries past a point, in items per minute - the figure the Building menu
+        /// quotes on hover, and the rating the whole transport chain is balanced on.
+        ///
+        /// Derived from the belt's own intake interval rather than restated, so the menu cannot
+        /// drift from the simulation. It is deliberately equal to RawOutputPullIntervalSeconds'
+        /// rate below: a production building's raw output and the belt carrying it away are matched,
+        /// so one source saturates exactly one belt and neither is silently the bottleneck.
+        ///
+        /// Not the same thing as the belt's <b>capacity</b>. Speed times MaxItemsPerCell is 270/min,
+        /// which is what a belt could carry if items were poured onto it as fast as they fit - that
+        /// figure is a jam buffer, not a rate, and quoting it told the player a belt does four times
+        /// what it does. ConveyorThroughputTests measures a saturated belt against this constant
+        /// rather than against the arithmetic that produces it.
+        ///
+        /// The same for a corner as for a straight: both meter the same way at the same speed, which
+        /// is itself worth knowing - turning a line costs nothing in throughput.
+        /// </summary>
+        public const float ConveyorItemsPerMinute = 60f / ConveyorRuntime.IntakeIntervalSeconds;
 
         /// <summary>
         /// Immutable rule, enforced here rather than by each building type: a source that isn't

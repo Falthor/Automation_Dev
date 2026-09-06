@@ -1251,6 +1251,15 @@
     font-size: 10px;
 }
 
+/* Belt throughput on hover - the accent colour the consumption pills use, since it answers the
+   same kind of question (what this building does per unit of time), with no pill around it: there
+   is one figure, not a row of them. */
+.building-details-throughput {
+    color: rgb(85, 221, 245);
+    font-size: 10px;
+    margin-bottom: 4px;
+}
+
 .building-details-status {
     font-size: 9px;
     -unity-font-style: bold;
