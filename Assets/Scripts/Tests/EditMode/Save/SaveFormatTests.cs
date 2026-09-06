@@ -38,6 +38,7 @@ namespace Game.Tests.EditMode.Save
             ResearchQueue = new List<string> { "a", "b" },
             ResearchUnlocked = new List<string> { "c" },
             ConstructionSites = new JObject { ["nextId"] = 7 },
+            CoreDirectives = new JObject { ["index"] = 1 },
             CoreDefinitionId = "core",
             CoreCellX = 3,
             CoreCellY = -4,
@@ -67,7 +68,7 @@ namespace Game.Tests.EditMode.Save
             "TerrainSeed", "TerrainSize", "TerrainScale", "TerrainProportion",
             "ComputeReserve",
             "ResearchActiveId", "ResearchProgress", "ResearchQueue", "ResearchUnlocked",
-            "ConstructionSites",
+            "ConstructionSites", "CoreDirectives",
             "CoreDefinitionId", "CoreCellX", "CoreCellY", "CoreState",
             "BuildingCap", "PlayTimeSeconds",
             "Deposits", "Buildings"

@@ -76,6 +76,9 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             return fixture;
         }
 
+        /// <summary>A costless 1x1 building that does take a cap slot, now that Storage is exempt from the cap like the transport pieces.</summary>
+        static FactoryDefinition NewCountingDefinition() => ScriptableObject.CreateInstance<FactoryDefinition>();
+
         static StorageRuntime AddStorage(Fixture fixture, GridCoord cell, int contents = 0, int slotCount = 0, int capacityPerSlot = 0)
         {
             StorageDefinition definition = TestDataFactory.NewStorage("storage", slotCount, capacityPerSlot);
@@ -181,8 +184,9 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         [Test]
         public void ARobotTheOldestSiteDoesNotNeed_IsSentToTheNextOne()
         {
-            Fixture fixture = NewFixture(coreChestContents: 8);
-            // Exactly one robot-load each, so the very first dispatch empties the older site's earmarks.
+            // Exactly one robot-load each, so the very first dispatch empties the older site's
+            // earmarks - and the chest holds both loads, whatever the robot's capacity happens to be.
+            Fixture fixture = NewFixture(coreChestContents: 2 * BuilderRobotRuntime.Capacity);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, BuilderRobotRuntime.Capacity));
 
             ConstructionSiteRuntime first = PlaceSite(fixture, costly, new GridCoord(5, 5));
@@ -486,16 +490,19 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Assert.AreEqual(0, fixture.Construction.OccupiedBuildingSlots, "The Core chest is a world fixture, not a player decision.");
 
             AddStorage(fixture, new GridCoord(20, 20));
-            Assert.AreEqual(1, fixture.Construction.OccupiedBuildingSlots, "A player-built Storage Box still counts.");
+            Assert.AreEqual(0, fixture.Construction.OccupiedBuildingSlots,
+                "Nor does a player-built box: a box is somewhere to put things, not a machine.");
+
+            PlaceSite(fixture, NewCountingDefinition(), new GridCoord(24, 24));
+            Assert.AreEqual(1, fixture.Construction.OccupiedBuildingSlots, "A machine does.");
         }
 
         [Test]
         public void APendingSite_CountsAgainstTheBuildingCapImmediately()
         {
             Fixture fixture = NewFixture(coreChestContents: 4);
-            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
 
-            PlaceSite(fixture, costly, new GridCoord(5, 5));
+            PlaceSite(fixture, NewCountingDefinition(), new GridCoord(5, 5));
 
             Assert.AreEqual(1, fixture.Construction.OccupiedBuildingSlots);
         }
@@ -646,8 +653,8 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             // One robot, so the sampling point is a fact rather than a race: with two, the second
             // lands its own load while the first segment is still assembling, and which of them the
             // sample catches depends on travel times.
-            Fixture fixture = NewFixture(coreChestContents: 12, robotCount: 1);
-            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 4));
+            Fixture fixture = NewFixture(coreChestContents: 3 * BuilderRobotRuntime.Capacity, robotCount: 1);
+            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, BuilderRobotRuntime.Capacity));
 
             fixture.Construction.SelectBuilding(conveyor);
             Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5, 5), Direction.East, out ConstructionSiteRuntime site));
@@ -678,8 +685,10 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             // One robot, so "the front has consumed everything delivered so far" is exact: a second
             // robot delivers the next belt's load while the first is still assembling, and the
             // segment behind the front would legitimately read 1 rather than 0.
-            Fixture fixture = NewFixture(coreChestContents: 12, robotCount: 1);
-            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 4));
+            // One robot-load per segment: with a smaller cost a single trip spills onto the next
+            // segment, and the one behind the front legitimately reads a fraction rather than 0.
+            Fixture fixture = NewFixture(coreChestContents: 3 * BuilderRobotRuntime.Capacity, robotCount: 1);
+            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, BuilderRobotRuntime.Capacity));
 
             fixture.Construction.SelectBuilding(conveyor);
             Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5, 5), Direction.East, out ConstructionSiteRuntime site));
@@ -1045,17 +1054,25 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Assert.IsFalse(site.Segments[0].IsUnderConstruction, "And they work, rather than sitting there materialized but inert.");
         }
 
-        /// <summary>The other half of the same rule: free means free, not "unpaid buildings now build themselves too".</summary>
+        /// <summary>
+        /// The other half of the same rule: free means free, not "everything builds itself now".
+        ///
+        /// A costed segment is affordable here - the chest holds its bill - and still is not built on
+        /// placement: it waits for a robot to actually carry the material over, which is the whole
+        /// difference the free belt above does not have to make.
+        /// </summary>
         [Test]
-        public void ACostedSegment_StillWaits_WhenNothingCanPayForIt()
+        public void ACostedSegment_IsNotBuiltOnPlacement_EvenWhenItIsAffordable()
         {
-            Fixture fixture = NewFixture(coreChestContents: 0);
+            Fixture fixture = NewFixture(coreChestContents: 2);
             StorageDefinition costed = TestDataFactory.NewStorage("paid_box", 4, 100, false, 0f, (TestDataFactory.NewItem(PlateId), 2));
 
             ConstructionSiteRuntime site = PlaceSite(fixture, costed, new GridCoord(6, 6));
+            Assert.AreEqual(0, site.MaterializedCount, "Placed, not built.");
+
             fixture.Simulate(20f);
 
-            Assert.AreEqual(0, site.MaterializedCount);
+            Assert.AreEqual(1, site.MaterializedCount, "And once a robot has carried it, built.");
         }
 
         [Test]

@@ -15,9 +15,9 @@ namespace Game.Tests.EditMode.Gameplay.Compute
 
         /// <summary>Pins the actual target value (TASK_01_REBALANCE_DATA.md), not just internal self-consistency with Reserve_StartsAtCap above.</summary>
         [Test]
-        public void ReserveCap_Is60000()
+        public void ReserveCap_Is70000()
         {
-            Assert.AreEqual(60000f, ComputeSystem.ReserveCap);
+            Assert.AreEqual(70000f, ComputeSystem.ReserveCap);
         }
 
         [Test]

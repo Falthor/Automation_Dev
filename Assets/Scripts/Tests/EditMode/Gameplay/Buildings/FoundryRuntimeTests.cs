@@ -188,7 +188,10 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         [Test]
         public void InputCapacity_IsThreeCraftsWorthOfTheIngredient()
         {
-            FoundryRuntime foundry = NewFoundry();
+            // No intake cadence: this is about how much the building holds, not how fast it is
+            // allowed to take it in. With the default 2s interval the second unit is refused by the
+            // cooldown and the capacity is never reached at all.
+            FoundryRuntime foundry = NewFoundry(intakeIntervalSeconds: 0f);
             foundry.SetSelectedRecipe("Iron_Ingot");
 
             for (int i = 0; i < ProductionBuildingRuntime.InputCraftsHeld; i++)
