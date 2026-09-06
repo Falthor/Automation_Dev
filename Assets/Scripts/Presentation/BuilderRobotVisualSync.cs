@@ -30,11 +30,11 @@ namespace Game.Presentation
         [SerializeField, Range(0.1f, 1f)] float robotVisualScale = 1f;
 
         /// <summary>
-        /// Kept from the square-placeholder era and still useful with real art: the two robots must
-        /// be told apart at a glance, so the second one is tinted. White leaves the art untouched.
+        /// One tint for every drone: they are the same machine doing the same job, and two colours
+        /// invited the reading that they differ in some way they do not. Left as a field rather than
+        /// removed because it is the only handle on the art's tint, and white leaves it untouched.
         /// </summary>
-        [SerializeField] Color firstRobotColor = Color.white;
-        [SerializeField] Color secondRobotColor = new Color(0.62f, 0.82f, 1f, 1f);
+        [SerializeField] Color robotColor = Color.white;
 
         /// <summary>How far the drone's shadow falls compared to a building's, i.e. how high it flies.</summary>
         [SerializeField, Min(0f)] float flightHeight = 3f;
@@ -100,7 +100,7 @@ namespace Game.Presentation
             var view = new GameObject($"BuilderRobot {index}");
             var renderer = view.AddComponent<SpriteRenderer>();
             renderer.sprite = robotSprite != null ? robotSprite : _spriteFactory.CreateSolidSquareSprite(Color.white);
-            renderer.color = index == 0 ? firstRobotColor : secondRobotColor;
+            renderer.color = robotColor;
             renderer.sortingOrder = SortingOrder;
 
             // Uniform fit, so the drone's own proportions survive - a per-axis stretch would squash

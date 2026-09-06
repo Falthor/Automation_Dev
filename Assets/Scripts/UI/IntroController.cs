@@ -53,12 +53,23 @@ namespace Game.UI
             _root.RegisterCallback<GeometryChangedEvent>(OnRootGeometryChanged);
         }
 
+        /// <summary>
+        /// Offsets the crawl vertically, in pixels. The replacement for the obsolete
+        /// VisualElement.transform.position, which UI Toolkit backs with this very style - the two
+        /// are the same translation, so the crawl moves exactly as it did.
+        ///
+        /// Length is explicitly in pixels: a Translate built from a bare number would be fine today,
+        /// but the type also accepts percentages, and a percentage here would be read against the
+        /// crawl's own height rather than the screen.
+        /// </summary>
+        void MoveCrawlTo(float y) => _crawlText.style.translate = new Translate(0f, new Length(y, LengthUnit.Pixel));
+
         void OnRootGeometryChanged(GeometryChangedEvent evt)
         {
             _root.UnregisterCallback<GeometryChangedEvent>(OnRootGeometryChanged);
             _currentY = _root.resolvedStyle.height;
             _textHeight = _crawlText.resolvedStyle.height;
-            _crawlText.transform.position = new Vector3(0f, _currentY, 0f);
+            MoveCrawlTo(_currentY);
             _scrolling = true;
         }
 
@@ -74,7 +85,7 @@ namespace Game.UI
             if (!_scrolling) return;
 
             _currentY -= scrollSpeed * Time.deltaTime;
-            _crawlText.transform.position = new Vector3(0f, _currentY, 0f);
+            MoveCrawlTo(_currentY);
 
             if (_currentY <= -_textHeight)
             {

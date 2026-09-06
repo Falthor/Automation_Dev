@@ -1,0 +1,28 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="GameUI.uss" />
+
+    <ui:VisualElement name="ConstructionSitePanelRoot" class="overlay-root overlay-root-right hidden" picking-mode="Ignore">
+        <ui:VisualElement class="panel panel-accent" picking-mode="Position">
+            <ui:VisualElement class="header-row">
+                <ui:Label name="SiteTitle" text="CHANTIER" class="title" />
+                <ui:Button name="SiteCloseButton" text="&#215;" class="close-button" />
+            </ui:VisualElement>
+            <ui:VisualElement class="extractor-body">
+                <ui:VisualElement name="SiteServiceRow" class="site-service-row">
+                    <ui:VisualElement name="SiteServiceRobotIcon" class="site-service-icon" />
+                    <ui:Label name="SiteServiceLabel" text="" class="site-service-waiting" />
+                </ui:VisualElement>
+                <ui:Label text="APPROVISIONNEMENT" class="extractor-section-label" />
+                <ui:VisualElement class="extractor-progress-track">
+                    <ui:VisualElement name="SiteProgressFill" class="extractor-progress-fill" />
+                </ui:VisualElement>
+                <ui:VisualElement class="progress-info-row site-percent-row">
+                    <ui:Label name="SitePercentLabel" text="0 %" class="production-percent-label" />
+                </ui:VisualElement>
+                <ui:VisualElement name="SiteSupplyList" class="production-ingredients-list" />
+                <ui:VisualElement class="site-legend-separator" />
+                <ui:VisualElement name="SiteLegend" class="site-legend" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

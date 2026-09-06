@@ -17,10 +17,12 @@ namespace Game.Presentation
         const int GroundSlabSortingOrder = 5;
         const int OreDepositSortingOrder = 9;
 
-        // How far the concrete slab bleeds past the Core's true footprint on each side, so it
-        // reads as sitting on top of the ground rather than stopping exactly at the grid line -
-        // matches BuildingSpawner.GroundSlabOverscanMargin.
-        const float GroundSlabOverscanMargin = 0.3f;
+        // How far the concrete slab bleeds past the Core's true footprint on each side, in cells,
+        // so it reads as an apron laid around it rather than stopping exactly on the grid line -
+        // matches BuildingSpawner.GroundSlabOverscanCells, and has to: the Core's slab and a
+        // building's slab are the same visual object, and one apron wider than the other reads as a
+        // mistake.
+        const float GroundSlabOverscanCells = 0.5f;
 
         readonly GridRuntime _grid;
         readonly ProceduralSpriteFactory _spriteFactory;
@@ -52,7 +54,7 @@ namespace Game.Presentation
 
             Vector2 footprintWorldSize = WorldFootprintSize(definition.FootprintSize);
 
-            if (_groundSlabSettings != null && _groundSlabSettings.HasSlabTextures)
+            if (_groundSlabSettings != null && _groundSlabSettings.CanRenderSlab)
             {
                 var slabGo = new GameObject("GroundSlab");
                 slabGo.transform.SetParent(go.transform, false);
@@ -60,7 +62,7 @@ namespace Game.Presentation
                 slabRenderer.sortingOrder = GroundSlabSortingOrder;
                 slabRenderer.sharedMaterial = _spriteFactory.GetGroundSlabMaterial(_groundSlabSettings);
 
-                Vector2 slabWorldSize = footprintWorldSize + Vector2.one * (GroundSlabOverscanMargin * 2f);
+                Vector2 slabWorldSize = footprintWorldSize + Vector2.one * (GroundSlabOverscanCells * 2f * _grid.CellSize);
                 SetSpriteToWorldSize(slabRenderer, _spriteFactory.GetGroundSlabUnitSprite(), slabWorldSize);
 
                 var random = new System.Random(core.Cell.GetHashCode());
@@ -84,7 +86,14 @@ namespace Game.Presentation
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
 
-            SetSpriteToWorldSize(renderer, sprite, footprintWorldSize);
+            // A uniform fit, not the per-axis one the slab and the deposits use: the Core's art is
+            // deliberately taller than its footprint (4 cells wide, 5 tall) to read as having
+            // height, and stretching it to a square footprint would squash exactly that away.
+            // Fitting on the widest-needed ratio pins the width to the 4x4 footprint and lets the
+            // extra cell overhang upward, which is what the sprite's own pivot is placed for -
+            // it sits at the footprint's centre, 2/5 up the art, so the base lands on the cells the
+            // Core actually occupies. The concrete slab above stays on footprintWorldSize.
+            BuildingSpawner.FitSpriteUniform(renderer, sprite, BuildingSpawner.ArtWorldSize(definition, _grid.CellSize));
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {

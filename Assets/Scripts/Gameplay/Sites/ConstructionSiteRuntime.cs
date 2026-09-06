@@ -40,7 +40,23 @@ namespace Game.Gameplay.Sites
         /// <summary>Reserved-in-container-but-not-yet-picked-up, OR picked-up-but-not-yet-delivered (in a robot's cargo) - see RemainingNeeded. Distinct from _delivered, which only grows once a robot actually drops items off here.</summary>
         readonly Dictionary<string, int> _committed = new Dictionary<string, int>();
 
+        /// <summary>
+        /// Running total of what the already-materialized segments consumed, maintained as they
+        /// materialize instead of being re-summed on demand. SegmentProgress is read once per
+        /// segment per frame by the construction view, and re-walking the preceding segments on
+        /// every call would be quadratic in the length of a conveyor drag - harmless on three
+        /// segments, not on fifty.
+        /// </summary>
+        readonly Dictionary<string, int> _consumedByMaterialized = new Dictionary<string, int>();
+
         readonly List<Reservation> _reservations = new List<Reservation>();
+
+        /// <summary>
+        /// The bill's item ids in the order they were first costed, so a reader gets a stable row
+        /// order. _totalCost is a Dictionary and owes nobody an enumeration order; a panel refreshed
+        /// every frame off it could reshuffle its rows under the player's cursor.
+        /// </summary>
+        readonly List<string> _costOrder = new List<string>();
 
         public IReadOnlyList<BuildingRuntime> Segments => _segments;
         public IReadOnlyList<Reservation> Reservations => _reservations;
@@ -62,7 +78,91 @@ namespace Game.Gameplay.Sites
             foreach (RecipeIngredient ingredient in segment.Definition.Cost)
             {
                 if (ingredient.Item == null || ingredient.Amount <= 0) continue;
+
+                if (!_totalCost.ContainsKey(ingredient.Item.Id)) _costOrder.Add(ingredient.Item.Id);
                 _totalCost[ingredient.Item.Id] = (_totalCost.TryGetValue(ingredient.Item.Id, out int existing) ? existing : 0) + ingredient.Amount;
+            }
+        }
+
+        /// <summary>
+        /// One ingredient of the bill, in the three states a player actually asks about: what has
+        /// physically landed here, what is promised and coming, and what nothing anywhere has been
+        /// found for.
+        ///
+        /// <b>Reserved is the whole point of this shape.</b> Without it the only honest thing to show
+        /// is "delivered 10 of 15", which cannot tell a site the system is busy serving from one that
+        /// has been forgotten for want of production - the two look identical until one of them
+        /// silently never finishes.
+        ///
+        /// It covers both halves of a promise: earmarked in a container and not yet collected, and
+        /// already riding in a robot's cargo. Both are the same statement about <b>stock</b> - this
+        /// material is spoken for and nothing else may take it - and neither says anything about
+        /// movement. Whether a robot is actually on its way to this site right now is a different
+        /// question with a different answer, and it is not answered here: it is a property of the
+        /// robots, not of the bill.
+        /// </summary>
+        public readonly struct SupplyLine
+        {
+            public readonly string ItemId;
+            public readonly int Total;
+            public readonly int Delivered;
+
+            /// <summary>Committed to this site but not yet delivered - earmarked in a container, or already in a robot's cargo.</summary>
+            public readonly int Reserved;
+
+            public readonly int Missing;
+
+            public SupplyLine(string itemId, int total, int delivered, int reserved, int missing)
+            {
+                ItemId = itemId;
+                Total = total;
+                Delivered = delivered;
+                Reserved = reserved;
+                Missing = missing;
+            }
+
+            /// <summary>Nothing is coming and something is still owed - the site is stalled on this ingredient.</summary>
+            public bool IsStalled => Missing > 0 && Reserved == 0;
+        }
+
+        /// <summary>
+        /// The bill of materials in its three states, in a stable order. Fills a caller-owned list so
+        /// a panel refreshing every frame allocates nothing.
+        ///
+        /// Assembled here rather than left to the reader: the three numbers are one statement about
+        /// one ingredient and they have to add up to Total. A caller subtracting its own "en route"
+        /// from a delivered count and a cost would be re-deriving that rule outside the only object
+        /// that maintains it.
+        /// </summary>
+        public void GetSupply(List<SupplyLine> into)
+        {
+            into.Clear();
+
+            foreach (string itemId in _costOrder)
+            {
+                int total = _totalCost.TryGetValue(itemId, out int c) ? c : 0;
+                int delivered = _delivered.TryGetValue(itemId, out int d) ? d : 0;
+                int reserved = _committed.TryGetValue(itemId, out int p) ? p : 0;
+
+                // Delivered can exceed a segment's own share while later segments still owe theirs,
+                // so the clamp is on the total, not per line.
+                delivered = System.Math.Min(delivered, total);
+                reserved = System.Math.Min(reserved, total - delivered);
+
+                into.Add(new SupplyLine(itemId, total, delivered, reserved, System.Math.Max(0, total - delivered - reserved)));
+            }
+        }
+
+        /// <summary>Whether every ingredient of the bill has been delivered or is on its way - false the moment one of them has nothing coming.</summary>
+        public bool IsFullySupplied
+        {
+            get
+            {
+                foreach (string itemId in _costOrder)
+                {
+                    if (RemainingNeeded(itemId) > 0) return false;
+                }
+                return true;
             }
         }
 
@@ -205,23 +305,60 @@ namespace Game.Gameplay.Sites
 
         int ConsumedByMaterializedSegments(string itemId)
         {
-            int total = 0;
-            for (int i = 0; i < MaterializedCount; i++)
+            return _consumedByMaterialized.TryGetValue(itemId, out int total) ? total : 0;
+        }
+
+        /// <summary>
+        /// How far along segment `index` is, 0 to 1 - what a view needs to draw it materializing,
+        /// and the only form in which this is exposed: the rule that decides which delivery feeds
+        /// which segment stays here rather than being re-derived by whoever draws it.
+        ///
+        /// Segments materialize strictly in placement order and consume the delivered pile in that
+        /// same order, so a segment past the current one has necessarily received nothing yet: the
+        /// answer is 1 before the front, 0 after it, and a real ratio only for the segment being
+        /// built. Costs nothing but the active segment's own ingredient list.
+        ///
+        /// Within a segment this weighs every item by its unit count, matching what the whole-site
+        /// ratio does today.
+        /// </summary>
+        public float SegmentProgress(int index)
+        {
+            if (index < 0 || index >= _segments.Count) return 0f;
+            if (index < MaterializedCount) return 1f;
+            if (index > MaterializedCount) return 0f;
+
+            int cost = 0;
+            int available = 0;
+            foreach (RecipeIngredient ingredient in _segments[index].Definition.Cost)
             {
-                foreach (RecipeIngredient ingredient in _segments[i].Definition.Cost)
-                {
-                    if (ingredient.Item != null && ingredient.Item.Id == itemId) total += ingredient.Amount;
-                }
+                if (ingredient.Item == null || ingredient.Amount <= 0) continue;
+
+                cost += ingredient.Amount;
+                int delivered = _delivered.TryGetValue(ingredient.Item.Id, out int d) ? d : 0;
+                int usable = delivered - ConsumedByMaterializedSegments(ingredient.Item.Id);
+                available += System.Math.Max(0, System.Math.Min(usable, ingredient.Amount));
             }
-            return total;
+
+            return cost <= 0 ? 1f : (float)available / cost;
         }
 
         /// <summary>Marks the next segment as materialized (caller has already registered/spawned it) and returns it.</summary>
         public BuildingRuntime MaterializeNextSegment()
         {
             BuildingRuntime segment = _segments[MaterializedCount];
+            AccumulateConsumption(segment);
             MaterializedCount++;
             return segment;
+        }
+
+        void AccumulateConsumption(BuildingRuntime segment)
+        {
+            foreach (RecipeIngredient ingredient in segment.Definition.Cost)
+            {
+                if (ingredient.Item == null || ingredient.Amount <= 0) continue;
+                _consumedByMaterialized[ingredient.Item.Id] =
+                    (_consumedByMaterialized.TryGetValue(ingredient.Item.Id, out int existing) ? existing : 0) + ingredient.Amount;
+            }
         }
 
         /// <summary>
@@ -276,6 +413,15 @@ namespace Game.Gameplay.Sites
         public void RestoreCounters(JObject state)
         {
             MaterializedCount = state.Value<int?>("materializedCount") ?? 0;
+
+            // Rebuilt rather than serialized: it is a pure function of the segments already
+            // materialized, and those are reconstructed before this runs. One pass on load instead
+            // of a saved field that could disagree with the segment list it summarizes.
+            _consumedByMaterialized.Clear();
+            for (int i = 0; i < MaterializedCount && i < _segments.Count; i++)
+            {
+                AccumulateConsumption(_segments[i]);
+            }
 
             _delivered.Clear();
             if (state["delivered"] is JObject delivered)

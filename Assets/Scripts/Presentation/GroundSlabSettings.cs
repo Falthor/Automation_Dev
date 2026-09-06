@@ -13,6 +13,16 @@ namespace Game.Presentation
     {
         public Texture2D SlabDiffuse;
         public Texture2D SlabNormal;
+
+        /// <summary>
+        /// Custom/BuildingGroundSlab, carried here from GameRuntime's serialized field rather than
+        /// resolved by ProceduralSpriteFactory with Shader.Find. The factory is a plain class
+        /// constructed in a dozen places, so it has no inspector of its own - but it already
+        /// receives these settings, and an asset reference cannot be stripped from a build the way
+        /// a shader reached only by name can. See docs/BUILD.md.
+        /// </summary>
+        public Shader SlabShader;
+
         public float SlabDarken = 1f;
 
         public float SandBandWidth = 1f;
@@ -29,6 +39,7 @@ namespace Game.Presentation
         public Vector2 VariationOrigin;
         public Vector2 TextureWorldSize = new Vector2(4f, 4f);
 
-        public bool HasSlabTextures => SlabDiffuse != null && SlabNormal != null;
+        /// <summary>Everything the slab needs is present. Any piece missing disables the slab entirely rather than falling back to a placeholder - the convention this project already used for the texture pair, now covering the shader too.</summary>
+        public bool CanRenderSlab => SlabDiffuse != null && SlabNormal != null && SlabShader != null;
     }
 }

@@ -1363,3 +1363,148 @@
     -unity-font-style: bold;
     margin-top: 3px;
 }
+
+/* Construction site panel - a supply, not a production. Reuses the building panels' frame,
+   header and body width, and the same track/fill convention every progress bar here uses.
+
+   One row per ingredient: a label line over a bar filled left to right in the order things
+   actually arrive - solid for what is here, hatched for what is coming, bare track for what
+   nothing has been found for. The two filled states share the accent colour deliberately: they
+   are told apart by TEXTURE, not by hue. Hue alone would collide with the accent's existing
+   meaning elsewhere in the game, and would carry nothing at all for a colour-blind player.
+
+   Only an ingredient with material still missing - neither arrived nor on its way - is coloured
+   as a problem, name and count together. A bar full end to end means do nothing, whichever
+   texture fills it, so the panel reads at a glance without counting. */
+
+.site-supply-row {
+    flex-direction: column;
+    margin-bottom: 6px;
+}
+
+.site-supply-head {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 2px;
+}
+
+.site-supply-icon {
+    width: 14px;
+    height: 14px;
+    margin-right: 4px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.site-supply-name {
+    color: rgb(200, 205, 210);
+    font-size: 10px;
+    flex-grow: 1;
+}
+
+.site-supply-count {
+    color: rgb(200, 205, 210);
+    font-size: 10px;
+}
+
+.site-supply-alarming {
+    color: rgb(220, 105, 95);
+}
+
+.site-bar-track {
+    height: 7px;
+    flex-direction: row;
+    background-color: rgb(38, 46, 52);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.site-bar-delivered {
+    height: 100%;
+    flex-shrink: 0;
+    background-color: rgb(85, 221, 245);
+}
+
+/* Stripes are painted by HatchFillElement (Painter2D) in the same accent, so this rule carries
+   only the geometry. overflow keeps a stroke from bleeding into the segment next door. */
+.site-bar-reserved {
+    height: 100%;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.site-legend-separator {
+    height: 1px;
+    background-color: rgb(48, 59, 66);
+    margin-top: 4px;
+    margin-bottom: 5px;
+}
+
+.site-legend {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.site-legend-entry {
+    flex-direction: row;
+    align-items: center;
+}
+
+.site-legend-swatch {
+    width: 12px;
+    height: 7px;
+    margin-right: 4px;
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.site-legend-missing {
+    background-color: rgb(38, 46, 52);
+}
+
+.site-legend-label {
+    color: rgb(140, 148, 155);
+    font-size: 9px;
+}
+
+/* The service line: what the ROBOTS are doing, kept apart from what the bars say about stock.
+   Two questions the player asks separately, so two places on the panel. */
+
+.site-service-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 2px;
+}
+
+.site-service-icon {
+    width: 13px;
+    height: 13px;
+    margin-right: 4px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* The drawn clock, same box as the robot icon so the label never shifts between the two states. */
+.site-service-glyph {
+    width: 13px;
+    height: 13px;
+    margin-right: 4px;
+}
+
+.site-service-active {
+    color: rgb(85, 221, 245);
+    font-size: 10px;
+}
+
+.site-service-waiting {
+    color: rgb(140, 148, 155);
+    font-size: 10px;
+}
+
+/* The state label used to share this row; only the percentage is left, and it belongs on the right. */
+.site-percent-row {
+    justify-content: flex-end;
+}

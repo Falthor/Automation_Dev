@@ -26,8 +26,15 @@ namespace Game.Presentation
     /// </summary>
     public sealed class TerrainView : MonoBehaviour
     {
-        const string GroundShaderName = "Custom/ShadedGroundTiled";
-        const string CloudShaderName = "Custom/CloudShadowOverlay";
+        /// <summary>
+        /// Custom/ShadedGroundTiled and Custom/CloudShadowOverlay, as asset references rather than
+        /// Shader.Find by name: a shader only reached by name is stripped from a player build
+        /// unless it is also listed in Always Included Shaders, and that list is a protection
+        /// somebody has to remember to maintain. See docs/BUILD.md.
+        /// </summary>
+        [Header("Shaders")]
+        [SerializeField] Shader groundShader;
+        [SerializeField] Shader cloudShader;
 
         [Header("Texture")]
         [SerializeField] GroundTextureProfile textureProfile;
@@ -62,7 +69,7 @@ namespace Game.Presentation
 
         public void Initialize(TerrainRuntime terrain, GridRuntime grid)
         {
-            (_groundRenderer, _groundMaterial) = CreateLayer("Ground", 0, GroundShaderName);
+            (_groundRenderer, _groundMaterial) = CreateLayer("Ground", 0, groundShader);
 
             float worldSize = terrain.Size * grid.CellSize;
             Vector3 origin = grid.CellToWorld(new Game.Core.GridCoord(0, 0));
@@ -118,7 +125,7 @@ namespace Game.Presentation
 
             if (showCloudShadows)
             {
-                (_cloudRenderer, _cloudMaterial) = CreateLayer("Clouds", 1, CloudShaderName);
+                (_cloudRenderer, _cloudMaterial) = CreateLayer("Clouds", 1, cloudShader);
                 _cloudRenderer.transform.localScale = new Vector3(worldSize, worldSize, 1f);
 
                 _cloudMaterial.SetFloat("_CloudScale", cloudScale);
@@ -159,7 +166,7 @@ namespace Game.Presentation
             }
         }
 
-        (SpriteRenderer, Material) CreateLayer(string name, int sortingOrder, string shaderName)
+        (SpriteRenderer, Material) CreateLayer(string name, int sortingOrder, Shader shader)
         {
             var go = new GameObject(name);
             go.transform.SetParent(transform, false);
@@ -168,7 +175,7 @@ namespace Game.Presentation
             renderer.sprite = CreateUnitSprite();
             renderer.sortingOrder = sortingOrder;
 
-            var material = new Material(Shader.Find(shaderName)) { name = $"Terrain{name} (Instance)" };
+            var material = new Material(shader) { name = $"Terrain{name} (Instance)" };
             renderer.sharedMaterial = material;
 
             return (renderer, material);

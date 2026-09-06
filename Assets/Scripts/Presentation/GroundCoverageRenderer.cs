@@ -1,0 +1,872 @@
+using System.Collections.Generic;
+using Game.Core;
+using Game.Data;
+using Game.Gameplay.Buildings;
+using Game.Grid;
+using UnityEngine;
+
+namespace Game.Presentation
+{
+    /// <summary>
+    /// Renders the nano conversion of the ground under construction sites: a signed distance to the
+    /// conversion front, uploaded to an R8 texture and drawn by a quad sitting above the terrain and
+    /// below the concrete slab.
+    ///
+    /// <b>The ground is revealed by the building's own front.</b> It ranks its threshold the way the
+    /// dissolve ranks its sprite - bottom to top by default, radial when the shared reveal mode says
+    /// so - over the very world rectangle the dissolve normalises on. A given progress therefore puts
+    /// both fronts at the same world height, and the ground's lead reads as one wave running slightly
+    /// ahead of the building rather than as a second effect on its own clock.
+    ///
+    /// <b>The field is not bounded by the footprint.</b> A threshold that stops at the footprint's
+    /// edge makes the rectangle itself the outer boundary, so the finished shape is a square however
+    /// the front travels inside it. The threshold therefore keeps rising through the ring of cells
+    /// around the building, and it is the threshold plus the noise - not the edge of a rectangle -
+    /// that decides where the conversion stops. The patch spills a little onto the neighbouring
+    /// cells by design, which also narrows the gap with a building whose art already overhangs.
+    ///
+    /// <b>One texture per zone, never one for the map.</b> A builder robot only works inside its own
+    /// Core's (later, its own AI Agent's) zone, so every site belongs to exactly one zone - that
+    /// guarantee is what makes the partition correct, and it is why this is not an arbitrary square
+    /// tiling. A single map-wide texture would work today with one Core and two robots, and become
+    /// untenable at the first Agent: it would grow with the map, sit almost entirely empty, and be
+    /// re-uploaded whenever any one site moved anywhere.
+    ///
+    /// The per-zone quad is also what keeps the shader trivial - it has no zone to resolve and no
+    /// indirection to do, it samples the texture attached to it.
+    ///
+    /// Read-only over gameplay, like the rest of the nano layer: it reads site footprints and the
+    /// displayed progress the dissolve is already showing, and writes nothing back. In particular it
+    /// takes <b>displayed</b> progress, never the raw advancement - the ground would otherwise jump
+    /// in steps while the building glides.
+    /// </summary>
+    public sealed class GroundCoverageRenderer : MonoBehaviour
+    {
+        /// <summary>
+        /// Ground progress at which the front has just finished crossing the footprint - every one
+        /// of its points, corners included - and starts spilling into the ring around it. A constant
+        /// rather than a setting: it is a proportion of the animation, so it needs no retuning per
+        /// building, and the knobs that do change the look - groundOverflowCells, and the dissolve's
+        /// own noiseScale/noiseWeight which this layer shares - are enough to shape the halo.
+        /// </summary>
+        const float FootprintShare = 0.8f;
+
+        /// <summary>
+        /// Ceiling on the noise amplitude, so that a footprint point sitting at FootprintShare can
+        /// never be pushed past 1 by the noise. Without it the ground's phase could end with unlit
+        /// specks left in the corners of a large footprint - the field has to reach 1 <b>everywhere</b>
+        /// on the footprint by the end of its own phase, and that has to hold by construction rather
+        /// than by arithmetic luck at the current settings.
+        /// </summary>
+        public const float MaxNoiseWeight = 2f * (1f - FootprintShare);
+
+        /// <summary>
+        /// The most the shader's jitter can ever pull the front back, and therefore the headroom this
+        /// field has to leave over the whole footprint at the end of the ground's phase. Half the
+        /// weight, because the jitter is centred on zero.
+        /// </summary>
+        public const float MaxNoiseAmplitude = MaxNoiseWeight * 0.5f;
+
+        /// <summary>
+        /// The grain handed to the two ground shaders: the <b>dissolve's own</b> scale and weight, so
+        /// the building's front and the ground's are ragged the same way rather than merely both
+        /// being ragged. Capped so the completeness guarantee above holds whatever the dissolve is
+        /// tuned to.
+        /// </summary>
+        public static float ShaderNoiseWeight(float dissolveNoiseWeight)
+            => Mathf.Clamp(dissolveNoiseWeight, 0f, MaxNoiseWeight);
+
+        [SerializeField] GameRuntime gameRuntime;
+        [SerializeField] NanoConstructionSettings settings;
+
+        readonly Dictionary<int, Zone> _zones = new Dictionary<int, Zone>();
+        readonly Dictionary<BuildingRuntime, Patch> _patches = new Dictionary<BuildingRuntime, Patch>();
+        readonly List<BuildingRuntime> _expiredScratch = new List<BuildingRuntime>();
+        readonly List<ZoneDescriptor> _zoneScratch = new List<ZoneDescriptor>();
+        readonly List<ConstructionSiteVisualSync.DrawnSegment> _segmentScratch = new List<ConstructionSiteVisualSync.DrawnSegment>();
+        readonly List<int> _closedScratch = new List<int>();
+
+        /// <summary>
+        /// Reused so pointing slabs at the field costs no allocation per frame. Created on demand,
+        /// never in a field initializer: a MaterialPropertyBlock is engine-backed, and Unity refuses
+        /// to construct one from a MonoBehaviour's constructor.
+        /// </summary>
+        MaterialPropertyBlock _slabBlock;
+
+        GridRuntime _grid;
+
+        /// <summary>Set when a zone is created or resized, so the patches are written into its blank field even on a tick where nothing else moved.</summary>
+        bool _fieldStale;
+
+        /// <summary>Number of zones currently holding a texture. Exposed for tests.</summary>
+        public int ZoneCount => _zones.Count;
+
+        /// <summary>How many texture uploads have happened since this component was created. Exposed for tests: the field must only reach the GPU when it actually changed.</summary>
+        public int UploadCount { get; private set; }
+
+        /// <summary>
+        /// Identifies a zone and the square of cells its texture has to cover. Sized on the largest
+        /// radius the zone can ever reach rather than its current one, so research extending the
+        /// radius never reallocates anything - the extra cells simply stay unconverted and are
+        /// clipped away.
+        /// </summary>
+        public readonly struct ZoneDescriptor
+        {
+            public readonly int Id;
+            public readonly GridCoord CenterCell;
+            public readonly int MaxRadiusCells;
+
+            public ZoneDescriptor(int id, GridCoord centerCell, int maxRadiusCells)
+            {
+                Id = id;
+                CenterCell = centerCell;
+                MaxRadiusCells = Mathf.Max(1, maxRadiusCells);
+            }
+
+            public int SideCells => MaxRadiusCells * 2 + 1;
+            public GridCoord OriginCell => new GridCoord(CenterCell.X - MaxRadiusCells, CenterCell.Y - MaxRadiusCells);
+        }
+
+        /// <summary>
+        /// One converting patch. A plain snapshot rather than a reference to the site, because a
+        /// patch outlives the segment that spawned it: when the segment stops being drawn the patch
+        /// keeps living with a falling progress, which is what makes the front <b>retreat</b> the way
+        /// it advanced instead of the whole plateau dimming at once.
+        /// </summary>
+        sealed class Patch
+        {
+            public GridCoord Origin;
+            public Vector2Int Size;
+            public float Progress;
+            public float Flash;
+            public bool Live;
+
+            /// <summary>
+            /// The world rectangle the front is ranked over, bottom and height - the very one the
+            /// building's own dissolve normalises its sweep on (Custom/BuildDissolve's _BuildBounds).
+            /// Shared rather than recomputed so a given progress puts both fronts at the same world
+            /// height and the two read as one wave rising through the site.
+            /// </summary>
+            public float SweepMinY;
+            public float SweepSpanY;
+
+            /// <summary>The concrete pad this site is revealing behind its front, if it has one. Fed the zone's field so both layers read the same one.</summary>
+            public SpriteRenderer Slab;
+        }
+
+        sealed class Zone
+        {
+            public GridCoord OriginCell;
+            public int SideCells;
+            public int TexelsPerCell;
+            public int TexelSide;
+
+            /// <summary>Encoded signed distance to the front, one byte per texel. 0 is "far outside", 128 is the front itself.</summary>
+            public byte[] Field;
+
+            /// <summary>World position of the zone's bottom-left corner - the noise is sampled in world space, so every patch needs it.</summary>
+            public Vector2 MinWorld;
+
+            /// <summary>The world rectangle the texture covers, (minX, minY, sizeX, sizeY) - what both shaders reading this field convert world position to UV with.</summary>
+            public Vector4 Bounds;
+
+            /// <summary>Texel rectangles written last rebuild, and therefore the only ones that have to be cleared at the next one.</summary>
+            public readonly List<RectInt> Written = new List<RectInt>();
+
+            public Texture2D Texture;
+            public Material Material;
+            public SpriteRenderer Quad;
+
+            /// <summary>Set whenever a byte in Field actually changed; only a dirty zone is re-uploaded.</summary>
+            public bool Dirty;
+
+            public float FlashBoost;
+        }
+
+        /// <summary>Binds the grid directly instead of through the scene's GameRuntime, for EditMode tests.</summary>
+        public void Initialize(GridRuntime grid, NanoConstructionSettings nanoSettings)
+        {
+            _grid = grid;
+            settings = nanoSettings;
+        }
+
+        void LateUpdate()
+        {
+            if (gameRuntime == null) return;
+            if (_grid == null) _grid = gameRuntime.Grid;
+            if (_grid == null || gameRuntime.ConstructionSiteVisuals == null) return;
+
+            CollectZones(_zoneScratch);
+            gameRuntime.ConstructionSiteVisuals.CollectDrawnSegments(_segmentScratch);
+
+            Tick(Time.deltaTime, _zoneScratch, _segmentScratch);
+        }
+
+        /// <summary>
+        /// Today there is exactly one zone, the Core's. AI Agents will each add one; the rest of
+        /// this component already treats zones as a set, so that is the only place to extend.
+        /// </summary>
+        void CollectZones(List<ZoneDescriptor> into)
+        {
+            into.Clear();
+
+            CoreRuntime core = gameRuntime.World?.Core;
+            if (core == null) return;
+
+            Vector2Int footprint = core.Definition.FootprintSize;
+            var center = new GridCoord(core.Cell.X + footprint.x / 2, core.Cell.Y + footprint.y / 2);
+
+            // The radius is extendable by research, so the texture is sized on the ceiling rather
+            // than on the current value - see ZoneDescriptor.
+            into.Add(new ZoneDescriptor(core.Cell.GetHashCode(), center, CoreRuntime.ExtendedActionRadiusCells));
+        }
+
+        /// <summary>
+        /// Advances every patch and rewrites the zones that changed. Public and frame-free so the
+        /// whole thing is testable without a frame loop, exactly like BuildDissolveView.Tick.
+        /// </summary>
+        public void Tick(float deltaTime, IReadOnlyList<ZoneDescriptor> zones, IReadOnlyList<ConstructionSiteVisualSync.DrawnSegment> segments)
+        {
+            if (_grid == null || settings == null) return;
+
+            CloseZonesNotIn(zones);
+            for (int i = 0; i < zones.Count; i++) EnsureZone(zones[i]);
+
+            bool changed = UpdatePatches(deltaTime, segments);
+
+            // A rebuild is the only thing that touches texels, so it is skipped outright when no
+            // patch appeared, moved or advanced - which is every frame of a base that is not
+            // building anything.
+            if (changed || _fieldStale) Rebuild();
+            _fieldStale = false;
+
+            PushPerPatchState();
+
+            foreach (var kvp in _zones) Upload(kvp.Value);
+        }
+
+        // --- Patches ---
+
+        /// <summary>
+        /// Brings the patch set in line with what is drawn, and fades out the ones that are not.
+        /// Returns whether anything the field depends on moved.
+        /// </summary>
+        bool UpdatePatches(float deltaTime, IReadOnlyList<ConstructionSiteVisualSync.DrawnSegment> segments)
+        {
+            bool changed = false;
+
+            foreach (var kvp in _patches) kvp.Value.Live = false;
+
+            for (int i = 0; i < segments.Count; i++)
+            {
+                BuildingRuntime segment = segments[i].Segment;
+                if (segment == null) continue;
+
+                if (!_patches.TryGetValue(segment, out Patch patch))
+                {
+                    patch = new Patch();
+                    _patches[segment] = patch;
+                    changed = true;
+                }
+
+                // The ground runs ahead of the building, and finishes well before it. It has to:
+                // the sprite covers its own footprint, so a ground on the same clock is hidden for
+                // the whole build and only ever shows as a thin halo in the last instants.
+                float progress = settings.GroundProgressFor(segments[i].DisplayedProgress);
+                if (patch.Progress != progress) changed = true;
+
+                // The logical footprint, never ArtWorldSize or the sprite's AABB: this field says
+                // which cells are converted, not how far the drawing reaches. Same rule as the
+                // concrete slab - see BuildingSpawner.ArtWorldSize.
+                patch.Origin = segment.Cell;
+                patch.Size = segment.Definition.FootprintSize;
+
+                // The one place the drawing's own extent IS what matters: the axis the front is
+                // ranked along. Taking the building's own reveal rectangle is what puts both fronts
+                // at the same world height for a given progress - the ground stops being a separate
+                // animation that merely happens at the same time.
+                ResolveSweep(segments[i], segment, out float sweepMinY, out float sweepSpanY);
+                if (patch.SweepMinY != sweepMinY || patch.SweepSpanY != sweepSpanY) changed = true;
+                patch.SweepMinY = sweepMinY;
+                patch.SweepSpanY = sweepSpanY;
+
+                patch.Progress = progress;
+                patch.Flash = segments[i].FlashBoost;
+                patch.Slab = segments[i].ConvertingSlab;
+                patch.Live = true;
+            }
+
+            float fade = settings.CoverageFadeSeconds > 0f ? deltaTime / settings.CoverageFadeSeconds : 1f;
+            _expiredScratch.Clear();
+
+            foreach (var kvp in _patches)
+            {
+                Patch patch = kvp.Value;
+                if (patch.Live) continue;
+
+                // Fading is a falling progress, not a dimming field. Subtracting from the stored
+                // values instead would take the whole converted plateau down through the rim band
+                // together and flash the entire patch on its way out; a falling progress walks the
+                // front back to the centre, rim included, exactly the way it came.
+                patch.Flash = 0f;
+                float next = Mathf.Max(0f, patch.Progress - fade);
+                if (next != patch.Progress) changed = true;
+                patch.Progress = next;
+
+                if (next <= 0f) _expiredScratch.Add(kvp.Key);
+            }
+
+            for (int i = 0; i < _expiredScratch.Count; i++) _patches.Remove(_expiredScratch[i]);
+            if (_expiredScratch.Count > 0) changed = true;
+
+            return changed;
+        }
+
+        /// <summary>
+        /// The world band the front is ranked over: the building's own reveal rectangle when there is
+        /// one, its footprint otherwise. The fallback is not a corner case - a segment drawn without a
+        /// dissolve arrives here with no bounds, as does every EditMode test - and the footprint is the
+        /// honest answer for something with nothing drawn above it.
+        /// </summary>
+        void ResolveSweep(ConstructionSiteVisualSync.DrawnSegment drawn, BuildingRuntime segment, out float minY, out float spanY)
+        {
+            Vector4 artBounds = drawn.ArtBounds;
+            if (artBounds.w > 0.0001f)
+            {
+                minY = artBounds.y;
+                spanY = artBounds.w;
+                return;
+            }
+
+            float cellSize = _grid.CellSize;
+            minY = _grid.CellCenterToWorld(segment.Cell).y - cellSize * 0.5f;
+            spanY = Mathf.Max(segment.Definition.FootprintSize.y, 1) * cellSize;
+        }
+
+        void Rebuild()
+        {
+            foreach (var kvp in _zones) ClearWritten(kvp.Value);
+
+            foreach (var kvp in _patches)
+            {
+                Patch patch = kvp.Value;
+                if (patch.Progress <= 0f) continue;
+
+                Zone zone = ZoneContaining(patch.Origin);
+                if (zone == null) continue;
+
+                WritePatch(zone, patch);
+            }
+        }
+
+        /// <summary>
+        /// Hands a converting site's concrete pad the very field this layer is drawing, so the two
+        /// cannot disagree about where the front is: same texture, same zone rectangle, same
+        /// encoding. The alternative - recomputing the threshold inside the slab shader - would put
+        /// the same rule in two languages, and they would drift the first time either is tuned.
+        ///
+        /// Done here rather than by whoever creates the slab because this is where a segment is
+        /// resolved to a zone, and the zone is the whole of what the slab needs.
+        /// </summary>
+        void PointSlabAtField(Zone zone, Patch patch)
+        {
+            if (patch.Slab == null) return;
+
+            if (_slabBlock == null) _slabBlock = new MaterialPropertyBlock();
+
+            // Read-modify-write: the slab already carries its own tiling phase and footprint size,
+            // and a fresh block would drop them.
+            patch.Slab.GetPropertyBlock(_slabBlock);
+            _slabBlock.SetTexture("_CoverageTex", zone.Texture);
+            _slabBlock.SetVector("_CoverageZoneBounds", zone.Bounds);
+
+            // The grain too, or the concrete would trail a smooth edge behind a toothed glowing one
+            // and the pair would stop reading as one boundary.
+            _slabBlock.SetFloat("_NoiseScale", settings.NoiseScale);
+            _slabBlock.SetFloat("_NoiseWeight", ShaderNoiseWeight(settings.NoiseWeight));
+
+            patch.Slab.SetPropertyBlock(_slabBlock);
+        }
+
+        /// <summary>
+        /// Only the texels written last time can hold a stale value, so the field is cleared through
+        /// that list rather than wholesale - a zone is 260x260 texels and almost always empty.
+        /// </summary>
+        static void ClearWritten(Zone zone)
+        {
+            for (int r = 0; r < zone.Written.Count; r++)
+            {
+                RectInt rect = zone.Written[r];
+                for (int y = rect.yMin; y < rect.yMax; y++)
+                {
+                    int row = y * zone.TexelSide;
+                    for (int x = rect.xMin; x < rect.xMax; x++)
+                    {
+                        if (zone.Field[row + x] == 0) continue;
+                        zone.Field[row + x] = 0;
+                        zone.Dirty = true;
+                    }
+                }
+            }
+
+            zone.Written.Clear();
+        }
+
+        /// <summary>
+        /// The per-tick material work, which is deliberately outside the rebuild: neither a flash
+        /// nor a slab's texture reference ever changes a single texel, so gating them on the field
+        /// having moved would leave a slab unpointed on any tick where a site is merely paused.
+        ///
+        /// One flash per zone, not per site: the layer is one texture and one material, so
+        /// concurrent sites in the same zone share the brightest of their flashes. Visible only when
+        /// two sites in one zone take deliveries at once, which reads as a single pulse rather than
+        /// a wrong one.
+        /// </summary>
+        void PushPerPatchState()
+        {
+            foreach (var kvp in _zones) kvp.Value.FlashBoost = 0f;
+
+            foreach (var kvp in _patches)
+            {
+                Patch patch = kvp.Value;
+
+                Zone zone = ZoneContaining(patch.Origin);
+                if (zone == null) continue;
+
+                if (patch.Flash > 0f) zone.FlashBoost = Mathf.Max(zone.FlashBoost, patch.Flash);
+                PointSlabAtField(zone, patch);
+            }
+        }
+
+        // --- The field ---
+
+        void WritePatch(Zone zone, Patch patch)
+        {
+            int texels = zone.TexelsPerCell;
+            float halfX = Mathf.Max(patch.Size.x, 1) * 0.5f;
+            float halfY = Mathf.Max(patch.Size.y, 1) * 0.5f;
+            float inner = Mathf.Min(halfX, halfY);
+            float round = inner * 0.5f;
+            float overflow = Mathf.Max(settings.GroundOverflowCells, 0.01f);
+            float noiseWeight = ShaderNoiseWeight(settings.NoiseWeight);
+            float cellSize = _grid.CellSize;
+
+            // Distance to the furthest point of the footprint itself. The threshold is normalised on
+            // it rather than on the outline, so FootprintShare lands exactly on the corners and the
+            // whole footprint is converted by then whatever its size. Normalising on the outline
+            // instead leaves the corner region past FootprintShare, and past 1 outright on a large
+            // enough footprint - the corners would then never convert at all.
+            float corner = RoundedBoxDistance(halfX, halfY, halfX, halfY, round);
+
+            // Far enough that the outermost written texel is unconverted even at full progress and
+            // with the noise pushing the boundary outwards, plus one cell for the bilinear falloff
+            // to reach zero. Anything short of that would put a straight edge back in the picture.
+            int pad = Mathf.CeilToInt(overflow * (1f + 2.5f * noiseWeight)) + 1;
+
+            int cellMinX = patch.Origin.X - zone.OriginCell.X - pad;
+            int cellMinY = patch.Origin.Y - zone.OriginCell.Y - pad;
+
+            int texMinX = Mathf.Clamp(cellMinX * texels, 0, zone.TexelSide);
+            int texMinY = Mathf.Clamp(cellMinY * texels, 0, zone.TexelSide);
+            int texMaxX = Mathf.Clamp((cellMinX + patch.Size.x + 2 * pad) * texels, 0, zone.TexelSide);
+            int texMaxY = Mathf.Clamp((cellMinY + patch.Size.y + 2 * pad) * texels, 0, zone.TexelSide);
+            if (texMaxX <= texMinX || texMaxY <= texMinY) return;
+
+            zone.Written.Add(new RectInt(texMinX, texMinY, texMaxX - texMinX, texMaxY - texMinY));
+
+            // Centre of the footprint, in cells from the zone's bottom-left corner.
+            float centerX = patch.Origin.X - zone.OriginCell.X + halfX;
+            float centerY = patch.Origin.Y - zone.OriginCell.Y + halfY;
+
+            // The ground obeys the same reveal mode as the building rather than carrying its own, so
+            // the two can never be set to disagree about which way the front travels.
+            bool bottomUp = settings.RevealMode < 1;
+            float sweepMinY = patch.SweepMinY;
+            float sweepSpanY = Mathf.Max(patch.SweepSpanY, 0.0001f);
+
+            for (int ty = texMinY; ty < texMaxY; ty++)
+            {
+                float py = (ty + 0.5f) / texels;
+                float worldY = zone.MinWorld.y + py * cellSize;
+
+
+                // Deliberately the same expression as Custom/BuildDissolve's
+                // saturate((worldPos.y - _BuildBounds.y) / _BuildBounds.w), over the same rectangle:
+                // that identity is the whole of what makes the two fronts one wave.
+                float heightRank = Mathf.Clamp01((worldY - sweepMinY) / sweepSpanY);
+
+                int row = ty * zone.TexelSide;
+
+                for (int tx = texMinX; tx < texMaxX; tx++)
+                {
+                    float px = (tx + 0.5f) / texels;
+
+                    float sdf = RoundedBoxDistance(px - centerX, py - centerY, halfX, halfY, round);
+
+                    // Radial ranks by distance from the centre, bottom-up by height. Both are 0
+                    // where the front starts and 1 at the last point of the footprint it reaches,
+                    // so everything downstream is written once for the two of them.
+                    float rank = bottomUp ? heightRank : Mathf.Clamp01((sdf + inner) / (inner + corner));
+
+                    // Smooth, and deliberately so: the grain is added per fragment by
+                    // Custom/GroundCoverage, not baked in here. This field is stored at
+                    // groundTexelsPerCell texels per cell - 8 at the very most - while the grain runs
+                    // at the dissolve's ~12 periods per world unit, which needs at least 24 samples
+                    // per cell to represent at all. Baked, it is not merely coarser than the
+                    // building's: it is below the sampling rate, so it comes out as a slow undulation
+                    // and, at low enough resolution, as a perfectly flat edge.
+                    float threshold = Threshold(rank, sdf, corner, overflow);
+
+                    float distance = patch.Progress - Mathf.Max(threshold, 0f);
+                    if (distance <= -1f) continue;
+
+                    byte encoded = Encode(distance);
+                    int index = row + tx;
+                    if (encoded <= zone.Field[index]) continue;
+
+                    zone.Field[index] = encoded;
+                    zone.Dirty = true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The static threshold a point has to be reached for. Two terms, and whichever asks to wait
+        /// longer wins:
+        ///
+        /// <b>rank</b> is the order the front visits the patch in - height for a bottom-up reveal,
+        /// distance from the centre for a radial one. Scaled by <see cref="FootprintShare"/>, so the
+        /// last point of the footprint is reached at 0.8 and the noise still has room to displace it
+        /// without ever pushing it past 1.
+        ///
+        /// <b>The spill</b> is 0 at the footprint's furthest point and 1 a full groundOverflowCells
+        /// beyond it, from the exact distance to a rounded rectangle. It is <b>negative everywhere on
+        /// the footprint</b>, which is what lets it bound the patch without ever delaying the sweep
+        /// inside it: it only speaks outside, and there it - not the edge of a rectangle - is what
+        /// decides where the conversion stops, in every direction including below.
+        ///
+        /// Taking the later of the two rather than adding them is what keeps that bound honest. Added,
+        /// the region under the footprint would have the whole progress budget left to spend on the
+        /// spill (its rank being 0 there) and the patch would open into a fan several cells deep.
+        /// </summary>
+        static float Threshold(float rank, float sdf, float corner, float overflow)
+            => Mathf.Max(FootprintShare * rank, (sdf - corner) / overflow);
+
+        /// <summary>Signed distance in cells to a rectangle with rounded corners: negative inside, reaching -min(halfX, halfY) at the centre.</summary>
+        static float RoundedBoxDistance(float dx, float dy, float halfX, float halfY, float round)
+        {
+            float qx = Mathf.Abs(dx) - (halfX - round);
+            float qy = Mathf.Abs(dy) - (halfY - round);
+
+            float outsideX = Mathf.Max(qx, 0f);
+            float outsideY = Mathf.Max(qy, 0f);
+            float outside = Mathf.Sqrt(outsideX * outsideX + outsideY * outsideY);
+            float inside = Mathf.Min(Mathf.Max(qx, qy), 0f);
+
+            return outside + inside - round;
+        }
+        /// <summary>Signed distance to the front, [-1, 1], packed into a byte. 128 is the front, so the shader can clip on it without knowing anything about thresholds.</summary>
+        static byte Encode(float distance) => (byte)Mathf.RoundToInt(Mathf.Clamp01(0.5f + 0.5f * distance) * 255f);
+
+        static float Decode(byte value) => value / 255f * 2f - 1f;
+
+        // --- Zones ---
+
+        /// <summary>A zone that has fallen releases its texture, material and quad - nothing is pooled for a zone that no longer exists.</summary>
+        void CloseZonesNotIn(IReadOnlyList<ZoneDescriptor> zones)
+        {
+            _closedScratch.Clear();
+
+            foreach (var kvp in _zones)
+            {
+                bool stillOpen = false;
+                for (int i = 0; i < zones.Count; i++)
+                {
+                    if (zones[i].Id != kvp.Key) continue;
+                    stillOpen = true;
+                    break;
+                }
+                if (!stillOpen) _closedScratch.Add(kvp.Key);
+            }
+
+            foreach (int id in _closedScratch)
+            {
+                Release(_zones[id]);
+                _zones.Remove(id);
+            }
+        }
+
+        Zone EnsureZone(ZoneDescriptor descriptor)
+        {
+            int texels = Mathf.Max(1, settings.GroundTexelsPerCell);
+
+            if (_zones.TryGetValue(descriptor.Id, out Zone existing)
+                && existing.SideCells == descriptor.SideCells
+                && existing.TexelsPerCell == texels
+                && existing.OriginCell.Equals(descriptor.OriginCell)
+                && existing.Texture != null)
+            {
+                return existing;
+            }
+
+            if (existing != null) Release(existing);
+
+            int side = descriptor.SideCells;
+            int texelSide = side * texels;
+
+            var zone = new Zone
+            {
+                OriginCell = descriptor.OriginCell,
+                SideCells = side,
+                TexelsPerCell = texels,
+                TexelSide = texelSide,
+                Field = new byte[texelSide * texelSide],
+                Dirty = true
+            };
+
+            // linear: true is not optional. This texture is DATA, not colour: it carries a signed
+            // distance, and the project renders in Linear colour space, so the default sRGB flag
+            // would have the GPU gamma-decode every sample before the shader ever sees it. The byte
+            // that means "exactly on the front" (128) would arrive as 0.216 instead of 0.502, i.e.
+            // a distance of -0.57 instead of 0, and everything within reach of the front would be
+            // clipped away - the field would be correct and most of it would simply not be drawn.
+            //
+            // The bug was invisible while the texture held a plain 0-1 coverage, because a gamma
+            // curve is monotone and leaves 0 at 0: only the interior gradient was wrong. Moving the
+            // zero point to mid-grey put it exactly where the curve does the most damage.
+            zone.Texture = new Texture2D(texelSide, texelSide, TextureFormat.R8, mipChain: false, linear: true)
+            {
+                name = "GroundCoverage " + descriptor.Id,
+                filterMode = FilterMode.Bilinear,   // the quantised field only reads as continuous because of this
+                wrapMode = TextureWrapMode.Clamp
+            };
+
+            zone.Material = new Material(settings.CoverageShader) { name = "GroundCoverage (Instance)" };
+
+            var go = new GameObject("GroundCoverageZone " + descriptor.Id);
+            go.transform.SetParent(transform, false);
+            zone.Quad = go.AddComponent<SpriteRenderer>();
+            zone.Quad.sharedMaterial = zone.Material;
+            zone.Quad.sortingOrder = settings.GroundCoverageSortingOrder;
+
+            PlaceQuad(zone);
+
+            _zones[descriptor.Id] = zone;
+            _fieldStale = true;
+            return zone;
+        }
+
+        /// <summary>
+        /// The quad spans the zone's cells exactly, so a texel centre lands where the field says it
+        /// does: texel i sits at UV (i + 0.5) / texelSide, which maps back to cell-space
+        /// (i + 0.5) / texelsPerCell - the coordinate WritePatch computes its threshold at. Any
+        /// other framing would offset the whole field.
+        /// </summary>
+        void PlaceQuad(Zone zone)
+        {
+            float cellSize = _grid.CellSize;
+            Vector3 originCenter = _grid.CellCenterToWorld(zone.OriginCell);
+            var min = new Vector2(originCenter.x - cellSize * 0.5f, originCenter.y - cellSize * 0.5f);
+            float extent = zone.SideCells * cellSize;
+
+            zone.MinWorld = min;
+            zone.Bounds = new Vector4(min.x, min.y, extent, extent);
+            zone.Quad.transform.position = new Vector3(min.x + extent * 0.5f, min.y + extent * 0.5f, 0f);
+            BuildingSpawner.SetSpriteToWorldSize(zone.Quad, UnitSprite(), new Vector2(extent, extent));
+
+            zone.Material.SetVector("_ZoneBounds", zone.Bounds);
+        }
+
+        static Sprite _unitSprite;
+
+        /// <summary>A blank carrier: none of its own pixels are ever shown, the material supplies everything. Same trick the concrete slab uses.</summary>
+        static Sprite UnitSprite()
+        {
+            if (_unitSprite != null) return _unitSprite;
+
+            var texture = new Texture2D(1, 1) { name = "GroundCoverageUnit" };
+            texture.SetPixel(0, 0, Color.white);
+            texture.Apply();
+
+            _unitSprite = Sprite.Create(texture, new Rect(0f, 0f, 1f, 1f), new Vector2(0.5f, 0.5f), 1f);
+            _unitSprite.name = "GroundCoverageUnit";
+            return _unitSprite;
+        }
+
+        Zone ZoneContaining(GridCoord cell)
+        {
+            foreach (var kvp in _zones)
+            {
+                Zone zone = kvp.Value;
+                int x = cell.X - zone.OriginCell.X;
+                int y = cell.Y - zone.OriginCell.Y;
+                if (x >= 0 && y >= 0 && x < zone.SideCells && y < zone.SideCells) return zone;
+            }
+            return null;
+        }
+
+        void Upload(Zone zone)
+        {
+            PushMaterialSettings(zone);
+
+            if (!zone.Dirty) return;
+
+            zone.Texture.SetPixelData(zone.Field, 0);
+            zone.Texture.Apply(updateMipmaps: false);
+            zone.Material.SetTexture("_CoverageTex", zone.Texture);
+
+            zone.Dirty = false;
+            UploadCount++;
+        }
+
+        /// <summary>Re-read every tick so the settings asset can be tuned live during play, exactly like the dissolve.</summary>
+        void PushMaterialSettings(Zone zone)
+        {
+            zone.Material.SetColor("_Tint", settings.GroundRimColor);
+            zone.Material.SetFloat("_Intensity", settings.GroundIntensity);
+            zone.Material.SetColor("_RimColor", settings.GroundRimColor);
+            zone.Material.SetFloat("_RimIntensity", settings.GroundRimIntensity);
+            zone.Material.SetFloat("_RimWidth", settings.GroundRimWidth);
+            zone.Material.SetFloat("_RimBoost", zone.FlashBoost);
+
+            // The dissolve's own grain, not a ground-specific one: the two fronts are meant to be
+            // ragged the same way, and two settings would be two things that drift apart.
+            zone.Material.SetFloat("_NoiseScale", settings.NoiseScale);
+            zone.Material.SetFloat("_NoiseWeight", ShaderNoiseWeight(settings.NoiseWeight));
+
+            zone.Quad.sortingOrder = settings.GroundCoverageSortingOrder;
+        }
+
+        // --- Test seams ---
+
+        /// <summary>True when this zone's field changed since its last upload. Exposed for tests.</summary>
+        public bool IsDirty(int zoneId) => _zones.TryGetValue(zoneId, out Zone zone) && zone.Dirty;
+
+        /// <summary>
+        /// Signed distance to the conversion front at a cell's centre, positive once converted.
+        /// Averaged over the texels straddling that centre - an even groundTexelsPerCell has no
+        /// single central texel, and picking one of the two would read a point off to one side and
+        /// make the field look asymmetric when it is not. Returns -1 outside every zone. Exposed for
+        /// tests.
+        /// </summary>
+        public float FrontDistanceAt(GridCoord cell)
+        {
+            Zone zone = ZoneContaining(cell);
+            if (zone == null) return -1f;
+
+            int texels = zone.TexelsPerCell;
+            int low = (texels - 1) / 2;
+            int high = texels / 2;
+
+            int baseX = (cell.X - zone.OriginCell.X) * texels;
+            int baseY = (cell.Y - zone.OriginCell.Y) * texels;
+
+            float total = 0f;
+            int count = 0;
+
+            for (int y = baseY + low; y <= baseY + high; y++)
+            {
+                if (y < 0 || y >= zone.TexelSide) continue;
+                for (int x = baseX + low; x <= baseX + high; x++)
+                {
+                    if (x < 0 || x >= zone.TexelSide) continue;
+                    total += Decode(zone.Field[y * zone.TexelSide + x]);
+                    count++;
+                }
+            }
+
+            return count == 0 ? -1f : total / count;
+        }
+
+        /// <summary>Whether the front has passed a cell's centre. Exposed for tests.</summary>
+        public bool IsConvertedAt(GridCoord cell) => FrontDistanceAt(cell) > 0f;
+
+        /// <summary>
+        /// Signed distance to the front at an arbitrary world point, from the single texel that
+        /// holds it - no interpolation, unlike the shader. Exposed for tests: it is the only way to
+        /// observe that the field really is finer than one value per cell.
+        /// </summary>
+        public float FrontDistanceAtWorld(Vector2 world)
+        {
+            foreach (var kvp in _zones)
+            {
+                Zone zone = kvp.Value;
+                float localX = (world.x - zone.MinWorld.x) / _grid.CellSize;
+                float localY = (world.y - zone.MinWorld.y) / _grid.CellSize;
+
+                int tx = Mathf.FloorToInt(localX * zone.TexelsPerCell);
+                int ty = Mathf.FloorToInt(localY * zone.TexelsPerCell);
+                if (tx < 0 || ty < 0 || tx >= zone.TexelSide || ty >= zone.TexelSide) continue;
+
+                return Decode(zone.Field[ty * zone.TexelSide + tx]);
+            }
+
+            return -1f;
+        }
+
+        /// <summary>Side of a zone's texture, in texels. Exposed for tests.</summary>
+        public int TexelSideOf(int zoneId) => _zones.TryGetValue(zoneId, out Zone zone) ? zone.TexelSide : 0;
+
+        /// <summary>A zone's field texture. Exposed for tests, which have to be able to check it is not an sRGB one.</summary>
+        public Texture2D TextureOf(int zoneId) => _zones.TryGetValue(zoneId, out Zone zone) ? zone.Texture : null;
+
+        /// <summary>The world rectangle a zone's texture covers, (minX, minY, sizeX, sizeY). Exposed for tests.</summary>
+        public Vector4 ZoneBoundsOf(int zoneId) => _zones.TryGetValue(zoneId, out Zone zone) ? zone.Bounds : Vector4.zero;
+
+        /// <summary>
+        /// Smallest front distance over every texel of a footprint - not just its cell centres, which
+        /// is where the field is at its most converted. This is the only way to state the guarantee
+        /// the ground's phase owes: at its end the field is past the front <b>everywhere</b> on the
+        /// footprint, corners included. Exposed for tests.
+        /// </summary>
+        public float MinFrontDistanceOver(GridCoord origin, Vector2Int size)
+        {
+            Zone zone = ZoneContaining(origin);
+            if (zone == null) return -1f;
+
+            int texels = zone.TexelsPerCell;
+            int baseX = (origin.X - zone.OriginCell.X) * texels;
+            int baseY = (origin.Y - zone.OriginCell.Y) * texels;
+
+            float min = float.MaxValue;
+
+            for (int y = baseY; y < baseY + size.y * texels; y++)
+            {
+                if (y < 0 || y >= zone.TexelSide) continue;
+                for (int x = baseX; x < baseX + size.x * texels; x++)
+                {
+                    if (x < 0 || x >= zone.TexelSide) continue;
+                    min = Mathf.Min(min, Decode(zone.Field[y * zone.TexelSide + x]));
+                }
+            }
+
+            return min == float.MaxValue ? -1f : min;
+        }
+
+        void OnDestroy()
+        {
+            foreach (var kvp in _zones) Release(kvp.Value);
+            _zones.Clear();
+        }
+
+        void Release(Zone zone)
+        {
+            DestroyOwned(zone.Texture);
+            DestroyOwned(zone.Material);
+            if (zone.Quad != null) DestroyOwned(zone.Quad.gameObject);
+
+            zone.Texture = null;
+            zone.Material = null;
+            zone.Quad = null;
+            zone.Written.Clear();
+        }
+
+        /// <summary>Destroy takes effect next frame in play mode and is an error outside it, so the two cases are split - same as BuildDissolveView.</summary>
+        static void DestroyOwned(Object target)
+        {
+            if (target == null) return;
+            if (Application.isPlaying) Destroy(target);
+            else DestroyImmediate(target);
+        }
+    }
+}

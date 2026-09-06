@@ -1,5 +1,6 @@
 using Game.Core;
 using Game.Gameplay.Buildings;
+using Game.Gameplay.Sites;
 using Game.Presentation;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -71,60 +72,79 @@ namespace Game.UI
             GridCoord cell = gameRuntime.Grid.WorldToCell(world);
             object occupant = gameRuntime.Grid.GetOccupant(cell);
 
-            if (occupant is StorageRuntime storage)
-            {
-                storagePanel.Show(storage);
-            }
-            else if (occupant is ExtractorRuntime extractor)
-            {
-                // Explicit type check, not "is BuildingRuntime": only building types with an
-                // actual info panel may become the selection, otherwise clicking e.g. a conveyor
-                // would block world input (IsUIBlockingInput) with no panel able to clear it.
-                gameRuntime.Selection.Select(extractor);
-            }
-            else if (occupant is ProductionBuildingRuntime production)
-            {
-                // Family-level check (not a blanket "is BuildingRuntime"): every current and
-                // near-future ProductionBuildingRuntime shares ProductionPanelController, so this
-                // is as safe as the single-type checks above, just for the whole family at once.
-                gameRuntime.Selection.Select(production);
-            }
-            else if (occupant is PowerplantGazRuntime powerplantGaz)
-            {
-                gameRuntime.Selection.Select(powerplantGaz);
-            }
-            else if (occupant is DataCenterRuntime dataCenter)
-            {
-                gameRuntime.Selection.Select(dataCenter);
-            }
-            else if (occupant is CoreRuntime core)
-            {
-                gameRuntime.Selection.Select(core);
-            }
-            else
+            // A construction site's pending segment already occupies the grid - that is what stops
+            // anything else being placed on it - but it is not the building it will become: nothing
+            // has been delivered, it produces nothing, and a Foundry's production panel over it
+            // would be a panel about a machine that does not exist yet.
+            //
+            // The click is routed to the site's own panel rather than dropped. What a player wants
+            // from a blue silhouette is what it is waiting for, which is a different question about
+            // the same cell - hence a different selection slot, not a different cast of the same one.
+            // TryGetSiteContaining only matches segments that have not materialized yet, so the
+            // first conveyor of a three-segment run opens its own panel as soon as it is built while
+            // its two siblings still open the site's.
+            if (occupant is BuildingRuntime pendingSegment
+                && gameRuntime.ConstructionSites != null
+                && gameRuntime.ConstructionSites.TryGetSiteContaining(pendingSegment, out ConstructionSiteRuntime site))
             {
                 storagePanel.Hide();
-                gameRuntime.Selection.Clear();
+                gameRuntime.Selection.SelectSite(site);
+                return;
+            }
+
+            if (TryShowPanelFor(occupant)) return;
+
+            storagePanel.Hide();
+            gameRuntime.Selection.Clear();
+        }
+
+        /// <summary>
+        /// Opens the panel a building deserves, and answers whether it had one at all. The single
+        /// map from a building to its panel: a click lands here, and so does the construction site
+        /// panel's handover when a site finishes, so a type gaining a panel is never something to
+        /// remember in two routers.
+        ///
+        /// Explicit type checks, not "is BuildingRuntime": only types with an actual info panel may
+        /// become the selection, otherwise a conveyor would block world input (IsUIBlockingInput)
+        /// with no panel able to clear it. ProductionBuildingRuntime is checked at family level
+        /// because every current and near-future one shares ProductionPanelController - as safe as
+        /// the single-type checks, just for the whole family at once.
+        /// </summary>
+        public bool TryShowPanelFor(object occupant)
+        {
+            switch (occupant)
+            {
+                case StorageRuntime storage:
+                    storagePanel.Show(storage);
+                    return true;
+                case ExtractorRuntime extractor:
+                    gameRuntime.Selection.Select(extractor);
+                    return true;
+                case ProductionBuildingRuntime production:
+                    gameRuntime.Selection.Select(production);
+                    return true;
+                case PowerplantGazRuntime powerplantGaz:
+                    gameRuntime.Selection.Select(powerplantGaz);
+                    return true;
+                case DataCenterRuntime dataCenter:
+                    gameRuntime.Selection.Select(dataCenter);
+                    return true;
+                case CoreRuntime core:
+                    gameRuntime.Selection.Select(core);
+                    return true;
+                default:
+                    return false;
             }
         }
 
         /// <summary>
-        /// True when the click landed on a real (pickable) UI element rather than on the world.
-        /// The mouse position comes in with the origin at the screen's bottom-left while a UI
-        /// Toolkit panel's coordinates start at its top-left, and ScreenToPanel does not flip
-        /// that axis itself - passing the raw position picks a vertically mirrored point, which
-        /// reported "no UI here" for clicks that did hit a panel (a ProductionPanel recipe card
-        /// then also read as a world click and cleared the selection, closing the panel).
+        /// True when the click landed on a real (pickable) UI element rather than on the world -
+        /// the case that first needed it being a ProductionPanel recipe card, which also read as a
+        /// world click and cleared the selection, closing the panel it had just been clicked in.
+        ///
+        /// Delegated so the camera and this share one rule rather than two copies of it, Y flip
+        /// included. See PointerOverUI.
         /// </summary>
-        bool IsPointerOverUI(Vector2 screenPos)
-        {
-            if (uiDocument == null) return false;
-
-            IPanel panel = uiDocument.rootVisualElement?.panel;
-            if (panel == null) return false;
-
-            Vector2 panelPos = RuntimePanelUtils.ScreenToPanel(panel, new Vector2(screenPos.x, Screen.height - screenPos.y));
-            return panel.Pick(panelPos) != null;
-        }
+        bool IsPointerOverUI(Vector2 screenPos) => PointerOverUI.At(uiDocument, screenPos);
     }
 }

@@ -45,8 +45,25 @@ saute de 0 à 0,67 en une frame et l'effet perd tout son sens.
 La vue tient donc sa propre valeur, distincte de l'avancement du chantier :
 
 - `targetProgress` — l'avancement réel, discret, qui saute par paliers à chaque livraison
-- `displayedProgress` — ce qui pilote les shaders, qui rattrape la cible à **vitesse bornée**,
-  `catchUpRate` unités par seconde
+- `displayedProgress` — ce qui pilote les shaders, qui rattrape la cible à **vitesse bornée**
+
+Cette vitesse est une **surface par seconde**, pas un avancement par seconde, et se divise par
+l'emprise du bâtiment :
+
+```
+progressRate = assemblyRate / surface du bâtiment en cases
+```
+
+Un avancement par seconde serait indépendant de la taille : un convoyeur d'une case et une centrale
+de neuf cases mettraient le même temps à s'assembler. C'est trop long sur les convoyeurs, et comme
+les segments d'un glissé se matérialisent en série, une ligne de dix convoyeurs devient
+interminable. Avec `assemblyRate = 1.8`, la centrale garde ses 5 secondes et un convoyeur
+s'assemble en 0,56 s.
+
+`minAssemblyDuration` plafonne le taux à `1 / minAssemblyDuration` pour qu'un petit bâtiment ne
+surgisse pas d'un coup. La surface se prend sur l'**emprise logique** (`FootprintSize`), jamais sur
+l'AABB visuelle `_BuildBounds` : un sprite peut volontairement déborder de son emprise, et un toit
+en surplomb n'a pas à ralentir le bâtiment.
 
 Conséquences voulues :
 
@@ -108,6 +125,31 @@ Prérequis : les bâtiments ne bougent ni ne tournent après placement. Sur une 
 Écris le bruit de valeur à la main (hash + interpolation smoothstep), sans dépendance externe.
 Shader CG non éclairé sans tag `RenderPipeline`, comme les autres shaders 2D du projet.
 
+**Trois octaves, pas une.** Une octave unique n'a qu'une échelle de détail : combinée au dégradé
+de bas en haut, elle ne peut produire qu'une ondulation molle, et augmenter `noiseWeight` amplifie
+les vagues au lieu de découper le bord. `p` est la position monde multipliée par `noiseScale` :
+
+```
+n1  = vnoise(p)
+n2  = vnoise(p * 2.2)
+n3  = vnoise(p * 4.5)
+fbm = 0.62*n1 + 0.27*n2 + 0.11*n3
+n   = saturate((fbm - 0.25) / 0.5)
+```
+
+L'étirement final n'est pas cosmétique. Un fBm ne couvre pas 0 à 1 : la somme pondérée de trois
+bruits se concentre autour de 0,5, avec une plage utile d'environ 0,25 à 0,75. Sans le remap,
+`noiseWeight` produit à peu près moitié moins d'irrégularité que sa valeur ne le laisse croire. Le
+prototype normalisait son champ sur toute l'image, ce qu'un shader ne peut pas faire pixel par
+pixel — d'où l'étirement par constantes fixes.
+
+Le champ final est `field = base * (1 - noiseWeight) + n * noiseWeight`, et le poids ne doit être
+appliqué **qu'une seule fois** : toute normalisation ou pondération supplémentaire ailleurs dans le
+fragment diviserait encore l'amplitude réelle du bruit.
+
+`n` étant correctement étiré, `field` couvre exactement 0 à 1 et `progress` se compare directement
+à lui — pas de décalage epsilon avant le `clip()`.
+
 ## 6. Composant `BuildDissolveView`
 
 Sur le prefab du bâtiment, actif seulement pendant le chantier.
@@ -124,23 +166,87 @@ Sur le prefab du bâtiment, actif seulement pendant le chantier.
 - attention, la feuille de la centrale gaz contient 12 cases mais seulement **11 frames utiles** :
   la douzième est un doublon exact de la première et provoque une micro-pause dans la boucle
 
-## 7. Couverture au sol
+## 7. Couverture au sol — une texture par zone
 
-`GroundCoverageRenderer`, une seule instance dans la scène.
+**Ne pas utiliser une texture unique couvrant la carte.** Ce serait viable avec les deux robots
+constructeurs d'aujourd'hui et intenable ensuite : chaque Agent IA arrive avec les siens, le nombre
+de chantiers simultanés croît donc mécaniquement avec le territoire conquis. Une texture globale
+grossirait avec la carte, serait presque entièrement vide, et devrait être réuploadée dès qu'un
+seul chantier bouge n'importe où.
 
-- un tableau `float[]` d'une valeur par case, alloué une fois, jamais réalloué par frame
-- à chaque tick : pour chaque chantier actif, écrire son `displayedProgress` — pas son avancement
-  brut — sur les cases de son emprise ; les cases sans chantier décroissent vers zéro sur
-  `coverageFadeSeconds`
-- upload dans une `Texture2D` en `R8`, `FilterMode.Bilinear`, `TextureWrapMode.Clamp`, via
-  `SetPixelData` + `Apply`, **uniquement si le champ a changé** depuis la frame précédente
-- un quad unique aligné sur la grille porte `GroundCoverage.shader`, qui échantillonne la texture
-  en coordonnées monde — même conversion que le shader de transition de terrain déjà en place
-- `clip()` là où la couverture est nulle, pour que le terrain intact ne coûte rien
+Le découpage n'est pas à inventer, il existe : c'est la **zone**. Un robot constructeur ne travaille
+que dans la zone de son Noyau ou de son Agent IA, donc tout chantier appartient nécessairement à
+une zone et à une seule. C'est cette garantie qui rend le partitionnement correct — ne pas la
+remplacer par un pavage arbitraire en carrés.
 
-Le shader applique une teinte au sol converti et un liseré émissif dans la bande où la couverture
-approche le seuil, avec la même couleur que le liseré du dissolve : c'est ce qui relie visuellement
-les deux couches. Le flash de livraison s'applique aussi à cette couche.
+Conception attendue :
+
+- une texture de couverture par zone, dimensionnée sur le rayon d'action de cette zone
+- allouée à l'ouverture de la zone, libérée si la zone tombe
+- un drapeau de modification par zone : seule une zone dont le champ a changé pendant le tick est
+  réuploadée
+- un quad de rendu par zone, portant sa propre texture et son propre material
+
+Le quad par zone est ce qui simplifie le shader : il n'a aucune zone à résoudre, aucune indirection
+à faire, il échantillonne la texture qui lui est attachée. La conversion position monde → UV se fait
+à partir de l'origine et de l'étendue de la zone, exactement comme la version globale le faisait à
+partir de l'origine et de l'étendue de la carte.
+
+Deux points à traiter :
+
+- le rayon d'action d'une zone est extensible. Soit tu alloues la texture pour le rayon maximal
+  atteignable, soit tu la réalloues à l'agrandissement — événement rare, déclenché par une
+  recherche, jamais en cours de frame.
+- les zones ne se recouvrent pas aujourd'hui. Si cela devait changer, deux quads se superposeraient
+  et leurs couvertures s'additionneraient visuellement. À vérifier avant d'écrire le mélange.
+
+Si la zone se révélait un mauvais découpage à l'usage, le repli est un pavage en régions fixes de
+taille constante, avec le même drapeau de modification par région. C'est l'alternative, pas le
+choix par défaut : elle perd le lien avec la structure du jeu.
+
+Le reste de la section 7 : tableau alloué une fois, `R8`, `FilterMode.Bilinear`,
+`TextureWrapMode.Clamp`, `SetPixelData` + `Apply` seulement si le champ a changé, `clip()` là où
+rien n'est converti, et lecture de `displayedProgress` et non de l'avancement brut.
+
+### 7.1 Ce que contient le champ
+
+**Le champ ne porte pas une quantité de couverture, il porte la distance signée au front de
+conversion** — exactement le `distanceToFront` du shader de dissolve, mais précalculé côté C# parce
+que le seuil dépend du chantier propriétaire, ce qu'un fragment ne peut pas savoir. Empaquetée dans
+`[0, 1]`, 0,5 étant le front lui-même, ce qui laisse le `clip()` se faire sans que le shader ait la
+moindre notion de seuil.
+
+Trois conséquences, toutes obligatoires :
+
+- **Le champ déborde de l'emprise.** Un seuil qui s'arrête au bord de l'emprise fait du rectangle la
+  frontière extérieure : la forme finale est un carré, quoi que fasse le front à l'intérieur. Le
+  seuil continue donc de monter dans l'anneau de cases autour du bâtiment, sur `groundOverflowCells`
+  cases, et c'est le seuil **plus le bruit** dans cet anneau qui décide où la conversion s'arrête. Le
+  débordement sur les cases voisines est voulu : il rattrape l'écart avec un bâtiment dont l'art
+  déborde déjà de son emprise.
+- **Plusieurs texels par case.** À un texel par case, la frontière ne peut que suivre la grille et le
+  bruit n'a pas de quoi la déchiqueter. `groundTexelsPerCell` vaut 4 par défaut.
+- **Le liseré se déduit de la distance au seuil**, comme celui du bâtiment, et pas de la valeur de
+  couverture ni d'un écart entre voisins. C'est la condition pour que les deux couches partagent une
+  même frontière lumineuse et se lisent comme un seul effet.
+
+L'estompage d'un chantier qui disparaît est un **front qui recule**, obtenu en faisant redescendre
+l'avancement du chantier, et non un champ qu'on assombrit sur place. Soustraire des valeurs stockées
+ferait traverser la bande de liseré à tout le plateau converti en même temps, ce qui allume la tache
+entière au moment où elle devrait s'éteindre.
+
+### 7.2 Le sol a sa propre phase, en avance sur le bâtiment
+
+Le sprite d'un bâtiment couvre exactement son emprise, et le sol est dessous. **Sur la même horloge,
+la couverture est donc invisible pendant tout le chantier** : elle n'apparaît qu'en halo, et
+seulement dans les derniers instants. Le sol tourne donc sur `saturate(avancement / groundLeadShare)`
+et termine bien avant le bâtiment — à `groundLeadShare = 0.5`, la seconde moitié du bâtiment monte
+sur un sol déjà converti.
+
+**À la fin de sa propre phase, le champ doit avoir dépassé le front partout sur l'emprise**, coins
+compris, et cela doit tenir par construction et non par chance aux réglages du moment. Deux choses
+l'assurent : le seuil est normalisé sur le **coin** de l'emprise et non sur son contour, et
+l'amplitude du bruit est plafonnée à la marge qui reste au-dessus.
 
 ## 8. Ordre de rendu
 
@@ -160,24 +266,34 @@ l'aspect de toute la base depuis un seul asset.
 
 | Champ | Valeur | Remarque |
 |---|---|---|
-| `noiseScale` | `6.3` | périodes de bruit par case, valeur unique |
-| `noiseWeight` | `0.30` | |
-| `rimWidth` | `0.09` | |
+| `noiseScale` | `12` | périodes de bruit par case, valeur unique |
+| `noiseWeight` | `0.045` | |
+| `rimWidth` | `0.059` | |
 | `rimColor` | `#3CB9EB` | liseré du bâtiment |
 | `groundRimColor` | `#1E8CB9` | liseré du sol, variante plus sourde |
 | `revealMode` | `0` | 0 = bas vers haut, 1 = radial |
 | `groundIntensity` | `0.15` | teinte du sol converti, volontairement discrète |
 | `groundRimIntensity` | `0.6` | **découplé** de `groundIntensity`, voir ci-dessous |
-| `coverageFadeSeconds` | `4` | |
-| `catchUpRate` | `0.25` | unités d'avancement par seconde |
+| `groundRimWidth` | `0.08` | largeur du liseré au sol, **en unités de seuil** — même unité que `rimWidth` |
+| `groundLeadShare` | `0.5` | fraction de l'avancement du bâtiment à laquelle le sol a fini |
+| `groundOverflowCells` | `0.45` | débordement au-delà du coin de l'emprise, en cases |
+| `groundNoiseScale` | `1.2` | grain du sol, en périodes par unité monde |
+| `groundNoiseWeight` | `0.25` | déplacement de la frontière par le bruit, en unités de seuil |
+| `groundTexelsPerCell` | `4` | résolution du champ de couverture |
+| `coverageFadeSeconds` | `4` | durée du recul du front après la fin d'un chantier |
+| `assemblyRate` | `1.8` | **cases assemblées par seconde** |
+| `minAssemblyDuration` | `0.25` | secondes, plancher de durée d'assemblage |
 | `deliveryFlashDuration` | `0.40` | secondes |
 | `deliveryFlashIntensity` | `0.28` | |
 
 **`noiseScale`** : c'est **un seul nombre, en périodes de bruit par case**, valable pour tous les
-bâtiments — il n'y a pas de valeur par bâtiment. Le réglage a été trouvé sur un prototype en pixels,
-où le grain valait 0,06 par pixel sur une largeur de 320 px, soit environ 19 périodes sur la largeur
-de la centrale gaz. La centrale faisant 3×3 cases, la conversion donne 19 ÷ 3 ≈ **6,3 périodes par
-case**, et cette valeur s'applique ensuite à tous les bâtiments sans recalcul.
+bâtiments — il n'y a pas de valeur par bâtiment.
+
+Les valeurs de bruit et de liseré ci-dessus (`noiseScale`, `noiseWeight`, `rimWidth`) ont été
+trouvées **à l'œil, dans le jeu, à la distance de caméra réelle**. Elles remplacent celles dérivées
+du prototype navigateur (6,3 / 0,30 / 0,09), qui étaient justes en tant que conversion mais fausses
+à l'écran — voir le carnet, section *D'où viennent les valeurs*. Ne pas les « corriger » vers les
+chiffres du prototype.
 
 Comme le bruit est échantillonné en coordonnées monde, un bâtiment plus grand reçoit simplement plus
 de périodes sur sa largeur, avec un grain de taille physique identique. C'est le comportement voulu :
@@ -194,7 +310,9 @@ tu les couples, régler l'un éteint l'autre.
 
 - `displayedProgress` rattrape `targetProgress` à la vitesse configurée, et ne le dépasse jamais
 - une hausse instantanée de `targetProgress` de 0 à 0,67 produit une montée étalée sur
-  `0.67 / catchUpRate` secondes, pas un saut
+  `0.67 / progressRate` secondes, pas un saut — donc une durée qui dépend de l'emprise
+- un bâtiment d'une case s'assemble strictement plus vite qu'un bâtiment de neuf cases, dans le
+  rapport exact de leurs surfaces, et `minAssemblyDuration` plafonne le cas d'une seule case
 - une livraison déclenche le flash, et le flash retombe à zéro après `deliveryFlashDuration`
 - le composant se retire quand `displayedProgress` atteint 1, pas quand les matériaux sont livrés
 - à 0, rien du sprite n'est visible ; à 1, le sprite est intégralement visible

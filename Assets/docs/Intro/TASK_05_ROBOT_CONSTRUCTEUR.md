@@ -8,11 +8,26 @@
 > `GlobalStock` (vue agrégée en lecture seule, plus jamais un contenant) — voir
 > `CONTRACTS.md` §15.
 >
-> **Règle ajoutée n°1 — le refus de pose pour cause de coût disparaît.** Tel qu'écrit, le
-> ticket décrivait deux comportements (§3 plusieurs chantiers en attente, §4 état d'échec
-> nommant les matériaux manquants) inatteignables tant que la pose exigeait de pouvoir payer.
-> `PlacementRefusalReason.CannotAfford` est donc retiré : poser réussit toujours sous réserve
-> du verrou de recherche, du rayon d'action, du plafond de bâtiments et de la cellule libre.
+> **Règle ajoutée n°1 — annulée depuis : on ne peut pas poser un bâtiment qu'on ne peut pas
+> construire.** `PlacementRefusalReason.CannotAfford` avait été retiré pour rendre atteignables
+> deux comportements du ticket (§3 plusieurs chantiers en attente, §4 état d'échec nommant les
+> matériaux manquants). Il est rétabli sur décision de design : poser exige que la totalité de
+> la facture soit couverte par du stock **non réservé** à cet instant.
+>
+> §3 survit intact — quatre chantiers posés ensemble attendent toujours leur tour, puisque la
+> porte ne refuse que ce qu'on ne peut pas payer. §4 en revanche devient inatteignable par une
+> pose : un chantier ouvert a toute sa facture réservée, donc son compte « manquant » est
+> toujours nul. `GetStillNeeded`, `SupplyLine.IsStalled` et la notification de chantier bloqué
+> restent en place comme code défensif (une source détruite alors qu'elle porte du réservé), pas
+> comme un état que le jeu produit.
+>
+> **Suite livrée — le panneau de chantier.** Cliquer une silhouette bleue ouvre son
+> approvisionnement (par ingrédient : arrivés, en route, manquant) au lieu du panneau du
+> bâtiment qu'elle va devenir, et ce panneau passe la main à celui du bâtiment quand le
+> chantier s'achève. C'est le compteur de réservation de cette tâche rendu lisible : sans le
+> total réservé, l'écran ne pourrait afficher que « livré 10 sur 15 », qui ne distingue pas un
+> chantier que le système sert d'un chantier oublié faute de production. Voir `CONTRACTS.md`
+> §7 (le troisième slot de sélection) et §15 (`GetSupply`).
 >
 > **Règle ajoutée n°2 — un chantier bloqué est sauté, jamais bloquant.** « Un seul chantier à
 > la fois » porte sur l'exécution simultanée (les deux robots servent le même chantier), pas

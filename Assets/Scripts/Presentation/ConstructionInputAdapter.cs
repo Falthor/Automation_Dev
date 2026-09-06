@@ -27,13 +27,16 @@ namespace Game.Presentation
         [SerializeField] DepositHoverGlowView depositHoverGlowView;
 
         /// <summary>
-        /// Raised when a placement attempt is refused specifically because the building cap was
-        /// reached (TASK_04_PLAFOND_RAYON.md §3.2 - this refusal must name its cause explicitly,
-        /// not fail silently). Game.Presentation must not depend on Game.UI (PROJECT_ARCHITECTURE.md
-        /// §4's dependency direction), so this is a plain event a UI-layer listener (TopBarController)
+        /// Raised when a placement attempt is refused for a reason the player cannot see for
+        /// themselves - the building cap (TASK_04_PLAFOND_RAYON.md §3.2) and insufficient resources.
+        /// Both must name their cause rather than failing silently: nothing on screen distinguishes
+        /// "this click did nothing" from "this click was refused", and a gate the player cannot
+        /// perceive is worse than no gate at all. See RefusalMessage for why the other reasons stay
+        /// quiet. Game.Presentation must not depend on Game.UI (PROJECT_ARCHITECTURE.md §4's
+        /// dependency direction), so this is a plain event a UI-layer listener (TopBarController)
         /// subscribes to instead of a direct reference the other way.
         /// </summary>
-        public event System.Action<string> PlacementRefusedAtBuildingCap;
+        public event System.Action<string> PlacementRefused;
 
         /// <summary>
         /// Used to lay straight segments while dragging with the Corner tool selected - a corner
@@ -108,7 +111,7 @@ namespace Game.Presentation
             if (worldCamera == null || gameRuntime == null) return;
             if (_spawner == null)
             {
-                _spawner = new BuildingSpawner(gameRuntime.Grid, _spriteFactory, straightConveyorForDragContinuation, cornerConveyorForReshape, gameRuntime.GroundSlabSettings, gameRuntime.GroundSlabNeighborLinker);
+                _spawner = new BuildingSpawner(gameRuntime.Grid, _spriteFactory, straightConveyorForDragContinuation, cornerConveyorForReshape, gameRuntime.GroundSlabSettings, gameRuntime.GroundSlabNeighborLinker, gameRuntime.ShadowSettings);
             }
 
             // Subscribed here rather than in Start() for the same reason _spawner is built lazily:
@@ -116,8 +119,32 @@ namespace Game.Presentation
             if (!_subscribedToMaterialization && gameRuntime.ConstructionSites != null)
             {
                 gameRuntime.ConstructionSites.SegmentMaterialized += OnSegmentMaterialized;
+
+                // The one spawner of the scene, lent to the site views so they can finish a
+                // segment's assembly and swap in the real building themselves. A second spawner
+                // built over there would keep its own per-cell view dictionary, and demolition
+                // would stop finding views created by the other.
+                if (gameRuntime.ConstructionSiteVisuals != null)
+                {
+                    gameRuntime.ConstructionSiteVisuals.SetViewSpawner(_spawner.SpawnView);
+
+                    // And its concrete pad, for the same reason: the slab a site reveals while
+                    // converting has to be the pad the finished building keeps, tiling phase
+                    // included, or the swap at the handover would show.
+                    gameRuntime.ConstructionSiteVisuals.SetGroundSlabSpawner(
+                        (cell, footprint) => _spawner.SpawnGroundSlab(null, cell, footprint, revealedByNanoFront: true));
+                }
+
                 _subscribedToMaterialization = true;
             }
+
+            GridCoord cellUnderMouse = CellUnderMouse();
+
+            // Above the gate on purpose. The outline is not click handling, and freezing it while
+            // a panel is open is what left it stranded on the previously inspected building: with
+            // the whole method returning early, the last cell it had been given simply stayed on
+            // screen while the panel moved on to another building.
+            HandleHoverHighlight(cellUnderMouse);
 
             // A UI panel (Building menu, Storage panel, ...) owns mouse/keyboard input while
             // open, and for one extra frame after it closes - otherwise the same click that
@@ -126,20 +153,58 @@ namespace Game.Presentation
 
             HandleRotateAndCancel();
 
-            GridCoord cellUnderMouse = CellUnderMouse();
             UpdateGhost(cellUnderMouse);
-            HandleHoverHighlight(cellUnderMouse);
             HandlePlacement(cellUnderMouse);
             HandleDemolition(cellUnderMouse);
         }
 
         /// <summary>
-        /// Outlines the footprint of whatever building sits under the mouse, active both with
-        /// and without a construction tool armed (only suppressed while a UI panel owns input,
-        /// handled by the early-return above).
+        /// Outlines a building's footprint, active both with and without a construction tool armed.
+        ///
+        /// While a building is being inspected the outline marks <b>that</b> building rather than
+        /// whatever the cursor happens to be over: the outline's job is then to say which building
+        /// the open panel is about, and the cursor is somewhere else entirely - on the panel. It
+        /// follows the selection from one building to the next, so clicking a second building moves
+        /// both the panel and the outline.
+        ///
+        /// A global panel (Research, the Building menu, Storage) has no building to point at, so
+        /// the outline steps aside entirely rather than tracking a cursor that is busy elsewhere.
         /// </summary>
+        /// <summary>The next segment a site will materialize - the one its panel's bill is being spent on. Null once every segment is built.</summary>
+        static BuildingRuntime FrontSegmentOf(ConstructionSiteRuntime site)
+            => site.MaterializedCount < site.Segments.Count ? site.Segments[site.MaterializedCount] : null;
+
         void HandleHoverHighlight(GridCoord cell)
         {
+            BuildingRuntime inspected = gameRuntime.Selection.SelectedBuilding;
+            if (inspected != null)
+            {
+                hoverHighlightView?.Show(inspected.Cell, inspected.Definition.FootprintSize);
+                depositHoverGlowView?.Hide();
+                return;
+            }
+
+            // A site under inspection is marked the same way, on the segment its panel is really
+            // about: the one being built. On a dragged run the earlier segments are already
+            // buildings and outlining the whole run would claim ground that is no longer the
+            // site's.
+            ConstructionSiteRuntime inspectedSite = gameRuntime.Selection.SelectedSite;
+            if (inspectedSite != null)
+            {
+                BuildingRuntime front = FrontSegmentOf(inspectedSite);
+                if (front != null) hoverHighlightView?.Show(front.Cell, front.Definition.FootprintSize);
+                else hoverHighlightView?.Hide();
+                depositHoverGlowView?.Hide();
+                return;
+            }
+
+            if (gameRuntime.Selection.ActiveGlobalPanel != null)
+            {
+                hoverHighlightView?.Hide();
+                depositHoverGlowView?.Hide();
+                return;
+            }
+
             object occupant = gameRuntime.Grid.GetOccupant(cell);
 
             if (hoverHighlightView != null)
@@ -202,7 +267,7 @@ namespace Game.Presentation
 
                 bool conveyorValid = gameRuntime.Construction.CanPlace(cell);
                 Vector3 conveyorWorldPos = gameRuntime.Grid.CellCenterToWorld(cell);
-                ghostView.Show(_spriteFactory, conveyorDefinition, gameRuntime.Construction.PreviewRotation, conveyorWorldPos, conveyorValid);
+                ghostView.Show(_spriteFactory, conveyorDefinition, gameRuntime.Construction.PreviewRotation, conveyorWorldPos, conveyorValid, gameRuntime.Grid.CellSize);
                 return;
             }
 
@@ -216,7 +281,9 @@ namespace Game.Presentation
 
             bool valid = gameRuntime.Construction.CanPlace(cell);
             Vector3 worldCenter = gameRuntime.Grid.FootprintCenterToWorld(cell, selected.FootprintSize);
-            Vector2 worldSize = new Vector2(gameRuntime.Grid.CellSize, gameRuntime.Grid.CellSize) * selected.FootprintSize;
+            // RenderOverscan included: the ghost previews the building that will be built, so it
+            // has to be the size that building is actually drawn at, not the size of its footprint.
+            Vector2 worldSize = BuildingSpawner.ArtWorldSize(selected, gameRuntime.Grid.CellSize);
             Sprite sprite = ResolveGhostSprite(selected);
             Direction previewRotation = gameRuntime.Construction.PreviewRotation;
             (bool rotateSprite, Direction artNativeDirection) = ResolveGhostRotation(selected);
@@ -477,6 +544,12 @@ namespace Game.Presentation
         void RefreshViewIfMaterialized(BuildingRuntime runtime)
         {
             if (gameRuntime.ConstructionSites != null && gameRuntime.ConstructionSites.TryGetSiteContaining(runtime, out _)) return;
+
+            // Materialized but still assembling: ConstructionSiteVisualSync re-reads the runtime's
+            // orientation every frame, so the reshape already shows - and spawning the real view
+            // here would double-draw it until the dissolve hands over.
+            if (gameRuntime.ConstructionSiteVisuals != null && gameRuntime.ConstructionSiteVisuals.Draws(runtime)) return;
+
             _spawner.SpawnView(runtime);
         }
 
@@ -484,10 +557,19 @@ namespace Game.Presentation
         /// A construction site just delivered a segment's full cost: it is now a real, registered
         /// building (ConstructionSiteSystem already called Transport.Register) and needs the same
         /// view/item-visual wiring an immediate placement used to do inline.
+        ///
+        /// The view is the one part that is no longer immediate. Delivery completes long before the
+        /// sprite has finished assembling on screen, so ConstructionSiteVisualSync keeps the segment
+        /// in its assembling set and calls the spawner lent above once the dissolve reaches 1.
+        /// Item visuals stay immediate on purpose: the segment is live in TransportSystem from this
+        /// instant, and items already riding it must be visible while it assembles.
         /// </summary>
         void OnSegmentMaterialized(BuildingRuntime runtime)
         {
-            _spawner?.SpawnView(runtime);
+            bool assembledElsewhere = gameRuntime.ConstructionSiteVisuals != null
+                && gameRuntime.ConstructionSiteVisuals.AssemblesMaterializedSegments;
+            if (!assembledElsewhere) _spawner?.SpawnView(runtime);
+
             if (gameRuntime.ItemVisuals != null) gameRuntime.ItemVisuals.Register(runtime);
         }
 
@@ -544,12 +626,24 @@ namespace Game.Presentation
                     if (gameRuntime.ItemVisuals != null) gameRuntime.ItemVisuals.Unregister(previousBuilding);
                 }
             }
-            else if (gameRuntime.Construction.Selected != null
-                     && gameRuntime.Construction.GetPlacementRefusalReason(cell) == PlacementRefusalReason.BuildingCapReached)
+            else if (gameRuntime.Construction.Selected != null)
             {
-                PlacementRefusedAtBuildingCap?.Invoke("Plafond de batiments atteint");
+                // Only the two refusals a player cannot see for themselves are announced. Out of
+                // radius, not unlocked and occupied are already legible from the ghost's own tint
+                // and from where the cursor is; a message on every one of those would be noise on
+                // gestures the player is making deliberately.
+                string message = RefusalMessage(gameRuntime.Construction.GetPlacementRefusalReason(cell));
+                if (message != null) PlacementRefused?.Invoke(message);
             }
         }
+
+        /// <summary>The player-facing wording for a refusal, or null when the refusal already shows itself.</summary>
+        static string RefusalMessage(PlacementRefusalReason reason) => reason switch
+        {
+            PlacementRefusalReason.BuildingCapReached => "Plafond de batiments atteint",
+            PlacementRefusalReason.CannotAfford => "Ressources insuffisantes",
+            _ => null
+        };
 
         static bool IsConveyorRunDefinition(BuildingDefinition definition) =>
             definition is ConveyorDefinition || definition is SplitterDefinition || definition is CrossroadDefinition;

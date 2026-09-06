@@ -18,9 +18,13 @@ namespace Game.Presentation
         const int StandardSortingOrder = 10;
         const int GroundSlabSortingOrder = 5;
 
-        // How far the concrete slab bleeds past the building's true footprint on each side, so it
-        // reads as sitting on top of the ground rather than stopping exactly at the grid line.
-        const float GroundSlabOverscanMargin = 0.3f;
+        // How far the concrete slab bleeds past the building's true footprint on each side, in
+        // cells, so it reads as an apron laid around the building rather than stopping exactly on
+        // the grid line. Half a cell each side, so a 3x3 building gets a 4x4 slab.
+        //
+        // In cells rather than world units: it is a statement about the grid, and the previous
+        // world-unit constant only happened to mean 0.3 cells because CellSize is 1.
+        const float GroundSlabOverscanCells = 0.5f;
 
         // Splitter/Crossroad's RenderOverscan deliberately makes their arms overlap the
         // neighboring conveyor's sprite bounds at the seam (to close the visual gap). With an
@@ -46,6 +50,7 @@ namespace Game.Presentation
         readonly ConveyorDefinition _cornerConveyorArt;
         readonly GroundSlabSettings _groundSlabSettings;
         readonly GroundSlabNeighborLinker _groundSlabNeighborLinker;
+        readonly BuildingShadowSettings _shadowSettings;
         readonly Dictionary<GridCoord, GameObject> _views = new Dictionary<GridCoord, GameObject>();
 
         /// <summary>
@@ -56,9 +61,11 @@ namespace Game.Presentation
         /// groundSlabSettings is optional; null (or its diffuse/normal being null) means no
         /// concrete slab is spawned under buildings (e.g. EditMode tests with no such art
         /// configured). groundSlabNeighborLinker is optional too; null means slabs never react
-        /// to neighboring buildings being placed/demolished.
+        /// to neighboring buildings being placed/demolished. shadowSettings is optional as well;
+        /// null means buildings cast no drop shadow - the same all-or-nothing convention the Core
+        /// already uses in WorldContentSpawner.
         /// </summary>
-        public BuildingSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory, ConveyorDefinition straightConveyorArt = null, ConveyorDefinition cornerConveyorArt = null, GroundSlabSettings groundSlabSettings = null, GroundSlabNeighborLinker groundSlabNeighborLinker = null)
+        public BuildingSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory, ConveyorDefinition straightConveyorArt = null, ConveyorDefinition cornerConveyorArt = null, GroundSlabSettings groundSlabSettings = null, GroundSlabNeighborLinker groundSlabNeighborLinker = null, BuildingShadowSettings shadowSettings = null)
         {
             _grid = grid;
             _spriteFactory = spriteFactory;
@@ -66,6 +73,7 @@ namespace Game.Presentation
             _cornerConveyorArt = cornerConveyorArt;
             _groundSlabSettings = groundSlabSettings;
             _groundSlabNeighborLinker = groundSlabNeighborLinker;
+            _shadowSettings = shadowSettings;
         }
 
         public void SpawnView(BuildingRuntime runtime)
@@ -154,17 +162,14 @@ namespace Game.Presentation
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
-            SetSpriteToWorldSize(renderer, sprite, new Vector2(_grid.CellSize, _grid.CellSize) * definition.FootprintSize);
-
-            if (definition.RenderOverscan != 1f)
-            {
-                renderer.transform.localScale *= definition.RenderOverscan;
-            }
+            FitSpriteUniform(renderer, sprite, ArtWorldSize(definition, _grid.CellSize));
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
                 renderer.gameObject.AddComponent<SpriteFlipbook>().Initialize(definition.AnimationFrames, definition.AnimationFps);
             }
+
+            AttachShadow(runtime, renderer);
 
             if (definition.HasOutputArrow)
             {
@@ -192,37 +197,56 @@ namespace Game.Presentation
         /// instead of a hard cutoff. No-op when no slab texture pair is configured (e.g. EditMode
         /// tests). Not used by conveyors/Splitter/Crossroad - see BuildingSpawner class docs on
         /// SpawnStandardView for why the transport family is excluded.
+        ///
+        /// <paramref name="revealedByNanoFront"/> produces the construction-time slab instead: the
+        /// same pad in every respect, but drawn only where the nano conversion has already passed,
+        /// so the ground the nanites convert becomes this concrete rather than a blue patch fading
+        /// out in front of a slab appearing whole. It is standalone (no parent) and stays out of the
+        /// neighbour linker - see ConstructionSiteVisualSync, which owns it and swaps it for the
+        /// permanent one at the handover.
         /// </summary>
-        void SpawnGroundSlab(Transform parent, GridCoord cell, Vector2Int footprintSize)
+        internal SpriteRenderer SpawnGroundSlab(Transform parent, GridCoord cell, Vector2Int footprintSize, bool revealedByNanoFront = false)
         {
-            if (_groundSlabSettings == null || !_groundSlabSettings.HasSlabTextures) return;
+            if (_groundSlabSettings == null || !_groundSlabSettings.CanRenderSlab) return null;
 
-            var slabGo = new GameObject("GroundSlab");
+            var slabGo = new GameObject(revealedByNanoFront ? "GroundSlab (converting)" : "GroundSlab");
             slabGo.transform.SetParent(parent, false);
+
+            // The permanent slab hangs under a root already standing at the footprint's centre; the
+            // construction one has no such root, so it places itself there.
+            if (parent == null) slabGo.transform.position = _grid.FootprintCenterToWorld(cell, footprintSize);
+
             var renderer = slabGo.AddComponent<SpriteRenderer>();
             renderer.sortingOrder = GroundSlabSortingOrder;
             renderer.sharedMaterial = _spriteFactory.GetGroundSlabMaterial(_groundSlabSettings);
 
             Vector2 footprintWorldSize = new Vector2(_grid.CellSize, _grid.CellSize) * footprintSize;
-            Vector2 slabWorldSize = footprintWorldSize + Vector2.one * (GroundSlabOverscanMargin * 2f);
+            Vector2 slabWorldSize = footprintWorldSize + Vector2.one * (GroundSlabOverscanCells * 2f * _grid.CellSize);
             SetSpriteToWorldSize(renderer, _spriteFactory.GetGroundSlabUnitSprite(), slabWorldSize);
-            ApplyGroundSlabPropertyBlock(renderer, cell, slabWorldSize);
+            ApplyGroundSlabPropertyBlock(renderer, cell, slabWorldSize, revealedByNanoFront);
 
-            _groundSlabNeighborLinker?.Register(cell, footprintSize, renderer);
+            // Seam-linking is between finished neighbours. Registering a slab that is about to be
+            // destroyed and replaced would leave the linker holding a dead renderer the moment a
+            // site is cancelled.
+            if (!revealedByNanoFront) _groundSlabNeighborLinker?.Register(cell, footprintSize, renderer);
+
+            return renderer;
         }
 
         /// <summary>
         /// Per-instance shader inputs that the shared GetGroundSlabMaterial can't carry itself:
         /// a random UV phase (seeded by cell, so it's stable across a view rebuild) so adjacent
-        /// slabs don't tile in visible lockstep, and the footprint's own world size so the
-        /// shader's edge fade reads as the same physical width regardless of footprint size.
+        /// slabs don't tile in visible lockstep, the footprint's own world size so the shader's
+        /// edge fade reads as the same physical width regardless of footprint size, and whether
+        /// this slab is gated by the nano front.
         /// </summary>
-        static void ApplyGroundSlabPropertyBlock(SpriteRenderer renderer, GridCoord cell, Vector2 footprintWorldSize)
+        static void ApplyGroundSlabPropertyBlock(SpriteRenderer renderer, GridCoord cell, Vector2 footprintWorldSize, bool revealedByNanoFront)
         {
             var random = new System.Random(cell.GetHashCode());
             var propertyBlock = new MaterialPropertyBlock();
             propertyBlock.SetVector("_UVOffset", new Vector4((float)random.NextDouble() * 10f, (float)random.NextDouble() * 10f, 0f, 0f));
             propertyBlock.SetVector("_FootprintWorldSize", new Vector4(footprintWorldSize.x, footprintWorldSize.y, 0f, 0f));
+            propertyBlock.SetFloat("_RevealByCoverage", revealedByNanoFront ? 1f : 0f);
             renderer.SetPropertyBlock(propertyBlock);
         }
 
@@ -243,17 +267,14 @@ namespace Game.Presentation
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
-            SetSpriteToWorldSize(renderer, sprite, new Vector2(_grid.CellSize, _grid.CellSize) * definition.FootprintSize);
-
-            if (definition.RenderOverscan != 1f)
-            {
-                renderer.transform.localScale *= definition.RenderOverscan;
-            }
+            FitSpriteUniform(renderer, sprite, ArtWorldSize(definition, _grid.CellSize));
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
                 renderer.gameObject.AddComponent<SpriteFlipbook>().Initialize(definition.AnimationFrames, definition.AnimationFps);
             }
+
+            AttachShadow(runtime, renderer);
 
             int rotationDegrees = runtime.FacingRotation.ToRotationDegrees() - artNativeDirection.ToRotationDegrees();
             root.transform.rotation = Quaternion.Euler(0f, 0f, -rotationDegrees);
@@ -266,6 +287,35 @@ namespace Game.Presentation
         /// (output) or inward toward it (entry). Facing is entirely determined by `direction`
         /// and `inward`, never by the parent's rotation - the parent (root) never rotates.
         /// </summary>
+        /// <summary>
+        /// Gives a building's own renderer the same drop shadow the Core already casts: a child
+        /// showing that renderer's current sprite in flat black, offset toward the sun. No new art
+        /// is involved, so an animated building's shadow follows its flipbook for free, and the
+        /// Splitter/Crossroad's rotated view keeps its shadow on the same side as everything else -
+        /// DropShadow offsets in world space precisely for that.
+        ///
+        /// Deliberately not attached to the construction views. A site's sprite is cut away by the
+        /// dissolve <b>shader</b>, not by swapping sprites, so a shadow child would show the whole
+        /// building's silhouette from the first frame of a build that has barely started. The
+        /// shadow therefore appears with the real view at the handover, which is also when the
+        /// building stops being a promise and starts having volume.
+        ///
+        /// Conveyors are excluded too, and belong to their own view: a belt lies flat on the
+        /// ground, so it has nothing to cast, and there are hundreds of them.
+        /// </summary>
+        void AttachShadow(BuildingRuntime runtime, SpriteRenderer renderer)
+        {
+            if (_shadowSettings == null || !CastsShadow(runtime)) return;
+            renderer.gameObject.AddComponent<DropShadow>().Settings = _shadowSettings;
+        }
+
+        /// <summary>
+        /// Storage boxes are excluded by request: their art is low and flat-topped, so the offset
+        /// silhouette reads as a second box beside the first rather than as the box's own shadow -
+        /// and they are placed in rows, which multiplies the effect.
+        /// </summary>
+        static bool CastsShadow(BuildingRuntime runtime) => !(runtime is StorageRuntime);
+
         void SpawnDirectionalArrow(Transform parent, Vector3 worldPosition, Direction direction, Color color, int sortingOrder, bool inward)
         {
             var arrowGo = new GameObject(inward ? "InputArrow" : "OutputArrow");
@@ -278,6 +328,64 @@ namespace Game.Presentation
             var arrowRenderer = arrowGo.AddComponent<SpriteRenderer>();
             arrowRenderer.sortingOrder = sortingOrder;
             arrowRenderer.sprite = _spriteFactory.CreateArrowSprite(color);
+        }
+
+        /// <summary>
+        /// The world size a building's art is actually drawn at: its logical footprint widened by
+        /// the definition's RenderOverscan.
+        ///
+        /// Every view that has to line up with the real building - the placement ghost, the
+        /// construction silhouette, the assembling dissolve - must size itself from this rather
+        /// than from FootprintSize alone. Overscan used to be applied here and nowhere else, so
+        /// those views came out RenderOverscan smaller than what actually got built: 9% on the
+        /// Foundry, enough to read as a different building.
+        ///
+        /// The one exception is <paramref name="overscanned"/>, for a conveyor wearing the
+        /// procedural placeholder instead of its own art: the placeholder already fills its cell
+        /// exactly, so widening it would push it over its neighbours. Pass
+        /// UsesOwnConveyorArt(definition, shape) rather than restating that rule.
+        ///
+        /// Note this is deliberately not the sizing for anything that belongs to the ground rather
+        /// than to the building. That is the canonical pair: <b>ArtWorldSize for whatever must
+        /// coincide with the drawing, FootprintSize for whatever marks the cells occupied.</b> The
+        /// concrete slab follows the footprint, and so will the nano ground coverage - it expresses
+        /// which cells are converted, not how far the art reaches. Same distinction as the shader's
+        /// _BuildBounds, which is the visual AABB precisely because it normalises a gradient over
+        /// what is drawn.
+        /// </summary>
+        public static Vector2 ArtWorldSize(BuildingDefinition definition, float cellSize, bool overscanned = true)
+            => new Vector2(cellSize, cellSize) * definition.FootprintSize * (overscanned ? definition.RenderOverscan : 1f);
+
+        /// <summary>
+        /// True when a belt is drawn with its own art rather than the procedural shape sprite - a
+        /// conveyor reshaped away from its definition's default shape (a straight drag-turned into
+        /// a corner) falls back to the placeholder. This one condition governs both which sprite is
+        /// used and whether RenderOverscan applies, in the real view, the placement ghost and the
+        /// construction silhouette alike, so all three ask it here.
+        /// </summary>
+        public static bool UsesOwnConveyorArt(ConveyorDefinition definition, ConveyorShapeKind shape)
+            => definition != null && definition.OverrideSprite != null && shape == definition.DefaultShape;
+
+        /// <summary>
+        /// Fits a sprite to <paramref name="desiredWorldSize"/> with a single scale factor,
+        /// preserving the art's aspect ratio - the conveyor family's rule. A per-axis stretch is
+        /// what used to make a cropped straight belt look a different thickness than the already
+        /// square corner belt. Takes the larger of the two ratios, so the sprite always covers its
+        /// cell on its shorter native axis.
+        ///
+        /// Preserves the sign of the existing scale on neither axis: callers that mirror (a
+        /// corner's chirality) re-apply the flip after fitting.
+        /// </summary>
+        internal static void FitSpriteUniform(SpriteRenderer renderer, Sprite sprite, Vector2 desiredWorldSize)
+        {
+            renderer.sprite = sprite;
+            Vector2 nativeSize = sprite.bounds.size;
+            float scale = Mathf.Max(desiredWorldSize.x / nativeSize.x, desiredWorldSize.y / nativeSize.y);
+
+            Vector3 localScale = renderer.transform.localScale;
+            localScale.x = scale;
+            localScale.y = scale;
+            renderer.transform.localScale = localScale;
         }
 
         internal static void SetSpriteToWorldSize(SpriteRenderer renderer, Sprite sprite, Vector2 desiredWorldSize)

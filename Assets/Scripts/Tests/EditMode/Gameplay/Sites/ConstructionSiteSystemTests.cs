@@ -93,6 +93,21 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             return site;
         }
 
+        /// <summary>
+        /// Runs until the site's first delivery lands, then stops - the deterministic way to catch a
+        /// run half built, now that a short chest cannot produce one. Stopping on the state rather
+        /// than on a duration is what keeps it from depending on robot travel time.
+        /// </summary>
+        static void AdvanceToFirstDelivery(Fixture fixture, ConstructionSiteRuntime site)
+        {
+            for (int i = 0; i < 500 && site.MaterializedCount == 0; i++)
+            {
+                fixture.Sites.Tick(TickSeconds);
+            }
+
+            Assert.Greater(site.MaterializedCount, 0, "Nothing was ever delivered - the run never started.");
+        }
+
         static bool IsRegistered(TransportSystem transport, BuildingRuntime building)
         {
             foreach (BuildingRuntime registered in transport.GetAllBuildings())
@@ -107,7 +122,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         [Test]
         public void APlacedSite_IsNeitherRegisteredNorFunctional_UntilItsMaterialsArrive()
         {
-            Fixture fixture = NewFixture(coreChestContents: 0);
+            Fixture fixture = NewFixture(coreChestContents: 4);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
 
             ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
@@ -166,19 +181,52 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Assert.AreEqual(32, fixture.CoreChest.GetInputAmount(PlateId), "Exactly the cost left the chest, no more.");
         }
 
+        /// <summary>
+        /// A building whose materials do not exist is refused at the gesture, not opened as a site
+        /// that will wait forever. The failure moved from after the fact to the moment of the click,
+        /// which is the whole point of the gate: nothing is queued, nothing occupies the ground, and
+        /// the player is told immediately rather than discovering it later in a panel.
+        /// </summary>
         [Test]
-        public void ASiteWithNoAvailableSource_NamesWhatIsMissing()
+        public void PlacingWithNoAvailableSource_IsRefused_AndQueuesNothing()
         {
             Fixture fixture = NewFixture(coreChestContents: 0);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
 
-            ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
-            fixture.Simulate(1f);
+            fixture.Construction.SelectBuilding(costly);
+            var cell = new GridCoord(5, 5);
 
-            IReadOnlyDictionary<string, int> missing = site.GetStillNeeded();
-            Assert.IsTrue(missing.ContainsKey(PlateId));
-            Assert.AreEqual(4, missing[PlateId]);
-            Assert.Greater(fixture.Notifications.Active.Count, 0, "A chantier without materials must say so - never a silent wait.");
+            Assert.AreEqual(PlacementRefusalReason.CannotAfford, fixture.Construction.GetPlacementRefusalReason(cell));
+            Assert.IsFalse(fixture.Construction.TryPlace(cell, Direction.North, out ConstructionSiteRuntime site));
+            Assert.IsNull(site);
+
+            Assert.AreEqual(0, fixture.Sites.Sites.Count, "No chantier is queued...");
+            Assert.IsNull(fixture.Grid.GetOccupant(cell), "...and the ground stays free.");
+            Assert.AreEqual(0, fixture.Construction.OccupiedBuildingSlots, "It costs no building slot either.");
+        }
+
+        /// <summary>
+        /// The gate reads unreserved stock, so sites already placed have taken their material out of
+        /// what the next placement can see. Two buildings of four plates need eight between them -
+        /// six buys exactly one.
+        /// </summary>
+        [Test]
+        public void PlacingMoreThanTheStockCovers_IsRefusedAtTheFirstOneItCannotCover()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 6);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
+
+            fixture.Construction.SelectBuilding(costly);
+            Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5, 5), Direction.North, out _),
+                "Six plates cover the first building...");
+
+            Assert.AreEqual(PlacementRefusalReason.CannotAfford,
+                fixture.Construction.GetPlacementRefusalReason(new GridCoord(9, 9)),
+                "...and the two left over cannot cover a second, because the first one's four are "
+                + "reserved and no longer claimable.");
+
+            Assert.IsFalse(fixture.Construction.TryPlace(new GridCoord(9, 9), Direction.North, out _));
+            Assert.AreEqual(1, fixture.Sites.Sites.Count);
         }
 
         // --- Reservation ---
@@ -200,7 +248,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         [Test]
         public void TwoSites_NeverReserveTheSamePiecesInTheSameContainer()
         {
-            Fixture fixture = NewFixture(coreChestContents: 6);
+            Fixture fixture = NewFixture(coreChestContents: 8);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
 
             ConstructionSiteRuntime first = PlaceSite(fixture, costly, new GridCoord(5, 5));
@@ -211,9 +259,13 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             int secondReserved = 0;
             foreach (Reservation reservation in second.Reservations) secondReserved += reservation.Amount;
 
-            Assert.AreEqual(4, firstReserved, "The older site takes what it needs first.");
-            Assert.AreEqual(2, secondReserved, "The younger one only gets what is left.");
-            Assert.AreEqual(0, fixture.Construction.GetAvailableAmount(PlateId));
+            // Both sites are whole - the gate would have refused the second otherwise - so what this
+            // asserts is that their claims are DISJOINT: eight plates covering two bills of four,
+            // with nothing left over and no plate counted twice.
+            Assert.AreEqual(4, firstReserved, "The older site takes its own four...");
+            Assert.AreEqual(4, secondReserved, "...and the younger takes four others, never the same ones.");
+            Assert.AreEqual(0, fixture.Construction.GetAvailableAmount(PlateId), "Which is exactly the chest.");
+            Assert.AreEqual(8, fixture.CoreChest.GetInputAmount(PlateId), "Still physically there until a robot loads them.");
         }
 
         [Test]
@@ -260,7 +312,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         [Test]
         public void APendingSite_CountsAgainstTheBuildingCapImmediately()
         {
-            Fixture fixture = NewFixture(coreChestContents: 0);
+            Fixture fixture = NewFixture(coreChestContents: 4);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
 
             PlaceSite(fixture, costly, new GridCoord(5, 5));
@@ -393,6 +445,88 @@ namespace Game.Tests.EditMode.Gameplay.Sites
 
             Assert.IsTrue(site.IsComplete);
             Assert.AreEqual(3, site.MaterializedCount);
+        }
+
+        /// <summary>
+        /// A pending segment occupies the grid from the moment it is placed, so anything resolving
+        /// a click through Grid.GetOccupant would happily open the panel of a building that has
+        /// received nothing (BuildingSelectionInput guards on exactly this predicate). What matters
+        /// is that the guard keys on the segment being materialized and not on the site still being
+        /// open: in a half-built run, the finished segment is a real, working building and must
+        /// stay selectable while its siblings do not.
+        /// </summary>
+        [Test]
+        public void APartlyBuiltRun_ReportsOnlyItsUnmaterializedSegmentsAsPending()
+        {
+            // A run is always fully funded now - the gate refuses a segment it cannot cover - so the
+            // partial state comes from DELIVERY, not from a short chest. Three segments at one
+            // robot-load each, sampled the moment the first load lands: one segment built, two still
+            // waiting on trips that have not finished.
+            Fixture fixture = NewFixture(coreChestContents: 12);
+            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 4));
+
+            fixture.Construction.SelectBuilding(conveyor);
+            Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5, 5), Direction.East, out ConstructionSiteRuntime site));
+            for (int i = 1; i < 3; i++)
+            {
+                Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5 + i, 5), Direction.East, out _, site));
+            }
+
+            AdvanceToFirstDelivery(fixture, site);
+
+            Assert.AreEqual(1, site.MaterializedCount, "The first load built one segment, not the whole run.");
+
+            Assert.IsFalse(fixture.Sites.TryGetSiteContaining(site.Segments[0], out _),
+                "A built segment is a real building and must stay selectable.");
+            Assert.IsTrue(fixture.Sites.TryGetSiteContaining(site.Segments[1], out _),
+                "A segment still waiting for its delivery must not answer a click.");
+            Assert.IsTrue(fixture.Sites.TryGetSiteContaining(site.Segments[2], out _));
+        }
+
+        /// <summary>
+        /// SegmentProgress is the only form in which per-segment advancement leaves Gameplay: the
+        /// rule about which delivery feeds which segment must stay owned here rather than be
+        /// re-derived by the view that draws it. Tested at this level for that reason.
+        /// </summary>
+        [Test]
+        public void SegmentProgress_IsOneBehindTheFront_ZeroAhead_AndARatioOnTheSegmentBeingBuilt()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 12);
+            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 4));
+
+            fixture.Construction.SelectBuilding(conveyor);
+            Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5, 5), Direction.East, out ConstructionSiteRuntime site));
+            for (int i = 1; i < 3; i++)
+            {
+                Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5 + i, 5), Direction.East, out _, site));
+            }
+
+            Assert.AreEqual(0f, site.SegmentProgress(0), 0.0001f, "Reserved is not delivered - nothing has arrived yet.");
+
+            AdvanceToFirstDelivery(fixture, site);
+
+            Assert.AreEqual(1, site.MaterializedCount);
+            Assert.AreEqual(1f, site.SegmentProgress(0), 0.0001f, "Built segments read as done.");
+            Assert.AreEqual(0f, site.SegmentProgress(1), 0.0001f, "The front consumes deliveries first, so the next one has nothing.");
+            Assert.AreEqual(0f, site.SegmentProgress(2), 0.0001f);
+            Assert.AreEqual(0f, site.SegmentProgress(7), 0.0001f, "Out of range is 0, not an exception.");
+        }
+
+        /// <summary>A single building is the common case: its segment progress is its delivered-over-cost ratio, moving in steps as lots land.</summary>
+        [Test]
+        public void SegmentProgress_OnASingleBuilding_TracksDeliveredOverCost()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 4);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
+            ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
+
+            Assert.AreEqual(0f, site.SegmentProgress(0), 0.0001f);
+
+            site.RegisterDelivery(PlateId, 1);
+            Assert.AreEqual(0.25f, site.SegmentProgress(0), 0.0001f);
+
+            site.RegisterDelivery(PlateId, 3);
+            Assert.AreEqual(1f, site.SegmentProgress(0), 0.0001f);
         }
 
         // --- Save / restore ---

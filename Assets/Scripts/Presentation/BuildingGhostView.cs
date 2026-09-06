@@ -54,8 +54,11 @@ namespace Game.Presentation
             _spriteRenderer.sprite = sprite;
             _spriteRenderer.color = valid ? ValidTint : InvalidTint;
 
-            Vector2 nativeSize = sprite.bounds.size;
-            transform.localScale = new Vector3(worldSize.x / nativeSize.x, worldSize.y / nativeSize.y, 1f);
+            // Uniform, never per axis - the fourth and last path to ask BuildingSpawner rather than
+            // do its own arithmetic. A per-axis stretch is a no-op on square art and squashes a
+            // sprite deliberately drawn taller than its footprint (the Core, the Foundry) into a
+            // square, which is exactly the height it was drawn to convey.
+            BuildingSpawner.FitSpriteUniform(_spriteRenderer, sprite, worldSize);
             transform.position = worldPosition;
 
             // Most buildings never rotate their sprite - rotating only moves input/output arrows

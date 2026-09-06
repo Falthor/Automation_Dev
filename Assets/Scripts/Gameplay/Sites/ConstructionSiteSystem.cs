@@ -226,6 +226,17 @@ namespace Game.Gameplay.Sites
             }
         }
 
+        /// <summary>
+        /// Everything already spoken for inside one container: what sites hold as reservations, plus
+        /// what robots are already on their way to collect.
+        ///
+        /// The second half is not redundant. A dispatched robot releases its site's reservation the
+        /// moment it is assigned, but only takes the items when it arrives - so for the whole length
+        /// of that trip the units sit in the container claimed by nobody. Counting the reservations
+        /// alone would offer them to the next site's reservation pass, and one stack would be
+        /// promised twice: the first robot empties it, and the second site keeps showing material on
+        /// its way that no longer exists anywhere.
+        /// </summary>
         int TotalReserved(object container, string itemId)
         {
             int total = 0;
@@ -236,6 +247,17 @@ namespace Game.Gameplay.Sites
                     if (ReferenceEquals(reservation.Container, container) && reservation.ItemId == itemId) total += reservation.Amount;
                 }
             }
+
+            foreach (BuilderRobotRuntime robot in _robots)
+            {
+                // Zero the instant the cargo is actually taken, which is also when the container's
+                // own contents drop - so the claim is continuous and never double-counted.
+                if (robot.PendingAmount <= 0) continue;
+                if (!ReferenceEquals(robot.SourceContainer, container) || robot.PendingItemId != itemId) continue;
+
+                total += robot.PendingAmount;
+            }
+
             return total;
         }
 

@@ -32,7 +32,7 @@ namespace Game.UI
         [SerializeField] VisualTreeAsset visualTree;
         [SerializeField] GameRuntime gameRuntime;
 
-        /// <summary>Optional - when assigned, its PlacementRefusedAtBuildingCap event drives ShowRefusalMessage (TASK_04_PLAFOND_RAYON.md §3.2). UI may depend on Presentation (PROJECT_ARCHITECTURE.md §4), so the reference lives here, not on the adapter.</summary>
+        /// <summary>Optional - when assigned, its PlacementRefused event drives ShowRefusalMessage - the building cap (TASK_04_PLAFOND_RAYON.md §3.2) and insufficient resources. UI may depend on Presentation (PROJECT_ARCHITECTURE.md §4), so the reference lives here, not on the adapter.</summary>
         [SerializeField] ConstructionInputAdapter constructionInputAdapter;
 
         [Header("Top Bar icons (placeholder - swap later)")]
@@ -85,7 +85,7 @@ namespace Game.UI
             _researchCard = BuildCard(researchIcon, ResearchPanelController.PanelName, 170f, 130f, 210f, 56f, 2, "top-bar-card-bar-fill-research");
             _buildingCard = BuildCard(buildingIcon, BuildingMenuController.PanelName, 150f, 115f, 190f, 40f, 1, "top-bar-card-bar-fill-buildings");
 
-            if (constructionInputAdapter != null) constructionInputAdapter.PlacementRefusedAtBuildingCap += ShowRefusalMessage;
+            if (constructionInputAdapter != null) constructionInputAdapter.PlacementRefused += ShowRefusalMessage;
         }
 
         /// <summary>Flashes an explicit refusal reason (e.g. the building cap) near the cards row for RefusalMessageSeconds, then auto-hides (TASK_04_PLAFOND_RAYON.md §3.2). Re-showing while already visible just resets the timer.</summary>

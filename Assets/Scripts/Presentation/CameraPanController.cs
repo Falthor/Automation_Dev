@@ -3,7 +3,13 @@ using UnityEngine.InputSystem;
 
 namespace Game.Presentation
 {
-    /// <summary>AZERTY camera panning: Z=North, Q=West, S=South, D=East.</summary>
+    /// <summary>
+    /// AZERTY camera panning: Z=North, Q=West, S=South, D=East.
+    ///
+    /// Driven by <b>unscaled</b> time, like CameraZoomController: pause freezes the simulation by
+    /// setting Time.timeScale to 0, and where the player is looking is not part of that simulation.
+    /// Reading a frozen board is what pause is for, so the camera has to keep answering.
+    /// </summary>
     public sealed class CameraPanController : MonoBehaviour
     {
         [SerializeField] float panSpeed = 10f;
@@ -21,7 +27,7 @@ namespace Game.Presentation
 
             if (move.sqrMagnitude > 0f)
             {
-                transform.position += (Vector3)(move.normalized * panSpeed * Time.deltaTime);
+                transform.position += (Vector3)(move.normalized * panSpeed * Time.unscaledDeltaTime);
             }
         }
     }

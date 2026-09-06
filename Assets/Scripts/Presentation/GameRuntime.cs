@@ -46,6 +46,9 @@ namespace Game.Presentation
         [SerializeField] Texture2D groundSlabDiffuse;
         [SerializeField] Texture2D groundSlabNormal;
 
+        /// <summary>Custom/BuildingGroundSlab. Assigned here and handed to ProceduralSpriteFactory through GroundSlabSettings, because that class has no inspector of its own. An asset reference cannot be stripped from a build the way a Shader.Find by name can - see docs/BUILD.md.</summary>
+        [SerializeField] Shader groundSlabShader;
+
         /// <summary>1 = texture's own colors unchanged; lower values darken it (simple RGB multiply, applied in Custom/BuildingGroundSlab).</summary>
         [SerializeField, Range(0f, 1f)] float groundSlabDarken = 1f;
 
@@ -91,6 +94,13 @@ namespace Game.Presentation
 
         [SerializeField] ItemVisualSync itemVisuals;
 
+        /// <summary>
+        /// Optional. When present it draws construction sites and owns the dissolve assembly, so
+        /// ConstructionInputAdapter hands it its BuildingSpawner instead of spawning a materialized
+        /// segment's view itself. Null means segments appear the instant they materialize.
+        /// </summary>
+        [SerializeField] ConstructionSiteVisualSync constructionSiteVisuals;
+
         [Header("Save/Load id -> asset resolution (CONTRACTS.md §14)")]
         [SerializeField] BuildingDefinition[] buildingCatalog = System.Array.Empty<BuildingDefinition>();
 
@@ -104,6 +114,7 @@ namespace Game.Presentation
         public TransportSystem Transport { get; private set; }
         public SelectionRuntime Selection { get; private set; }
         public ItemVisualSync ItemVisuals => itemVisuals;
+        public ConstructionSiteVisualSync ConstructionSiteVisuals => constructionSiteVisuals;
         public ItemDatabase Items => itemDatabase;
 
         /// <summary>
@@ -159,7 +170,9 @@ namespace Game.Presentation
         /// building) - there is exactly one source of truth for "is a panel open" (CONTRACTS.md
         /// §7), panels no longer track this themselves.
         /// </summary>
-        public bool IsUIBlockingInput => Selection.ActiveGlobalPanel != null || Selection.SelectedBuilding != null;
+        public bool IsUIBlockingInput => Selection.ActiveGlobalPanel != null
+            || Selection.SelectedBuilding != null
+            || Selection.SelectedSite != null;
 
         /// <summary>
         /// The frame a UI panel last closed. World input adapters also skip their click handling
@@ -447,7 +460,7 @@ namespace Game.Presentation
                 // instead, already registered and viewed like any other placed Storage box.
                 if (World.CoreStorage != null)
                 {
-                    var coreStorageSpawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker);
+                    var coreStorageSpawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings);
                     coreStorageSpawner.SpawnView(World.CoreStorage);
                     Transport.Register(World.CoreStorage);
                 }
@@ -499,7 +512,10 @@ namespace Game.Presentation
 
             if (_restoredBuildings.Count > 0)
             {
-                var spawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory());
+                // Passed the same presentation settings as the placement path, which it was not:
+                // a building coming back from a save has to look like the one that was placed, and
+                // this spawner was giving it neither a concrete slab nor a shadow.
+                var spawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings);
                 foreach (BuildingRuntime building in _restoredBuildings)
                 {
                     spawner.SpawnView(building);
@@ -521,6 +537,7 @@ namespace Game.Presentation
             {
                 SlabDiffuse = groundSlabDiffuse,
                 SlabNormal = groundSlabNormal,
+                SlabShader = groundSlabShader,
                 SlabDarken = groundSlabDarken,
                 SandBandWidth = groundSlabSandBandWidth,
                 EdgeSoftness = groundSlabEdgeSoftness,

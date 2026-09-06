@@ -38,7 +38,7 @@ public static class WildDecorationAutoRegenerate
             return;
         }
 
-        var gameRuntime = Object.FindFirstObjectByType<GameRuntime>();
+        var gameRuntime = Object.FindAnyObjectByType<GameRuntime>();
         if (gameRuntime == null || gameRuntime.World == null || gameRuntime.Grid == null) return; // keep polling until GameRuntime.Start() has run
 
         EditorApplication.update -= WaitForWorldThenRegenerate;
@@ -70,7 +70,7 @@ public sealed class WildDecorationConstructionCleanup : MonoBehaviour
 
         if (_gameRuntime == null)
         {
-            _gameRuntime = Object.FindFirstObjectByType<GameRuntime>();
+            _gameRuntime = Object.FindAnyObjectByType<GameRuntime>();
             if (_gameRuntime == null || _gameRuntime.Grid == null) return;
         }
 
@@ -136,7 +136,7 @@ public static class WildDecorationGenerator
             return;
         }
 
-        var gameRuntime = Object.FindFirstObjectByType<GameRuntime>();
+        var gameRuntime = Object.FindAnyObjectByType<GameRuntime>();
         if (gameRuntime == null || gameRuntime.World == null || gameRuntime.Grid == null)
         {
             Debug.LogError("GameRuntime/World/Grid not ready.");

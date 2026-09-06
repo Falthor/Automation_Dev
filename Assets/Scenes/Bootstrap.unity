@@ -419,6 +419,7 @@ GameObject:
   - component: {fileID: 60635900}
   - component: {fileID: 60635899}
   - component: {fileID: 60635903}
+  - component: {fileID: 60635904}
   m_Layer: 0
   m_Name: GameUI
   m_TagString: Untagged
@@ -727,6 +728,23 @@ MonoBehaviour:
   uiDocument: {fileID: 60635889}
   visualTree: {fileID: 9197481963319205126, guid: 24ac06c1efdd39042b25cf3888db589b, type: 3}
   gameRuntime: {fileID: 2103112250}
+--- !u!114 &60635904
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 60635885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d98772237980244086e65aeeea81cc2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.UI::Game.UI.ConstructionSitePanelController
+  uiDocument: {fileID: 60635889}
+  visualTree: {fileID: 9197481963319205126, guid: 45be202f65d06db4eadf566a1e775b70, type: 3}
+  gameRuntime: {fileID: 2103112250}
+  selectionRouter: {fileID: 60635893}
+  robotIcon: {fileID: 21300000, guid: aca9344cf6115774cbf9e8d5069139ba, type: 3}
 --- !u!1 &134080686
 GameObject:
   m_ObjectHideFlags: 0
@@ -2292,7 +2310,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 01ef087dd5e6cd340bb14b98d32ca909, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.CameraZoomController
-  gameRuntime: {fileID: 2103112250}
+  uiDocument: {fileID: 60635889}
   zoomSpeed: 4
   minOrthographicSize: 2
   maxOrthographicSize: 30
@@ -2370,6 +2388,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 068e9a84f4efdb64ea6144010c0759e8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.TerrainView
+  groundShader: {fileID: 4800000, guid: 4d458b2e048027e46bcdc2fd25542501, type: 3}
+  cloudShader: {fileID: 4800000, guid: 928370e01e4a0b3448e7778aace9a79e, type: 3}
   textureProfile: {fileID: 11400000, guid: f9f8a6318c30ad44fb63a1875d8e4f31, type: 2}
   tint: {r: 1, g: 1, b: 1, a: 1}
   reliefLightDirection: {x: 0.5, y: 0.5}
@@ -2519,6 +2539,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5bea8d6bf5e5d0843b1d0ab0b6f2a313, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.GridLineView
+  overlayShader: {fileID: 4800000, guid: d247c452b21bd9248bd35375141a92b4, type: 3}
   lineColor: {r: 0, g: 0, b: 0, a: 0.35}
   lineThickness: 0.03
 --- !u!4 &1063010150
@@ -3068,6 +3089,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e9845d5385075f344810241f40199058, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.ActionRadiusView
+  overlayShader: {fileID: 4800000, guid: 3caadd5295735e6459018a310154f21b, type: 3}
   lineColor: {r: 0.2, g: 0.85, b: 1, a: 0.6}
   lineThickness: 0.2
 --- !u!4 &1305087341
@@ -3828,6 +3850,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4ef5185355a24654994851fe0c1523bd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.FogOfWarView
+  fogShader: {fileID: 4800000, guid: f9a7c25d832b3fd44857bed7c4875b4c, type: 3}
   fogColor: {r: 0.02, g: 0.03, b: 0.05, a: 0.96}
   edgeSoftness: 2
 --- !u!4 &1659034850
@@ -4686,6 +4709,7 @@ GameObject:
   - component: {fileID: 2103112252}
   - component: {fileID: 2103112254}
   - component: {fileID: 2103112253}
+  - component: {fileID: 2103112255}
   m_Layer: 0
   m_Name: GameRuntime
   m_TagString: Untagged
@@ -4711,8 +4735,9 @@ MonoBehaviour:
   gridLineView: {fileID: 1063010149}
   groundSlabDiffuse: {fileID: 2800000, guid: adb16d05b797af74e8df484ad1762356, type: 3}
   groundSlabNormal: {fileID: 2800000, guid: db1031b4a217ae7478df55171c585fd1, type: 3}
+  groundSlabShader: {fileID: 4800000, guid: 15003a87f1889654393974b5c0bcac1e, type: 3}
   groundSlabDarken: 0.348
-  groundSlabSandBandWidth: 1.2
+  groundSlabSandBandWidth: 0.8
   groundSlabEdgeSoftness: 0.5
   groundSlabSandNoiseScale: 1.2
   groundSlabSandNoiseAmplitude: 0.5
@@ -4724,6 +4749,7 @@ MonoBehaviour:
   fogOfWarView: {fileID: 1659034849}
   fogRadiusMarginCells: 10
   itemVisuals: {fileID: 2103112252}
+  constructionSiteVisuals: {fileID: 2103112254}
   buildingCatalog:
   - {fileID: 11400000, guid: 81fc98426c6cbeb46b62f0f51a99c00b, type: 2}
   - {fileID: 11400000, guid: 24f3c4c440f22c14cb72e74f072b099c, type: 2}
@@ -4787,8 +4813,7 @@ MonoBehaviour:
   gameRuntime: {fileID: 2103112250}
   robotSprite: {fileID: 21300000, guid: aca9344cf6115774cbf9e8d5069139ba, type: 3}
   robotVisualScale: 1
-  firstRobotColor: {r: 1, g: 1, b: 1, a: 1}
-  secondRobotColor: {r: 0.62, g: 0.82, b: 1, a: 1}
+  robotColor: {r: 1, g: 1, b: 1, a: 1}
   flightHeight: 3
   artNativeDirection: 0
   turnDegreesPerSecond: 540
@@ -4806,6 +4831,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.ConstructionSiteVisualSync
   gameRuntime: {fileID: 2103112250}
   siteTint: {r: 0.35, g: 0.6, b: 1, a: 0.6}
+  settings: {fileID: 11400000, guid: 79d5e14f36e1222419f95746c4db949e, type: 2}
+--- !u!114 &2103112255
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2103112249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1dea4dda39ee66b49abd9da71264876e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Presentation::Game.Presentation.GroundCoverageRenderer
+  gameRuntime: {fileID: 2103112250}
+  settings: {fileID: 11400000, guid: 79d5e14f36e1222419f95746c4db949e, type: 2}
 --- !u!1 &2117863649
 GameObject:
   m_ObjectHideFlags: 0

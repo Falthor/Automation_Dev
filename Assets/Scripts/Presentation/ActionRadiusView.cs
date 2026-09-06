@@ -5,8 +5,10 @@ namespace Game.Presentation
     /// <summary>Purely visual ring showing the Core's action radius - no gameplay effect.</summary>
     public sealed class ActionRadiusView : MonoBehaviour
     {
-        const string ShaderName = "Custom/ActionRadiusOverlay";
         const int SortingOrder = 6; // above terrain (0/1) and grid lines (5), below buildings (9/10/11).
+
+        /// <summary>Custom/ActionRadiusOverlay. An asset reference, not a Shader.Find by name: a shader only reached by name is stripped from a player build unless it is also listed in Always Included Shaders, and that list is a protection somebody has to remember to maintain. See docs/BUILD.md.</summary>
+        [SerializeField] Shader overlayShader;
 
         [SerializeField] Color lineColor = new Color(0.2f, 0.85f, 1f, 0.6f);
         [SerializeField, Min(0.001f)] float lineThickness = 0.2f;
@@ -21,7 +23,7 @@ namespace Game.Presentation
                 _renderer = gameObject.AddComponent<SpriteRenderer>();
                 _renderer.sprite = CreateCenteredUnitSprite();
                 _renderer.sortingOrder = SortingOrder;
-                _material = new Material(Shader.Find(ShaderName)) { name = "ActionRadius (Instance)" };
+                _material = new Material(overlayShader) { name = "ActionRadius (Instance)" };
                 _renderer.sharedMaterial = _material;
             }
 

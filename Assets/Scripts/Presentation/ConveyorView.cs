@@ -45,7 +45,9 @@ namespace Game.Presentation
             // The override art only matches the definition's own default shape - a conveyor
             // reshaped away from it (e.g. straight -> corner via a drag turn) falls back to
             // the procedural placeholder for whatever shape it now actually is.
-            if (definition.OverrideSprite != null && orientation.Shape == definition.DefaultShape)
+            bool ownArt = BuildingSpawner.UsesOwnConveyorArt(definition, orientation.Shape);
+
+            if (ownArt)
             {
                 _spriteRenderer.sprite = definition.OverrideSprite;
                 artNativeDirection = definition.ArtNativeDirection;
@@ -57,26 +59,18 @@ namespace Game.Presentation
 
             _spriteRenderer.color = Color.white;
 
-            Vector2 desiredWorldSize = new Vector2(cellSize, cellSize) * definition.FootprintSize;
+            // Both shapes are fit the same way: a single uniform scale factor preserving the
+            // sprite's aspect ratio, never a per-axis stretch - see BuildingSpawner.FitSpriteUniform
+            // for why. The overflow that fit produces on the longer axis is exactly the seam-closing
+            // overlap RenderOverscan gives corners, so both shapes get their overlap from one
+            // mechanism. The size itself comes from BuildingSpawner.ArtWorldSize, which every view
+            // that must line up with a built conveyor - the placement ghost, the construction
+            // silhouette - reads too.
+            BuildingSpawner.FitSpriteUniform(_spriteRenderer, _spriteRenderer.sprite,
+                BuildingSpawner.ArtWorldSize(definition, cellSize, overscanned: ownArt));
 
-            // Both shapes are fit the same way: a single uniform scale factor (preserving the
-            // sprite's own aspect ratio) rather than independently stretching X and Y to force
-            // the cell size - that per-axis stretch is what made a cropped straight belt (whose
-            // art doesn't natively fill a square frame) look a different thickness than the
-            // uncropped, already-square corner belt. Using the larger of the two required
-            // ratios means the sprite is guaranteed to fully cover the cell on its shorter native
-            // axis, at the cost of some natural overflow on the other axis - which is exactly the
-            // seam-closing overlap RenderOverscan already provides for corners, so both shapes
-            // now get their overlap from the same single mechanism.
-            SetSpriteToWorldSizeUniform(_spriteRenderer, _spriteRenderer.sprite, desiredWorldSize);
-
-            if (definition.OverrideSprite != null && orientation.Shape == definition.DefaultShape)
+            if (ownArt)
             {
-                if (definition.RenderOverscan != 1f)
-                {
-                    transform.localScale *= definition.RenderOverscan;
-                }
-
                 if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
                 {
                     var flipbook = GetComponent<SpriteFlipbook>();
@@ -112,16 +106,6 @@ namespace Game.Presentation
             transform.localScale = scale;
         }
 
-        static void SetSpriteToWorldSizeUniform(SpriteRenderer renderer, Sprite sprite, Vector2 desiredWorldSize)
-        {
-            renderer.sprite = sprite;
-            Vector2 nativeSize = sprite.bounds.size;
-            float scale = Mathf.Max(desiredWorldSize.x / nativeSize.x, desiredWorldSize.y / nativeSize.y);
-            Vector3 localScale = renderer.transform.localScale;
-            localScale.x = scale;
-            localScale.y = scale;
-            renderer.transform.localScale = localScale;
-        }
 
         void RemoveFlipbookIfPresent()
         {

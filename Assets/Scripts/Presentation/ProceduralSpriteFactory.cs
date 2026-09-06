@@ -18,8 +18,6 @@ namespace Game.Presentation
 
         const int GlowTextureSize = 64;
 
-        const string GroundSlabShaderName = "Custom/BuildingGroundSlab";
-
         readonly Dictionary<(ConveyorShapeKind, Color32), Sprite> _cache = new Dictionary<(ConveyorShapeKind, Color32), Sprite>();
         readonly Dictionary<Color32, Sprite> _solidSquareCache = new Dictionary<Color32, Sprite>();
         readonly Dictionary<Color32, Sprite> _radialGlowCache = new Dictionary<Color32, Sprite>();
@@ -70,8 +68,10 @@ namespace Game.Presentation
         /// <summary>
         /// Shared material for the tiled concrete slab shown under a building/the Core, keyed by
         /// (diffuse, normal) so every caller reusing the same YFCM texture pair reuses the same
-        /// Material instance - mirrors TerrainView.CreateLayer's "new Material(Shader.Find(...))"
-        /// pattern (no persisted .mat asset needed). The shader tiles/lights/edge-fades entirely
+        /// Material instance (no persisted .mat asset needed). The shader itself comes from
+        /// settings.SlabShader - this class is constructed in a dozen places and has no inspector,
+        /// so its one shader dependency travels with the settings it is already handed. The shader
+        /// tiles/lights/edge-fades entirely
         /// from world position and per-renderer MaterialPropertyBlock values (_UVOffset,
         /// _FootprintWorldSize) set by the caller - this material itself carries no per-instance
         /// state.
@@ -81,7 +81,7 @@ namespace Game.Presentation
             var key = (settings.SlabDiffuse, settings.SlabNormal);
             if (!_groundSlabMaterialCache.TryGetValue(key, out var material))
             {
-                material = new Material(Shader.Find(GroundSlabShaderName)) { name = "BuildingGroundSlab (Instance)" };
+                material = new Material(settings.SlabShader) { name = "BuildingGroundSlab (Instance)" };
                 material.SetTexture("_SlabTex", settings.SlabDiffuse);
                 material.SetTexture("_SlabNormal", settings.SlabNormal);
                 _groundSlabMaterialCache[key] = material;

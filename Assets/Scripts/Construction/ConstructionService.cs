@@ -16,16 +16,17 @@ namespace Game.Construction
     /// ghost tinting; this is the explanatory read GetPlacementRefusalReason exposes for
     /// player-facing messaging (TASK_04_PLAFOND_RAYON.md §3.2).
     ///
-    /// There is deliberately no CannotAfford case (TASK_05_ROBOT_CONSTRUCTEUR.md): placing a
-    /// building no longer pays for it, it opens a construction site that reserves whatever is
-    /// available and waits for the rest. Affordability is therefore a state of the site (which
-    /// names its missing materials), never a reason to refuse the placement itself.
+    /// CannotAfford is a real refusal: a building whose materials do not exist cannot be placed at
+    /// all. Placing still does not PAY - it opens a site that reserves the whole bill and waits for
+    /// robots to carry it - but the bill must be coverable by unreserved stock at that instant, so a
+    /// site is never opened against material nobody has.
     /// </summary>
     public enum PlacementRefusalReason
     {
         None,
         NotUnlocked,
         OutOfActionRadius,
+        CannotAfford,
         BuildingCapReached,
         CellOccupied
     }
@@ -147,11 +148,17 @@ namespace Game.Construction
         }
 
         /// <summary>
-        /// Whether every item in definition.Cost is available right now across the aggregate a
-        /// robot could actually draw from. Informational only since TASK_05_ROBOT_CONSTRUCTEUR.md:
-        /// it drives the Building menu's "you can/cannot pay for this yet" styling, but it is NOT
-        /// a placement gate any more - placing an unaffordable building opens a site that waits
-        /// for its materials instead of being refused (see PlacementRefusalReason).
+        /// Whether every item in definition.Cost is available right now across the aggregate a robot
+        /// could actually draw from - unreserved stock only, so material another site has already
+        /// claimed does not count towards this one.
+        ///
+        /// Both the Building menu's "you can/cannot pay for this yet" styling AND the placement gate
+        /// (see PlacementRefusalReason.CannotAfford) read it, so the greyed-out card and the refused
+        /// click can never disagree about what is affordable.
+        ///
+        /// All-or-nothing per definition: there is no partial placement. A site is therefore opened
+        /// only when its ENTIRE bill can be reserved on the spot, which is what makes a placed site's
+        /// missing count zero in ordinary play.
         /// </summary>
         public bool CanAfford(BuildingDefinition definition)
         {
@@ -433,9 +440,15 @@ namespace Game.Construction
                 return PlacementRefusalReason.OutOfActionRadius;
             }
 
-            // No affordability gate (TASK_05_ROBOT_CONSTRUCTEUR.md): placing opens a site that
-            // reserves what exists and waits for the rest, so "I cannot pay for this right now" is
-            // a state the site displays, never a reason to refuse the placement.
+            // Read against the aggregate MINUS what other sites have already reserved, so placing
+            // four buildings with stock for three refuses the fourth: the first three took their
+            // material out of what is claimable the instant they were placed. Without that
+            // subtraction the gate would pass four times over one stock and the sites would fight
+            // over it afterwards, which is the thing the gate exists to prevent.
+            if (!CanAfford(Selected))
+            {
+                return PlacementRefusalReason.CannotAfford;
+            }
 
             bool countsAgainstCap = !(Selected is ConveyorDefinition || Selected is SplitterDefinition || Selected is CrossroadDefinition);
             if (countsAgainstCap && OccupiedBuildingSlots >= BuildingCap)
