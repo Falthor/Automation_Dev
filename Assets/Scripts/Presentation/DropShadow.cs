@@ -114,10 +114,16 @@ namespace Game.Presentation
                 _appliedColor = color;
             }
 
-            if (!_hasApplied || _appliedSortingOrder != settings.SortingOrder)
+            // Read off the caster instead of a setting of its own. A shadow belongs to exactly one
+            // building and has to travel with it through the sorted band, where each row has its own
+            // rank - a single shared order would have put every shadow in the world at one depth,
+            // under buildings that stand in front of them and over buildings that stand behind.
+            // SubShadow sits one below SubSprite, so a shadow is always under the thing casting it.
+            int shadowOrder = _caster.sortingOrder - (SortingBands.SubSprite - SortingBands.SubShadow);
+            if (!_hasApplied || _appliedSortingOrder != shadowOrder)
             {
-                _shadow.sortingOrder = settings.SortingOrder;
-                _appliedSortingOrder = settings.SortingOrder;
+                _shadow.sortingOrder = shadowOrder;
+                _appliedSortingOrder = shadowOrder;
             }
 
             // A local scale, so it multiplies whatever size the caster already is - including a

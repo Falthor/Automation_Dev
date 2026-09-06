@@ -11,8 +11,6 @@ namespace Game.Presentation
     {
         SpriteRenderer _spriteRenderer;
 
-        // Terrain layers use sortingOrder 0 (Base) and 1 (Top) - buildings must render above both.
-        const int SortingOrder = 10;
 
         // RenderOverscan makes adjacent conveyors slightly overlap at the seam on purpose
         // (closing the belt art's own bezel gap). With every conveyor sharing the same
@@ -20,12 +18,11 @@ namespace Game.Presentation
         // unstable across placements, so which sprite won at a given seam could flip depending on
         // build order. Alternating the order by cell parity (see Sync) instead makes every seam's
         // winner fixed and predictable, regardless of placement order.
-        const int SortingOrderParityOffset = 1;
 
         void Awake()
         {
             _spriteRenderer = GetComponent<SpriteRenderer>();
-            _spriteRenderer.sortingOrder = SortingOrder;
+            _spriteRenderer.sortingOrder = SortingBands.Conveyor;
         }
 
         public void Sync(ConveyorRuntime runtime, ProceduralSpriteFactory spriteFactory, ConveyorDefinition definition, float cellSize)
@@ -36,8 +33,8 @@ namespace Game.Presentation
             }
 
             // Adjacent cells always differ in (X+Y) parity, so this guarantees two neighboring
-            // conveyors never share a sortingOrder - see SortingOrderParityOffset above.
-            _spriteRenderer.sortingOrder = SortingOrder + ((runtime.Cell.X + runtime.Cell.Y) & 1) * SortingOrderParityOffset;
+            // conveyors never share a sortingOrder - see SortingBands.ConveyorSeamParity.
+            _spriteRenderer.sortingOrder = SortingBands.Conveyor + ((runtime.Cell.X + runtime.Cell.Y) & 1) * SortingBands.ConveyorSeamParity;
 
             ConveyorOrientation orientation = runtime.Orientation;
             Direction artNativeDirection = Direction.North;

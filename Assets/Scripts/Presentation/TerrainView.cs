@@ -69,7 +69,7 @@ namespace Game.Presentation
 
         public void Initialize(TerrainRuntime terrain, GridRuntime grid)
         {
-            (_groundRenderer, _groundMaterial) = CreateLayer("Ground", 0, groundShader);
+            (_groundRenderer, _groundMaterial) = CreateLayer("Ground", SortingBands.TerrainBase, groundShader);
 
             float worldSize = terrain.Size * grid.CellSize;
             Vector3 origin = grid.CellToWorld(new Game.Core.GridCoord(0, 0));
@@ -125,7 +125,7 @@ namespace Game.Presentation
 
             if (showCloudShadows)
             {
-                (_cloudRenderer, _cloudMaterial) = CreateLayer("Clouds", 1, cloudShader);
+                (_cloudRenderer, _cloudMaterial) = CreateLayer("Clouds", SortingBands.TerrainTop, cloudShader);
                 _cloudRenderer.transform.localScale = new Vector3(worldSize, worldSize, 1f);
 
                 _cloudMaterial.SetFloat("_CloudScale", cloudScale);

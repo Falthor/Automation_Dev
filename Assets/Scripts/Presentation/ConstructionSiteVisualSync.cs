@@ -37,12 +37,6 @@ namespace Game.Presentation
     /// </summary>
     public sealed class ConstructionSiteVisualSync : MonoBehaviour
     {
-        /// <summary>Fallback silhouette order used only when no NanoConstructionSettings is assigned; otherwise settings.SiteSilhouetteSortingOrder, which sits under the drop shadow and the sprite.</summary>
-        const int FallbackSilhouetteSortingOrder = 10;
-
-        /// <summary>Matches BuildingSpawner.StandardSortingOrder: the assembling sprite stands exactly where the real one will, so the handover changes nothing on screen.</summary>
-        const int AssemblySortingOrder = 10;
-
         [SerializeField] GameRuntime gameRuntime;
 
         /// <summary>Multiplied over the building's own art, so what shows is a blue-shadowed silhouette of the real thing rather than a flat rectangle.</summary>
@@ -350,7 +344,7 @@ namespace Game.Presentation
         {
             if (_views.TryGetValue(segment, out SegmentView existing) && existing.Silhouette != null) return existing;
 
-            var view = new SegmentView { Silhouette = NewRenderer($"ConstructionSite {segment.Cell}", SilhouetteSortingOrder) };
+            var view = new SegmentView { Silhouette = NewRenderer($"ConstructionSite {segment.Cell}", SilhouetteOrderFor(segment)) };
 
             // A building with no pad when finished gets none while converting - asked of the one
             // predicate BuildingSpawner answers it with, rather than re-listed here. Naming only
@@ -364,7 +358,7 @@ namespace Game.Presentation
 
             if (AssemblesMaterializedSegments)
             {
-                view.AssemblyRenderer = NewRenderer($"ConstructionAssembly {segment.Cell}", AssemblySortingOrder);
+                view.AssemblyRenderer = NewRenderer($"ConstructionAssembly {segment.Cell}", AssemblyOrderFor(segment));
                 view.Dissolve = view.AssemblyRenderer.gameObject.AddComponent<BuildDissolveView>();
                 view.Dissolve.Settings = settings;
 
@@ -378,7 +372,17 @@ namespace Game.Presentation
             return view;
         }
 
-        int SilhouetteSortingOrder => settings != null ? settings.SiteSilhouetteSortingOrder : FallbackSilhouetteSortingOrder;
+        /// <summary>
+        /// A site sits in the sorted band at the row it is being built on, exactly where the finished
+        /// building will sit - so the handover changes nothing on screen, and a chantier is occluded
+        /// by what stands in front of it just as the building will be. The silhouette takes the
+        /// sub-layer below the sprite assembling over it.
+        /// </summary>
+        int SilhouetteOrderFor(BuildingRuntime segment)
+            => SortingBands.Sorted(_grid.CellToWorld(segment.Cell).y, SortingBands.SubSilhouette);
+
+        int AssemblyOrderFor(BuildingRuntime segment)
+            => SortingBands.Sorted(_grid.CellToWorld(segment.Cell).y, SortingBands.SubSprite);
 
         SpriteRenderer NewRenderer(string name, int sortingOrder)
         {
@@ -398,7 +402,7 @@ namespace Game.Presentation
 
             SpriteRenderer silhouette = view.Silhouette;
             silhouette.color = SilhouetteColor(view);
-            silhouette.sortingOrder = SilhouetteSortingOrder;
+            silhouette.sortingOrder = SilhouetteOrderFor(segment);
             silhouette.transform.position = position;
             ApplySizing(silhouette, sprite, segment, definition);
             ApplyRotation(silhouette.transform, segment, definition);

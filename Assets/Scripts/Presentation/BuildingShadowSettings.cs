@@ -20,21 +20,11 @@ namespace Game.Presentation
         /// <summary>World-unit displacement from the caster to its shadow - i.e. the direction the sun comes from, negated. World units, never local: the shadow must not turn when the building it belongs to does.</summary>
         [SerializeField] Vector2 offset = new Vector2(0.25f, -0.25f);
 
-        /// <summary>
-        /// Sorting order of every shadow renderer. This project has exactly one sorting layer
-        /// (Default) and resolves depth entirely with sorting orders - terrain 0/1, building
-        /// ground slab 5, ore deposit 9, buildings and the Core 10, Splitter/Crossroad 13, arrows
-        /// 14. 8 is therefore the slot that means "above the ground and its concrete pad, below
-        /// anything that stands on it".
-        /// </summary>
-        [SerializeField] int sortingOrder = 8;
-
         /// <summary>Size of the shadow relative to the building casting it - 1 is the exact silhouette, above 1 grows it around its own centre (which reads as the building standing taller off the ground), below 1 shrinks it.</summary>
         [SerializeField, Min(0f)] float scale = 1f;
 
         public float Alpha => alpha;
         public Vector2 Offset => offset;
-        public int SortingOrder => sortingOrder;
         public float Scale => scale;
 
         /// <summary>Black at the configured opacity - the shadow renderer's tint over the caster's own silhouette.</summary>

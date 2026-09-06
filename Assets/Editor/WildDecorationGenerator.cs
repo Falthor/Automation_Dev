@@ -425,7 +425,20 @@ public static class WildDecorationGenerator
         return new Color(mr, mg, mb, 1f);
     }
 
-    static GameObject Spawn(Transform parent, string name, Vector2 pos, float scale, Sprite sprite, int sortingOrder, Color? color = null)
+    /// <summary>
+    /// Rank of a piece of decor, taken from SortingBands and never recomputed here. The formula must
+    /// live in exactly one place: this generator bakes GameObjects into the scene, so a rank written
+    /// here is frozen there - decor is the one thing whose draw order cannot be corrected at load,
+    /// and a private copy of the formula would let the scene keep silently stale values the day the
+    /// ladder moves. SortingBandsSceneConsistencyTests recomputes what is baked and compares.
+    ///
+    /// <paramref name="raised"/> tells the two apart. Flat decor (flowers, bushes, dead wood,
+    /// pebbles) has no rising silhouette and stays in the ground band at one fixed order. A rock
+    /// does rise - large and big rocks are drawn at an angle, with a mass well above their base and
+    /// a cast shadow - so it goes in the sorted band, ranked off the bottom of its own art since it
+    /// owns no footprint to measure.
+    /// </summary>
+    static GameObject Spawn(Transform parent, string name, Vector2 pos, float scale, Sprite sprite, bool raised, Color? color = null)
     {
         var go = new GameObject(name);
         go.transform.SetParent(parent, false);
@@ -433,8 +446,12 @@ public static class WildDecorationGenerator
         go.transform.localScale = Vector3.one * scale;
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = sprite;
-        sr.sortingOrder = sortingOrder;
         if (color.HasValue) sr.color = color.Value;
+
+        sr.sortingOrder = raised
+            ? SortingBands.SortedFromBounds(sr, SortingBands.SubSprite)
+            : SortingBands.FlatVegetation;
+
         return go;
     }
 
@@ -449,7 +466,7 @@ public static class WildDecorationGenerator
             attempts++;
             Vector2 pos = RandomPos(rng, min, max);
             if (biome.Classify(pos) != "SoilGravel02" || inDeposit(pos)) continue;
-            Spawn(group.transform, "Flower_Gravel02_" + placedG02.ToString("000"), pos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, gravel02Sprites[rng.Next(gravel02Sprites.Count)], 5);
+            Spawn(group.transform, "Flower_Gravel02_" + placedG02.ToString("000"), pos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, gravel02Sprites[rng.Next(gravel02Sprites.Count)], raised: false);
             placedG02++;
         }
 
@@ -465,7 +482,7 @@ public static class WildDecorationGenerator
             if (rng.NextDouble() >= 0.92)
             {
                 isolatedMade++;
-                Spawn(group.transform, "Flower_MarsGravel04_Isolated_" + anchorsPlaced.ToString("000"), anchor, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, marsGravel04Sprites[rng.Next(marsGravel04Sprites.Count)], 5);
+                Spawn(group.transform, "Flower_MarsGravel04_Isolated_" + anchorsPlaced.ToString("000"), anchor, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, marsGravel04Sprites[rng.Next(marsGravel04Sprites.Count)], raised: false);
                 continue;
             }
 
@@ -476,7 +493,7 @@ public static class WildDecorationGenerator
             {
                 Vector2 mpos = anchor + RandomOffsetInDisc(rng, 1.2f);
                 if (inDeposit(mpos)) continue;
-                Spawn(group.transform, "Flower_MarsGravel04_Bosquet" + clustersMade.ToString("000") + "_" + m.ToString("00"), mpos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, order[m % order.Count], 5);
+                Spawn(group.transform, "Flower_MarsGravel04_Bosquet" + clustersMade.ToString("000") + "_" + m.ToString("00"), mpos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, order[m % order.Count], raised: false);
             }
         }
     }
@@ -497,7 +514,7 @@ public static class WildDecorationGenerator
 
             if (rng.NextDouble() >= 0.82)
             {
-                Spawn(group.transform, "ClearBush_Isolated_" + anchorsPlaced.ToString("000"), anchor, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, clearBushSprites[rng.Next(clearBushSprites.Count)], 5);
+                Spawn(group.transform, "ClearBush_Isolated_" + anchorsPlaced.ToString("000"), anchor, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, clearBushSprites[rng.Next(clearBushSprites.Count)], raised: false);
                 continue;
             }
 
@@ -507,7 +524,7 @@ public static class WildDecorationGenerator
             {
                 Vector2 mpos = anchor + RandomOffsetInDisc(rng, 2.0f);
                 if (inDeposit(mpos)) continue;
-                Spawn(group.transform, "ClearBush_Cluster" + anchorsPlaced.ToString("000") + "_" + m.ToString("00"), mpos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, order[m % order.Count], 5);
+                Spawn(group.transform, "ClearBush_Cluster" + anchorsPlaced.ToString("000") + "_" + m.ToString("00"), mpos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, order[m % order.Count], raised: false);
             }
 
             if (smallRockSprites.Count > 0 && rng.NextDouble() < 0.55)
@@ -520,7 +537,7 @@ public static class WildDecorationGenerator
                     if (inDeposit(rpos)) continue;
                     Sprite rockSprite = rockOrder[r % rockOrder.Count];
                     // Small Rock keeps its own authored color (no RockTint) - unlike Large Rock, not muted to match the ground.
-                    Spawn(group.transform, "ClearBush_" + anchorsPlaced.ToString("000") + "_SmallRock" + r, rpos, RandRange(rng, 0.8f, 1.2f) * ReduceFactor, rockSprite, 7);
+                    Spawn(group.transform, "ClearBush_" + anchorsPlaced.ToString("000") + "_SmallRock" + r, rpos, RandRange(rng, 0.8f, 1.2f) * ReduceFactor, rockSprite, raised: true);
                 }
             }
 
@@ -530,7 +547,7 @@ public static class WildDecorationGenerator
                 if (!inDeposit(rpos))
                 {
                     Sprite rockSprite = largeRockSprites[rng.Next(largeRockSprites.Count)];
-                    Spawn(group.transform, "ClearBush_" + anchorsPlaced.ToString("000") + "_LargeRock", rpos, RandRange(rng, 0.85f, 1.2f) * ReduceFactor, rockSprite, 7, RockTint(biome, rockSprite));
+                    Spawn(group.transform, "ClearBush_" + anchorsPlaced.ToString("000") + "_LargeRock", rpos, RandRange(rng, 0.85f, 1.2f) * ReduceFactor, rockSprite, raised: true, RockTint(biome, rockSprite));
                 }
             }
         }
@@ -562,7 +579,7 @@ public static class WildDecorationGenerator
             {
                 Vector2 mpos = anchor + RandomOffsetInDisc(rng, radius);
                 if (inDeposit(mpos)) continue;
-                Spawn(group.transform, "DesertBush_Bosquet" + bosquetsMade.ToString("000") + "_" + m.ToString("00"), mpos, RandRange(rng, 0.8f, 1.4f) * ReduceFactor, order[m % order.Count], 5);
+                Spawn(group.transform, "DesertBush_Bosquet" + bosquetsMade.ToString("000") + "_" + m.ToString("00"), mpos, RandRange(rng, 0.8f, 1.4f) * ReduceFactor, order[m % order.Count], raised: false);
                 totalSprites++;
             }
 
@@ -572,7 +589,7 @@ public static class WildDecorationGenerator
                 if (!inDeposit(rpos))
                 {
                     Sprite rockSprite = largeRockSprites[rng.Next(largeRockSprites.Count)];
-                    Spawn(group.transform, "DesertBush_Bosquet" + bosquetsMade.ToString("000") + "_LargeRock", rpos, RandRange(rng, 0.85f, 1.2f) * ReduceFactor, rockSprite, 7, RockTint(biome, rockSprite));
+                    Spawn(group.transform, "DesertBush_Bosquet" + bosquetsMade.ToString("000") + "_LargeRock", rpos, RandRange(rng, 0.85f, 1.2f) * ReduceFactor, rockSprite, raised: true, RockTint(biome, rockSprite));
                     totalSprites++;
                 }
             }
@@ -586,7 +603,7 @@ public static class WildDecorationGenerator
             Vector2 pos = RandomPos(rng, min, max);
             string b = biome.Classify(pos);
             if ((b != "SoilGravel02" && b != "SoilGravel04") || inDeposit(pos)) continue;
-            Spawn(group.transform, "DesertBush_Isolated_" + isolatedMade.ToString("000"), pos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, bushSprites[rng.Next(bushSprites.Count)], 5);
+            Spawn(group.transform, "DesertBush_Isolated_" + isolatedMade.ToString("000"), pos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, bushSprites[rng.Next(bushSprites.Count)], raised: false);
             isolatedMade++;
         }
     }
@@ -601,7 +618,7 @@ public static class WildDecorationGenerator
             attempts++;
             Vector2 pos = RandomPos(rng, min, max);
             if (biome.Classify(pos) == "SoilGravel02" || inDeposit(pos)) continue;
-            Spawn(group.transform, "Tree_" + placed.ToString("000"), pos, RandRange(rng, 1.0f, 1.5f) * ReduceFactor, treeSprites[rng.Next(treeSprites.Count)], 5);
+            Spawn(group.transform, "Tree_" + placed.ToString("000"), pos, RandRange(rng, 1.0f, 1.5f) * ReduceFactor, treeSprites[rng.Next(treeSprites.Count)], raised: false);
             placed++;
         }
     }
@@ -625,7 +642,7 @@ public static class WildDecorationGenerator
                 if (inDeposit(mpos)) continue;
                 Sprite rockSprite = order[m];
                 // Small Rock keeps its own authored color (no RockTint) - unlike Large Rock, not muted to match the ground.
-                Spawn(group.transform, "SmallRock_Outcrop" + outcropsMade.ToString("000") + "_" + m, mpos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, rockSprite, 7);
+                Spawn(group.transform, "SmallRock_Outcrop" + outcropsMade.ToString("000") + "_" + m, mpos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, rockSprite, raised: true);
             }
         }
     }
@@ -640,7 +657,7 @@ public static class WildDecorationGenerator
             Vector2 pos = RandomPos(rng, min, max);
             if (inDeposit(pos)) continue;
             Sprite largeSprite = largeRockSprites[rng.Next(largeRockSprites.Count)];
-            Spawn(largeRockGroup.transform, "LargeRock_" + placed.ToString("000"), pos, RandRange(rng, 0.85f, 1.2f) * ReduceFactor, largeSprite, 7, RockTint(biome, largeSprite));
+            Spawn(largeRockGroup.transform, "LargeRock_" + placed.ToString("000"), pos, RandRange(rng, 0.85f, 1.2f) * ReduceFactor, largeSprite, raised: true, RockTint(biome, largeSprite));
             placed++;
 
             if (smallRockSprites.Count > 0)
@@ -652,7 +669,7 @@ public static class WildDecorationGenerator
                     if (inDeposit(cpos)) continue;
                     Sprite companionSprite = smallRockSprites[rng.Next(smallRockSprites.Count)];
                     // Small Rock keeps its own authored color (no RockTint) - unlike Large Rock, not muted to match the ground.
-                    Spawn(smallRockGroup.transform, "LargeRock_" + (placed - 1).ToString("000") + "_Companion" + c, cpos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, companionSprite, 7);
+                    Spawn(smallRockGroup.transform, "LargeRock_" + (placed - 1).ToString("000") + "_Companion" + c, cpos, RandRange(rng, 0.8f, 1.3f) * ReduceFactor, companionSprite, raised: true);
                 }
             }
         }
@@ -668,7 +685,7 @@ public static class WildDecorationGenerator
             attempts++;
             Vector2 pos = RandomPos(rng, min, max);
             if (inDeposit(pos)) continue;
-            Spawn(group.transform, "BigRock_" + placed.ToString("000"), pos, RandRange(rng, 0.85f, 1.2f) * ReduceFactor, bigRockSprites[rng.Next(bigRockSprites.Count)], 7);
+            Spawn(group.transform, "BigRock_" + placed.ToString("000"), pos, RandRange(rng, 0.85f, 1.2f) * ReduceFactor, bigRockSprites[rng.Next(bigRockSprites.Count)], raised: true);
             placed++;
         }
     }

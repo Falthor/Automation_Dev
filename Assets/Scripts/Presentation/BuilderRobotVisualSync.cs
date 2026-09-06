@@ -19,7 +19,6 @@ namespace Game.Presentation
     /// </summary>
     public sealed class BuilderRobotVisualSync : MonoBehaviour
     {
-        const int SortingOrder = 14;
 
         [SerializeField] GameRuntime gameRuntime;
 
@@ -66,6 +65,13 @@ namespace Game.Presentation
                 Vector2 gridPosition = robots[i].Position;
                 _views[i].transform.position = new Vector3(gridPosition.x * cellSize, gridPosition.y * cellSize, 0f);
 
+                // The one member of the sorted band that has to be re-ranked every frame: the robots
+                // walk. They took the flying band while they flew, and moving them to the ground is
+                // exactly what puts them here. SubOverlay so a robot standing on a building's own row
+                // passes in front of it rather than disappearing into it.
+                _views[i].GetComponent<SpriteRenderer>().sortingOrder =
+                    SortingBands.Sorted(gridPosition.y * cellSize, SortingBands.SubOverlay);
+
                 FaceTravelDirection(_views[i].transform, robots[i]);
             }
         }
@@ -101,7 +107,6 @@ namespace Game.Presentation
             var renderer = view.AddComponent<SpriteRenderer>();
             renderer.sprite = robotSprite != null ? robotSprite : _spriteFactory.CreateSolidSquareSprite(Color.white);
             renderer.color = robotColor;
-            renderer.sortingOrder = SortingOrder;
 
             // Uniform fit, so the drone's own proportions survive - a per-axis stretch would squash
             // a 1275x1233 sprite into a square.

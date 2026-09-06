@@ -14,8 +14,6 @@ namespace Game.Presentation
     {
         static readonly Color ValidTint = new Color(0.3f, 1f, 0.3f, 0.55f);
         static readonly Color InvalidTint = new Color(1f, 0.3f, 0.3f, 0.55f);
-        const int SortingOrder = 11;
-        const int ArrowSortingOrder = 12;
 
         SpriteRenderer _spriteRenderer;
 
@@ -33,12 +31,12 @@ namespace Game.Presentation
         void Awake()
         {
             _spriteRenderer = GetComponent<SpriteRenderer>();
-            _spriteRenderer.sortingOrder = SortingOrder;
+            _spriteRenderer.sortingOrder = SortingBands.PlacementPreview;
 
             var arrowGo = new GameObject("GhostOutputArrow");
             arrowGo.transform.SetParent(transform.parent, false);
             _outputArrowRenderer = arrowGo.AddComponent<SpriteRenderer>();
-            _outputArrowRenderer.sortingOrder = ArrowSortingOrder;
+            _outputArrowRenderer.sortingOrder = SortingBands.PlacementPreviewArrow;
             _outputArrow = arrowGo.transform;
             arrowGo.SetActive(false);
         }
@@ -101,7 +99,7 @@ namespace Game.Presentation
                 var arrowGo = new GameObject("GhostInputArrow");
                 arrowGo.transform.SetParent(transform.parent, false);
                 var renderer = arrowGo.AddComponent<SpriteRenderer>();
-                renderer.sortingOrder = ArrowSortingOrder;
+                renderer.sortingOrder = SortingBands.PlacementPreviewArrow;
                 arrowGo.SetActive(false);
                 _inputArrows.Add(arrowGo.transform);
                 _inputArrowRenderers.Add(renderer);

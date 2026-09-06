@@ -11,7 +11,6 @@ namespace Game.Presentation
     /// </summary>
     public sealed class BuildingHoverHighlightView : MonoBehaviour
     {
-        const int SortingOrder = 13; // above buildings (9/10/11) and the ghost/output arrow (11/12).
 
         [SerializeField] Color lineColor = new Color(0.3f, 0.6f, 1f, 0.95f);
         [SerializeField, Min(0.001f)] float lineThickness = 0.08f;
@@ -41,7 +40,7 @@ namespace Game.Presentation
 
             var renderer = go.AddComponent<SpriteRenderer>();
             renderer.sprite = CreateUnitSprite();
-            renderer.sortingOrder = SortingOrder;
+            renderer.sortingOrder = SortingBands.HoverOutline;
             renderer.color = lineColor;
             return renderer;
         }

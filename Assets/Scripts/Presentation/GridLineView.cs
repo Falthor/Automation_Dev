@@ -10,7 +10,6 @@ namespace Game.Presentation
     /// </summary>
     public sealed class GridLineView : MonoBehaviour
     {
-        const int SortingOrder = 5; // above terrain (0/1), below buildings (10/11).
 
         /// <summary>Custom/GridLinesOverlay. An asset reference, not a Shader.Find by name - see ActionRadiusView for why, and docs/BUILD.md.</summary>
         [SerializeField] Shader overlayShader;
@@ -27,7 +26,7 @@ namespace Game.Presentation
             {
                 _renderer = gameObject.AddComponent<SpriteRenderer>();
                 _renderer.sprite = CreateUnitSprite();
-                _renderer.sortingOrder = SortingOrder;
+                _renderer.sortingOrder = SortingBands.GridLines;
                 _material = new Material(overlayShader) { name = "GridLines (Instance)" };
                 _renderer.sharedMaterial = _material;
                 _renderer.enabled = false;

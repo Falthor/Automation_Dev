@@ -118,7 +118,6 @@ namespace Game.Tests.EditMode.Presentation
             // and "instant" would stop being instant.
             so.FindProperty("minAssemblyDuration").floatValue = 0.01f;
             so.FindProperty("sitePlaceholderAlpha").floatValue = 0.35f;
-            so.FindProperty("siteSilhouetteSortingOrder").intValue = 7;
 
             // Any shader will do - nothing here asserts on pixels; what matters is that the view
             // considers itself able to assemble, which is what gates the whole handover path.
@@ -173,7 +172,8 @@ namespace Game.Tests.EditMode.Presentation
             SpriteRenderer silhouette = fixture.Views.SilhouetteOf(site.Segments[0]);
             Assert.IsNotNull(silhouette, "A placed site is visible immediately, before any material arrives.");
             Assert.AreEqual(0.6f, silhouette.color.a, 0.0001f, "Nothing delivered: the silhouette is at its own full tint, not the faded one.");
-            Assert.AreEqual(7, silhouette.sortingOrder, "The silhouette sits under the drop shadow and the sprite.");
+            Assert.AreEqual(SortingBands.Sorted(5f, SortingBands.SubSilhouette), silhouette.sortingOrder,
+                "The silhouette is ranked at the row it is being built on, under the sprite assembling over it.");
             Assert.AreEqual(0f, fixture.Views.DissolveOf(site.Segments[0]).DisplayedProgress, 0.0001f, "The sprite is entirely clipped away.");
             Assert.AreEqual(0, fixture.Views.AssemblingCount);
         }

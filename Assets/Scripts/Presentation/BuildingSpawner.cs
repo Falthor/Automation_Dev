@@ -15,8 +15,6 @@ namespace Game.Presentation
     /// </summary>
     public sealed class BuildingSpawner
     {
-        const int StandardSortingOrder = 10;
-        const int GroundSlabSortingOrder = 5;
 
         // How far the concrete slab bleeds past the building's true footprint on each side, in
         // cells, so it reads as an apron laid around the building rather than stopping exactly on
@@ -26,21 +24,6 @@ namespace Game.Presentation
         // world-unit constant only happened to mean 0.3 cells because CellSize is 1.
         const float GroundSlabOverscanCells = 0.5f;
 
-        // Splitter/Crossroad's RenderOverscan deliberately makes their arms overlap the
-        // neighboring conveyor's sprite bounds at the seam (to close the visual gap). With an
-        // equal sortingOrder, Unity breaks the tie by draw/instantiation order, which is
-        // unstable across placements - the overlapping edge would randomly render behind or in
-        // front of the conveyor. Giving the cross-shaped view a strictly higher order makes it
-        // always win at that seam, matching the intent of the overscan.
-        //
-        // This also must stay above ItemVisualSync.ItemSortingOrder: an item riding the
-        // conveyor right up to the shared edge sits inside that same overscanned overlap, and an
-        // equal order there caused the item to flicker in and out as the tie-break flipped. Cross
-        // always winning means the item is reliably covered as soon as it reaches the overlap,
-        // instead of flickering.
-        const int CrossSortingOrder = 13;
-        const int OutputArrowSortingOrder = 14;
-        const int InputArrowSortingOrder = 14;
         static readonly Color OutputArrowColor = new Color(0.25f, 0.95f, 0.35f, 1f);
         static readonly Color InputArrowColor = new Color(0.3f, 0.6f, 1f, 1f);
 
@@ -130,6 +113,26 @@ namespace Game.Presentation
         }
 
         /// <summary>
+        /// The world Y this building stands on - the bottom edge of its footprint, which is what the
+        /// sorted band ranks by. CellToWorld returns the cell's corner, so the origin cell's corner
+        /// is already that edge. Deliberately not the root's own position: that is the footprint's
+        /// centre, and ranking on the centre of the art is the one thing the rule forbids - a
+        /// building whose art is taller would then sort as if it stood higher than it does.
+        /// </summary>
+        float BottomEdgeY(BuildingRuntime runtime) => _grid.CellToWorld(runtime.Cell).y;
+
+        /// <summary>
+        /// An arrow is ranked by the cell it sits on, not by the building it belongs to - it marks
+        /// an interface, and the cell it marks is where it physically is. An arrow on the row below
+        /// its building therefore draws in front of it, and is itself covered by anything built on
+        /// that row, which is what both of those should do.
+        ///
+        /// Arrows on placed buildings are permanent world decoration, never a response to a gesture,
+        /// so they belong here rather than in the information band with the placement previews.
+        /// </summary>
+        int ArrowSortingOrder(GridCoord cell) => SortingBands.Sorted(_grid.CellToWorld(cell).y, SortingBands.SubOverlay);
+
+        /// <summary>
         /// A belt, a Splitter or a Crossroad: transport pieces, which lie flat on whatever ground
         /// they were laid on and change none of it. They pour no concrete and convert no ground,
         /// while building and once built.
@@ -176,7 +179,7 @@ namespace Game.Presentation
             var spriteGo = new GameObject("Sprite");
             spriteGo.transform.SetParent(root.transform, false);
             var renderer = spriteGo.AddComponent<SpriteRenderer>();
-            renderer.sortingOrder = StandardSortingOrder;
+            renderer.sortingOrder = SortingBands.Sorted(BottomEdgeY(runtime), SortingBands.SubSprite);
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
@@ -191,7 +194,7 @@ namespace Game.Presentation
 
             if (definition.HasOutputArrow)
             {
-                SpawnDirectionalArrow(root.transform, _grid.CellCenterToWorld(runtime.GetOutputCell()), runtime.ExitDirection, OutputArrowColor, OutputArrowSortingOrder, inward: false);
+                SpawnDirectionalArrow(root.transform, _grid.CellCenterToWorld(runtime.GetOutputCell()), runtime.ExitDirection, OutputArrowColor, ArrowSortingOrder(runtime.GetOutputCell()), inward: false);
             }
 
             // Independent of the output arrow: a building can take deliveries without producing
@@ -201,7 +204,7 @@ namespace Game.Presentation
             {
                 foreach ((GridCoord cell, Direction fromMySide) in runtime.GetInputCells())
                 {
-                    SpawnDirectionalArrow(root.transform, _grid.CellCenterToWorld(cell), fromMySide, InputArrowColor, InputArrowSortingOrder, inward: true);
+                    SpawnDirectionalArrow(root.transform, _grid.CellCenterToWorld(cell), fromMySide, InputArrowColor, ArrowSortingOrder(cell), inward: true);
                 }
             }
 
@@ -235,7 +238,7 @@ namespace Game.Presentation
             if (parent == null) slabGo.transform.position = _grid.FootprintCenterToWorld(cell, footprintSize);
 
             var renderer = slabGo.AddComponent<SpriteRenderer>();
-            renderer.sortingOrder = GroundSlabSortingOrder;
+            renderer.sortingOrder = SortingBands.GroundSlab;
             renderer.sharedMaterial = _spriteFactory.GetGroundSlabMaterial(_groundSlabSettings);
 
             Vector2 footprintWorldSize = new Vector2(_grid.CellSize, _grid.CellSize) * footprintSize;
@@ -281,7 +284,7 @@ namespace Game.Presentation
             root.transform.position = _grid.FootprintCenterToWorld(runtime.Cell, definition.FootprintSize);
 
             var renderer = root.AddComponent<SpriteRenderer>();
-            renderer.sortingOrder = CrossSortingOrder;
+            renderer.sortingOrder = SortingBands.CrossPiece;
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);

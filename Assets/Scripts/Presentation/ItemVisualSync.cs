@@ -15,7 +15,6 @@ namespace Game.Presentation
     /// </summary>
     public sealed class ItemVisualSync : MonoBehaviour
     {
-        const int ItemSortingOrder = 12;
 
         [SerializeField, Range(0.05f, 1f)] float itemVisualScale = 0.35f;
 
@@ -138,7 +137,7 @@ namespace Game.Presentation
             {
                 go = new GameObject("Item");
                 var renderer = go.AddComponent<SpriteRenderer>();
-                renderer.sortingOrder = ItemSortingOrder;
+                renderer.sortingOrder = SortingBands.TransportedItem;
                 Sprite sprite = SpriteFor(item as string);
                 renderer.sprite = sprite;
 

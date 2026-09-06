@@ -13,9 +13,6 @@ namespace Game.Presentation
     /// </summary>
     public sealed class WorldContentSpawner
     {
-        const int CoreSortingOrder = 10;
-        const int GroundSlabSortingOrder = 5;
-        const int OreDepositSortingOrder = 9;
 
         // How far the concrete slab bleeds past the Core's true footprint on each side, in cells,
         // so it reads as an apron laid around it rather than stopping exactly on the grid line -
@@ -59,7 +56,7 @@ namespace Game.Presentation
                 var slabGo = new GameObject("GroundSlab");
                 slabGo.transform.SetParent(go.transform, false);
                 var slabRenderer = slabGo.AddComponent<SpriteRenderer>();
-                slabRenderer.sortingOrder = GroundSlabSortingOrder;
+                slabRenderer.sortingOrder = SortingBands.GroundSlab;
                 slabRenderer.sharedMaterial = _spriteFactory.GetGroundSlabMaterial(_groundSlabSettings);
 
                 Vector2 slabWorldSize = footprintWorldSize + Vector2.one * (GroundSlabOverscanCells * 2f * _grid.CellSize);
@@ -80,7 +77,10 @@ namespace Game.Presentation
             var spriteGo = new GameObject("Sprite");
             spriteGo.transform.SetParent(go.transform, false);
             var renderer = spriteGo.AddComponent<SpriteRenderer>();
-            renderer.sortingOrder = CoreSortingOrder;
+            // The Core is depth-sorted like every other building: its art is a full cell taller than
+            // its footprint, so it overhangs the row above and has to be able to lose to whatever
+            // stands there. Keyed on the bottom of the footprint, never the centre of the art.
+            renderer.sortingOrder = SortingBands.Sorted(_grid.CellToWorld(core.Cell).y, SortingBands.SubSprite);
 
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
@@ -115,7 +115,7 @@ namespace Game.Presentation
             go.transform.position = _grid.FootprintCenterToWorld(deposit.Origin, definition.FootprintSize);
 
             var renderer = go.AddComponent<SpriteRenderer>();
-            renderer.sortingOrder = OreDepositSortingOrder;
+            renderer.sortingOrder = SortingBands.Deposit;
 
             // Real deposit art has its own transparent background, so the terrain tile
             // underneath must stay visible through it - unlike the solid-color placeholder
