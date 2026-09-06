@@ -601,12 +601,13 @@ namespace Game.Presentation
                 }
             }
 
-            // Overtaking a cell that belongs to another still-pending site cancels that whole site
-            // first (releasing its reservations and freeing its cells) - half a chantier cannot be
-            // overtaken and left behind with segments that no longer own their ground.
+            // Overtaking a cell that belongs to another still-pending site takes that ONE segment
+            // out of it, not the site it belongs to. A drag started on the last belt of a previous
+            // run reuses exactly one of its cells, and every other segment still owns its own
+            // ground - cancelling the whole chantier there deleted the run the player had just laid.
             foreach (BuildingRuntime previousBuilding in previousOccupants)
             {
-                gameRuntime.Construction.TryCancelSiteAt(previousBuilding.Cell);
+                gameRuntime.Construction.TryDetachPendingSegment(previousBuilding);
             }
 
             bool placingIntoConveyorRun = _isDragPlacing && _activeConveyorSite != null && IsConveyorRunDefinition(gameRuntime.Construction.Selected);

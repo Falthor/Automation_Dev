@@ -114,7 +114,7 @@ namespace Game.Gameplay.Sites
         /// </summary>
         public bool CancelSite(ConstructionSiteRuntime site)
         {
-            if (!_queue.Remove(site)) return false;
+            if (!_queue.Contains(site)) return false;
 
             site.ReleaseAllContainerReservations();
 
@@ -124,10 +124,50 @@ namespace Game.Gameplay.Sites
                 _grid.ClearOccupantFootprint(segment.Cell, segment.Definition.FootprintCells);
             }
 
+            CloseSite(site);
+            return true;
+        }
+
+        /// <summary>
+        /// One cell of a pending site has just been taken over by a new placement (a belt dropped
+        /// onto a run still waiting for its material, a Splitter dropped across one). Only that
+        /// segment leaves its site: every other one still owns its own ground, and losing twenty
+        /// belts because the twenty-first cell was reused is not what overtaking means.
+        ///
+        /// The ground is deliberately not freed here - the placement that took this cell owns it
+        /// now, and is about to put its own segment on it.
+        /// </summary>
+        public bool RemovePendingSegment(BuildingRuntime segment)
+        {
+            if (!TryGetSiteContaining(segment, out ConstructionSiteRuntime site)) return false;
+            if (!site.TryRemovePendingSegment(segment)) return false;
+
+            // Nothing left to build: the site is over, exactly as if it had been cancelled.
+            if (site.IsComplete) CloseSite(site);
+            return true;
+        }
+
+        /// <summary>
+        /// Takes a site out of the queue and releases every robot still working for it. Cargo
+        /// already picked up is dropped off rather than lost; a robot merely on its way to fetch
+        /// also drops the claim it was carrying on that container, since PendingAmount counts
+        /// against TotalReserved and a claim left standing would keep that stock unclaimable by
+        /// anything, forever - the robot has nowhere to bring it and no reservation pass can see
+        /// past it.
+        /// </summary>
+        void CloseSite(ConstructionSiteRuntime site)
+        {
+            _queue.Remove(site);
+
             foreach (BuilderRobotRuntime robot in _robots)
             {
                 if (!ReferenceEquals(robot.TargetSite, site)) continue;
+
                 robot.TargetSite = null;
+                robot.SourceContainer = null;
+                robot.PendingItemId = null;
+                robot.PendingAmount = 0;
+
                 if (robot.CargoTotal > 0 && robot.State != BuilderRobotState.Repatriating)
                 {
                     BeginDropOffCarriedCargo(robot);
@@ -140,7 +180,6 @@ namespace Game.Gameplay.Sites
             }
 
             if (_stuckSiteId == site.Id) ClearStuckNotification();
-            return true;
         }
 
         /// <summary>Whether `runtime` is still a pending segment of some site (not yet materialized/registered) - used by the demolition input path to route a click at that cell to CancelSite instead of ConstructionService.TryDemolish, which must never see an unpaid, unregistered building.</summary>

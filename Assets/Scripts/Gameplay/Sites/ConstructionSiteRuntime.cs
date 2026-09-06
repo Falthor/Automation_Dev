@@ -85,6 +85,87 @@ namespace Game.Gameplay.Sites
         }
 
         /// <summary>
+        /// Drops one not-yet-materialized segment: the cell it was holding has just been taken over
+        /// by another placement, so its cost comes off the bill and the earmarks it alone justified
+        /// are released. Every other segment keeps its own ground and its own share - a run does not
+        /// stop being a run because one of its cells was reused.
+        ///
+        /// Anything already delivered stays with the site and feeds the segments that remain: a
+        /// partly-supplied front segment being taken over hands its material to the one behind it,
+        /// which is exactly what the delivered-minus-consumed arithmetic already does.
+        ///
+        /// False for a segment this site never held, and for one already built - that is a real
+        /// building, and it leaves through demolition.
+        /// </summary>
+        public bool TryRemovePendingSegment(BuildingRuntime segment)
+        {
+            int index = -1;
+            for (int i = MaterializedCount; i < _segments.Count; i++)
+            {
+                if (!ReferenceEquals(_segments[i], segment)) continue;
+                index = i;
+                break;
+            }
+
+            if (index < 0) return false;
+
+            _segments.RemoveAt(index);
+
+            foreach (RecipeIngredient ingredient in segment.Definition.Cost)
+            {
+                if (ingredient.Item == null || ingredient.Amount <= 0) continue;
+                if (!_totalCost.TryGetValue(ingredient.Item.Id, out int total)) continue;
+
+                int remaining = total - ingredient.Amount;
+                if (remaining > 0)
+                {
+                    _totalCost[ingredient.Item.Id] = remaining;
+                }
+                else
+                {
+                    _totalCost.Remove(ingredient.Item.Id);
+                    _costOrder.Remove(ingredient.Item.Id);
+                }
+            }
+
+            ReleaseOverCommitment();
+            return true;
+        }
+
+        /// <summary>
+        /// Gives back whatever the bill no longer justifies after it shrank. Container earmarks go
+        /// first, newest first, so the stock is immediately claimable by another site again -
+        /// leaving one standing is how a chest ends up holding material nothing may ever take.
+        ///
+        /// What is already riding in a robot's cargo stays committed: it is in flight and cannot be
+        /// recalled mid-trip. It simply arrives, and GetSupply clamps it away.
+        /// </summary>
+        void ReleaseOverCommitment()
+        {
+            var items = new List<string>(_committed.Keys);
+            foreach (string itemId in items)
+            {
+                int excess = -RemainingNeeded(itemId);
+                if (excess <= 0) continue;
+
+                for (int i = _reservations.Count - 1; i >= 0 && excess > 0; i--)
+                {
+                    Reservation reservation = _reservations[i];
+                    if (reservation.ItemId != itemId) continue;
+
+                    int take = System.Math.Min(reservation.Amount, excess);
+                    excess -= take;
+
+                    reservation.Amount -= take;
+                    if (reservation.Amount <= 0) _reservations.RemoveAt(i);
+                    else _reservations[i] = reservation;
+
+                    _committed[itemId] = System.Math.Max(0, _committed[itemId] - take);
+                }
+            }
+        }
+
+        /// <summary>
         /// One ingredient of the bill, in the three states a player actually asks about: what has
         /// physically landed here, what is promised and coming, and what nothing anywhere has been
         /// found for.

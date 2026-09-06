@@ -245,6 +245,23 @@ namespace Game.Construction
         }
 
         /// <summary>
+        /// Frees the ground one pending segment holds so a new placement can take that cell,
+        /// leaving the rest of its site standing. Overtaking is a statement about one cell: the
+        /// other segments of a dragged run each still own their own, and cancelling the whole
+        /// chantier because its last belt was reused is what made a second drag started on the end
+        /// of the first delete that first run.
+        ///
+        /// Right-clicking a chantier still cancels the whole of it (TryCancelSiteAt) - a different
+        /// gesture with a different meaning. False for anything that is not a pending segment (a
+        /// finished building, empty ground).
+        /// </summary>
+        public bool TryDetachPendingSegment(BuildingRuntime segment)
+        {
+            if (_constructionSites == null || segment == null) return false;
+            return _constructionSites.RemovePendingSegment(segment);
+        }
+
+        /// <summary>
         /// Reconstructs a previously-placed building from a saved definition/cell/rotation, with
         /// no cost deduction and no placement validity check - both already happened once, at the
         /// original construction time the save captured (CONTRACTS.md §14). The only other caller
