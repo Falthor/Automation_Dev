@@ -27,13 +27,16 @@ namespace Game.Presentation
         [SerializeField] DepositHoverGlowView depositHoverGlowView;
 
         /// <summary>
-        /// Raised when a placement attempt is refused specifically because the building cap was
-        /// reached (TASK_04_PLAFOND_RAYON.md §3.2 - this refusal must name its cause explicitly,
-        /// not fail silently). Game.Presentation must not depend on Game.UI (PROJECT_ARCHITECTURE.md
-        /// §4's dependency direction), so this is a plain event a UI-layer listener (TopBarController)
+        /// Raised when a placement attempt is refused for a reason the player cannot see for
+        /// themselves - the building cap (TASK_04_PLAFOND_RAYON.md §3.2) and insufficient resources.
+        /// Both must name their cause rather than failing silently: nothing on screen distinguishes
+        /// "this click did nothing" from "this click was refused", and a gate the player cannot
+        /// perceive is worse than no gate at all. See RefusalMessage for why the other reasons stay
+        /// quiet. Game.Presentation must not depend on Game.UI (PROJECT_ARCHITECTURE.md §4's
+        /// dependency direction), so this is a plain event a UI-layer listener (TopBarController)
         /// subscribes to instead of a direct reference the other way.
         /// </summary>
-        public event System.Action<string> PlacementRefusedAtBuildingCap;
+        public event System.Action<string> PlacementRefused;
 
         /// <summary>
         /// Used to lay straight segments while dragging with the Corner tool selected - a corner
@@ -623,12 +626,24 @@ namespace Game.Presentation
                     if (gameRuntime.ItemVisuals != null) gameRuntime.ItemVisuals.Unregister(previousBuilding);
                 }
             }
-            else if (gameRuntime.Construction.Selected != null
-                     && gameRuntime.Construction.GetPlacementRefusalReason(cell) == PlacementRefusalReason.BuildingCapReached)
+            else if (gameRuntime.Construction.Selected != null)
             {
-                PlacementRefusedAtBuildingCap?.Invoke("Plafond de batiments atteint");
+                // Only the two refusals a player cannot see for themselves are announced. Out of
+                // radius, not unlocked and occupied are already legible from the ghost's own tint
+                // and from where the cursor is; a message on every one of those would be noise on
+                // gestures the player is making deliberately.
+                string message = RefusalMessage(gameRuntime.Construction.GetPlacementRefusalReason(cell));
+                if (message != null) PlacementRefused?.Invoke(message);
             }
         }
+
+        /// <summary>The player-facing wording for a refusal, or null when the refusal already shows itself.</summary>
+        static string RefusalMessage(PlacementRefusalReason reason) => reason switch
+        {
+            PlacementRefusalReason.BuildingCapReached => "Plafond de batiments atteint",
+            PlacementRefusalReason.CannotAfford => "Ressources insuffisantes",
+            _ => null
+        };
 
         static bool IsConveyorRunDefinition(BuildingDefinition definition) =>
             definition is ConveyorDefinition || definition is SplitterDefinition || definition is CrossroadDefinition;

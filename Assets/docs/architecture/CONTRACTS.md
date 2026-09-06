@@ -261,7 +261,7 @@ public bool TryPlace(GridCoord cell, Direction rotation, out ConstructionSiteRun
 public bool TryCancelSiteAt(GridCoord cell)
 public bool TryDemolish(GridCoord cell, out BuildingRuntime removed)
 
-public bool CanAfford(BuildingDefinition definition)   // informational only, never a gate
+public bool CanAfford(BuildingDefinition definition)   // the placement gate, and the menu's styling
 public int GetAvailableAmount(string itemId)           // reads GlobalStock's aggregate (§15)
 
 public int BuildingCap { get; }              // 40 by default, 52 after memory_allocation
@@ -472,6 +472,8 @@ A view that needs a whole site's advancement still computes it from `TotalCost` 
 The bill of materials in the three states a player asks about, one `SupplyLine` per ingredient: **delivered**, **reserved**, **missing**. Read-only, filled into a caller-owned list, and in an order fixed by the bill rather than by a dictionary's enumeration, so a panel rebuilt every frame cannot reshuffle its rows.
 
 `Reserved` covers both halves of a promise - earmarked in a container and not yet collected, and already riding in a robot's cargo. Both are the same statement about **stock**: this material is spoken for and nothing else may take it. It is the only thing that separates a site whose material is secured from one forgotten because nothing produces what it needs; on a delivered count alone the two read identically until one of them silently never finishes. The three states always account for the whole of that ingredient's cost, mid-flight included.
+
+**A site is never opened short.** Placement is gated on `CanAfford`, read against unreserved stock, so opening a site reserves its whole bill on the spot and `Missing` is zero on every queued chantier. A shortage is therefore a refused placement (`PlacementRefusalReason.CannotAfford`), never a stranded site - and the refusal must name its cause, since nothing on screen distinguishes a click that did nothing from one that was refused. `GetStillNeeded` and `IsStalled` stay as defensive reads for a source destroyed while holding reserved material, not as states ordinary play produces.
 
 **Reserved says nothing about movement**, and must not be presented as if it did. A reservation holds whether or not a robot has been dispatched, so several sites placed at once are all fully reserved while only one is being served. Which site a robot is actually walking toward is a separate question with a separate answer - the robots whose `TargetSite` is that site and whose state is `MovingToSite` - and it belongs beside the bill, never inside it.
 

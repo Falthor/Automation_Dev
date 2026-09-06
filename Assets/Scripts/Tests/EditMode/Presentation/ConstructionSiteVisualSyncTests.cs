@@ -135,6 +135,23 @@ namespace Game.Tests.EditMode.Presentation
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        /// <summary>
+        /// Runs until the site's first delivery lands, then stops - the deterministic way to catch a
+        /// site half supplied, now that a short chest cannot produce one (an underfunded placement is
+        /// refused outright). Stopping on the state rather than on a duration keeps it independent of
+        /// robot travel time.
+        /// </summary>
+        static void AdvanceToFirstDelivery(Fixture fixture, ConstructionSiteRuntime site)
+        {
+            for (int i = 0; i < 500 && site.SegmentProgress(site.MaterializedCount) <= 0f; i++)
+            {
+                fixture.Simulate(0.2f);
+            }
+
+            Assert.Greater(site.SegmentProgress(site.MaterializedCount), 0f,
+                "Nothing was ever delivered - the site never started.");
+        }
+
         static ConstructionSiteRuntime PlaceSite(Fixture fixture, BuildingDefinition definition, GridCoord cell)
         {
             fixture.Construction.SelectBuilding(definition);
@@ -147,7 +164,7 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void APendingSegment_ShowsAFullSilhouette_AndNothingAssembled()
         {
-            Fixture fixture = NewFixture(coreChestContents: 0);
+            Fixture fixture = NewFixture(coreChestContents: 4);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
             ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
 
@@ -164,17 +181,21 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void AsMaterialArrives_TheSilhouetteFadesToThePlaceholderAlpha()
         {
-            Fixture fixture = NewFixture(coreChestContents: 2);
-            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
+            // A site is always fully funded now - the gate refuses one it cannot cover - so the
+            // part-delivered state comes from the robots' round trips. A bill of twelve is more than
+            // the eight two robots carry in one wave, so the first delivery necessarily leaves it
+            // short.
+            Fixture fixture = NewFixture(coreChestContents: 12);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 12));
             ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
             BuildingRuntime segment = site.Segments[0];
 
             fixture.Views.Tick();
-            fixture.Simulate(12f);
+            AdvanceToFirstDelivery(fixture, site);
             fixture.Views.Tick();
 
-            Assert.Greater(site.SegmentProgress(0), 0f, "The chest only holds half the cost, so the segment is part-delivered and still pending.");
-            Assert.IsFalse(site.IsComplete);
+            Assert.Greater(site.SegmentProgress(0), 0f, "One wave has landed, so the segment is part-delivered...");
+            Assert.IsFalse(site.IsComplete, "...and still short of its twelve.");
 
             fixture.Assemble(segment, 0.05f);
             fixture.Views.Tick();
@@ -231,7 +252,7 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void SilhouetteAndAssembly_AreSizedToTheArtTheRealViewWillUse_OverscanIncluded()
         {
-            Fixture fixture = NewFixture(coreChestContents: 0);
+            Fixture fixture = NewFixture(coreChestContents: 4);
             FoundryDefinition foundry = TestDataFactory.NewFoundry(10, 0f, 0f);
             Assert.AreNotEqual(1f, foundry.RenderOverscan, "Precondition: the Foundry is the overscanned case this guards.");
 
@@ -297,7 +318,7 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void CancellingAPendingSite_DropsItsSilhouettes()
         {
-            Fixture fixture = NewFixture(coreChestContents: 0);
+            Fixture fixture = NewFixture(coreChestContents: 4);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
             var cell = new GridCoord(5, 5);
             ConstructionSiteRuntime site = PlaceSite(fixture, costly, cell);
@@ -322,8 +343,10 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void OnAConveyorRun_OnlyTheSegmentBeingBuiltDissolves()
         {
-            Fixture fixture = NewFixture(coreChestContents: 1);
-            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 2));
+            // Belts costing twelve each: one wave of two robots carries eight, so the front belt is
+            // part-delivered and none of the three is built yet.
+            Fixture fixture = NewFixture(coreChestContents: 36);
+            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 12));
 
             fixture.Construction.SelectBuilding(conveyor);
             Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5, 5), Direction.East, out ConstructionSiteRuntime site));
@@ -333,11 +356,11 @@ namespace Game.Tests.EditMode.Presentation
             }
 
             fixture.Views.Tick();
-            fixture.Simulate(12f);
+            AdvanceToFirstDelivery(fixture, site);
             fixture.Views.Tick();
 
             Assert.AreEqual(3, site.Segments.Count);
-            Assert.AreEqual(0, site.MaterializedCount, "One plate out of the two the first belt costs.");
+            Assert.AreEqual(0, site.MaterializedCount, "Eight of the twelve the first belt costs.");
 
             Assert.Greater(fixture.Views.DissolveOf(site.Segments[0]).TargetProgress, 0f, "The front segment is the one taking material.");
             Assert.AreEqual(0f, fixture.Views.DissolveOf(site.Segments[1]).TargetProgress, 0.0001f, "The ones behind it have nothing yet.");

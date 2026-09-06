@@ -8,11 +8,18 @@
 > `GlobalStock` (vue agrégée en lecture seule, plus jamais un contenant) — voir
 > `CONTRACTS.md` §15.
 >
-> **Règle ajoutée n°1 — le refus de pose pour cause de coût disparaît.** Tel qu'écrit, le
-> ticket décrivait deux comportements (§3 plusieurs chantiers en attente, §4 état d'échec
-> nommant les matériaux manquants) inatteignables tant que la pose exigeait de pouvoir payer.
-> `PlacementRefusalReason.CannotAfford` est donc retiré : poser réussit toujours sous réserve
-> du verrou de recherche, du rayon d'action, du plafond de bâtiments et de la cellule libre.
+> **Règle ajoutée n°1 — annulée depuis : on ne peut pas poser un bâtiment qu'on ne peut pas
+> construire.** `PlacementRefusalReason.CannotAfford` avait été retiré pour rendre atteignables
+> deux comportements du ticket (§3 plusieurs chantiers en attente, §4 état d'échec nommant les
+> matériaux manquants). Il est rétabli sur décision de design : poser exige que la totalité de
+> la facture soit couverte par du stock **non réservé** à cet instant.
+>
+> §3 survit intact — quatre chantiers posés ensemble attendent toujours leur tour, puisque la
+> porte ne refuse que ce qu'on ne peut pas payer. §4 en revanche devient inatteignable par une
+> pose : un chantier ouvert a toute sa facture réservée, donc son compte « manquant » est
+> toujours nul. `GetStillNeeded`, `SupplyLine.IsStalled` et la notification de chantier bloqué
+> restent en place comme code défensif (une source détruite alors qu'elle porte du réservé), pas
+> comme un état que le jeu produit.
 >
 > **Suite livrée — le panneau de chantier.** Cliquer une silhouette bleue ouvre son
 > approvisionnement (par ingrédient : arrivés, en route, manquant) au lieu du panneau du

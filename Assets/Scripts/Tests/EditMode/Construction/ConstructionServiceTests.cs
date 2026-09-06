@@ -219,11 +219,15 @@ namespace Game.Tests.EditMode.Construction
             Assert.AreEqual(0, service.GetAvailableAmount("iron_plate"), "Reserved items are no longer available to anything else.");
         }
 
+        /// <summary>
+        /// A building whose materials do not exist cannot be placed at all. Placing still does not
+        /// PAY - it opens a site that reserves the whole bill and waits for robots to carry it - but
+        /// the bill has to be coverable by unreserved stock at that instant, so a site is never
+        /// opened against material nobody has.
+        /// </summary>
         [Test]
-        public void TryPlace_WithNothingAvailable_StillOpensASite()
+        public void TryPlace_WithNothingAvailable_IsRefused()
         {
-            // The affordability gate is gone (TASK_05_ROBOT_CONSTRUCTEUR.md): an unaffordable
-            // placement opens a chantier that waits for its materials instead of being refused.
             var grid = new GridRuntime(1f);
             var ironPlate = TestDataFactory.NewItem("iron_plate", ItemType.Component);
             var service = NewService(grid);
@@ -231,9 +235,12 @@ namespace Game.Tests.EditMode.Construction
             service.SelectBuilding(definition);
 
             Assert.IsFalse(service.CanAfford(definition));
-            Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(new GridCoord(0, 0)));
-            Assert.IsTrue(service.TryPlace(new GridCoord(0, 0), Direction.North, out ConstructionSiteRuntime site));
-            Assert.IsFalse(site.IsComplete);
+            Assert.AreEqual(PlacementRefusalReason.CannotAfford, service.GetPlacementRefusalReason(new GridCoord(0, 0)),
+                "And the refusal names its cause: nothing on screen distinguishes a click that did "
+                + "nothing from one that was refused.");
+            Assert.IsFalse(service.CanPlace(new GridCoord(0, 0)), "So the ghost reads as invalid too.");
+            Assert.IsFalse(service.TryPlace(new GridCoord(0, 0), Direction.North, out ConstructionSiteRuntime site));
+            Assert.IsNull(site);
         }
 
         [Test]

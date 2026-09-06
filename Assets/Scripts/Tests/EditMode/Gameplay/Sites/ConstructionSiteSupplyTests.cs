@@ -132,14 +132,40 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         }
 
         /// <summary>
-        /// The other half of the same distinction, and the reason "delivered X of Y" is not enough:
-        /// two ingredients at the same delivered count, one being served and one that nothing in the
-        /// world can supply.
+        /// One ingredient short is one ingredient too many: the gate is all-or-nothing per building,
+        /// so a Foundry whose plates exist but whose gears do not cannot be placed at all. It does
+        /// not open as a half-supplied site.
+        ///
+        /// This is what makes a placed site's missing count zero in ordinary play - the missing state
+        /// is now a property of a refused gesture rather than of a queued chantier.
         /// </summary>
         [Test]
-        public void WhatNoContainerHolds_ReadsAsMissing_AndMarksTheLineStalled()
+        public void OneMissingIngredient_RefusesTheWholePlacement_RatherThanOpeningAHalfSuppliedSite()
         {
             Fixture fixture = NewFixture(plates: 4, gears: 0);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, 0f, (fixture.Plate, 4), (fixture.Gear, 3));
+
+            fixture.Construction.SelectBuilding(costly);
+            var cell = new GridCoord(5, 5);
+
+            Assert.IsFalse(fixture.Construction.CanAfford(costly), "The gears do not exist anywhere.");
+            Assert.IsFalse(fixture.Construction.TryPlace(cell, Direction.North, out ConstructionSiteRuntime site));
+            Assert.IsNull(site);
+            Assert.AreEqual(0, fixture.Sites.Sites.Count);
+
+            // And the plates it would have taken are still free for something else.
+            Assert.AreEqual(4, fixture.Sites.GetAvailableAggregate()[PlateId],
+                "A refused placement reserves nothing, so it cannot strand material behind it.");
+        }
+
+        /// <summary>
+        /// The state the counter was built to show, now reached the only way it still can: a site is
+        /// placed with its whole bill reserved, so nothing is ever missing on a queued chantier.
+        /// </summary>
+        [Test]
+        public void APlacedSite_HasItsWholeBillReserved_AndNothingMissing()
+        {
+            Fixture fixture = NewFixture(plates: 4, gears: 3);
             StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, 0f, (fixture.Plate, 4), (fixture.Gear, 3));
 
             ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
@@ -147,19 +173,14 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             SupplyLine plates = LineFor(site, PlateId);
             SupplyLine gears = LineFor(site, GearId);
 
-            Assert.AreEqual(0, plates.Delivered);
-            Assert.AreEqual(0, gears.Delivered);
-            Assert.AreEqual(plates.Delivered, gears.Delivered,
-                "Precondition: on a delivered count alone these two ingredients are indistinguishable.");
-
-            Assert.AreEqual(4, plates.Reserved, "One of them is being served...");
+            Assert.AreEqual(4, plates.Reserved);
+            Assert.AreEqual(3, gears.Reserved);
+            Assert.AreEqual(0, plates.Missing);
+            Assert.AreEqual(0, gears.Missing);
             Assert.IsFalse(plates.IsStalled);
+            Assert.IsFalse(gears.IsStalled);
 
-            Assert.AreEqual(0, gears.Reserved, "...and the other has nothing coming at all.");
-            Assert.AreEqual(3, gears.Missing);
-            Assert.IsTrue(gears.IsStalled, "Which is the state a player has to be able to see.");
-
-            Assert.IsFalse(site.IsFullySupplied);
+            Assert.IsTrue(site.IsFullySupplied, "Which is now true of every site that exists at all.");
         }
 
         /// <summary>A promise becomes an arrival: the same units cross from one column to the other, never appearing in both or neither.</summary>
@@ -213,25 +234,27 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         }
 
         /// <summary>
-        /// A stalled ingredient stops being stalled the moment production catches up - the panel has
-        /// to show a forgotten site coming back to life, not just going dark.
+        /// Production catching up turns a refused placement into an allowed one. This is the
+        /// replacement for what used to be a stalled site recovering: the waiting now happens before
+        /// the placement rather than after it, so the same player experience - "I could not build
+        /// this, now I can" - is a property of the gate instead of a property of a queued chantier.
         /// </summary>
         [Test]
-        public void AStalledLine_RecoversWhenTheMaterialAppears()
+        public void WhenProductionCatchesUp_ThePlacementBecomesAllowed()
         {
             Fixture fixture = NewFixture(plates: 4, gears: 0);
             StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, 0f, (fixture.Plate, 4), (fixture.Gear, 3));
-            ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
 
-            Assert.IsTrue(LineFor(site, GearId).IsStalled);
+            fixture.Construction.SelectBuilding(costly);
+            var cell = new GridCoord(5, 5);
+            Assert.IsFalse(fixture.Construction.TryPlace(cell, Direction.North, out _), "No gears anywhere yet.");
 
             fixture.CoreChest.SeedInitialContents(GearId, 3);
-            fixture.Simulate(0.4f);
 
-            SupplyLine gears = LineFor(site, GearId);
-            Assert.IsFalse(gears.IsStalled, "The retry pass claims newly available stock for the sites already waiting on it.");
-            Assert.AreEqual(3, gears.Reserved);
-            Assert.AreEqual(0, gears.Missing);
+            Assert.IsTrue(fixture.Construction.TryPlace(cell, Direction.North, out ConstructionSiteRuntime site),
+                "The gears exist now, so the same gesture is allowed.");
+            Assert.AreEqual(3, LineFor(site, GearId).Reserved);
+            Assert.AreEqual(0, LineFor(site, GearId).Missing);
         }
 
         /// <summary>
@@ -368,7 +391,16 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Fixture fixture = NewFixture(plates: 14);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 5));
 
-            for (int i = 0; i < 5; i++) PlaceSite(fixture, costly, new GridCoord(5 + 3 * i, 5));
+            // As many as the stock covers - the gate refuses the rest, which is itself the first
+            // half of the invariant. Two here, and the fourteenth plate stays unclaimed.
+            fixture.Construction.SelectBuilding(costly);
+            int placed = 0;
+            for (int i = 0; i < 5; i++)
+            {
+                if (fixture.Construction.TryPlace(new GridCoord(5 + 3 * i, 5), Direction.North, out _)) placed++;
+            }
+
+            Assert.AreEqual(2, placed, "Fourteen plates buy two sites of five, never three.");
 
             for (int step = 0; step < 120; step++)
             {
@@ -384,28 +416,37 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         }
 
         /// <summary>
-        /// The same window, stated as the consequence rather than the invariant: 14 plates can only
-        /// ever finish two sites of five and start a third. The fifth must end up reporting missing
-        /// material - if every site still claims a full bill, the chest has been over-promised.
+        /// The same shortage, stated the way the gate now expresses it: what used to become a queued
+        /// site reporting missing material is refused up front instead. Every site that exists has
+        /// its whole bill, so a missing count on a queued chantier is not a state the player can
+        /// reach by placing things.
         /// </summary>
         [Test]
-        public void WhenTheStockRunsShort_TheYoungestSitesReportMissing_RatherThanAllClaimingAFullBill()
+        public void WhenTheStockRunsShort_TheExtraPlacementsAreRefused_AndEverySiteThatExistsIsWhole()
         {
             Fixture fixture = NewFixture(plates: 14);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 5));
 
+            fixture.Construction.SelectBuilding(costly);
             var sites = new List<ConstructionSiteRuntime>();
-            for (int i = 0; i < 5; i++) sites.Add(PlaceSite(fixture, costly, new GridCoord(5 + 3 * i, 5)));
+            for (int i = 0; i < 5; i++)
+            {
+                if (fixture.Construction.TryPlace(new GridCoord(5 + 3 * i, 5), Direction.North, out ConstructionSiteRuntime site))
+                {
+                    sites.Add(site);
+                }
+            }
 
-            int totalMissing = 0;
-            foreach (ConstructionSiteRuntime site in sites) totalMissing += LineFor(site, PlateId).Missing;
+            Assert.AreEqual(2, sites.Count, "Fourteen plates buy two sites of five; the other three are refused.");
 
-            Assert.AreEqual(25 - 14, totalMissing,
-                "Five sites want 25 plates and the base has 14, so exactly 11 must read as missing "
-                + "somewhere - never claimed by an optimistic reservation.");
+            foreach (ConstructionSiteRuntime site in sites)
+            {
+                Assert.AreEqual(0, LineFor(site, PlateId).Missing,
+                    "No site is ever opened short, so none of them reports missing material.");
+            }
 
-            Assert.AreEqual(0, LineFor(sites[0], PlateId).Missing, "The oldest site is served first...");
-            Assert.Greater(LineFor(sites[4], PlateId).Missing, 0, "...and the youngest is the one left short.");
+            Assert.AreEqual(4, fixture.Sites.GetAvailableAggregate()[PlateId],
+                "And the four plates that could not buy a third site stay claimable for something else.");
         }
 
         /// <summary>
