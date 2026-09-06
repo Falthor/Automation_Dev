@@ -262,7 +262,7 @@ public bool CanPlace(GridCoord cell)
 public PlacementRefusalReason GetPlacementRefusalReason(GridCoord cell)
 public bool TryPlace(GridCoord cell, Direction rotation, out ConstructionSiteRuntime site,
     ConstructionSiteRuntime conveyorRunSite = null)
-public bool TryCancelSiteAt(GridCoord cell)
+public bool TryCancelPendingAt(GridCoord cell)
 public bool TryRedirectExistingConveyor(GridCoord cell, Direction rotation, out ConveyorRuntime redirected)
 public bool TryDemolish(GridCoord cell, out BuildingRuntime removed)
 
@@ -274,9 +274,13 @@ public int OccupiedBuildingSlots { get; }    // live count against BuildingCap
 public void RestoreBuildingCap(int? cap)
 ```
 
-`TryPlace` no longer pays for anything and no longer produces a working building: it opens a **construction site** (§15). The `BuildingRuntime` is instantiated and occupies its grid cells immediately - so nothing else can be placed on top of it and a conveyor drag can keep reshaping its anchor - but it is deliberately not registered with `TransportSystem` and has no view, so it neither ticks, transports nor produces until robots have delivered its full cost. Passing `conveyorRunSite` appends the cell to that existing site instead of opening a new one: a whole conveyor/splitter drag is **one** chantier, not one per segment.
+`TryPlace` no longer pays for anything and no longer produces a working building: it opens a **construction site** (§15). The `BuildingRuntime` is instantiated and occupies its grid cells immediately - so nothing else can be placed on top of it and a conveyor drag can keep reshaping its anchor - but it carries `IsUnderConstruction` and is deliberately not registered with `TransportSystem`, and has no view, so it neither ticks, transports nor produces until robots have delivered its full cost.
 
-`TryDemolish` removes the building immediately (the player wants the space back) but refunds nothing anywhere: the cost becomes a repatriation job a robot must physically haul back (§15). `TryCancelSiteAt` is the counterpart for a still-pending site - it releases the site's reservations and frees the cells its unbuilt segments held, and is what the demolition input routes to when the clicked cell belongs to a chantier rather than a finished building.
+Owning ground and being operational are two different states, and the flag is what keeps them apart everywhere. Not registering a segment stops it ticking, but transport resolves its **neighbours** through `Game.Grid`, where a chantier does sit: `TransportSystem` therefore reads the grid through one predicate (`ActiveBuildingAt`) that returns nothing for an unbuilt segment, so nothing is handed to it, nothing is drained from it, and a Splitter does not count its cell as a usable exit.
+
+**A segment becomes operational when it has assembled, not when its last item landed.** Delivery fills the bill; the segment then physically assembles at `SegmentAssembly.RateFor(footprint)` (`Game.Gameplay.Sites`), and only on reaching 1 does it clear `IsUnderConstruction`, register with `TransportSystem` and raise `SegmentMaterialized`. That clock lives in Gameplay for exactly this reason, and `ConstructionSiteVisualSync` reads it rather than running one of its own - `NanoConstructionSettings` keeps only the look of the effect. The two rules together are what a player means by "in construction": before this, an unbuilt powerplant collected coal through its whole construction, then supplied current for the five further seconds it spent visibly materialising. Passing `conveyorRunSite` appends the cell to that existing site instead of opening a new one: a whole conveyor/splitter drag is **one** chantier, not one per segment.
+
+`TryDemolish` removes the building immediately (the player wants the space back) but refunds nothing anywhere: the cost becomes a repatriation job a robot must physically haul back (§15). `TryCancelPendingAt` is the counterpart for something still pending, and is what the demolition input routes to when the clicked cell belongs to a chantier rather than a finished building. It is scoped to the **one segment** under the cursor: that segment's cost comes off the bill, the earmarks it alone justified go back, and its ground is freed, while every sibling of a dragged run keeps its own cell and its own share. A single building is one segment, so for it this cancels the chantier outright; a run left with no segment at all is closed the same way.
 
 **Overtaking.** The occupancy check lets a Conveyor/Splitter/Crossroad be placed onto belts already laid instead of forcing a demolition first, and `TryPlace` settles what each overtaken cell owes - after the placement is known valid, never before, so a refused placement costs the player nothing:
 

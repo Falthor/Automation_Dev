@@ -47,6 +47,20 @@ namespace Game.Gameplay.Buildings
         public GridCoord Cell { get; internal set; }
         public Direction FacingRotation { get; protected set; }
 
+        /// <summary>
+        /// True while this is still an unbuilt segment of a construction site: it owns its ground and
+        /// nothing else may be placed there, but it does not work and nothing may be handed to it.
+        ///
+        /// It exists because occupying the grid and being operational are two different states that
+        /// a chantier is the first thing to tell apart. Not ticking a pending segment was already
+        /// handled by never registering it with TransportSystem - but transport resolves its
+        /// neighbours through Game.Grid, where the segment does sit, and every hand-off asked only
+        /// "is a BuildingRuntime there?". A belt therefore fed an unbuilt powerplant its coal, and
+        /// the thing lit up the instant it was finished, on fuel it had spent the whole construction
+        /// collecting. Set by ConstructionSiteRuntime, which is the only object that knows.
+        /// </summary>
+        public bool IsUnderConstruction { get; internal set; }
+
         public BuildingRuntime(BuildingDefinition definition, GridCoord cell, Direction facingRotation)
         {
             Definition = definition;

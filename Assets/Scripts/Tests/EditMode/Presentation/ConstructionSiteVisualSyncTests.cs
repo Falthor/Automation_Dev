@@ -31,9 +31,6 @@ namespace Game.Tests.EditMode.Presentation
         const string PlateId = "iron_plate";
         const float TickSeconds = 0.2f;
 
-        /// <summary>Footprint cells per second, set high enough that a single Tick finishes any assembly - the pacing itself is BuildDissolveViewTests' subject, not this one's.</summary>
-        const float InstantAssemblyRate = 100f;
-
         readonly List<Object> _spawned = new List<Object>();
 
         sealed class Fixture
@@ -54,11 +51,20 @@ namespace Game.Tests.EditMode.Presentation
                 }
             }
 
-            /// <summary>Advances a segment's dissolve, mimicking the LateUpdate BuildDissolveView runs for itself in play mode.</summary>
-            public void Assemble(BuildingRuntime segment, float seconds)
+            /// <summary>
+            /// Runs the simulation until the front segment has every unit it is owed, and stops
+            /// there - before it has assembled. The one deterministic way to catch the state this
+            /// whole feature is about: material all present, building not yet built.
+            /// </summary>
+            public void AdvanceToFullyDelivered(ConstructionSiteRuntime site)
             {
-                BuildDissolveView dissolve = Views.DissolveOf(segment);
-                if (dissolve != null) dissolve.Tick(seconds);
+                for (int i = 0; i < 500 && site.SegmentProgress(site.MaterializedCount) < 1f; i++)
+                {
+                    Sites.Tick(TickSeconds);
+                }
+
+                Assert.AreEqual(1f, site.SegmentProgress(site.MaterializedCount), 0.0001f,
+                    "The segment never received its full cost.");
             }
         }
 
@@ -112,11 +118,6 @@ namespace Game.Tests.EditMode.Presentation
             _spawned.Add(settings);
 
             var so = new SerializedObject(settings);
-            so.FindProperty("assemblyRate").floatValue = InstantAssemblyRate;
-
-            // Without lowering the floor, the derived rate would be capped at 1/0.25 = 4 per second
-            // and "instant" would stop being instant.
-            so.FindProperty("minAssemblyDuration").floatValue = 0.01f;
             so.FindProperty("sitePlaceholderAlpha").floatValue = 0.35f;
 
             // Any shader will do - nothing here asserts on pixels; what matters is that the view
@@ -197,7 +198,8 @@ namespace Game.Tests.EditMode.Presentation
             Assert.Greater(site.SegmentProgress(0), 0f, "One wave has landed, so the segment is part-delivered...");
             Assert.IsFalse(site.IsComplete, "...and still short of its twelve.");
 
-            fixture.Assemble(segment, 0.05f);
+            // One more tick of the simulation, which is what advances the assembly now.
+            fixture.Simulate(TickSeconds);
             fixture.Views.Tick();
 
             Assert.AreEqual(0.35f, fixture.Views.SilhouetteOf(segment).color.a, 0.0001f,
@@ -206,13 +208,16 @@ namespace Game.Tests.EditMode.Presentation
         }
 
         /// <summary>
-        /// The reason the assembling set has to outlive the site. A segment materialises the instant
-        /// its last item lands and leaves ConstructionSiteSystem's pending range on that very tick,
-        /// but on screen it is only as far along as its dissolve - so the view must survive, keep
-        /// assembling, and only then let the real view take over.
+        /// Material all present is not a building. The segment stays a chantier - unregistered,
+        /// inert, drawn as a half-formed sprite over its silhouette - for the whole of its assembly,
+        /// and becomes real at the end of it, which is also when the real view appears.
+        ///
+        /// It used to become real at the first half: the last item landed, the building registered
+        /// and started working, and the five seconds it then spent visibly materialising were pure
+        /// decoration over a power plant already burning coal.
         /// </summary>
         [Test]
-        public void AMaterializedSegment_KeepsAssembling_AndTheRealViewAppearsOnlyWhenItCompletes()
+        public void ASegmentWithAllItsMaterial_IsStillAChantier_UntilItHasAssembled()
         {
             Fixture fixture = NewFixture(coreChestContents: 4);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
@@ -220,26 +225,37 @@ namespace Game.Tests.EditMode.Presentation
             BuildingRuntime segment = site.Segments[0];
 
             fixture.Views.Tick();
-            fixture.Simulate(12f);
-
-            Assert.IsTrue(site.IsComplete, "The material is all delivered: the segment is a real building now.");
-            Assert.AreEqual(0, fixture.Sites.Sites.Count, "And its site is gone.");
-
+            fixture.AdvanceToFullyDelivered(site);
             fixture.Views.Tick();
 
-            Assert.IsTrue(fixture.Views.Draws(segment), "The view outlives the site it came from.");
+            Assert.IsFalse(site.IsComplete, "Every plate has arrived, and it is not a building yet.");
+            Assert.IsTrue(segment.IsUnderConstruction, "So nothing may be handed to it and it does not tick.");
+            Assert.IsFalse(IsRegistered(fixture.Transport, segment));
             Assert.IsEmpty(fixture.SpawnedRealViews, "Nothing real is spawned while the sprite is still assembling.");
-            Assert.AreEqual(1, fixture.Views.AssemblingCount);
 
-            fixture.Assemble(segment, 1f);
+            fixture.Simulate(2f);
+
+            Assert.IsTrue(site.IsComplete, "Assembly finished: now it is a building.");
+            Assert.IsFalse(segment.IsUnderConstruction);
+            Assert.IsTrue(IsRegistered(fixture.Transport, segment), "And it starts working at that same instant, not before.");
+
             fixture.Views.Tick();
 
-            Assert.AreEqual(1, fixture.SpawnedRealViews.Count, "The real view is spawned when the dissolve reaches 1.");
+            Assert.AreEqual(1, fixture.SpawnedRealViews.Count, "The real view takes over from the assembling one.");
             Assert.AreSame(segment, fixture.SpawnedRealViews[0]);
             Assert.IsFalse(fixture.Views.Draws(segment), "And the assembling objects go away in the same call, so no frame shows both.");
 
             fixture.Views.Tick();
             Assert.AreEqual(1, fixture.SpawnedRealViews.Count, "Never spawned twice.");
+        }
+
+        static bool IsRegistered(TransportSystem transport, BuildingRuntime building)
+        {
+            foreach (BuildingRuntime registered in transport.GetAllBuildings())
+            {
+                if (ReferenceEquals(registered, building)) return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -265,12 +281,8 @@ namespace Game.Tests.EditMode.Presentation
             Assert.IsTrue(site.IsComplete);
 
             fixture.Views.Tick();
-            Assert.IsTrue(fixture.Views.Draws(segment), "It keeps assembling like any other segment.");
 
-            fixture.Assemble(segment, 1f);
-            fixture.Views.Tick();
-
-            Assert.AreEqual(1, fixture.SpawnedRealViews.Count, "And hands over to a real view instead of disappearing.");
+            Assert.AreEqual(1, fixture.SpawnedRealViews.Count, "It hands over to a real view instead of disappearing.");
             Assert.AreSame(segment, fixture.SpawnedRealViews[0]);
         }
 
@@ -315,7 +327,7 @@ namespace Game.Tests.EditMode.Presentation
             FoundryDefinition foundry = TestDataFactory.NewFoundry(10, 0f, 0f);
             Assert.AreNotEqual(1f, foundry.RenderOverscan, "Precondition: the Foundry is the overscanned case this guards.");
 
-            // A cost, or a zero-cost site materialises on the spot and never shows a silhouette.
+            // A cost, so the site actually waits on robots and can be sampled while still pending.
             SetCost(foundry, fixture.Plate, 4);
 
             ConstructionSiteRuntime site = PlaceSite(fixture, foundry, new GridCoord(5, 5));
@@ -353,8 +365,13 @@ namespace Game.Tests.EditMode.Presentation
 
         // --- Edge cases ---
 
+        /// <summary>
+        /// A half-assembled segment is still a chantier - that is the whole point of the assembly
+        /// gate - so the gesture that removes it is a cancellation, and its half-formed sprite has to
+        /// go with it rather than finishing into a building nobody asked for.
+        /// </summary>
         [Test]
-        public void DemolishingASegmentWhileItAssembles_DropsItsViewWithoutEverSpawningTheRealOne()
+        public void CancellingASegmentWhileItAssembles_DropsItsViewWithoutEverSpawningTheRealOne()
         {
             Fixture fixture = NewFixture(coreChestContents: 4);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
@@ -363,15 +380,18 @@ namespace Game.Tests.EditMode.Presentation
             BuildingRuntime segment = site.Segments[0];
 
             fixture.Views.Tick();
-            fixture.Simulate(12f);
-            fixture.Views.Tick();
-            Assert.IsTrue(fixture.Views.Draws(segment), "Precondition: materialized, still assembling.");
-
-            Assert.IsTrue(fixture.Construction.TryDemolish(cell, out _));
+            fixture.AdvanceToFullyDelivered(site);
+            fixture.Simulate(TickSeconds);
             fixture.Views.Tick();
 
-            Assert.IsFalse(fixture.Views.Draws(segment), "A demolished segment takes its half-assembled sprite with it.");
-            Assert.IsEmpty(fixture.SpawnedRealViews, "It must never hand over to a real view - the building no longer exists.");
+            Assert.Greater(fixture.Views.DissolveOf(segment).DisplayedProgress, 0f, "Precondition: part assembled...");
+            Assert.IsFalse(site.IsComplete, "...and not finished.");
+
+            Assert.IsTrue(fixture.Construction.TryCancelPendingAt(cell));
+            fixture.Views.Tick();
+
+            Assert.IsFalse(fixture.Views.Draws(segment), "A cancelled segment takes its half-assembled sprite with it.");
+            Assert.IsEmpty(fixture.SpawnedRealViews, "It must never hand over to a real view - the building was never finished.");
         }
 
         [Test]
@@ -386,7 +406,7 @@ namespace Game.Tests.EditMode.Presentation
             fixture.Views.Tick();
             Assert.IsTrue(fixture.Views.Draws(segment));
 
-            Assert.IsTrue(fixture.Construction.TryCancelSiteAt(cell));
+            Assert.IsTrue(fixture.Construction.TryCancelPendingAt(cell));
             fixture.Views.Tick();
 
             Assert.IsFalse(fixture.Views.Draws(segment));
@@ -394,8 +414,8 @@ namespace Game.Tests.EditMode.Presentation
         }
 
         /// <summary>
-        /// A conveyor drag is one site of many segments, built strictly in placement order. Driving
-        /// the dissolve from ConstructionSiteRuntime.SegmentProgress rather than from the site's
+        /// A conveyor drag is one site of many segments, built strictly in placement order. Drawing
+        /// each from ConstructionSiteRuntime.AssemblyProgressFor rather than from the site's
         /// aggregate is what makes a long belt assemble piece by piece instead of dissolving as one
         /// block - see the notebook's entry on that accessor.
         /// </summary>
@@ -416,20 +436,18 @@ namespace Game.Tests.EditMode.Presentation
 
             fixture.Views.Tick();
             AdvanceToFirstDelivery(fixture, site);
+
+            // One more tick: assembly is advanced by the simulation, and within a tick it runs
+            // before the robots, so the delivery that just landed has not been built on yet.
+            fixture.Simulate(TickSeconds);
             fixture.Views.Tick();
 
             Assert.AreEqual(3, site.Segments.Count);
-            Assert.AreEqual(0, site.MaterializedCount, "Eight of the twelve the first belt costs.");
+            Assert.AreEqual(0, site.MaterializedCount, "The first belt has its material and is still assembling.");
 
-            Assert.Greater(fixture.Views.DissolveOf(site.Segments[0]).TargetProgress, 0f, "The front segment is the one taking material.");
-            Assert.AreEqual(0f, fixture.Views.DissolveOf(site.Segments[1]).TargetProgress, 0.0001f, "The ones behind it have nothing yet.");
-            Assert.AreEqual(0f, fixture.Views.DissolveOf(site.Segments[2]).TargetProgress, 0.0001f);
-
-            for (int i = 0; i < 3; i++)
-            {
-                fixture.Assemble(site.Segments[i], 0.05f);
-            }
-            fixture.Views.Tick();
+            Assert.Greater(fixture.Views.DissolveOf(site.Segments[0]).DisplayedProgress, 0f, "The front segment is the one taking material.");
+            Assert.AreEqual(0f, fixture.Views.DissolveOf(site.Segments[1]).DisplayedProgress, 0.0001f, "The ones behind it have nothing yet.");
+            Assert.AreEqual(0f, fixture.Views.DissolveOf(site.Segments[2]).DisplayedProgress, 0.0001f);
 
             Assert.AreEqual(1, fixture.Views.AssemblingCount, "Exactly one belt is materialising; the other two are still bare silhouettes.");
             Assert.AreEqual(0.6f, fixture.Views.SilhouetteOf(site.Segments[2]).color.a, 0.0001f);

@@ -37,8 +37,6 @@ le Play : le composant relit l'asset à chaque tick.
 | `rimWidth` | Épaisseur de la bande lumineuse qui suit le front. |
 | `rimColor` | Couleur de cette bande. |
 | `revealMode` | 0 = le bâtiment monte du sol, 1 = il se forme depuis son centre. |
-| `assemblyRate` | Vitesse d'assemblage, **en cases par seconde**. Plus bas = matérialisation plus lente. Un bâtiment de N cases met `N / assemblyRate` secondes. |
-| `minAssemblyDuration` | Plancher de durée. Inerte aux valeurs actuelles (une case prend déjà 0,56 s) ; garde-fou si `assemblyRate` remonte. |
 | `deliveryFlashDuration` | Durée du flash à chaque arrivée de matière. |
 | `deliveryFlashIntensity` | Puissance de ce flash. |
 | `groundIntensity` | Force de la teinte du sol converti. Volontairement discrète. |
@@ -84,15 +82,25 @@ physique. **Ne jamais coder 0,06 en dur**, ce serait des dizaines de fois trop g
 
 ### Le rythme et le flash
 
-**`assemblyRate = 1.8`** cases par seconde. Le taux d'avancement d'un bâtiment est
-`assemblyRate / surface en cases`, donc la centrale gaz (9 cases) tourne à 0,2 avancement par
-seconde : une matérialisation complète y prend au minimum 5 secondes même si tous les matériaux
-arrivent d'un coup. C'est ce plancher qui est réglé, pas une durée « moyenne » : la durée réelle
-est proportionnelle à la matière livrée. Un convoyeur (1 case) s'assemble en 0,56 s.
+**La vitesse d'assemblage n'est pas dans cet asset.** Elle vit dans
+`Game.Gameplay.Sites.SegmentAssembly`, parce qu'elle décide **quand un bâtiment se met à
+fonctionner** : un segment n'est ni enregistré, ni alimenté, ni actif tant que son assemblage n'a
+pas atteint 1. Tant qu'elle était un réglage de rendu, la centrale gaz alimentait le réseau,
+tirait son charbon du tapis et le brûlait pendant les cinq secondes où on la voyait encore se
+matérialiser. `NanoConstructionSettings` ne garde que l'apparence.
+
+**`SegmentAssembly.CellsPerSecond = 1.8`** cases par seconde. Le taux d'avancement d'un bâtiment
+est `CellsPerSecond / surface en cases`, donc la centrale gaz (9 cases) tourne à 0,2 avancement
+par seconde : une matérialisation complète y prend au minimum 5 secondes même si tous les
+matériaux arrivent d'un coup. C'est ce plancher qui est réglé, pas une durée « moyenne » : la
+durée réelle est proportionnelle à la matière livrée. Un convoyeur (1 case) s'assemble en 0,56 s.
+`MinDurationSeconds = 0.25` plafonne le taux pour qu'un petit bâtiment ne surgisse pas en une
+frame ; inerte aux valeurs actuelles, garde-fou si la vitesse remonte.
 
 Le 1,8 vient de `0,2 × 9`, c'est-à-dire du rythme réglé à l'œil sur la centrale — pas du 0,25 par
 défaut d'origine, qui aurait donné 2,25 et raccourci la centrale à 4 s. **Le repère de réglage est
-la centrale gaz**, et c'est sur elle qu'il faut rejuger toute nouvelle valeur.
+la centrale gaz**, et c'est sur elle qu'il faut rejuger toute nouvelle valeur. Le retoucher change
+aussi le temps de jeu : c'est le délai entre la dernière pièce livrée et le bâtiment en service.
 
 **`deliveryFlashDuration = 0.40`** est calé pour être vu sans être clignotant — assez long pour
 que l'œil accroche l'arrivée d'un lot, assez court pour que deux livraisons rapprochées restent
@@ -212,11 +220,12 @@ ne traverse jamais l'ensemble « en cours ».
   Fer 1,21, Charbon 1,03 de rapport largeur/hauteur) sur une emprise 2×2 carrée : ils sont donc
   étirés verticalement aujourd'hui. Les aligner changerait leur apparence, ce qui n'a pas été
   demandé — mais c'est le dernier chemin qui répond seul à la question de la taille de l'art.
-- **Le plancher `minAssemblyDuration` ne mord jamais aux valeurs actuelles.** Il plafonne le taux à
-  `1 / 0,25 = 4` avancement par seconde, alors qu'un bâtiment d'une case — le plus petit possible —
-  tourne déjà à 1,8. Il ne servirait qu'au-delà de `assemblyRate = 4`. C'est un garde-fou pour un
-  réglage futur, pas une contrainte active : le test qui le couvre doit donc monter `assemblyRate`
-  pour le déclencher.
+- **Le plancher `SegmentAssembly.MinDurationSeconds` ne mord jamais aux valeurs actuelles.** Il
+  plafonne le taux à `1 / 0,25 = 4` avancement par seconde, alors qu'un bâtiment d'une case — le
+  plus petit possible — tourne déjà à 1,8. Il ne servirait qu'au-delà de `CellsPerSecond = 4`.
+  C'est un garde-fou pour un réglage futur, pas une contrainte active ; les deux valeurs étant
+  désormais des constantes de compilation, le test qui le couvre l'énonce sur la règle elle-même
+  plutôt qu'en montant la vitesse dans un asset.
 - **À `noiseWeight = 1`, « 0 ne montre rien » n'est plus strictement garanti.** Le champ devient le
   bruit seul, qui vaut exactement 0 sur une surface non nulle après l'étirement `saturate`, et ces
   pixels-là survivent au `clip()` à l'avancement 0. En dessous de 1, le terme `base` est strictement

@@ -29,11 +29,23 @@
 > chantier que le système sert d'un chantier oublié faute de production. Voir `CONTRACTS.md`
 > §7 (le troisième slot de sélection) et §15 (`GetSupply`).
 >
-> **Règle ajoutée n°2 — un chantier bloqué est sauté, jamais bloquant.** « Un seul chantier à
-> la fois » porte sur l'exécution simultanée (les deux robots servent le même chantier), pas
-> sur l'ordre strict de la file : les robots servent le chantier le plus ancien qui a de quoi
-> être servi, et reviennent au précédent dès que ses pièces manquantes apparaissent. Sans
-> cela, un chantier attendant un circuit imprimé gèlerait un extracteur posé derrière lui.
+> **Règle ajoutée n°2 — aucun robot n'attend un chantier qui n'a rien à lui donner.** « Un
+> seul chantier à la fois » ne tient plus : chaque robot libre prend le chantier le plus ancien
+> dont il reste une pièce réservée que personne n'est parti chercher. Les robots s'entassent
+> donc sur un chantier tant qu'il a de quoi les occuper, puis débordent sur le suivant. La
+> priorité par ancienneté est intacte — un robot rebalaye la file depuis la tête, donc un
+> chantier qui retrouve une réservation reprend le prochain robot libre avant tout cadet.
+>
+> Formulé par robot et non par chantier, ce qui est ce qui le rend valable à n'importe quelle
+> taille de flotte : 2, 10, 100 ou 250 robots se répartissent sur la file par ce seul énoncé.
+>
+> **Règle ajoutée n°3 — rien ne fonctionne tant que ce n'est pas construit.** Un segment de
+> chantier occupe son sol mais ne tourne pas, ne reçoit rien et ne se fait rien prendre : il
+> porte `IsUnderConstruction`, et `TransportSystem` lit la grille par un seul prédicat qui
+> l'ignore. Et « construit » veut dire **assemblé**, pas « dernière pièce livrée » : la vitesse
+> d'assemblage vit désormais dans `SegmentAssembly` (Gameplay) parce qu'elle décide de cet
+> instant. Une centrale gaz ramassait son charbon pendant toute sa construction, puis alimentait
+> le réseau pendant les cinq secondes où on la voyait encore se matérialiser.
 
 **Objectif : plus rien n'apparaît ni ne disparaît instantanément. Tout objet a un lieu, et
 deux robots font la navette entre les contenants et les chantiers.**
@@ -128,7 +140,7 @@ les 1 200 unités ne seront jamais atteintes.
 | Vitesse | le diamètre du rayon initial en 10 s, soit **4,4 cellules/s** |
 | Déplacement | libre, lignes droites et diagonales, sans contournement d'obstacle |
 | Au repos | reviennent se garer à côté du Noyau |
-| Chantiers simultanés | **un seul** — les deux robots servent le même chantier |
+| Chantiers simultanés | autant que la flotte en couvre — chaque robot libre prend le chantier le plus ancien ayant encore une pièce à faire chercher (voir la règle ajoutée n°2 en tête) |
 
 Un aller-retour moyen prend environ 7 secondes — 15 cellules de distance moyenne dans un
 disque de rayon 22. Les deux robots transportent donc 8 unités par vague.

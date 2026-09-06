@@ -23,10 +23,13 @@ namespace Game.Gameplay.Sites
     /// Reservation is localized (couples contenant-quantité, §1): every tick, every open site -
     /// oldest first - tries to earmark whatever it still needs from the collection order (Core
     /// chest, then every Storage, then every production building's output). An older site always
-    /// wins a newly available unit over a younger one. A site with nothing earmarked right now is
-    /// simply skipped by robot dispatch (never blocking); the robots always serve the oldest site
-    /// that currently has something reserved-and-not-yet-delivered to bring - "un seul chantier à
-    /// la fois" is about simultaneous execution, not queue order.
+    /// wins a newly available unit over a younger one.
+    ///
+    /// Dispatch follows that same priority without ever idling on it: each free robot takes the
+    /// oldest site that still has an earmark nobody has been sent to collect, so robots pile onto
+    /// one chantier while it has work to hand out and spill onto the next once it has none left.
+    /// A site with nothing to collect right now is stepped over, never waited on, and reclaims the
+    /// next free robot as soon as an earmark lands on it again.
     /// </summary>
     public sealed class ConstructionSiteSystem
     {
@@ -51,14 +54,27 @@ namespace Game.Gameplay.Sites
         public IReadOnlyList<ConstructionSiteRuntime> Sites => _queue;
         public IReadOnlyList<BuilderRobotRuntime> Robots => _robots;
 
-        public ConstructionSiteSystem(TransportSystem transport, GridRuntime grid, NotificationSystem notifications, Vector2 robotParkOrigin)
+        /// <summary>
+        /// The game runs two robots (robotCount's default, and the layout below reproduces exactly
+        /// the two park spots they have always had). The count is a parameter only because dispatch
+        /// has to hold at any fleet size, and that is not a claim one can make about a system whose
+        /// fleet cannot be built larger than two: the parameter is what lets a test put two hundred
+        /// and fifty robots against a queue and check they spread over it.
+        /// </summary>
+        public ConstructionSiteSystem(TransportSystem transport, GridRuntime grid, NotificationSystem notifications, Vector2 robotParkOrigin, int robotCount = 2)
         {
             _transport = transport;
             _grid = grid;
             _notifications = notifications;
 
-            _robots.Add(new BuilderRobotRuntime(0, robotParkOrigin + new Vector2(-0.6f, -0.3f)));
-            _robots.Add(new BuilderRobotRuntime(1, robotParkOrigin + new Vector2(0.6f, -0.3f)));
+            const float spacing = 1.2f;
+            int perRow = Mathf.Max(1, Mathf.Min(robotCount, 4));
+            for (int i = 0; i < robotCount; i++)
+            {
+                float x = (i % perRow - (perRow - 1) / 2f) * spacing;
+                float y = -0.3f - i / perRow * spacing;
+                _robots.Add(new BuilderRobotRuntime(i, robotParkOrigin + new Vector2(x, y)));
+            }
         }
 
         /// <summary>
@@ -90,9 +106,8 @@ namespace Game.Gameplay.Sites
             _queue.Add(site);
             RunReservationPass();
 
-            // A cost-free segment owes nothing and must not wait for a delivery that will never
-            // come - it materializes on the spot.
-            MaterializeReadySegments(site);
+            // Nothing materializes here, not even a cost-free segment: everything has to assemble
+            // first, and AdvanceAssemblies is the only place that happens.
             return site;
         }
 
@@ -102,49 +117,46 @@ namespace Game.Gameplay.Sites
             site.AddSegment(segment);
             if (!_queue.Contains(site)) _queue.Add(site);
             RunReservationPass();
-            MaterializeReadySegments(site);
         }
 
         /// <summary>
-        /// Cancels a still-pending site: releases every reservation it held back to their
-        /// containers (nothing physically moves for those), clears the grid cells its
-        /// not-yet-materialized segments occupied, and - if a robot is already carrying cargo
-        /// committed to this site - lets that robot keep its cargo and drop it off during its next
-        /// return to idle instead of losing it (TASK_05_ROBOT_CONSTRUCTEUR.md §4).
-        /// </summary>
-        public bool CancelSite(ConstructionSiteRuntime site)
-        {
-            if (!_queue.Contains(site)) return false;
-
-            site.ReleaseAllContainerReservations();
-
-            for (int i = site.MaterializedCount; i < site.Segments.Count; i++)
-            {
-                // Not a bare clear: a cancelled Extractor site has to give its deposit back, or the
-                // ore is gone from the grid and nothing can ever be built on it again.
-                BuildingRuntime.ReleaseFootprint(_grid, site.Segments[i]);
-            }
-
-            CloseSite(site);
-            return true;
-        }
-
-        /// <summary>
-        /// One cell of a pending site has just been taken over by a new placement (a belt dropped
-        /// onto a run still waiting for its material, a Splitter dropped across one). Only that
-        /// segment leaves its site: every other one still owns its own ground, and losing twenty
-        /// belts because the twenty-first cell was reused is not what overtaking means.
+        /// One unbuilt segment leaves its chantier: its cost comes off the bill, the earmarks it
+        /// alone justified go back to their containers, and every sibling keeps its own cell and its
+        /// own share. A site left with no segment at all is over and leaves the queue, which
+        /// releases any robot still working for it (cargo already picked up is dropped off, never
+        /// lost - TASK_05_ROBOT_CONSTRUCTEUR.md §4).
         ///
-        /// The ground is deliberately not freed here - the placement that took this cell owns it
-        /// now, and is about to put its own segment on it.
+        /// The ground is deliberately <b>not</b> freed here: this is the overtaking path, where a
+        /// new placement has already claimed that cell and is about to put its own segment on it.
+        /// The player cancelling a segment goes through CancelPendingSegment below, which is this
+        /// plus giving the ground back.
         /// </summary>
         public bool RemovePendingSegment(BuildingRuntime segment)
         {
             if (!TryGetSiteContaining(segment, out ConstructionSiteRuntime site)) return false;
             if (!site.TryRemovePendingSegment(segment)) return false;
 
-            // Nothing left to build: the site is over, exactly as if it had been cancelled.
-            if (site.IsComplete) CloseSite(site);
+            if (site.HasNothingLeftToBuild) CloseSite(site);
+            return true;
+        }
+
+        /// <summary>
+        /// The player cancelled one unbuilt segment: as above, and its ground goes back to being
+        /// empty. So a drag of twenty belts can lose the three that went the wrong way without being
+        /// laid again from scratch, and a single-building chantier - one segment - is cancelled
+        /// outright, which is what right-clicking a lone blue silhouette has always done.
+        ///
+        /// One line apart from RemovePendingSegment, and the line is who owns the ground afterwards.
+        /// The site bookkeeping stays written once: it was two cancellation paths restating the same
+        /// rules that let the Extractor deposit rule hold in one of them and not the other.
+        /// </summary>
+        public bool CancelPendingSegment(BuildingRuntime segment)
+        {
+            if (!RemovePendingSegment(segment)) return false;
+
+            // Not a bare clear: a cancelled Extractor segment has to give its deposit back, or the
+            // ore is gone from the grid and nothing can ever be built on it again.
+            BuildingRuntime.ReleaseFootprint(_grid, segment);
             return true;
         }
 
@@ -183,7 +195,7 @@ namespace Game.Gameplay.Sites
             if (_stuckSiteId == site.Id) ClearStuckNotification();
         }
 
-        /// <summary>Whether `runtime` is still a pending segment of some site (not yet materialized/registered) - used by the demolition input path to route a click at that cell to CancelSite instead of ConstructionService.TryDemolish, which must never see an unpaid, unregistered building.</summary>
+        /// <summary>Whether `runtime` is still a pending segment of some site (not yet materialized/registered) - used by the demolition input path to route a click at that cell to CancelPendingSegment instead of ConstructionService.TryDemolish, which must never see an unpaid, unregistered building.</summary>
         public bool TryGetSiteContaining(BuildingRuntime runtime, out ConstructionSiteRuntime site)
         {
             foreach (ConstructionSiteRuntime candidate in _queue)
@@ -218,11 +230,27 @@ namespace Game.Gameplay.Sites
         public void Tick(float deltaTime)
         {
             RunReservationPass();
+            AdvanceAssemblies(deltaTime);
             UpdateStuckNotification();
 
             foreach (BuilderRobotRuntime robot in _robots)
             {
                 TickRobot(robot, deltaTime);
+            }
+        }
+
+        /// <summary>
+        /// Every open site's front segment physically assembles, and becomes a real building the
+        /// moment it is whole - never merely when its last item landed. Walked backwards because
+        /// MaterializeReadySegments takes a finished site out of the queue underneath us.
+        /// </summary>
+        void AdvanceAssemblies(float deltaTime)
+        {
+            for (int i = _queue.Count - 1; i >= 0; i--)
+            {
+                ConstructionSiteRuntime site = _queue[i];
+                site.AdvanceAssembly(deltaTime);
+                MaterializeReadySegments(site);
             }
         }
 
@@ -371,30 +399,33 @@ namespace Game.Gameplay.Sites
         // ---- Robot dispatch/state machine ----
 
         /// <summary>
-        /// The one site the robots are working on right now: the oldest that is not blocked -
-        /// blocked meaning it has nothing reserved AND no robot already carrying for it, i.e.
-        /// nothing can happen for it at this instant. Such a site is skipped rather than holding
-        /// up everything behind it, and reclaims the robots as soon as a reservation lands on it
-        /// again. Everything else waits: only one chantier is ever served at a time, both robots
-        /// on the same one (TASK_05_ROBOT_CONSTRUCTEUR.md §2).
+        /// The site this robot should serve: the oldest one with something still earmarked in a
+        /// container and nobody yet sent to collect it.
+        ///
+        /// Asked once per idle robot, independently, which is what makes the answer scale. A
+        /// dispatch consumes the earmark it takes (ReleaseReservationForPickup), so the next robot
+        /// asking - this tick or a later one - sees only what is genuinely still waiting for a
+        /// carrier. Two robots, or two hundred and fifty, spread across the queue by that alone:
+        /// each fills up on the oldest site that still has work, and the overflow rolls onto the
+        /// next.
+        ///
+        /// A site whose whole remaining bill is already riding in someone's cargo is therefore
+        /// stepped over, not waited on. It used to be returned anyway - "the robots serve one
+        /// chantier at a time" read as a single active site - and every other robot then found a
+        /// site with nothing left to hand out and simply stood still, while finished-but-unserved
+        /// chantiers waited behind it.
+        ///
+        /// Oldest-first survives intact, because each robot rescans from the head of the queue: a
+        /// site that regains an earmark takes the next robot to come free, ahead of any younger one.
         /// </summary>
-        ConstructionSiteRuntime FindActiveSite()
+        ConstructionSiteRuntime FindSiteAwaitingCollection()
         {
             foreach (ConstructionSiteRuntime site in _queue)
             {
                 if (site.IsComplete) continue;
-                if (site.Reservations.Count > 0 || HasRobotServing(site)) return site;
+                if (site.Reservations.Count > 0) return site;
             }
             return null;
-        }
-
-        bool HasRobotServing(ConstructionSiteRuntime site)
-        {
-            foreach (BuilderRobotRuntime robot in _robots)
-            {
-                if (ReferenceEquals(robot.TargetSite, site)) return true;
-            }
-            return false;
         }
 
         void TickRobot(BuilderRobotRuntime robot, float deltaTime)
@@ -430,8 +461,8 @@ namespace Game.Gameplay.Sites
 
         void TryAssignTask(BuilderRobotRuntime robot)
         {
-            ConstructionSiteRuntime site = FindActiveSite();
-            if (site != null && site.Reservations.Count > 0)
+            ConstructionSiteRuntime site = FindSiteAwaitingCollection();
+            if (site != null)
             {
                 // One source container per round trip, filled to the robot's capacity - a robot
                 // never leaves with one unit when four of the same item are earmarked in the same
@@ -485,7 +516,9 @@ namespace Game.Gameplay.Sites
                 {
                     site.RegisterDelivery(kvp.Key, kvp.Value);
                 }
-                MaterializeReadySegments(site);
+
+                // No materialization here on purpose: what just landed is material, and material is
+                // not a building until it has assembled. AdvanceAssemblies takes it from here.
             }
 
             robot.ClearCargo();

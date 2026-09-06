@@ -224,14 +224,23 @@ namespace Game.Construction
             return true;
         }
 
-        /// <summary>Cancels the pending construction site occupying a cell, if any (TASK_05_ROBOT_CONSTRUCTEUR.md §4) - releases its reservations and frees the cells its unbuilt segments held. Returns the segments whose grid cells were freed so the caller can clean up any view it had spawned for them.</summary>
-        public bool TryCancelSiteAt(GridCoord cell)
+        /// <summary>
+        /// Cancels whatever unbuilt segment holds this cell, if any (TASK_05_ROBOT_CONSTRUCTEUR.md
+        /// §4): its earmarks go back to their containers and its ground is freed.
+        ///
+        /// Scoped to the one segment under the cursor rather than to its whole chantier. A drag lays
+        /// one site across many belts, and cancelling all of them because the player right-clicked
+        /// the third meant a run could only ever be undone whole. A single building is one segment,
+        /// so for it this is still the cancellation it always was.
+        /// </summary>
+        public bool TryCancelPendingAt(GridCoord cell)
         {
             if (_constructionSites == null) return false;
             if (!(_grid.GetOccupant(cell) is BuildingRuntime occupant)) return false;
-            if (!_constructionSites.TryGetSiteContaining(occupant, out ConstructionSiteRuntime site)) return false;
 
-            return _constructionSites.CancelSite(site);
+            // False for anything that is not an unbuilt segment - a finished building, a deposit -
+            // which is exactly how the demolition input falls through to TryDemolish.
+            return _constructionSites.CancelPendingSegment(occupant);
         }
 
         /// <summary>
@@ -408,7 +417,7 @@ namespace Game.Construction
         /// the spot: a robot must physically haul them back to the Core chest or a Storage
         /// (TASK_05_ROBOT_CONSTRUCTEUR.md §5). A still-pending construction site is never
         /// demolished through here (its building was never paid for); the caller routes that to
-        /// TryCancelSiteAt instead.
+        /// TryCancelPendingAt instead.
         /// </summary>
         public bool TryDemolish(GridCoord cell, out BuildingRuntime removed)
         {

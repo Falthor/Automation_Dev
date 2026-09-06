@@ -45,12 +45,12 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             }
         }
 
-        static Fixture NewFixture(int coreChestContents = 0, bool withCoreChest = true)
+        static Fixture NewFixture(int coreChestContents = 0, bool withCoreChest = true, int robotCount = 2)
         {
             var grid = new GridRuntime(1f);
             var transport = new TransportSystem(grid);
             var notifications = new NotificationSystem();
-            var sites = new ConstructionSiteSystem(transport, grid, notifications, Vector2.zero);
+            var sites = new ConstructionSiteSystem(transport, grid, notifications, Vector2.zero, robotCount);
             var construction = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(),
                 new ResearchSystem(new ComputeSystem()), transport, null, sites);
 
@@ -133,7 +133,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         }
 
         [Test]
-        public void ASite_BecomesABuilding_ExactlyWhenTheLastPieceIsDelivered()
+        public void ASite_BecomesABuilding_OnceItsLastPieceIsDeliveredAndAssembled()
         {
             Fixture fixture = NewFixture(coreChestContents: 4);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
@@ -148,22 +148,103 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Assert.IsTrue(IsRegistered(fixture.Transport, site.Segments[0]), "Once complete the building is registered and functional.");
         }
 
+        /// <summary>
+        /// The oldest chantier still comes first - it takes the first robot free, and the stock to
+        /// go with it. What changed is what happens to the robots it does not need.
+        /// </summary>
         [Test]
-        public void TwoPendingSites_AreServedOneAtATime_OldestFirst()
+        public void TheOldestSite_TakesTheFirstRobot()
         {
             Fixture fixture = NewFixture(coreChestContents: 8);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
 
             ConstructionSiteRuntime first = PlaceSite(fixture, costly, new GridCoord(5, 5));
+            PlaceSite(fixture, costly, new GridCoord(9, 9));
+
+            fixture.Sites.Tick(TickSeconds);
+
+            Assert.AreSame(first, fixture.Sites.Robots[0].TargetSite);
+        }
+
+        /// <summary>
+        /// The reported bug, in its smallest form: the oldest chantier needs one robot-load, so the
+        /// second robot has nothing to fetch there and must go serve the next one instead of
+        /// standing at the park.
+        ///
+        /// Asserted on the dispatch rather than on completion times, because completion comes out
+        /// right for the wrong reason - a robot that idles through this wave picks the second site
+        /// up on the next one and everything still finishes, only slower and only because the first
+        /// site got out of the way. What actually broke is the assignment: the second robot found
+        /// the oldest site, saw its last earmark already claimed by the first robot, and concluded
+        /// there was nothing to do anywhere.
+        /// </summary>
+        [Test]
+        public void ARobotTheOldestSiteDoesNotNeed_IsSentToTheNextOne()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 8);
+            // Exactly one robot-load each, so the very first dispatch empties the older site's earmarks.
+            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, BuilderRobotRuntime.Capacity));
+
+            ConstructionSiteRuntime first = PlaceSite(fixture, costly, new GridCoord(5, 5));
             ConstructionSiteRuntime second = PlaceSite(fixture, costly, new GridCoord(9, 9));
 
-            fixture.Simulate(4f);
+            fixture.Sites.Tick(TickSeconds);
 
-            Assert.IsTrue(first.IsComplete, "The oldest site is served first, by both robots at once.");
-            Assert.IsFalse(second.IsComplete, "Only one chantier is served at a time - the second one waits its turn.");
+            Assert.AreSame(first, fixture.Sites.Robots[0].TargetSite, "The first robot takes the oldest chantier...");
+            Assert.AreSame(second, fixture.Sites.Robots[1].TargetSite,
+                "...and the second, with nothing left to fetch there, moves on to the next one in the queue.");
+        }
 
-            fixture.Simulate(20f);
-            Assert.IsTrue(second.IsComplete, "The next site is then served in turn.");
+        /// <summary>
+        /// The same rule at fleet scale, which is what "valable pour 2 - 10 - 100 - 250 robots"
+        /// asks for. Forty chantiers of three robot-loads each: robots fill the oldest one that
+        /// still has something to hand out and spill onto the next, so robot i works chantier i/3
+        /// exactly, and only once every load is claimed does anyone stay parked.
+        ///
+        /// It is an exact expectation rather than a "spread out somehow" one, because the two ways
+        /// this can go wrong are opposite and both look reasonable in a loose assertion: robots
+        /// bunching on one site while others starve, and robots scattering across the queue so no
+        /// chantier finishes early. Belts are the site kind here only because they are exempt from
+        /// the building cap, so forty of them can be queued at once.
+        /// </summary>
+        [TestCase(2)]
+        [TestCase(10)]
+        [TestCase(100)]
+        [TestCase(250)]
+        public void RobotsFillTheOldestSiteThenSpillToTheNext_WhateverTheFleetSize(int robotCount)
+        {
+            const int siteCount = 40;
+            const int loadsPerSite = 3;
+            int costPerSite = BuilderRobotRuntime.Capacity * loadsPerSite;
+
+            Fixture fixture = NewFixture(coreChestContents: siteCount * costPerSite, robotCount: robotCount);
+            ConveyorDefinition belt = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, costPerSite));
+
+            var sites = new List<ConstructionSiteRuntime>();
+            fixture.Construction.SelectBuilding(belt);
+            for (int i = 0; i < siteCount; i++)
+            {
+                Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5 + 2 * i, 5), Direction.East, out ConstructionSiteRuntime site));
+                sites.Add(site);
+            }
+
+            fixture.Sites.Tick(TickSeconds);
+
+            int loadsAvailable = siteCount * loadsPerSite;
+            for (int i = 0; i < robotCount; i++)
+            {
+                BuilderRobotRuntime robot = fixture.Sites.Robots[i];
+                if (i < loadsAvailable)
+                {
+                    Assert.AreSame(sites[i / loadsPerSite], robot.TargetSite,
+                        $"Robot {i} should be serving chantier {i / loadsPerSite} - the oldest one with a load left to give.");
+                }
+                else
+                {
+                    Assert.IsNull(robot.TargetSite, $"Robot {i} has no work: every load in the queue is already claimed.");
+                    Assert.AreEqual(BuilderRobotState.Idle, robot.State);
+                }
+            }
         }
 
         [Test]
@@ -285,6 +366,105 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             IReadOnlyDictionary<string, int> aggregate = fixture.Sites.GetAvailableAggregate();
 
             Assert.AreEqual(15, aggregate[PlateId], "Core chest (5) + Storage (7) + production output (3) - and nothing else, notably not the production input.");
+        }
+
+        /// <summary>
+        /// Delivered is not built. A segment holding every unit it was owed is still a chantier for
+        /// the length of its assembly: unregistered, so it does not tick, and flagged, so nothing may
+        /// be handed to it. The gas power plant is what this is about - it used to become real the
+        /// instant its last plate landed and spent the following five seconds pulling coal off a belt
+        /// and supplying current while the player watched it materialise.
+        /// </summary>
+        [Test]
+        public void ASegmentHoldingAllItsMaterial_IsNotOperationalUntilItHasAssembled()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 4);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
+            ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
+            BuildingRuntime segment = site.Segments[0];
+
+            for (int i = 0; i < 500 && site.SegmentProgress(0) < 1f; i++) fixture.Sites.Tick(TickSeconds);
+            Assert.AreEqual(1f, site.SegmentProgress(0), 0.0001f, "Precondition: every plate has physically arrived.");
+
+            Assert.IsFalse(site.IsComplete, "And it is still not a building.");
+            Assert.IsTrue(segment.IsUnderConstruction);
+            Assert.IsFalse(IsRegistered(fixture.Transport, segment), "So it does not tick, produce or accept anything.");
+
+            // A 1x1 building assembles in 1 / 1.8 s; two seconds covers it with room to spare.
+            fixture.Simulate(2f);
+
+            Assert.IsTrue(site.IsComplete, "Assembled: now it is a building...");
+            Assert.IsFalse(segment.IsUnderConstruction);
+            Assert.IsTrue(IsRegistered(fixture.Transport, segment), "...and only now does it start working.");
+        }
+
+        /// <summary>A big building takes proportionally longer than a small one, so the wait is not a flat delay bolted on: the nine-cell reference building assembles nine times slower than a one-cell belt.</summary>
+        [Test]
+        public void AssemblySpeed_IsPerFootprintCell_NotPerBuilding()
+        {
+            Assert.AreEqual(SegmentAssembly.CellsPerSecond, SegmentAssembly.RateFor(1), 0.0001f);
+            Assert.AreEqual(SegmentAssembly.CellsPerSecond / 9f, SegmentAssembly.RateFor(9), 0.0001f);
+            Assert.AreEqual(9f, SegmentAssembly.RateFor(1) / SegmentAssembly.RateFor(9), 0.0001f);
+            Assert.AreEqual(SegmentAssembly.RateFor(1), SegmentAssembly.RateFor(0), 0.0001f, "A zero footprint would divide by zero.");
+        }
+
+        /// <summary>
+        /// Not registering a pending segment stopped it ticking, and that was taken to mean it was
+        /// out of transport's reach entirely. It was not: every hand-off resolves its neighbour
+        /// through Game.Grid, where a chantier does sit - it owns its ground, that is the point of it
+        /// - and each lookup asked only whether a BuildingRuntime was there. So an unbuilt powerplant
+        /// collected coal through its whole construction and lit up the instant it was finished, on
+        /// fuel it should never have been able to accept.
+        ///
+        /// Tested through a production building's push, which is one of the six lookups; they all
+        /// read the same predicate now, which is why one is enough to pin the rule.
+        /// </summary>
+        [Test]
+        public void APendingBuilding_IsNeverHandedItemsByTransport()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 20);
+
+            FactoryDefinition factoryDefinition = TestDataFactory.NewFactory(50, 0f, System.Array.Empty<string>(), System.Array.Empty<string>());
+            var factory = new FactoryRuntime(factoryDefinition, new GridCoord(30, 30), Direction.North,
+                TestDataFactory.NewRecipeDatabase(), new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            factory.AddOutput(PlateId, 10);
+            fixture.Grid.SetOccupantFootprint(factory.Cell, factoryDefinition.FootprintSize, factory);
+            fixture.Transport.Register(factory);
+
+            // A chantier standing exactly where the factory pushes.
+            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
+            ConstructionSiteRuntime site = PlaceSite(fixture, costly, factory.GetOutputCells()[0]);
+            var pending = (StorageRuntime)site.Segments[0];
+
+            for (int i = 0; i < 50; i++) fixture.Transport.Tick(TickSeconds);
+
+            Assert.AreEqual(0, pending.GetInputAmount(PlateId), "Nothing may be handed to a building that is not built yet.");
+            Assert.AreEqual(10, factory.GetOutputContents()[PlateId], "And the factory kept what it had nowhere to put - nothing was destroyed in the refusal.");
+        }
+
+        /// <summary>The other half of the same rule: once its last piece lands it is a real building, and transport deals with it exactly as it always has. Without this the guard could pass by simply refusing everyone forever.</summary>
+        [Test]
+        public void OnceBuilt_ThatSameBuilding_IsHandedItemsNormally()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 20);
+
+            FactoryDefinition factoryDefinition = TestDataFactory.NewFactory(50, 0f, System.Array.Empty<string>(), System.Array.Empty<string>());
+            var factory = new FactoryRuntime(factoryDefinition, new GridCoord(30, 30), Direction.North,
+                TestDataFactory.NewRecipeDatabase(), new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            factory.AddOutput(PlateId, 10);
+            fixture.Grid.SetOccupantFootprint(factory.Cell, factoryDefinition.FootprintSize, factory);
+            fixture.Transport.Register(factory);
+
+            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
+            ConstructionSiteRuntime site = PlaceSite(fixture, costly, factory.GetOutputCells()[0]);
+            var target = (StorageRuntime)site.Segments[0];
+
+            fixture.Simulate(20f);
+            Assert.IsTrue(site.IsComplete, "It has to be really built for this to mean anything.");
+
+            for (int i = 0; i < 50; i++) fixture.Transport.Tick(TickSeconds);
+
+            Assert.Greater(target.GetInputAmount(PlateId), 0, "A finished building takes deliveries again.");
         }
 
         // --- Core chest ---
@@ -460,9 +640,13 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         {
             // A run is always fully funded now - the gate refuses a segment it cannot cover - so the
             // partial state comes from DELIVERY, not from a short chest. Three segments at one
-            // robot-load each, sampled the moment the first load lands: one segment built, two still
-            // waiting on trips that have not finished.
-            Fixture fixture = NewFixture(coreChestContents: 12);
+            // robot-load each, sampled at the first one built: one segment built, two still waiting
+            // on trips that have not finished.
+            //
+            // One robot, so the sampling point is a fact rather than a race: with two, the second
+            // lands its own load while the first segment is still assembling, and which of them the
+            // sample catches depends on travel times.
+            Fixture fixture = NewFixture(coreChestContents: 12, robotCount: 1);
             ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 4));
 
             fixture.Construction.SelectBuilding(conveyor);
@@ -491,7 +675,10 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         [Test]
         public void SegmentProgress_IsOneBehindTheFront_ZeroAhead_AndARatioOnTheSegmentBeingBuilt()
         {
-            Fixture fixture = NewFixture(coreChestContents: 12);
+            // One robot, so "the front has consumed everything delivered so far" is exact: a second
+            // robot delivers the next belt's load while the first is still assembling, and the
+            // segment behind the front would legitimately read 1 rather than 0.
+            Fixture fixture = NewFixture(coreChestContents: 12, robotCount: 1);
             ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 4));
 
             fixture.Construction.SelectBuilding(conveyor);
@@ -689,7 +876,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Assert.IsNotNull(dispatched, "A robot has to be on its way to the chest for this to mean anything.");
             Assert.Greater(dispatched.PendingAmount, 0);
 
-            Assert.IsTrue(fixture.Sites.CancelSite(site));
+            Assert.IsTrue(fixture.Sites.CancelPendingSegment(site.Segments[0]));
 
             Assert.AreEqual(4, fixture.Construction.GetAvailableAmount(PlateId),
                 "A trip called off claims nothing - otherwise that stock stays unreachable for the rest of the game.");
@@ -718,13 +905,57 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Assert.IsFalse(fixture.Grid.GetOccupant(cell) is DepositRuntime,
                 "The premise: while it is being built, the site covers the ore.");
 
-            Assert.IsTrue(fixture.Sites.CancelSite(site));
+            Assert.IsTrue(fixture.Sites.CancelPendingSegment(site.Segments[0]));
 
             Assert.AreSame(deposit, fixture.Grid.GetOccupant(cell), "The ore is back on the grid...");
 
             fixture.Construction.SelectBuilding(extractor);
             Assert.IsTrue(fixture.Construction.TryPlace(cell, Direction.North, out _),
                 "...so the ground is genuinely free again, which is the thing the player noticed.");
+        }
+
+        /// <summary>
+        /// A drag lays one chantier across many belts, and the player must be able to take back the
+        /// three that went the wrong way without losing the seventeen that did not. Cancelling used
+        /// to be scoped to the whole site, so a run could only ever be undone entirely and then laid
+        /// again from scratch.
+        /// </summary>
+        [Test]
+        public void CancellingOnePendingBeltOfADrag_LeavesTheRestOfTheRunStanding()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 20);
+            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 1));
+            ConstructionSiteRuntime run = PlaceRun(fixture, conveyor, new GridCoord(5, 5), 4);
+
+            var cancelled = new GridCoord(7, 5);
+            Assert.IsTrue(fixture.Construction.TryCancelPendingAt(cancelled));
+
+            Assert.IsTrue(IsQueued(fixture, run), "The run is still being built...");
+            Assert.AreEqual(3, run.Segments.Count, "...minus exactly the one belt that was cancelled.");
+            Assert.AreEqual(3, run.TotalCost[PlateId], "Its bill shrank by that segment, no more.");
+            Assert.IsNull(fixture.Grid.GetOccupant(cancelled), "The cancelled cell is free ground again...");
+            Assert.AreSame(run.Segments[0], fixture.Grid.GetOccupant(new GridCoord(5, 5)),
+                "...and every other segment still owns its own.");
+            Assert.AreEqual(17, fixture.Construction.GetAvailableAmount(PlateId),
+                "And the plate it had earmarked went back - one of twenty is unclaimed again.");
+        }
+
+        /// <summary>Cancelling the last belt of a run ends the chantier, and an ended chantier is never a finished one - the site panel keys on that difference to decide whether to hand over to a building that now exists.</summary>
+        [Test]
+        public void CancellingEveryPendingBeltOfADrag_ClosesTheRun_WithoutMarkingItComplete()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 20);
+            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 1));
+            ConstructionSiteRuntime run = PlaceRun(fixture, conveyor, new GridCoord(5, 5), 3);
+
+            for (int i = 0; i < 3; i++)
+            {
+                Assert.IsTrue(fixture.Construction.TryCancelPendingAt(new GridCoord(5 + i, 5)));
+            }
+
+            Assert.IsFalse(IsQueued(fixture, run), "With no segment left there is nothing to build.");
+            Assert.IsFalse(run.IsComplete, "It built none of them - that is abandonment, not completion.");
+            Assert.AreEqual(20, fixture.Construction.GetAvailableAmount(PlateId), "Every earmark went back.");
         }
 
         /// <summary>The same rule from the other side: demolishing a built Extractor has always restored its deposit, and both paths now read it from one place.</summary>

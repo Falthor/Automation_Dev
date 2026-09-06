@@ -21,8 +21,8 @@ namespace Game.Tests.EditMode.Presentation
     /// </summary>
     public class BuildDissolveViewTests
     {
-        /// <summary>Footprint cells per second, the shipped value - a speed, so the progress rate a view actually runs at depends on how big it is.</summary>
-        const float AssemblyRate = 1.8f;
+        /// <summary>Footprint cells per second - a speed, so the progress rate a view actually runs at depends on how big it is. Owned by Gameplay, not by the settings asset: it decides when a building starts working, not just how it is drawn.</summary>
+        const float AssemblyRate = SegmentAssembly.CellsPerSecond;
 
         /// <summary>The gas power plant this effect was tuned on, and BuildDissolveView's own default footprint.</summary>
         const int ReferenceFootprint = 9;
@@ -30,7 +30,7 @@ namespace Game.Tests.EditMode.Presentation
         /// <summary>Progress per second for the reference building: 1.8 / 9 = 0.2. The value the whole effect was tuned at by eye.</summary>
         const float ReferenceRate = AssemblyRate / ReferenceFootprint;
 
-        const float MinAssemblyDuration = 0.25f;
+        const float MinAssemblyDuration = SegmentAssembly.MinDurationSeconds;
         const float FlashDuration = 0.40f;
         const float FlashIntensity = 0.28f;
 
@@ -47,19 +47,17 @@ namespace Game.Tests.EditMode.Presentation
         }
 
         /// <summary>The asset's fields have no production setter on purpose - it is a definition, not runtime state - so tests write them the same way TestDataFactory does.</summary>
-        NanoConstructionSettings NewSettings(float assemblyRate = AssemblyRate, float flashDuration = FlashDuration, float flashIntensity = FlashIntensity, float noiseScale = 6.3f)
+        NanoConstructionSettings NewSettings(float flashDuration = FlashDuration, float flashIntensity = FlashIntensity, float noiseScale = 6.3f)
         {
             var settings = ScriptableObject.CreateInstance<NanoConstructionSettings>();
             _spawned.Add(settings);
-            SetSettings(settings, assemblyRate, flashDuration, flashIntensity, noiseScale);
+            SetSettings(settings, flashDuration, flashIntensity, noiseScale);
             return settings;
         }
 
-        static void SetSettings(NanoConstructionSettings settings, float assemblyRate, float flashDuration, float flashIntensity, float noiseScale)
+        static void SetSettings(NanoConstructionSettings settings, float flashDuration, float flashIntensity, float noiseScale)
         {
             var so = new SerializedObject(settings);
-            so.FindProperty("assemblyRate").floatValue = assemblyRate;
-            so.FindProperty("minAssemblyDuration").floatValue = MinAssemblyDuration;
             so.FindProperty("deliveryFlashDuration").floatValue = flashDuration;
             so.FindProperty("deliveryFlashIntensity").floatValue = flashIntensity;
             so.FindProperty("noiseScale").floatValue = noiseScale;
@@ -294,23 +292,48 @@ namespace Game.Tests.EditMode.Presentation
             view.GetComponent<SpriteRenderer>().GetPropertyBlock(block);
             Assert.AreEqual(6.3f, block.GetFloat("_NoiseScale"), 0.0001f);
 
-            SetSettings(settings, AssemblyRate, FlashDuration, FlashIntensity, noiseScale: 11f);
+            SetSettings(settings, FlashDuration, FlashIntensity, noiseScale: 11f);
             view.Tick(0.05f);
 
             view.GetComponent<SpriteRenderer>().GetPropertyBlock(block);
             Assert.AreEqual(11f, block.GetFloat("_NoiseScale"), 0.0001f, "One asset must retune every building.");
         }
 
+        /// <summary>
+        /// A driven view renders the value it is handed and does not chase it: the construction site
+        /// already smoothed it, and a second chase over the same curve would lag behind the clock
+        /// that decides when the building starts working.
+        /// </summary>
         [Test]
-        public void ChangingTheAssemblyRate_ChangesHowFastTheBuildingAssembles()
+        public void ADrivenView_RendersTheProgressItIsGiven_WithoutChasingIt()
         {
-            NanoConstructionSettings settings = NewSettings(assemblyRate: 4.5f);
-            BuildDissolveView view = NewView(settings);
-            view.TargetProgress = 1f;
+            BuildDissolveView view = NewView(NewSettings());
 
-            view.Tick(1f);
+            view.Drive(0.42f, deliveryCount: 1);
+            view.Tick(0.05f);
 
-            Assert.AreEqual(0.5f, view.DisplayedProgress, 0.0001f, "4.5 cells/s over the 9-cell default footprint.");
+            Assert.AreEqual(0.42f, view.DisplayedProgress, 0.0001f);
+            Assert.AreEqual(0.42f, ShaderProgress(view), 0.0001f);
+        }
+
+        /// <summary>
+        /// Driven progress rises a little every frame, so the rise test that serves the hand-driven
+        /// mode would light the rim permanently. A driven view flashes on the site's delivery count
+        /// instead - once per lot that actually lands.
+        /// </summary>
+        [Test]
+        public void ADrivenView_FlashesOnDeliveries_NotOnEveryRiseInProgress()
+        {
+            BuildDissolveView view = NewView(NewSettings());
+
+            view.Drive(0.1f, deliveryCount: 3);
+            Assert.AreEqual(0f, view.FlashRemaining, 0.0001f, "The first call is a baseline, not an arrival.");
+
+            view.Drive(0.2f, deliveryCount: 3);
+            Assert.AreEqual(0f, view.FlashRemaining, 0.0001f, "Progress rose, but nothing was delivered.");
+
+            view.Drive(0.25f, deliveryCount: 4);
+            Assert.AreEqual(FlashDuration, view.FlashRemaining, 0.0001f, "A lot landed - that is what the rim marks.");
         }
 
         /// <summary>
@@ -343,29 +366,29 @@ namespace Game.Tests.EditMode.Presentation
 
         /// <summary>
         /// The floor caps the derived rate so nothing pops into existence in one frame. It does not
-        /// bind at the shipped assemblyRate - a 1-cell building already takes 0.56 s - so this
-        /// raises the rate until it does, which is the case the floor exists to guard.
+        /// bind at the shipped speed - a 1-cell building already takes 0.56 s - so this is asserted
+        /// on the rule itself rather than through a view, which is the only way to reach the case
+        /// now that the speed is a Gameplay constant rather than a tunable asset field.
         /// </summary>
         [Test]
         public void TheMinimumDuration_CapsHowFastAOneCellBuildingCanAssemble()
         {
-            NanoConstructionSettings shipped = NewSettings();
-            Assert.AreEqual(AssemblyRate, shipped.ProgressRateFor(1), 0.0001f);
-            Assert.Less(shipped.ProgressRateFor(1), 1f / MinAssemblyDuration,
-                "At the shipped rate the floor is inert even on the smallest possible building.");
+            Assert.AreEqual(AssemblyRate, SegmentAssembly.RateFor(1), 0.0001f);
+            Assert.Less(SegmentAssembly.RateFor(1), 1f / MinAssemblyDuration,
+                "At the shipped speed the floor is inert even on the smallest possible building.");
 
-            NanoConstructionSettings settings = NewSettings(assemblyRate: 100f);
-            Assert.AreEqual(1f / MinAssemblyDuration, settings.ProgressRateFor(1), 0.0001f,
-                "100 cells/s over one cell would be near-instant; the floor holds it to 0.25 s.");
+            // What the floor guards: were CellsPerSecond raised past 1/MinDurationSeconds, a one-cell
+            // building would otherwise assemble in a single frame.
+            Assert.LessOrEqual(SegmentAssembly.RateFor(1), 1f / MinAssemblyDuration);
 
-            BuildDissolveView view = NewView(settings);
+            BuildDissolveView view = NewView(NewSettings());
             view.FootprintCells = 1;
             view.TargetProgress = 1f;
 
             view.Tick(0.05f);
 
             Assert.IsTrue(view != null, "A single frame must never carry the whole assembly.");
-            Assert.AreEqual(0.2f, view.DisplayedProgress, 0.0001f);
+            Assert.AreEqual(AssemblyRate * 0.05f, view.DisplayedProgress, 0.0001f);
         }
 
         [Test]

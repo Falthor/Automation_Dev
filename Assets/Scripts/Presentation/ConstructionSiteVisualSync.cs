@@ -17,17 +17,22 @@ namespace Game.Presentation
     /// building it will become, at full siteTint alpha, with its sprite entirely clipped away.</item>
     /// <item><b>Assembling</b> - material is arriving: the silhouette drops to
     /// NanoConstructionSettings.SitePlaceholderAlpha and the real sprite materialises over it under
-    /// BuildDissolveView.</item>
-    /// <item><b>Complete</b> - the dissolve reaches 1: both objects are destroyed and
-    /// BuildingSpawner.SpawnView draws the real thing, in the same call so nothing flickers.</item>
+    /// BuildDissolveView, at the progress the site itself keeps.</item>
+    /// <item><b>Complete</b> - assembly reaches 1, which is also the instant the segment becomes a
+    /// real working building: both objects are destroyed and BuildingSpawner.SpawnView draws the
+    /// real thing, in the same call so nothing flickers.</item>
     /// </list>
     ///
-    /// The assembling set deliberately <b>outlives the site</b>. A segment materialises the instant
-    /// its last item lands, which is long before it has finished assembling on screen; from that
-    /// moment it is a real registered building and has left ConstructionSiteSystem's pending range.
-    /// Detached entries are therefore kept here, driven at target 1, and only released when the
-    /// dissolve completes. Their liveness is the grid instead of the site: an entry whose cell no
-    /// longer holds it was demolished or overtaken mid-assembly, and is dropped without a handover.
+    /// Nothing here decides when a building is finished. The site owns the assembly clock
+    /// (ConstructionSiteRuntime.AssemblyProgressFor) because that clock also decides when the
+    /// building starts working; this reads it. It used to be the other way round, with the effect
+    /// running its own pace over a building that was already registered and operational - which is
+    /// how a power plant came to supply current for the five seconds it spent visibly assembling.
+    ///
+    /// A segment therefore leaves ConstructionSiteSystem's pending range already whole, and its view
+    /// hands over on the next pass. The detached set exists for that one frame, and to catch a
+    /// segment demolished inside it: liveness there is the grid rather than the site, so an entry
+    /// whose cell no longer holds it is dropped without a handover.
     ///
     /// Purely a view over runtime state, on the same pooled-view/LateUpdate model as ItemVisualSync
     /// - it owns no gameplay state and decides nothing. It does not own a BuildingSpawner either:
@@ -234,16 +239,22 @@ namespace Game.Presentation
         }
 
         /// <summary>
-        /// A segment just received its full cost. It is already a real building elsewhere, but on
-        /// screen it is only as far along as its dissolve says, so its view detaches from the site
-        /// and keeps assembling at target 1 rather than being destroyed with the pending range.
+        /// A segment just finished assembling and became a real building, so it leaves the site's
+        /// pending range. Its view detaches and hands over on the next pass rather than being
+        /// destroyed along with that range.
+        ///
+        /// It is already whole here - the site materializes a segment precisely when its assembly
+        /// reaches 1 - so the drive to 1 is a formality that also covers the case of a view created
+        /// with no dissolve at all. It was not always: materialization used to mean "the last item
+        /// landed", and this is where a building several seconds short of being drawn started
+        /// working.
         /// </summary>
         void OnSegmentMaterialized(BuildingRuntime segment)
         {
             if (!_views.TryGetValue(segment, out SegmentView view)) return;
 
             view.Detached = true;
-            if (view.Dissolve != null) view.Dissolve.TargetProgress = 1f;
+            if (view.Dissolve != null) view.Dissolve.Drive(1f, view.Dissolve.LastDeliveryCount);
         }
 
         void SyncPendingSegments()
@@ -258,7 +269,11 @@ namespace Game.Presentation
                     _liveKeys.Add(segment);
 
                     SegmentView view = EnsureView(segment);
-                    if (view.Dissolve != null) view.Dissolve.TargetProgress = site.SegmentProgress(i);
+
+                    // The site owns the assembly clock, because a segment is not operational until
+                    // it reads 1 - this only draws it. SegmentProgress (what has been delivered) is
+                    // deliberately not what is shown: it jumps in lots.
+                    if (view.Dissolve != null) view.Dissolve.Drive(site.AssemblyProgressFor(i), site.DeliveryCount);
                     SyncAppearance(view, segment);
                 }
             }
@@ -286,9 +301,11 @@ namespace Game.Presentation
         }
 
         /// <summary>
-        /// Segments that materialised while still assembling. They are no longer in any site's
-        /// pending range, so liveness comes from the grid: an entry that no longer holds any of its
-        /// ground was demolished or overtaken, and goes away without ever becoming a real view.
+        /// Segments that have left their site's pending range. They arrive here already whole - the
+        /// site materialises a segment exactly when its assembly reaches 1 - so this normally hands
+        /// over on the very next pass. Liveness comes from the grid rather than the site: an entry
+        /// that no longer holds any of its ground was demolished or overtaken in that window, and
+        /// goes away without ever becoming a real view.
         /// </summary>
         void SyncDetachedSegments()
         {

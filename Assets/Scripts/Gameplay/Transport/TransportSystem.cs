@@ -113,6 +113,24 @@ namespace Game.Gameplay.Transport
             _grid = grid;
         }
 
+        /// <summary>
+        /// The building transport is allowed to deal with at a cell: null for empty ground, for a
+        /// deposit, and for a construction site's unbuilt segment.
+        ///
+        /// The single door through which this system reads Game.Grid, which is the point of it. Not
+        /// ticking a pending segment was already covered by never registering it - but every
+        /// hand-off resolves its neighbour through the grid, where a segment does sit, and each of
+        /// those six lookups asked only "is a BuildingRuntime there?". So a belt fed coal to an
+        /// unbuilt powerplant, a splitter counted one as a valid exit, and a factory could be
+        /// drained through an unbuilt neighbour. Written once here rather than as six repeated
+        /// conditions, because the seventh lookup is the one that would forget.
+        /// </summary>
+        BuildingRuntime ActiveBuildingAt(GridCoord cell)
+        {
+            if (!(_grid.GetOccupant(cell) is BuildingRuntime building)) return null;
+            return building.IsUnderConstruction ? null : building;
+        }
+
         public void Register(BuildingRuntime building)
         {
             if (building is ConveyorRuntime conveyor)
@@ -254,7 +272,8 @@ namespace Game.Gameplay.Transport
             foreach (Direction side in AllDirections)
             {
                 if (side == entry || side == exit) continue;
-                if (!(_grid.GetOccupant(conveyor.Cell + side) is BuildingRuntime neighbor)) continue;
+                BuildingRuntime neighbor = ActiveBuildingAt(conveyor.Cell + side);
+                if (neighbor == null) continue;
                 if (!OutputsTo(neighbor, conveyor.Cell)) continue;
 
                 object item = neighbor.PeekPullableItem();
@@ -337,7 +356,7 @@ namespace Game.Gameplay.Transport
         /// (Factory, Foundry, Assembler, AdvancedFoundry, DataCenter) - a splitter wired directly
         /// into one, with no belt in between, never delivered.
         /// </summary>
-        bool HasBuildingNeighbor(GridCoord cell) => _grid.GetOccupant(cell) is BuildingRuntime;
+        bool HasBuildingNeighbor(GridCoord cell) => ActiveBuildingAt(cell) != null;
 
         /// <summary>
         /// Hands the splitter's held item to whatever sits at the given exit's neighbor cell. A
@@ -401,7 +420,7 @@ namespace Game.Gameplay.Transport
         /// </summary>
         bool TryDeliverItem(GridCoord neighborCell, Direction exitDirection, object item)
         {
-            object occupant = _grid.GetOccupant(neighborCell);
+            BuildingRuntime occupant = ActiveBuildingAt(neighborCell);
 
             if (occupant is ConveyorRuntime targetConveyor)
             {
@@ -410,11 +429,11 @@ namespace Game.Gameplay.Transport
                 return true;
             }
 
-            if (occupant is BuildingRuntime targetBuilding && item is string itemId)
+            if (occupant != null && item is string itemId)
             {
                 Direction fromDirection = exitDirection.Opposite();
-                if (!targetBuilding.CanAcceptInput(itemId, 1, fromDirection)) return false;
-                targetBuilding.AddInput(itemId, 1, fromDirection);
+                if (!occupant.CanAcceptInput(itemId, 1, fromDirection)) return false;
+                occupant.AddInput(itemId, 1, fromDirection);
                 return true;
             }
 
@@ -432,7 +451,8 @@ namespace Game.Gameplay.Transport
 
             foreach (GridCoord cell in building.GetOutputCells())
             {
-                if (!(_grid.GetOccupant(cell) is BuildingRuntime target) || ReferenceEquals(target, building)) continue;
+                BuildingRuntime target = ActiveBuildingAt(cell);
+                if (target == null || ReferenceEquals(target, building)) continue;
 
                 foreach (var kvp in contents)
                 {
@@ -467,7 +487,8 @@ namespace Game.Gameplay.Transport
                 BuildingRuntime building = _allOthers[i];
                 foreach (var (cell, fromMySide) in building.GetInputCells())
                 {
-                    if (!(_grid.GetOccupant(cell) is BuildingRuntime occupant)) continue;
+                    BuildingRuntime occupant = ActiveBuildingAt(cell);
+                    if (occupant == null) continue;
 
                     object item = occupant.PeekPullableItem();
                     if (item == null || !(item is string itemId)) continue;
@@ -575,7 +596,8 @@ namespace Game.Gameplay.Transport
             item = null;
             source = null;
 
-            if (!(_grid.GetOccupant(neighborCell) is BuildingRuntime candidate)) return false;
+            BuildingRuntime candidate = ActiveBuildingAt(neighborCell);
+            if (candidate == null) return false;
             if (!OutputsTo(candidate, destinationCell)) return false;
 
             object pulled = candidate.PeekPullableItem();

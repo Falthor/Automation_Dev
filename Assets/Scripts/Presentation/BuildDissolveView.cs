@@ -12,16 +12,24 @@ namespace Game.Presentation
     /// writes nothing back - the whole feature lives in Game.Presentation and construction is
     /// unaware of it.
     ///
-    /// The displayed progress is deliberately NOT the site's progress. Material arrives in lots, so
-    /// the real value jumps in steps (0 to 0.67 in one frame is normal); driving the shader with it
-    /// would make the building snap into existence. DisplayedProgress chases the real value at a
+    /// The displayed progress is deliberately NOT the site's delivered ratio. Material arrives in
+    /// lots, so that value jumps in steps (0 to 0.67 in one frame is normal); driving the shader
+    /// with it would make the building snap into existence. What is drawn chases the real value at a
     /// bounded rate instead, never overtaking it, which makes materialisation last in proportion to
     /// how much matter actually arrived and guarantees a minimum duration even when everything
     /// lands at once. The steps are not hidden but announced, by the delivery flash.
     ///
-    /// That rate is a speed in cells per second, not in progress per second, so it is divided by
-    /// the building's own footprint - a 9-cell power plant takes nine times as long to assemble as
-    /// a 1-cell conveyor rather than exactly as long. See NanoConstructionSettings.ProgressRateFor.
+    /// <b>Who owns that chase depends on what is being drawn.</b> For a real construction segment it
+    /// is the site itself (ConstructionSiteRuntime.AssemblyProgressFor), fed in through Drive: the
+    /// assembly clock decides when the building starts working, so it cannot be a rendering
+    /// detail - a power plant used to supply current for the five seconds it spent visibly
+    /// assembling. For the hand-driven prefab the effect is tuned on there is no site to own
+    /// anything, so this component runs the same chase itself against TargetProgress.
+    ///
+    /// The rate is a speed in cells per second, not in progress per second, so it is divided by the
+    /// building's own footprint - a 9-cell power plant takes nine times as long to assemble as a
+    /// 1-cell conveyor rather than exactly as long. See SegmentAssembly.RateFor, which both owners
+    /// read.
     /// </summary>
     [RequireComponent(typeof(SpriteRenderer))]
     public sealed class BuildDissolveView : MonoBehaviour
@@ -60,6 +68,12 @@ namespace Game.Presentation
         ConstructionSiteRuntime _site;
         float _lastTargetProgress;
 
+        /// <summary>Set once Drive has been called: the assembly is owned by a construction site and this component only renders it. Never unset - a segment does not go back to being hand-driven.</summary>
+        bool _driven;
+
+        /// <summary>Last delivery count seen through Drive, -1 before the first call so binding to a site mid-run does not flash on arrival.</summary>
+        int _lastDeliveryCount = -1;
+
         /// <summary>The site's real progress: discrete, jumping at each delivery. Set directly when driving the effect by hand (a test prefab); otherwise fed by the bound site.</summary>
         public float TargetProgress
         {
@@ -89,8 +103,33 @@ namespace Game.Presentation
             set => footprintCells = Mathf.Max(1, value);
         }
 
-        /// <summary>Progress units per second this particular building assembles at, given its footprint. 0 when no settings are bound.</summary>
-        public float ProgressRate => settings != null ? settings.ProgressRateFor(footprintCells) : 0f;
+        /// <summary>Progress units per second this particular building assembles at, given its footprint - the same rule a construction site applies, read from the same place.</summary>
+        public float ProgressRate => SegmentAssembly.RateFor(footprintCells);
+
+        /// <summary>The delivery count last passed to Drive, -1 before the first call. Lets a caller re-drive the progress without claiming a new delivery landed.</summary>
+        public int LastDeliveryCount => _lastDeliveryCount;
+
+        /// <summary>
+        /// Renders an assembly owned by a construction site: <paramref name="progress"/> is what that
+        /// site has actually assembled, already smoothed, and <paramref name="deliveryCount"/> is its
+        /// running count of arrivals, which is what the rim flash marks.
+        ///
+        /// The flash keys on deliveries rather than on a rise in progress, which is the difference
+        /// this mode makes: driven progress rises a little every frame, so a rise would light the rim
+        /// permanently instead of pulsing once per lot.
+        /// </summary>
+        public void Drive(float progress, int deliveryCount)
+        {
+            _driven = true;
+            TargetProgress = progress;
+            DisplayedProgress = Mathf.Clamp01(progress);
+
+            if (_lastDeliveryCount >= 0 && deliveryCount != _lastDeliveryCount && settings != null)
+            {
+                FlashRemaining = settings.DeliveryFlashDuration;
+            }
+            _lastDeliveryCount = deliveryCount;
+        }
 
         /// <summary>Reads TargetProgress from this site from now on. Read-only on the site; pass null to drive TargetProgress by hand instead.</summary>
         public void Bind(ConstructionSiteRuntime site) => _site = site;
@@ -157,17 +196,20 @@ namespace Game.Presentation
             Initialize();
             if (settings == null) return;
 
-            if (_site != null) TargetProgress = ProgressOf(_site);
-            float target = Mathf.Clamp01(TargetProgress);
+            if (!_driven)
+            {
+                if (_site != null) TargetProgress = ProgressOf(_site);
+                float target = Mathf.Clamp01(TargetProgress);
 
-            // A rise means material just landed. Detected on the target, not on the displayed
-            // value, so the flash marks the arrival rather than the catching up.
-            if (target > _lastTargetProgress) FlashRemaining = settings.DeliveryFlashDuration;
-            _lastTargetProgress = target;
+                // A rise means material just landed. Detected on the target, not on the displayed
+                // value, so the flash marks the arrival rather than the catching up.
+                if (target > _lastTargetProgress) FlashRemaining = settings.DeliveryFlashDuration;
+                _lastTargetProgress = target;
+
+                DisplayedProgress = Mathf.Min(target, DisplayedProgress + ProgressRate * deltaTime);
+            }
 
             if (FlashRemaining > 0f) FlashRemaining = Mathf.Max(0f, FlashRemaining - deltaTime);
-
-            DisplayedProgress = Mathf.Min(target, DisplayedProgress + ProgressRate * deltaTime);
 
             PushToRenderer();
 
@@ -207,7 +249,9 @@ namespace Game.Presentation
 
         /// <summary>
         /// Completion is DisplayedProgress reaching 1, not the materials being delivered - the
-        /// building becomes whole when it finishes assembling, which is strictly later.
+        /// building becomes whole when it finishes assembling, which is strictly later. For a real
+        /// segment that instant is also when it starts working, since the site gates both on the
+        /// same value.
         /// </summary>
         void Complete()
         {

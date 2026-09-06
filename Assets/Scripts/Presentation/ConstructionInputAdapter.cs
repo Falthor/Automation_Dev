@@ -554,15 +554,13 @@ namespace Game.Presentation
         }
 
         /// <summary>
-        /// A construction site just delivered a segment's full cost: it is now a real, registered
-        /// building (ConstructionSiteSystem already called Transport.Register) and needs the same
+        /// A segment finished assembling: it is now a real, registered building
+        /// (ConstructionSiteSystem already called Transport.Register) and needs the same
         /// view/item-visual wiring an immediate placement used to do inline.
         ///
-        /// The view is the one part that is no longer immediate. Delivery completes long before the
-        /// sprite has finished assembling on screen, so ConstructionSiteVisualSync keeps the segment
-        /// in its assembling set and calls the spawner lent above once the dissolve reaches 1.
-        /// Item visuals stay immediate on purpose: the segment is live in TransportSystem from this
-        /// instant, and items already riding it must be visible while it assembles.
+        /// The view is handed over rather than spawned here when a dissolve is configured: the
+        /// segment arrives whole but its assembling objects are still on screen for a frame, and
+        /// ConstructionSiteVisualSync swaps both in one call so nothing flickers.
         /// </summary>
         void OnSegmentMaterialized(BuildingRuntime runtime)
         {
@@ -706,10 +704,12 @@ namespace Game.Presentation
 
         void DemolishAt(GridCoord cell)
         {
-            // A still-pending chantier was never paid for and has no view: right-clicking it
-            // cancels it (releasing its reservations) rather than demolishing a building that does
-            // not exist yet (TASK_05_ROBOT_CONSTRUCTEUR.md §4).
-            if (gameRuntime.Construction.TryCancelSiteAt(cell)) return;
+            // A still-pending segment was never paid for and has no view: right-clicking it cancels
+            // that segment (releasing its earmarks) rather than demolishing a building that does not
+            // exist yet (TASK_05_ROBOT_CONSTRUCTEUR.md §4). One segment, not its whole chantier - so
+            // a sweep across three belts of a twenty-belt drag removes exactly those three, and the
+            // sweep above needs no special case for it.
+            if (gameRuntime.Construction.TryCancelPendingAt(cell)) return;
 
             if (gameRuntime.Construction.TryDemolish(cell, out BuildingRuntime removed))
             {

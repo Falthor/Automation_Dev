@@ -311,13 +311,14 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             StorageDefinition sameCost = TestDataFactory.NewStorage("target", cost: (abandoned.Plate, 4));
             ConstructionSiteRuntime cancelledSite = PlaceSite(abandoned, sameCost, new GridCoord(5, 5));
 
-            Assert.IsTrue(abandoned.Sites.CancelSite(cancelledSite));
+            Assert.IsTrue(abandoned.Sites.CancelPendingSegment(cancelledSite.Segments[0]));
 
             Assert.AreEqual(0, abandoned.Sites.Sites.Count, "...and so does a cancelled one.");
             Assert.IsFalse(cancelledSite.IsComplete,
-                "But cancelling frees the segments that were never built, so a cancelled site is by "
-                + "construction one whose segments did not all materialize. That is what separates "
-                + "'hand over to the new building' from 'there is nothing there any more'.");
+                "But a cancelled site built none of the segments it was given, and a site with no "
+                + "segment left has not 'completed' them all - it has nothing. That arithmetic trap "
+                + "is what IsComplete guards against, and it is what separates 'hand over to the new "
+                + "building' from 'there is nothing there any more'.");
         }
 
         /// <summary>

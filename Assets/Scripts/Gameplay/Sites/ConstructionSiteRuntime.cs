@@ -52,6 +52,20 @@ namespace Game.Gameplay.Sites
         readonly List<Reservation> _reservations = new List<Reservation>();
 
         /// <summary>
+        /// How far the front segment has physically assembled, 0 to 1. Chases what has been
+        /// delivered for it (SegmentProgress) at SegmentAssembly's rate, never overtaking it, so a
+        /// lot of ten components takes longer to become a building than a lot of two instead of both
+        /// snapping into place - and a segment is not operational until this reaches 1.
+        ///
+        /// Only the front segment has one, because the delivered pile is consumed strictly in
+        /// placement order: nothing behind the front has received anything yet.
+        /// </summary>
+        float _frontAssembly;
+
+        /// <summary>How many separate robot deliveries have landed here. A counter rather than a timestamp: its only reader is the materialisation effect, which flashes its rim on each arrival and needs to know that one happened, not when.</summary>
+        public int DeliveryCount { get; private set; }
+
+        /// <summary>
         /// The bill's item ids in the order they were first costed, so a reader gets a stable row
         /// order. _totalCost is a Dictionary and owes nobody an enumeration order; a panel refreshed
         /// every frame off it could reshuffle its rows under the player's cursor.
@@ -61,7 +75,17 @@ namespace Game.Gameplay.Sites
         public IReadOnlyList<BuildingRuntime> Segments => _segments;
         public IReadOnlyList<Reservation> Reservations => _reservations;
         public int MaterializedCount { get; private set; }
-        public bool IsComplete => MaterializedCount >= _segments.Count;
+
+        /// <summary>
+        /// Every segment this site placed got built. The empty-list guard is what separates that from
+        /// abandonment: a site whose segments were all cancelled satisfies "materialized >= count"
+        /// arithmetically while having built nothing at all, and the site panel keys on exactly this
+        /// to decide whether to hand over to the finished building's panel or simply close.
+        /// </summary>
+        public bool IsComplete => _segments.Count > 0 && MaterializedCount >= _segments.Count;
+
+        /// <summary>Nothing more will ever be built here, for either reason: it finished, or it lost every segment it had. What decides that a site leaves the queue.</summary>
+        public bool HasNothingLeftToBuild => _segments.Count == 0 || IsComplete;
 
         /// <summary>The building/segment kind this site is building, for UI/messaging - the first segment's definition (every segment of a conveyor/splitter run shares the same BuildingDefinition category, if not always the exact same definition instance for corner-vs-straight).</summary>
         public BuildingDefinition PrimaryDefinition => _segments.Count > 0 ? _segments[0].Definition : null;
@@ -74,6 +98,9 @@ namespace Game.Gameplay.Sites
 
         public void AddSegment(BuildingRuntime segment)
         {
+            // From here until it materializes it holds ground and nothing else: no tick, and nothing
+            // may be handed to it or taken from it. See BuildingRuntime.IsUnderConstruction.
+            segment.IsUnderConstruction = true;
             _segments.Add(segment);
             foreach (RecipeIngredient ingredient in segment.Definition.Cost)
             {
@@ -336,6 +363,7 @@ namespace Game.Gameplay.Sites
         public void RegisterDelivery(string itemId, int amount)
         {
             if (amount <= 0) return;
+            DeliveryCount++;
             _delivered[itemId] = (_delivered.TryGetValue(itemId, out int existing) ? existing : 0) + amount;
             if (_committed.TryGetValue(itemId, out int committed))
             {
@@ -348,19 +376,6 @@ namespace Game.Gameplay.Sites
         {
             if (amount <= 0 || !_committed.TryGetValue(itemId, out int committed)) return;
             _committed[itemId] = System.Math.Max(0, committed - amount);
-        }
-
-        /// <summary>Releases every reservation this site still holds in containers (not yet picked up) - used on cancellation.</summary>
-        public void ReleaseAllContainerReservations()
-        {
-            foreach (Reservation reservation in _reservations)
-            {
-                if (_committed.TryGetValue(reservation.ItemId, out int committed))
-                {
-                    _committed[reservation.ItemId] = System.Math.Max(0, committed - reservation.Amount);
-                }
-            }
-            _reservations.Clear();
         }
 
         /// <summary>
@@ -381,7 +396,47 @@ namespace Game.Gameplay.Sites
                 int consumedBySegmentsBefore = ConsumedByMaterializedSegments(ingredient.Item.Id);
                 if (delivered - consumedBySegmentsBefore < ingredient.Amount) return false;
             }
-            return true;
+
+            // Delivered is not built. The segment still has to physically assemble, and it does not
+            // tick, transport, produce or accept anything until it has - which is the whole reason
+            // the assembly clock lives here and not with the effect that draws it.
+            return _frontAssembly >= 1f;
+        }
+
+        /// <summary>
+        /// Advances the front segment's assembly by one tick, toward whatever has actually been
+        /// delivered for it. Driven from ConstructionSiteSystem's central tick on scaled time, so it
+        /// stops with the game like everything else the simulation owns.
+        /// </summary>
+        public void AdvanceAssembly(float deltaTime)
+        {
+            if (MaterializedCount >= _segments.Count) return;
+
+            // The footprint's bounding area, matching what the effect was tuned on - a Splitter's "+"
+            // assembles as the 3x3 box it is drawn in, not as its five occupied cells.
+            UnityEngine.Vector2Int footprint = _segments[MaterializedCount].Definition.FootprintSize;
+
+            float target = SegmentProgress(MaterializedCount);
+            float rate = SegmentAssembly.RateFor(footprint.x * footprint.y);
+            _frontAssembly = System.Math.Min(target, _frontAssembly + rate * deltaTime);
+        }
+
+        /// <summary>
+        /// How far along segment `index` has physically assembled, 0 to 1 - what the materialisation
+        /// effect draws. 1 behind the front, 0 ahead of it, and the running assembly on the front
+        /// itself, for the same reason SegmentProgress has that shape: segments are built strictly in
+        /// placement order.
+        ///
+        /// Distinct from SegmentProgress, which is how much material has <b>arrived</b>. This one is
+        /// how much of it has been turned into a building, and it is the one that decides when the
+        /// building starts working.
+        /// </summary>
+        public float AssemblyProgressFor(int index)
+        {
+            if (index < 0 || index >= _segments.Count) return 0f;
+            if (index < MaterializedCount) return 1f;
+            if (index > MaterializedCount) return 0f;
+            return _frontAssembly;
         }
 
         int ConsumedByMaterializedSegments(string itemId)
@@ -390,9 +445,11 @@ namespace Game.Gameplay.Sites
         }
 
         /// <summary>
-        /// How far along segment `index` is, 0 to 1 - what a view needs to draw it materializing,
-        /// and the only form in which this is exposed: the rule that decides which delivery feeds
-        /// which segment stays here rather than being re-derived by whoever draws it.
+        /// How much of segment `index`'s own cost has <b>arrived</b>, 0 to 1 - the target its assembly
+        /// chases, and the only form in which per-segment supply leaves this object: the rule that
+        /// decides which delivery feeds which segment stays here rather than being re-derived
+        /// elsewhere. What is drawn, and what decides when the building works, is
+        /// AssemblyProgressFor.
         ///
         /// Segments materialize strictly in placement order and consume the delivered pile in that
         /// same order, so a segment past the current one has necessarily received nothing yet: the
@@ -428,7 +485,18 @@ namespace Game.Gameplay.Sites
         {
             BuildingRuntime segment = _segments[MaterializedCount];
             AccumulateConsumption(segment);
+
+            // Paid for in full: it becomes a working building here, in the same breath as the caller
+            // registering it with TransportSystem. The two must not drift apart - a segment that is
+            // registered but still flagged would be ticked while every neighbour refused to deal
+            // with it.
+            segment.IsUnderConstruction = false;
+
             MaterializedCount++;
+
+            // The next segment starts from nothing: a run assembles piece by piece along its path,
+            // never all at once.
+            _frontAssembly = 0f;
             return segment;
         }
 
@@ -484,6 +552,8 @@ namespace Game.Gameplay.Sites
                 ["id"] = Id,
                 ["segments"] = segments,
                 ["materializedCount"] = MaterializedCount,
+                ["frontAssembly"] = _frontAssembly,
+                ["deliveryCount"] = DeliveryCount,
                 ["delivered"] = JObject.FromObject(_delivered),
                 ["committed"] = JObject.FromObject(_committed),
                 ["reservations"] = reservations
@@ -495,6 +565,11 @@ namespace Game.Gameplay.Sites
         {
             MaterializedCount = state.Value<int?>("materializedCount") ?? 0;
 
+            // A save taken mid-assembly resumes mid-assembly rather than restarting the front
+            // segment from nothing. Absent in an older blob, which simply means "not started".
+            _frontAssembly = state.Value<float?>("frontAssembly") ?? 0f;
+            DeliveryCount = state.Value<int?>("deliveryCount") ?? 0;
+
             // Rebuilt rather than serialized: it is a pure function of the segments already
             // materialized, and those are reconstructed before this runs. One pass on load instead
             // of a saved field that could disagree with the segment list it summarizes.
@@ -502,6 +577,10 @@ namespace Game.Gameplay.Sites
             for (int i = 0; i < MaterializedCount && i < _segments.Count; i++)
             {
                 AccumulateConsumption(_segments[i]);
+
+                // AddSegment flagged every reconstructed segment as pending, which is right for the
+                // ones still owed material and wrong for the ones this save had already built.
+                _segments[i].IsUnderConstruction = false;
             }
 
             _delivered.Clear();
