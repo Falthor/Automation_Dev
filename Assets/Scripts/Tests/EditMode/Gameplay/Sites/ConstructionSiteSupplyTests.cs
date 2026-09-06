@@ -295,6 +295,117 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         }
 
         /// <summary>
+        /// Everything one container has promised: what sites still hold as reservations, plus what
+        /// robots have been dispatched to fetch from it and not yet picked up. The two together are
+        /// what may never exceed the container's contents.
+        /// </summary>
+        static int ClaimedIn(Fixture fixture, StorageRuntime container, string itemId)
+        {
+            int total = 0;
+
+            foreach (ConstructionSiteRuntime site in fixture.Sites.Sites)
+            {
+                total += site.ReservedIn(container, itemId);
+            }
+
+            foreach (BuilderRobotRuntime robot in fixture.Sites.Robots)
+            {
+                if (robot.PendingAmount <= 0) continue;
+                if (!ReferenceEquals(robot.SourceContainer, container) || robot.PendingItemId != itemId) continue;
+                total += robot.PendingAmount;
+            }
+
+            return total;
+        }
+
+        /// <summary>
+        /// Four sites placed at once with only two robots all report material on its way, and that is
+        /// correct. A reservation is a claim on <b>stock</b>, not a robot assignment: the plates are
+        /// earmarked in the chest, no other site can take them, and the two robots will work through
+        /// the queue oldest-first. Tying reservations to robot cargo instead would leave the third
+        /// and fourth sites reading "missing" while the material for them sits in the chest with
+        /// their name on it - which is exactly the "delivered 10 of 15" ambiguity the counter exists
+        /// to remove.
+        /// </summary>
+        [Test]
+        public void MoreSitesThanRobots_AllShowMaterialComing_WhenTheStockCoversThemAll()
+        {
+            Fixture fixture = NewFixture(plates: 20);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 5));
+
+            var sites = new List<ConstructionSiteRuntime>();
+            for (int i = 0; i < 4; i++) sites.Add(PlaceSite(fixture, costly, new GridCoord(5 + 3 * i, 5)));
+
+            Assert.AreEqual(2, fixture.Sites.Robots.Count, "Precondition: fewer robots than sites.");
+
+            foreach (ConstructionSiteRuntime site in sites)
+            {
+                SupplyLine line = LineFor(site, PlateId);
+                Assert.AreEqual(5, line.EnRoute, "Every site's bill is claimed, robots or not.");
+                Assert.AreEqual(0, line.Missing);
+            }
+
+            Assert.AreEqual(20, ClaimedIn(fixture, fixture.CoreChest, PlateId),
+                "And the four claims add up to exactly what the chest holds - no unit promised twice.");
+        }
+
+        /// <summary>
+        /// The invariant that actually protects the counter: no container ever promises more than it
+        /// holds, at any instant of a full run, however many sites are queued against it.
+        ///
+        /// The window this was written for: a robot releases its site's reservation when it is
+        /// dispatched but only takes the items on arrival, so mid-trip the units sit in the chest
+        /// claimed by no reservation at all. Counting reservations alone offered them to the next
+        /// site, and one stack got promised to two chantiers - the first robot emptied it and the
+        /// second site went on showing material coming that existed nowhere.
+        /// </summary>
+        [Test]
+        public void NoContainer_EverPromisesMoreThanItHolds_AtAnyPointOfARun()
+        {
+            Fixture fixture = NewFixture(plates: 14);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 5));
+
+            for (int i = 0; i < 5; i++) PlaceSite(fixture, costly, new GridCoord(5 + 3 * i, 5));
+
+            for (int step = 0; step < 120; step++)
+            {
+                int held = fixture.CoreChest.GetInputAmount(PlateId);
+                int claimed = ClaimedIn(fixture, fixture.CoreChest, PlateId);
+
+                Assert.LessOrEqual(claimed, held,
+                    $"step {step}: the chest holds {held} plates but has promised {claimed}. "
+                    + "Two sites are counting on the same physical stack.");
+
+                fixture.Simulate(0.2f);
+            }
+        }
+
+        /// <summary>
+        /// The same window, stated as the consequence rather than the invariant: 14 plates can only
+        /// ever finish two sites of five and start a third. The fifth must end up reporting missing
+        /// material - if every site still claims a full bill, the chest has been over-promised.
+        /// </summary>
+        [Test]
+        public void WhenTheStockRunsShort_TheYoungestSitesReportMissing_RatherThanAllClaimingAFullBill()
+        {
+            Fixture fixture = NewFixture(plates: 14);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 5));
+
+            var sites = new List<ConstructionSiteRuntime>();
+            for (int i = 0; i < 5; i++) sites.Add(PlaceSite(fixture, costly, new GridCoord(5 + 3 * i, 5)));
+
+            int totalMissing = 0;
+            foreach (ConstructionSiteRuntime site in sites) totalMissing += LineFor(site, PlateId).Missing;
+
+            Assert.AreEqual(25 - 14, totalMissing,
+                "Five sites want 25 plates and the base has 14, so exactly 11 must read as missing "
+                + "somewhere - never claimed by an optimistic reservation.");
+
+            Assert.AreEqual(0, LineFor(sites[0], PlateId).Missing, "The oldest site is served first...");
+            Assert.Greater(LineFor(sites[4], PlateId).Missing, 0, "...and the youngest is the one left short.");
+        }
+
+        /// <summary>
         /// A dragged conveyor run is one site with many segments, so its bill is the sum of theirs -
         /// the panel speaks about the whole run, which is what the player placed.
         /// </summary>
