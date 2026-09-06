@@ -294,7 +294,10 @@ namespace Game.Presentation
             Vector3? outputArrowWorldPos = null;
             if (selected.HasOutputArrow)
             {
-                GridCoord outputCell = BuildingRuntime.ComputeOutputCells(cell, selected.FootprintSize, previewRotation)[0];
+                // The building's own rule for which cell of its output edge carries the arrow, not
+                // the first one: they differ on every even-width edge, so a 2x2 Foundry previewed
+                // its arrow one cell away from where it grew it.
+                GridCoord outputCell = BuildingRuntime.ComputeOutputCell(cell, selected.FootprintSize, previewRotation);
                 outputArrowWorldPos = gameRuntime.Grid.CellCenterToWorld(outputCell);
                 outputArrowSprite = _spriteFactory.CreateArrowSprite(OutputArrowColor);
             }

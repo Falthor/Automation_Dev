@@ -100,9 +100,21 @@ namespace Game.Gameplay.Buildings
         /// preview, transport pull alignment) that only need one canonical cell rather than the
         /// whole edge (GetOutputCells(), which is what actual item transport pushes across).
         /// </summary>
-        public GridCoord GetOutputCell()
+        public GridCoord GetOutputCell() => ComputeOutputCell(Cell, Definition.FootprintSize, ExitDirection);
+
+        /// <summary>
+        /// The same representative cell, for a building that does not exist yet - what the placement
+        /// ghost draws its output arrow on.
+        ///
+        /// It exists because picking the cell is a rule, not an index: the ghost took cells[0] while
+        /// the building takes the middle one, which agree on every odd-width edge and disagree on
+        /// every even one. A 2x2 Foundry previewed its arrow on the left cell of its output edge and
+        /// grew it on the right one - the ghost was not describing the building it was about to
+        /// place. Stated once here, read by both.
+        /// </summary>
+        public static GridCoord ComputeOutputCell(GridCoord cell, UnityEngine.Vector2Int footprintSize, Direction exitDirection)
         {
-            GridCoord[] cells = GetOutputCells();
+            GridCoord[] cells = ComputeOutputCells(cell, footprintSize, exitDirection);
             return cells[MiddleIndex(cells.Length)];
         }
 

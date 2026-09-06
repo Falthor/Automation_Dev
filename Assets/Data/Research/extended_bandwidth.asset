@@ -19,5 +19,6 @@ MonoBehaviour:
   cuCost: 3000
   prerequisites:
   - {fileID: 11400000, guid: 8e7a78127efaea543854b4afb8011b8f, type: 2}
+  revealedBy: {fileID: 11400000, guid: 8e7a78127efaea543854b4afb8011b8f, type: 2}
   absorptionRatePerSecond: 45
   tier: 4

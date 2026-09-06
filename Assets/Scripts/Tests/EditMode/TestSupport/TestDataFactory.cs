@@ -157,6 +157,15 @@ namespace Game.Tests.EditMode.TestSupport
             return research;
         }
 
+        /// <summary>Marks an existing research as listed only once `revealedBy` is completed - the presentation gate, distinct from the prerequisites above (see ResearchDefinition.RevealedBy). Separate from NewResearch because that one's trailing `params` leaves no room for another optional argument.</summary>
+        public static ResearchDefinition SetRevealedBy(ResearchDefinition research, ResearchDefinition revealedBy)
+        {
+            var so = new SerializedObject(research);
+            so.FindProperty("revealedBy").objectReferenceValue = revealedBy;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return research;
+        }
+
         static void SetStringArray(SerializedObject so, string propertyName, string[] values)
         {
             SerializedProperty array = so.FindProperty(propertyName);

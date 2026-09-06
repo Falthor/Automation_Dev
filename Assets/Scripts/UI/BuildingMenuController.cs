@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Data;
+using Game.Gameplay.Research;
 using Game.Gameplay.Transport;
 using Game.Presentation;
 using UnityEngine;
@@ -103,6 +104,37 @@ namespace Game.UI
 
         void OnGlobalPanelChanged(string panelName) => ApplyOpenState(panelName == PanelName);
 
+        /// <summary>
+        /// A category's tab appears only once it has something to show. Organisation holds the
+        /// Storage Box alone, so before that research it was a tab onto an empty grid - the menu
+        /// announcing a section of the game the player cannot reach yet.
+        ///
+        /// Derived from the per-card rule rather than named category by category: a tab is exactly
+        /// as available as its contents, so a new building or a new category needs nothing here.
+        /// </summary>
+        public static bool HasVisibleBuilding(BuildingMenuEntry[] entries, BuildingCategory category, ResearchSystem research)
+        {
+            foreach (BuildingMenuEntry entry in entries)
+            {
+                if (entry.definition == null || entry.category != category) continue;
+                if (IsUnlocked(entry.definition, research)) return true;
+            }
+            return false;
+        }
+
+        bool HasVisibleBuilding(BuildingCategory category) => HasVisibleBuilding(entries, category, gameRuntime.Research);
+
+        /// <summary>
+        /// Whether this building is listed at all. A locked one does not appear (matching the source
+        /// project's building_panel.gd) - "unaffordable" is a different, visible-but-not-buildable
+        /// state. Asked in one place so the cards and the category rail can never disagree about
+        /// what exists.
+        /// </summary>
+        public static bool IsUnlocked(BuildingDefinition definition, ResearchSystem research)
+            => definition.UnlockResearch == null || research.IsUnlocked(definition.UnlockResearch.Id);
+
+        bool IsUnlocked(BuildingDefinition definition) => IsUnlocked(definition, gameRuntime.Research);
+
         void BuildCategoryButtons()
         {
             _categoryColumn.Clear();
@@ -110,6 +142,8 @@ namespace Game.UI
 
             foreach (BuildingCategory category in Enum.GetValues(typeof(BuildingCategory)))
             {
+                if (!HasVisibleBuilding(category)) continue;
+
                 var button = new Button(() => SelectCategory(category)) { text = string.Empty };
                 button.AddToClassList("category-button");
 
@@ -142,6 +176,18 @@ namespace Game.UI
 
         void SelectCategory(BuildingCategory category)
         {
+            // The asked-for category may have no tab (nothing in it is unlocked yet), which is the
+            // case every time the menu opens before the first research: fall back to whatever rail
+            // there is rather than opening on an empty grid with no tab lit.
+            if (!_categoryButtons.ContainsKey(category))
+            {
+                foreach (var kvp in _categoryButtons)
+                {
+                    category = kvp.Key;
+                    break;
+                }
+            }
+
             _selectedCategory = category;
 
             foreach (var kvp in _categoryButtons)
@@ -166,10 +212,8 @@ namespace Game.UI
 
                 BuildingDefinition definition = entry.definition;
 
-                // A building whose research is not yet unlocked doesn't appear at all (matches
-                // the source project's building_panel.gd, which only lists unlocked buildings) -
-                // "unaffordable" (amber tint) is a different, visible-but-not-yet-buildable state.
-                if (definition.UnlockResearch != null && !gameRuntime.Research.IsUnlocked(definition.UnlockResearch.Id)) continue;
+                if (!IsUnlocked(definition)) continue;
+
                 var card = new Button(() => SelectAndClose(definition)) { text = string.Empty };
                 card.AddToClassList("building-card");
                 card.RegisterCallback<PointerEnterEvent>(_ =>
@@ -468,6 +512,9 @@ namespace Game.UI
 
             if (open)
             {
+                // Rebuilt on every open, not once at Start: research completes while the menu is
+                // closed, and a rail built before the Storage Box existed would never gain its tab.
+                BuildCategoryButtons();
                 SelectCategory(BuildingCategory.Production);
             }
             else

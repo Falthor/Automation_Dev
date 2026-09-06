@@ -19,6 +19,19 @@ namespace Game.Data
         [SerializeField, Min(0f)] float cuCost;
         [SerializeField] ResearchDefinition[] prerequisites = System.Array.Empty<ResearchDefinition>();
 
+        /// <summary>
+        /// Kept out of the research list entirely until this one is completed. Null - the default -
+        /// means always listed.
+        ///
+        /// Deliberately not the same question as Prerequisites, which says when a research may be
+        /// <b>started</b>. A research with unmet prerequisites is normally shown anyway, locked: the
+        /// visible chain up to the Datacenter is what tells the player where the introduction is
+        /// going. This says the opposite thing about a few of them - do not mention this yet - and
+        /// the two only look alike because everything hidden today happens to sit behind the same
+        /// milestone.
+        /// </summary>
+        [SerializeField] ResearchDefinition revealedBy;
+
         /// <summary>Ceiling on how many CU per second this research can absorb, even when the reserve holds far more - the runtime rate is min(this, whatever the reserve can currently give).</summary>
         [SerializeField, Min(0f)] float absorptionRatePerSecond;
 
@@ -33,6 +46,9 @@ namespace Game.Data
 
         /// <summary>Every research that must already be completed before this one may be started. Empty means available from the start.</summary>
         public IReadOnlyList<ResearchDefinition> Prerequisites => prerequisites;
+
+        /// <summary>The research that has to be completed before this one is even listed, or null to always list it. See the field.</summary>
+        public ResearchDefinition RevealedBy => revealedBy;
 
         public float AbsorptionRatePerSecond => absorptionRatePerSecond;
         public int Tier => tier;

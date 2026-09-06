@@ -789,13 +789,7 @@
     border-color: rgb(48, 59, 66);
 }
 
-.research-row:hover {
-    border-color: rgba(85, 221, 245, 0.55);
-}
-
-.research-row-inspected {
-    border-width: 2px;
-}
+/* Selection and hover live at the end of this block, after the per-state rules - see there. */
 
 .research-row-missing-prereq {
     border-color: rgb(239, 108, 108);
@@ -856,6 +850,27 @@
 .research-state-completed { opacity: 0.85; }
 .research-state-completed .research-row-icon { background-color: rgb(18, 53, 44); border-color: rgb(93, 202, 165); color: rgb(93, 202, 165); }
 .research-state-completed .research-row-status { color: rgb(93, 202, 165); }
+
+/* The row the detail panel is describing: a green edge over a green ground, the same "this is the
+   one you picked" treatment .recipe-card-selected already uses, in the other colour.
+
+   Written after the per-state rules on purpose. Every .research-state-* above sets a border colour
+   at the same specificity, so which of them wins is decided by file order - selection has to come
+   last or a payable row would stay blue while selected. A brighter green than the completed teal
+   (93, 202, 165), which already means "acquis" a few lines up. */
+.research-row-inspected {
+    border-width: 2px;
+    border-color: rgb(100, 210, 130);
+    background-color: rgb(20, 45, 32);
+}
+
+/* Under the cursor it is cyan, selected or not: hover is the pointer's own feedback and must not be
+   read as the selection it is about to change. Last, and the only rule here carrying a pseudo-class,
+   so it wins over both the states and the green above. */
+.research-row:hover,
+.research-row-inspected:hover {
+    border-color: rgb(85, 221, 245);
+}
 
 .research-queue-section { margin-top: 6px; }
 

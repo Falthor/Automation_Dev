@@ -128,17 +128,51 @@ namespace Game.UI
             Refresh();
         }
 
-        /// <summary>Creates one row per research the database defines. Called when the panel opens, never per frame - see _rows.</summary>
+        /// <summary>
+        /// Whether this research is listed at all right now. A locked research is normally shown
+        /// anyway - the chain up to the Datacenter is what tells the player where the introduction
+        /// is going - but one declaring RevealedBy stays out of the list until that milestone is
+        /// done, so the introduction's menu does not announce what comes after it.
+        /// </summary>
+        public static bool IsRevealed(ResearchDefinition definition, ResearchSystem research)
+            => definition.RevealedBy == null || research.IsUnlocked(definition.RevealedBy.Id);
+
+        bool IsRevealed(ResearchDefinition definition) => IsRevealed(definition, gameRuntime.Research);
+
+        /// <summary>Every research to list right now, in database order.</summary>
+        IEnumerable<ResearchDefinition> VisibleResearches()
+        {
+            IReadOnlyList<ResearchDefinition> all = gameRuntime.Researches != null ? gameRuntime.Researches.GetAll() : System.Array.Empty<ResearchDefinition>();
+            foreach (ResearchDefinition definition in all)
+            {
+                if (definition != null && IsRevealed(definition)) yield return definition;
+            }
+        }
+
+        /// <summary>
+        /// Whether the set of listed researches has changed under us. Checked every frame, rebuilt
+        /// only when it answers true: completing the Datacenter reveals five rows, and it can
+        /// complete while this panel is open and watching it.
+        /// </summary>
+        bool VisibleSetChanged()
+        {
+            int index = 0;
+            foreach (ResearchDefinition definition in VisibleResearches())
+            {
+                if (index >= _rows.Count || !ReferenceEquals(_rows[index].definition, definition)) return true;
+                index++;
+            }
+            return index != _rows.Count;
+        }
+
+        /// <summary>Creates one row per listed research. Called when the panel opens and whenever that list changes - never merely per frame, see _rows.</summary>
         void BuildRows()
         {
             _list.Clear();
             _rows.Clear();
 
-            IReadOnlyList<ResearchDefinition> all = gameRuntime.Researches != null ? gameRuntime.Researches.GetAll() : System.Array.Empty<ResearchDefinition>();
-            foreach (ResearchDefinition definition in all)
+            foreach (ResearchDefinition definition in VisibleResearches())
             {
-                if (definition == null) continue;
-
                 ResearchDefinition captured = definition;
                 var row = new VisualElement();
                 row.AddToClassList("research-row");
@@ -203,6 +237,15 @@ namespace Game.UI
         void Refresh()
         {
             ResearchSystem research = gameRuntime.Research;
+
+            // A research completing can reveal others, and it completes while this panel watches it.
+            if (VisibleSetChanged()) BuildRows();
+
+            // The inspected one may have just been rebuilt away from under the detail panel - only
+            // possible if it was hidden, which today cannot happen (nothing is ever un-revealed),
+            // but the panel must not be left describing a row that is no longer on screen.
+            if (_inspected != null && !IsRevealed(_inspected)) _inspected = research.GetActiveResearch();
+
             _reserveLabel.text = $"Reserve {Mathf.FloorToInt(gameRuntime.Compute.Reserve)} CU";
 
             HashSet<string> missingPrereqIds = MissingPrerequisiteIds(research, _inspected);
