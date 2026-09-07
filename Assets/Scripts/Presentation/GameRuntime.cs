@@ -140,6 +140,9 @@ namespace Game.Presentation
         /// <summary>The expedition process: probes, missions in flight, reports. Null when no mission settings are configured, which is a world without expeditions rather than a broken one.</summary>
         public MissionSystem Missions { get; private set; }
 
+        /// <summary>One texel per sector, for the whole map - what the zoomed-out map draws. Rebuilds only the chunks discovery actually moved, so a still frame costs one comparison.</summary>
+        public SectorMapImage SectorMap { get; private set; }
+
         /// <summary>
         /// The scene's one depth ladder - every sorted-band rank comes from it. There must be
         /// exactly one: a rank is only meaningful against the window it was measured in, so ranks
@@ -315,6 +318,7 @@ namespace Game.Presentation
             // The maximum radius comes from the Core, which owns it, so the exploration threshold
             // follows it on its own rather than being a second figure to keep in step.
             MissionRange = new SectorMissionRange(CoreRuntime.ExtendedActionRadiusCells, sectorSettings.TerritorySpacingCells);
+            SectorMap = new SectorMapImage(Sectors, Discovery);
 
             if (missionSettings != null)
             {
@@ -513,6 +517,9 @@ namespace Game.Presentation
 
             SaveService.Save(data);
         }
+
+        /// <summary>The map image owns a Texture2D, which Unity does not collect on its own.</summary>
+        void OnDestroy() => SectorMap?.Dispose();
 
         void OnApplicationQuit()
         {

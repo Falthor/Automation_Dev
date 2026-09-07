@@ -420,6 +420,7 @@ GameObject:
   - component: {fileID: 60635899}
   - component: {fileID: 60635903}
   - component: {fileID: 60635904}
+  - component: {fileID: 60635905}
   m_Layer: 0
   m_Name: GameUI
   m_TagString: Untagged
@@ -745,6 +746,21 @@ MonoBehaviour:
   gameRuntime: {fileID: 2103112250}
   selectionRouter: {fileID: 60635893}
   robotIcon: {fileID: 21300000, guid: aca9344cf6115774cbf9e8d5069139ba, type: 3}
+--- !u!114 &60635905
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 60635885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 36248d4a2d59ca14db6f430a55c77558, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.UI::Game.UI.SectorMapPanelController
+  uiDocument: {fileID: 60635889}
+  visualTree: {fileID: 9197481963319205126, guid: e430464a888107b4cba96cde9e18c659, type: 3}
+  gameRuntime: {fileID: 2103112250}
 --- !u!1 &134080686
 GameObject:
   m_ObjectHideFlags: 0

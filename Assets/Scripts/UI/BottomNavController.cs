@@ -34,6 +34,9 @@ namespace Game.UI
         /// <summary>Kept apart from the array because it is the one category that can be absent: the Research menu is handed over by the Core's first directive, not owned from the start.</summary>
         VisualElement _researchCategoryButton;
 
+        /// <summary>Opens the zoomed-out map. Hidden until the explorer robots arrive.</summary>
+        Button _mapButton;
+
         /// <summary>False until the player has opened the Research panel once - what ends the "this is new" pulse on the icon that just appeared.</summary>
         bool _researchMenuSeen;
         readonly VisualElement[] _slotRoots = new VisualElement[BuildingMenuController.ToolbarSlotCount];
@@ -54,6 +57,8 @@ namespace Game.UI
 
             _categoryRow = panelRoot.Q<VisualElement>("BottomNavCategoryRow");
             _toolbarRow = panelRoot.Q<VisualElement>("BottomNavToolbarRow");
+
+            BuildMapButton(panelRoot.Q<VisualElement>("BottomNavMinimap"));
 
             BuildCategoryButtons();
             BuildToolbarSlots();
@@ -78,6 +83,7 @@ namespace Game.UI
             AddCategoryButton(2, ResearchPanelController.PanelName, researchIcon);
             _researchCategoryButton = _categoryButtons[2].button;
             RefreshResearchAvailability();
+            RefreshMapAvailability();
         }
 
         /// <summary>
@@ -97,6 +103,35 @@ namespace Game.UI
             // both stop on the same event: the player opening the panel they point at.
             if (gameRuntime.Selection.ActiveGlobalPanel == ResearchPanelController.PanelName) _researchMenuSeen = true;
             NewUnlockPulse.Apply(_researchCategoryButton, unlocked && !_researchMenuSeen);
+        }
+
+        /// <summary>
+        /// The zoomed-out map opens from the slot the layout already reserved for a minimap - an
+        /// element that existed in the UXML with no consumer. Using it rather than adding a fourth
+        /// category keeps the category row meaning what it means: three menus about the base, and the
+        /// map is about everywhere else.
+        ///
+        /// It is not a placeholder for a live minimap: at 10 000 cells a thumbnail of the whole world
+        /// would show the player's entire territory as a couple of pixels.
+        /// </summary>
+        void BuildMapButton(VisualElement slot)
+        {
+            if (slot == null) return;
+
+            _mapButton = new Button(() => ToggleGlobalPanel(SectorMapPanelController.PanelName)) { text = "CARTE" };
+            _mapButton.AddToClassList("bottom-nav-map-button");
+
+            slot.Clear();
+            slot.Add(_mapButton);
+        }
+
+        /// <summary>The map exists once the robots do: before that there is nowhere to send anything, and §9 makes their arrival what opens it.</summary>
+        void RefreshMapAvailability()
+        {
+            if (_mapButton == null) return;
+
+            bool available = gameRuntime.Missions != null && gameRuntime.Missions.RobotsHaveAppeared;
+            _mapButton.EnableInClassList("hidden", !available);
         }
 
         void AddCategoryButton(int index, string panelName, Sprite icon)
@@ -217,6 +252,7 @@ namespace Game.UI
         void Update()
         {
             RefreshResearchAvailability();
+            RefreshMapAvailability();
 
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null || IsTextFieldFocused()) return;

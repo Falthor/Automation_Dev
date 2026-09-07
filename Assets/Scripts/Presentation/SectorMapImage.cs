@@ -8,7 +8,7 @@ namespace Game.Presentation
     /// One texel per sector, for the whole map: what the zoomed-out map draws.
     ///
     /// <b>The whole map fits because a sector is the unit, not a cell.</b> A 10 000-cell map holds
-    /// 390 625 sectors, so the image is 625 x 625 - 390 KB at one byte per texel, against 100 MB for
+    /// 390 625 sectors, so the image is 625 x 625 - 1.5 MB, against 400 MB for
     /// a texel per cell. It therefore does not need the camera-following window the fog texture
     /// needed; the panel showing it zooms into a rectangle of it instead, which costs nothing because
     /// the data is already all there.
@@ -29,10 +29,31 @@ namespace Game.Presentation
         public const byte PartialTexel = 128;
         public const byte DiscoveredTexel = 255;
 
+        /// <summary>
+        /// What each state is painted. **Colours rather than data, and deliberately.**
+        ///
+        /// This started as an R8 texture — one byte per sector, the shape data wants. But nothing
+        /// samples it in a shader: its only consumer is a UI element that displays it directly, and a
+        /// single-channel texture shown directly is bright red. Producing the colours here costs
+        /// 1.5 MB instead of 390 KB on the shipped map, which is nothing, and removes the shader that
+        /// would otherwise exist only to recolour three values.
+        ///
+        /// Undiscovered matches the panel's own background, so fog reads as the absence of a map
+        /// rather than as a black shape drawn on one.
+        /// </summary>
+        static readonly Color32 UnknownColour = new Color32(14, 18, 23, 255);
+
+        static readonly Color32 PartialColour = new Color32(74, 62, 48, 255);
+
+        static readonly Color32 DiscoveredColour = new Color32(116, 97, 74, 255);
+
         readonly SectorGrid _grid;
         readonly DiscoveryRuntime _discovery;
 
         readonly byte[] _texels;
+
+        /// <summary>What is actually uploaded. Parallel to the state array above, which stays the answer to "what does this sector read as".</summary>
+        readonly Color32[] _pixels;
         readonly List<int> _chunkScratch = new List<int>();
 
         /// <summary>The version each chunk's sectors were last drawn at. As sparse as the discovery storage itself.</summary>
@@ -60,9 +81,12 @@ namespace Game.Presentation
             SizeSectors = Mathf.Max(1, grid?.Columns ?? 1);
             _texels = new byte[SizeSectors * SizeSectors];
 
-            // R8 and linear, for the same reason the fog texture is: this is data, not colour, and a
-            // sRGB sampler would bend the values on the way to the shader.
-            Texture = new Texture2D(SizeSectors, SizeSectors, TextureFormat.R8, false, true)
+            _pixels = new Color32[SizeSectors * SizeSectors];
+            for (int i = 0; i < _pixels.Length; i++) _pixels[i] = UnknownColour;
+
+            // RGBA32 and sRGB, unlike the fog's R8: this one is displayed, not sampled against a
+            // threshold, so it *is* colour and wants the colour pipeline.
+            Texture = new Texture2D(SizeSectors, SizeSectors, TextureFormat.RGBA32, false)
             {
                 name = "SectorMap",
                 filterMode = FilterMode.Point,
@@ -123,7 +147,11 @@ namespace Game.Presentation
                         if (index < 0) continue;   // the map's edge clips the last chunks
 
                         visited++;
-                        _texels[row * SizeSectors + column] = TexelFor(_grid.DiscoveryOf(index, _discovery));
+                        SectorDiscovery state = _grid.DiscoveryOf(index, _discovery);
+                        int texel = row * SizeSectors + column;
+
+                        _texels[texel] = TexelFor(state);
+                        _pixels[texel] = ColourFor(state);
                     }
                 }
             }
@@ -131,9 +159,19 @@ namespace Game.Presentation
             LastVisitedSectorCount = visited;
             if (visited == 0) return;   // the version moved somewhere this image does not draw
 
-            Texture.SetPixelData(_texels, 0);
+            Texture.SetPixels32(_pixels);
             Texture.Apply(false, false);
             UploadCount++;
+        }
+
+        static Color32 ColourFor(SectorDiscovery discovery)
+        {
+            switch (discovery)
+            {
+                case SectorDiscovery.Discovered: return DiscoveredColour;
+                case SectorDiscovery.Partial: return PartialColour;
+                default: return UnknownColour;
+            }
         }
 
         static byte TexelFor(SectorDiscovery discovery)
