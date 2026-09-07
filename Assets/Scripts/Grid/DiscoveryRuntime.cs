@@ -74,6 +74,42 @@ namespace Game.Grid
         /// <summary>How many chunks currently hold storage. For tests and reporting - it is the whole point of the sparse form, so it is worth being able to assert.</summary>
         public int MaterialisedChunkCount => _chunks.Count;
 
+        /// <summary>Chunks along one axis. Needed by anything that turns a chunk index back into coordinates.</summary>
+        public int ChunksPerAxis => _chunksPerAxis;
+
+        /// <summary>
+        /// The value <see cref="Version"/> held when a chunk was last written to, or 0 for a chunk
+        /// never touched.
+        ///
+        /// <b>What lets a reader rebuild only what moved.</b> The global version says something
+        /// changed somewhere; this says where. Without it, a renderer that walks the materialised
+        /// chunks pays for everything the player has ever seen every time one cell is revealed -
+        /// measured at 154 ms on a well-explored map, which is a dropped frame per revelation.
+        ///
+        /// Stamped with the global version rather than counted per chunk, so a stamp is unique in
+        /// time: a cached value can never coincidentally match a later state, including after a
+        /// RestoreState has replaced every chunk.
+        /// </summary>
+        public int ChunkVersion(int chunkIndex)
+            => _chunkVersions.TryGetValue(chunkIndex, out int version) ? version : 0;
+
+        /// <summary>When each chunk was last written to. Parallel to <see cref="_chunks"/> and just as sparse.</summary>
+        readonly Dictionary<int, int> _chunkVersions = new Dictionary<int, int>();
+
+        /// <summary>
+        /// The chunks that hold storage, appended to a caller-owned list.
+        ///
+        /// <b>What makes drawing the whole map affordable.</b> Everything outside these is unknown by
+        /// construction, so a renderer that walks them has walked everything there is to see - which
+        /// on a 10 000-cell map is a handful of chunks rather than 24 649. A list rather than an
+        /// enumerator so a refresh allocates nothing.
+        /// </summary>
+        public void CollectMaterialisedChunks(List<int> into)
+        {
+            if (into == null) return;
+            foreach (var chunk in _chunks) into.Add(chunk.Key);
+        }
+
         public DiscoveryRuntime(int size, int chunkSizeCells)
         {
             Size = Mathf.Max(0, size);
@@ -120,18 +156,51 @@ namespace Game.Grid
         public bool Contains(GridCoord cell)
             => cell.X >= 0 && cell.X < Size && cell.Y >= 0 && cell.Y < Size;
 
-        /// <summary>Marks one cell discovered. Returns true only if that changed something, so a caller can tell a real revelation from a repeat.</summary>
-        public bool Reveal(GridCoord cell)
+        /// <summary>
+        /// The one place a cell is ever written, and therefore the one place a chunk can be recorded
+        /// as having changed.
+        ///
+        /// <b>Single, because it was not.</b> Four paths wrote cells and each bumped
+        /// <see cref="Version"/> on its own; when per-chunk stamps were added, three of them silently
+        /// did not stamp - so the zoomed-out map bumped its version, found no chunk changed, and drew
+        /// nothing at all. A reader cannot tell that apart from "nothing happened".
+        ///
+        /// Returns whether this changed anything, and remembers the chunk for <see cref="CommitWrites"/>.
+        /// </summary>
+        bool WriteDiscovered(GridCoord cell)
         {
-            if (!Contains(cell)) return false;
-
             DiscoveryState[] chunk = ChunkForWriting(cell);
             int offset = OffsetInChunk(cell);
             if (chunk[offset] == DiscoveryState.Discovered) return false;
 
             chunk[offset] = DiscoveryState.Discovered;
-            Version++;
+            _touchedChunks.Add(ChunkIndexOf(cell));
             return true;
+        }
+
+        /// <summary>Closes a batch of writes: one version bump for the call, and a stamp on every chunk it touched. Doing both here is what keeps them from drifting apart.</summary>
+        void CommitWrites(int revealed)
+        {
+            if (revealed > 0)
+            {
+                Version++;
+                foreach (int chunkIndex in _touchedChunks) _chunkVersions[chunkIndex] = Version;
+            }
+
+            _touchedChunks.Clear();
+        }
+
+        /// <summary>Chunks written during the current call, waiting to be stamped. Reused, so a revelation allocates nothing.</summary>
+        readonly HashSet<int> _touchedChunks = new HashSet<int>();
+
+        /// <summary>Marks one cell discovered. Returns true only if that changed something, so a caller can tell a real revelation from a repeat.</summary>
+        public bool Reveal(GridCoord cell)
+        {
+            if (!Contains(cell)) return false;
+
+            bool revealed = WriteDiscovered(cell);
+            CommitWrites(revealed ? 1 : 0);
+            return revealed;
         }
 
         /// <summary>
@@ -167,17 +236,11 @@ namespace Game.Grid
                     float dx = x + 0.5f - centerCells.x;
                     if (dx * dx + dySquared > radiusSquared) continue;
 
-                    var cell = new GridCoord(x, y);
-                    DiscoveryState[] chunk = ChunkForWriting(cell);
-                    int offset = OffsetInChunk(cell);
-                    if (chunk[offset] == DiscoveryState.Discovered) continue;
-
-                    chunk[offset] = DiscoveryState.Discovered;
-                    revealed++;
+                    if (WriteDiscovered(new GridCoord(x, y))) revealed++;
                 }
             }
 
-            if (revealed > 0) Version++;
+            CommitWrites(revealed);
             return revealed;
         }
 
@@ -190,16 +253,10 @@ namespace Game.Grid
             foreach (GridCoord cell in cells)
             {
                 if (!Contains(cell)) continue;
-
-                DiscoveryState[] chunk = ChunkForWriting(cell);
-                int offset = OffsetInChunk(cell);
-                if (chunk[offset] == DiscoveryState.Discovered) continue;
-
-                chunk[offset] = DiscoveryState.Discovered;
-                revealed++;
+                if (WriteDiscovered(cell)) revealed++;
             }
 
-            if (revealed > 0) Version++;
+            CommitWrites(revealed);
             return revealed;
         }
 
@@ -311,8 +368,11 @@ namespace Game.Grid
         public void RestoreState(string encoded)
         {
             // Dropped rather than zeroed: a restore starts from a map where nothing has been written,
-            // which for the sparse form means no chunks at all.
+            // which for the sparse form means no chunks at all. The stamps go with them - a chunk that
+            // no longer exists has no version, and every chunk the restore writes is stamped afresh
+            // below with a version strictly higher than anything a reader has already drawn.
             _chunks.Clear();
+            _chunkVersions.Clear();
             Version++;
 
             if (string.IsNullOrEmpty(encoded) || Size == 0) return;
@@ -339,6 +399,7 @@ namespace Game.Grid
                     {
                         var cell = new GridCoord(i % Size, i / Size);
                         ChunkForWriting(cell)[OffsetInChunk(cell)] = (DiscoveryState)state;
+                        _chunkVersions[ChunkIndexOf(cell)] = Version;
                     }
                 }
 

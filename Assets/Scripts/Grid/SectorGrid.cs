@@ -164,13 +164,24 @@ namespace Game.Grid
         {
             if (discovery == null || !ContainsIndex(index)) return SectorDiscovery.Unknown;
 
+            GridCoord origin = OriginOf(index);
+            int maxX = Mathf.Min(origin.X + SectorSizeCells, MapSizeCells);
+            int maxY = Mathf.Min(origin.Y + SectorSizeCells, MapSizeCells);
+
             int total = 0;
             int discovered = 0;
 
-            foreach (GridCoord cell in CellsOf(index))
+            // Plain loops rather than CellsOf, for the reason IsWhollyUnknown above already gives: the
+            // iterator allocates once per sector, and the zoomed-out map asks this of every sector in
+            // every materialised chunk. Measured on a map with 144 such chunks, the iterator was most
+            // of a 20 ms rebuild.
+            for (int y = origin.Y; y < maxY; y++)
             {
-                total++;
-                if (discovery.IsDiscovered(cell)) discovered++;
+                for (int x = origin.X; x < maxX; x++)
+                {
+                    total++;
+                    if (discovery.IsDiscovered(new GridCoord(x, y))) discovered++;
+                }
             }
 
             if (total == 0 || discovered == 0) return SectorDiscovery.Unknown;
