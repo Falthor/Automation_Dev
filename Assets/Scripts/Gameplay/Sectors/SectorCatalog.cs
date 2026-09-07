@@ -26,6 +26,10 @@ namespace Game.Gameplay.Sectors
         const uint RiskSalt = 0x85EBCA6B;
         const uint FeatureSalt = 0xC2B2AE35;
         const uint DepositSalt = 0x27D4EB2F;
+        const uint ResourceSalt = 0x165667B1;
+
+        /// <summary>Iron, copper, coal - the three the world generator knows how to place. A count rather than an enum, because the catalog names no resource: it says "the second one", and the caller resolves it against its own definitions.</summary>
+        public const int ResourceKindCount = 3;
 
         /// <summary>
         /// Steps through the name space one sector at a time. Coprime with the 768 combinations
@@ -282,7 +286,11 @@ namespace Game.Gameplay.Sectors
                 deposits[i] = new GridCoord(x, y);
             }
 
-            return new SectorContents(feature, featureCell, deposits);
+            // One ore for the whole sector, drawn once. A mixture would make every destination
+            // interchangeable - see SectorContents.ResourceIndex.
+            int resource = (int)(Hash(Seed, index, ResourceSalt) % (uint)ResourceKindCount);
+
+            return new SectorContents(feature, featureCell, deposits, resource);
         }
 
         /// <summary>Name, risk, centre and current discovery in one value - what a tooltip on the zoomed map needs.</summary>

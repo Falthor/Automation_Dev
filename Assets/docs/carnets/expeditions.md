@@ -110,6 +110,31 @@ revient pas ne transmet rien, donc ne révèle rien — et la cicatrice n'existe
 lectures sont défendables (un relais laissé derrière soi, une boîte noire récupérée plus tard), mais
 elles ne se décident pas maintenant : les sondes ne meurent pas, seules les unités le peuvent.
 
+## 5ter. Une couture construite des deux côtés et jamais faite
+
+`SectorMissionRange` a été bâti, testé, et documenté dans `MAP.md` — et `MissionSystem` ne l'appelait
+jamais. Aucune référence. Les deux moitiés étaient justes et le joint entre elles n'existait pas :
+une prospection pouvait viser du terrain déjà révélé, ou franchir le seuil pour aller chasser dans la
+bande de l'exploration.
+
+**Aucun test unitaire ne pouvait le voir**, puisque chaque moitié passait de son côté. C'est la
+quatrième occurrence de ce profil dans le chantier — les 527 rochers restés à l'ordre zéro, le champ
+de sauvegarde que personne n'écrivait, le balayage qui passait avant son générateur — et c'est ce qui
+a fait naître la règle : **un prédicat testé n'est pas un prédicat appliqué**, et le test qui l'attrape
+part du point d'entrée réel, jamais de la pièce (`DEVELOPMENT_RULES.md` §7).
+
+**Brancher la couture a fait rougir quatre tests d'un coup**, ce qui est le meilleur signe possible :
+ils lançaient des missions impossibles, donc ils validaient un comportement qui n'aurait jamais dû
+exister. Mon aide de test produisait ces cibles parce qu'elle avait été écrite avant que la contrainte
+n'existe.
+
+**Et une erreur de mémoire, sur le cas le plus favorable.** J'ai rapporté l'adjacence comme « tranchée »
+et absente du code. Le document dit l'inverse — « tranché, et autrement que par l'adjacence : c'est la
+bande qui décide » — et c'est **un paragraphe que j'avais rédigé moi-même** quelques jours plus tôt.
+J'ai lu mon souvenir de la conversation plutôt que le document. Un test épingle maintenant l'absence
+d'adjacence avec sa raison : une propriété délibérément écartée n'existe nulle part si personne ne
+l'écrit, et le prochain lecteur la « corrigera ».
+
 ## 6. La révélation n'est pas réimplémentée
 
 Une mission appelle `SectorGrid.RevealInscribedDisc`, qui possède déjà la forme. Le disque inscrit et

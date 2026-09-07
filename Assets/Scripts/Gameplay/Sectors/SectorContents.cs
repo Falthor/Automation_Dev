@@ -23,11 +23,25 @@ namespace Game.Gameplay.Sectors
         /// <summary>Scattered across the whole square, corners included. Never null; empty when the sector has nothing.</summary>
         public readonly GridCoord[] DepositCells;
 
-        public SectorContents(SectorFeature feature, GridCoord featureCell, GridCoord[] depositCells)
+        /// <summary>
+        /// Which ore the whole sector holds, as an index into the world's ore definitions - **one type
+        /// per sector, never a mixture**.
+        ///
+        /// That is what gives a mining zone an identity: choosing where to go becomes a decision
+        /// rather than a draw, because a sector reported as iron stays iron. A sector holding a bit of
+        /// everything would make every destination interchangeable, which is the same failure as
+        /// having something in every direction.
+        ///
+        /// Meaningless when <see cref="DepositCells"/> is empty.
+        /// </summary>
+        public readonly int ResourceIndex;
+
+        public SectorContents(SectorFeature feature, GridCoord featureCell, GridCoord[] depositCells, int resourceIndex = 0)
         {
             Feature = feature;
             FeatureCell = featureCell;
             DepositCells = depositCells ?? System.Array.Empty<GridCoord>();
+            ResourceIndex = resourceIndex;
         }
     }
 }

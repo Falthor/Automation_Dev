@@ -14,7 +14,7 @@ shader, this document owns everything that divides, reveals or hides the map.
 - [`CONTRACTS.md`](CONTRACTS.md) — §14 Save/Restore (`SaveData.Discovered`, and why sectors are not saved).
 - [`TERRAIN.md`](TERRAIN.md) — terrain type and ground rendering.
 - [`../design/expansion-territoriale.md`](../design/expansion-territoriale.md) — secondary Cores, mining zones, deposit density and the generation parameters. **Design intent, none of it implemented**; this document describes what is.
-- `Assets/docs/brouillard-et-zonage.md` — the implementation notebook: decisions taken, deviations and why. Reasoning lives there; current state lives here.
+- [`../carnets/brouillard-et-zonage.md`](../carnets/brouillard-et-zonage.md) — the implementation notebook: decisions taken, deviations and why. Reasoning lives there; current state lives here.
 
 ---
 
@@ -185,19 +185,28 @@ wanting somewhere to go wants a few destinations, not four hundred thousand — 
   the state machine, the two reconnaissances, launch-time draw surviving a save, and the introduction's
   finite reward budget. What is missing is everything with a screen — the launch panel, the mission
   counter on the top bar, the reports — plus units and the four late missions. See
-  [`../expeditions.md`](../expeditions.md).
+  [`../carnets/expeditions.md`](../carnets/expeditions.md).
 - ~~Two mission ranges.~~ **Done** — see §4. The single ring is gone.
-- **Sector content materialisation.** Contents are derived and tested, but nothing turns them into
-  real deposits.
+- ~~Sector content materialisation.~~ **Done** — `SectorMaterialisation` writes a reported sector's
+  derived deposits into the grid, called from `MissionSystem` immediately after the revelation, from
+  the same place and in the same order.
 
-  The rule for the overlap with `WorldGenerator`'s starting clusters is already decided, and this is
-  its home now that the directive stating it has been retired: **a sector already carrying placed
-  content keeps it; the derivation only fills sectors that have none.** A rule about the data rather than about geometry,
-  which is what makes it durable — there is no starting perimeter to maintain, and it covers in
-  advance anything else placed by hand, a scripted wreck or a particular nest. The starting area stays
-  hand-composed because the introduction depends on the right resources at the right distance, which a
-  derivation does not guarantee.
+  **A sector already carrying placed content keeps it; the derivation only fills sectors that have
+  none.** A rule about the data rather than about geometry, which is what makes it durable — there is
+  no starting perimeter to maintain, and it covers in advance anything else placed by hand, a scripted
+  wreck or a particular nest. The **whole sector** is skipped, not just its occupied cells, so derived
+  ore never grows in the gaps between hand-placed clusters. The starting area stays hand-composed
+  because the introduction depends on the right resources at the right distance, which a derivation
+  does not guarantee.
 
-  What it carries is an **ordering** constraint, and it is the whole risk: placed content must exist
-  before the derivation reaches those sectors. Reverse the order and the starting area is overwritten.
-  To be made explicit when materialisation is built, not left as a supposed consequence.
+  **The ordering constraint holds by construction, and is asserted from both directions.**
+  `WorldGenerator` places its clusters during `Awake`; nothing materialises until a mission lands. A
+  test places first and derives second, then does the reverse and shows the sector no longer reads as
+  empty — so the risk is named rather than assumed away.
+
+  **A sector holds one ore, never a mixture** (`SectorContents.ResourceIndex`), which is what gives a
+  destination an identity: choosing where to go becomes a decision rather than a draw.
+
+  Materialisation is **idempotent with no bookkeeping**: an occupied cell is skipped, and deposits are
+  saved, so a reloaded world finds its own deposits standing and writes nothing. A set of materialised
+  sectors would be a second source of truth able to disagree with the grid.

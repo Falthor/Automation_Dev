@@ -319,6 +319,19 @@ namespace Game.Presentation
             if (missionSettings != null)
             {
                 Missions = new MissionSystem(missionSettings, Sectors, Discovery, SectorCatalog, Compute, MissionRange, Terrain.Seed);
+
+                // Set after construction because it needs the ore definitions world generation owns.
+                // Placed content wins over the derivation, and World has already run - which is the
+                // ordering constraint that keeps the starting area from being overwritten.
+                if (worldGenerationSettings != null)
+                {
+                    Missions.Materialisation = new SectorMaterialisation(Sectors, Grid, SectorCatalog, new[]
+                    {
+                        worldGenerationSettings.IronOreDefinition,
+                        worldGenerationSettings.CopperOreDefinition,
+                        worldGenerationSettings.CoalOreDefinition
+                    });
+                }
                 Missions.RestoreState(loadedSave?.Missions);
             }
 

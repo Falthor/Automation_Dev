@@ -68,6 +68,16 @@ namespace Game.Gameplay.Missions
             _seed = seed;
         }
 
+        /// <summary>
+        /// Turns a reported sector's derived contents into real deposits. Set after construction
+        /// rather than injected, because it needs the ore definitions that world generation owns and
+        /// this system is built before them.
+        ///
+        /// Optional: null means a mission reveals the map and materialises nothing, which is what a
+        /// headless test of the process itself wants.
+        /// </summary>
+        public SectorMaterialisation Materialisation { get; set; }
+
         /// <summary>Whether the robots have arrived. Once true it never goes back: a robot that has appeared has appeared.</summary>
         public bool RobotsHaveAppeared { get; private set; }
 
@@ -375,6 +385,11 @@ namespace Game.Gameplay.Missions
             else
             {
                 _grid?.RevealInscribedDisc(mission.TargetSector, _discovery);
+
+                // Straight after the revelation, and from the same place: a sector's contents become
+                // real the moment a robot reports on it. Placed content wins - see
+                // SectorMaterialisation for the rule and the ordering constraint behind it.
+                Materialisation?.Materialise(mission.TargetSector);
             }
 
             // The robot's charge was spent at launch, so there is nothing to return here - a robot
