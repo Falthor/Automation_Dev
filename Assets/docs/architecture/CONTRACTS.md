@@ -464,6 +464,8 @@ Trigger points (both in `GameRuntime`, `Game.Presentation`):
 
 Restore is tolerant like every other: a null, an empty string or a malformed run leaves the rest of the map unknown rather than throwing, and a run past the end of the map is ignored. A save predating the field therefore loads as an undiscovered map and the Core's radius writes its own disc back on the first tick. No `Version` bump - an additive field with a per-field fallback.
 
+`SaveData`'s four terrain fields (`TerrainSeed`, `TerrainSize`, `TerrainScale`, `TerrainProportion`) are captured from the **running world** (`GameRuntime.Terrain`), never from the settings asset. The two agree on a fresh game and diverge on a loaded one, which runs on the values its save carried. Terrain is not stored anywhere - it is re-derived from exactly these four numbers - so writing the asset's values back would re-stamp a save with whatever the asset happens to say today, and regenerate a different world underneath buildings already placed.
+
 The sectors add nothing to the save. Their names, risk and contents are pure functions of the world seed and the sector index, so they are re-derived at load rather than stored; `SaveData.TerrainSeed` is what actually has to survive for them to come back identical.
 
 `Game.Save.PendingGameStart` carries the player's New Game/Load choice across the `MainMenu.unity → Bootstrap.unity` scene load. It is the one deliberately mutable static field the save system introduces (DEVELOPMENT_RULES.md §5): a single field, consumed and cleared at the very start of `GameRuntime.Awake()`, never read anywhere else.

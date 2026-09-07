@@ -83,10 +83,11 @@ border, and clamping would smear them outwards. The shader forces `discovered = 
 range instead.
 
 **The fog is fully opaque, and that is a functional constraint rather than a taste.** Below alpha 1,
-the camera's own background shows through wherever no terrain is drawn — past the edge of the world
-today, and anywhere ungenerated once terrain generation becomes lazy. A translucent fog would then
-show not a landscape but nothing at all. The reason is repeated on the `fogColor` field itself, so
-that anyone softening the fog meets it before changing the value.
+the camera's own background shows through wherever no terrain is drawn — measurably so past the edge
+of the world, where a blue wash appeared against the brown of undiscovered ground and drew the map's
+border for the player. The fog hides absence, not scenery, so its opacity is not an aesthetic dial.
+The reason is repeated on the `fogColor` field itself, so that anyone softening the fog meets it
+before changing the value.
 
 Bilinear filtering is not a detail: the field is binary per cell, and the interpolation between texels
 is the only thing that turns it into a boundary a threshold can cut anywhere. The shader's noise then
@@ -102,8 +103,9 @@ A sector is the unit a mission is aimed at. Called a *sector*, never a *zone*: "
 Core's and the AI agents' signal zones, which are a different thing.
 
 **A regular tiling, computed and never stored.** `SectorGrid` turns a coordinate into an index,
-origin, centre and cells by arithmetic — nothing is walked, there is no list of sectors anywhere. That
-is what makes lazy generation a consequence rather than a mechanism.
+origin, centre and cells by arithmetic — nothing is walked, there is no list of sectors anywhere. The
+same choice terrain makes: derive rather than materialise, so that nothing has to be generated and no
+order can matter.
 
 **A mission reveals the disc inscribed in a sector, not the sector.** The four corners stay hidden, so
 two revealed neighbours leave an undiscovered fringe and the tiling never shows on screen — which is
@@ -135,8 +137,9 @@ indistinguishable from a fault.
 
 ## 5. What is not built yet
 
-- **Lazy terrain generation.** `TerrainRuntime` still materialises every cell at construction. See
-  `TERRAIN.md` §1 for what that array is (and is not) used for, and the directive §4 for the intent.
+- ~~Lazy terrain generation.~~ **Done, and differently than planned.** Terrain is no longer
+  materialised at all: `GetTerrainType` computes its answer from the seed and the coordinate, so
+  there is nothing to generate lazily. See `TERRAIN.md` §1.
 - **The zoomed-out map**, its hover and its risk display — the interface over §4, which the directive
   places last.
 - **Missions themselves**, which everything above is the prerequisite for.

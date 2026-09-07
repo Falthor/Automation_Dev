@@ -25,7 +25,7 @@ peuvent être traités séparément, dans l'ordre indiqué.
 | Texture du brouillard | ~2 000 | mémoire vidéo, puis taille maximale de texture |
 | État de découverte | ~4 000 | 16 Mo à 4 000, 100 Mo à 10 000, alloués au lancement |
 | Découpage secteur 12 | — | ne tombe juste sur aucun chunk : passe à 16 |
-| Génération du terrain | ~2 000 | durée de lancement et mémoire, pour 97 % de terrain jamais regardé |
+| Génération du terrain | ~2 000 | ~~durée de lancement et mémoire~~ — **traité autrement** : le terrain n'est plus matérialisé du tout, voir §4 |
 
 ### Les rangs de tri deviennent relatifs à la caméra
 
@@ -101,130 +101,107 @@ pas ; répondre « inconnu » pour ses cases ne coûte rien. Le changement est *
 Le seul vrai risque est le sens de la valeur par défaut. Un chunk absent signifie **inconnu**,
 jamais découvert — sinon la carte entière apparaît d'un coup. À verrouiller par un test.
 
-## 4. Le terrain se génère à la découverte
+## 4. Le terrain ne se matérialise pas
 
-C'est le chantier le plus lourd des trois, et le seul qui touche à autre chose que sa propre classe.
+**Corrigé après vérification dans le code.** Cette section décrivait une génération paresseuse par
+tuiles, avec file d'attente, marge et Tilemap. Ce projet n'a rien de tout cela, et n'en a pas besoin.
+Ce qui a été écarté, et pourquoi, est consigné en §4.4.
 
-**Le problème.** Générer 16 millions de cases de terrain au lancement coûte du temps et de la
-mémoire, pour un terrain dont l'immense majorité ne sera jamais regardée.
+### 4.0 Ce qu'est réellement le problème
 
-**La solution : générer par tuiles, à la première fois qu'on en a besoin.** Le terrain touche la
-Tilemap, les collisions et la génération de végétation, donc l'effort dépasse celui des deux points
-précédents.
+`TerrainRuntime` remplissait un `TerrainType[size, size]` à la construction : 90 000 entrées sur la
+carte actuelle, **100 millions** sur celle de 10 000. Personne ne lisait ce tableau — le rendu du sol
+est un shader procédural par fragment qui ne consulte pas le type de terrain, et aucune règle de jeu
+ne l'interroge encore (voir `architecture/TERRAIN.md` §1).
 
-### 4.0 Ce qui déclenche la génération — plus simple que Factorio
+Le problème n'est donc pas de *générer paresseusement* mais **d'arrêter de matérialiser**.
 
-Factorio doit générer en continu et par anticipation, parce que le joueur se déplace physiquement
-dans le monde : file d'attente, génération étalée sur plusieurs ticks, prédiction devant le
-déplacement. **Rien de tout cela n'est nécessaire ici.**
+`SampleContinuous` est déjà une fonction pure : deux décalages tirés de la graine, puis du bruit de
+Perlin sans état. `GetTerrainType(cellule)` se calcule donc à la demande — zéro stockage, zéro chunk,
+zéro cache, zéro file d'attente. Construire un monde de 10 000 devient gratuit.
 
-La caméra est désincarnée et le brouillard est opaque : cliquer sur une région inconnue amène la vue
-au-dessus de noir, il n'y a rien à afficher, donc rien à générer. **La génération n'est déclenchée
-que par la découverte, jamais par la position de la caméra.** Une règle, un point d'entrée.
-
-Et la découverte est un événement **discret et rare** : un rayon qui s'étend, une mission qui
-revient. Pas de budget par frame à tenir, pas de file d'attente.
-
-**Le meilleur moment pour générer est le lancement de la mission, pas son retour.** Une mission dure
-plusieurs minutes ; les chunks de sa destination peuvent être préparés pendant ce temps, sans
-contrainte de latence. À son retour, la révélation est instantanée parce que tout est déjà là. Cela
-utilise une contrainte de jeu déjà posée au lieu d'ajouter un mécanisme.
-
-**Périmètre à générer :** les chunks touchés par le disque révélé, **plus un anneau d'un chunk
-autour**. Sans cette marge, le masque de transition de terrain n'a pas ses voisines en bordure et
-les coutures apparaissent en lignes droites sur les bords de chunk — le défaut le plus visible qui
-soit, puisqu'il révèle la structure interne au joueur.
+**Ce que ça donne en prime, et qui est le vrai gain :** la propriété de §4.1 cesse d'être une
+discipline à tenir pour devenir une impossibilité à violer. « Même résultat quel que soit l'ordre »
+est vrai parce qu'il n'y a plus d'ordre.
 
 ### 4.0bis Le terrain ne se sauvegarde pas, il se redérive
 
-Puisque le terrain est une fonction pure de la graine et des coordonnées (voir 4.1), il n'a pas à
-figurer dans la sauvegarde : il se régénère à l'identique au chargement. Seuls entrent en
-sauvegarde l'état de découverte, déjà compressé, et les **écarts** dus au joueur — bâtiments posés,
-gisements entamés, décor détruit.
+Puisque le terrain est une fonction pure de la graine et des coordonnées, il n'entre pas dans la
+sauvegarde : il se recalcule à l'identique au chargement. Seuls y entrent l'état de découverte, déjà
+compressé, et les **écarts** dus au joueur — bâtiments posés, gisements entamés, décor détruit.
 
-C'est ce qui garde une sauvegarde minuscule sur une carte de 10 000, et c'est une raison de plus de
-tenir la propriété de pureté : si le terrain n'est pas exactement reproductible, une sauvegarde
-rechargée montre un autre monde.
+C'est ce qui garde une sauvegarde minuscule sur une carte de 10 000, et une raison de plus de tenir
+la pureté : si le terrain n'est pas exactement reproductible, une sauvegarde rechargée montre un
+autre monde.
+
+**Corollaire traité : la graine vient de la partie, pas de l'asset.** `SaveCurrentGame` réécrivait
+les quatre nombres du terrain depuis l'asset de réglages. Anodin tant que le terrain était stocké et
+relu de la sauvegarde ; plus du tout sur un terrain redérivé, où modifier l'asset entre deux sessions
+régénère un autre monde sous les bâtiments déjà posés. Corrigé : la sauvegarde écrit les valeurs du
+monde en cours.
 
 ### 4.1 La propriété qui garantit la cohérence
 
 **Le terrain doit être une fonction pure de la graine et des coordonnées.** La case (500, 300) doit
-produire exactement le même résultat qu'elle soit générée en premier ou en dernier, seule ou avec
-ses voisines. Si c'est vrai, l'ordre de découverte n'a aucune importance : une zone révélée d'un
-coup est identique à ce qu'elle serait découverte case par case.
+produire exactement le même résultat qu'elle soit demandée en premier ou en dernier, seule ou avec ses
+voisines.
 
 Trois choses cassent cette propriété et sont donc interdites :
 
-- **regarder ses voisins pendant la génération.** Un placement du type « y a-t-il déjà quelque chose
-  à côté ? » dépend de ce qui a été généré avant.
-- **tout élément plus grand qu'une case placé de proche en proche.** Une grappe, un bosquet, une
-  formation rocheuse doivent se dériver d'un ancrage déterministe — même principe que la
-  stratification par blocs des gisements décrite dans le carnet du zonage.
-- **un générateur séquentiel à état.** S'il parcourt la carte dans l'ordre en faisant avancer un
-  état interne, il produit autre chose quand on ne lui demande qu'un morceau.
+- **regarder ses voisins pendant la génération** ;
+- **tout élément plus grand qu'une case placé de proche en proche** — une grappe, un bosquet, une
+  formation rocheuse doivent se dériver d'un ancrage déterministe ;
+- **un générateur séquentiel à état.**
 
-### 4.2 Le piège des bords de tuile
+**Ce raisonnement reste entièrement valide** — c'est son application à une Tilemap qui ne l'était pas.
+Et sans stockage, les trois interdits n'ont plus où loger : il n'y a ni parcours, ni état, ni voisin
+consulté. La propriété est structurelle, pas disciplinaire.
 
-Le masque de transition de terrain échantillonne les cases voisines pour produire sa frontière
-lissée. À la limite d'une tuile générée, si la tuile d'à côté n'existe pas, la transition est fausse
-— et la couture apparaît **exactement sur les bords de tuile**, c'est-à-dire en lignes droites
-régulières, le défaut le plus visible qui soit.
-
-La parade est de **générer avec une marge** : une ou deux cases au-delà de ce qui est demandé, pour
-que les transitions disposent de leurs voisines.
+Elle redevient une discipline le jour où quelqu'un ajoute un cache par chunk pour des raisons de
+performance. C'est à ce moment-là que les tests de §4.3 recommencent à pouvoir échouer.
 
 ### 4.3 Le test qui verrouille tout
 
-Générer une même région dans deux ordres différents et vérifier que le résultat est identique. Il
-attrape les trois erreurs de 4.1 et le défaut de 4.2, et il coûte quelques lignes.
+Demander une même région dans deux ordres différents et vérifier que le résultat est identique.
 
-## 4.5 Points tranchés autour de la génération
+**Il porte sur des régions à cheval sur des bords de chunk**, pas seulement à l'intérieur : une région
+purement intérieure passerait même si un générateur par chunk n'avait aucune marge, donc elle ne
+prouverait rien sur la couture.
 
-**La Tilemap ne contient que ce qui est généré.** Le brouillard ne cache donc plus du terrain, il
-couvre du vide. Conséquence à assumer : **le brouillard devient un élément de correction, pas de
-décor.** Un trou dans son opacité ne laisserait pas voir un paysage mais le néant. Son étanchéité
-n'est plus une question esthétique, y compris au-delà des limites du monde.
+Écrit et vert. À énoncer honnêtement : il ne peut plus échouer aujourd'hui, puisqu'il n'y a plus
+d'ordre à faire varier. Il est conservé comme garde pour le jour où un cache réintroduirait la
+question — il ne coûte rien, et c'est exactement au moment où on l'aurait oublié qu'il servira.
 
-**La Tilemap ne doit jamais porter d'état autoritaire.** C'est déjà la règle d'architecture du
-projet, et c'est elle qui rend le déchargement possible plus tard : décharger les chunks visuels
-loin de la caméra et les régénérer au retour ne coûte rien, puisque la génération est une fonction
-pure.
+Un second test dit la même chose autrement : construire un monde de 10 000 doit être instantané. S'il
+se met à prendre du temps, c'est que le stockage est revenu.
 
-**Décidé : le déchargement n'est pas fait maintenant.** C'est une optimisation à déclencher sur
-mesure, quand un profilage la justifiera, pas par principe. La seule chose à tenir dès aujourd'hui
-est l'invariant ci-dessus — tant que rien d'autoritaire ne vit dans la Tilemap, le déchargement
-reste possible à tout moment, par n'importe qui, sans rien remettre en cause.
+### 4.4 Ce qui a été écarté, et pourquoi
 
-**La simulation ne dépend pas de la génération — comportement voulu et confirmé.** Les bâtiments
-n'existent que là où le joueur les a posés, donc dans des zones nécessairement générées. Un Noyau
-secondaire à l'autre bout de la carte continue de tourner parce que la simulation s'exécute sur la
-grille runtime, indépendamment de la caméra et de la Tilemap. Le coût est proportionnel au nombre de
-bâtiments, jamais à la taille de la carte. Factorio fait de même : l'usine entière tourne quel que
-soit ce qu'on regarde.
+Ces points figuraient dans la version précédente de ce document. Ils supposaient une Tilemap et un
+masque de transition de terrain qui n'existent pas dans ce projet — le `TilemapMaskTransition.shader`
+qu'on y trouve encore n'a aucun utilisateur et est un vestige.
 
-À vérifier plutôt qu'à construire : il est probable que ce soit déjà le cas, la simulation ne
-consultant ni la caméra ni la Tilemap. Un test suffit à le verrouiller — faire tourner un bâtiment
-très éloigné et vérifier qu'il produit.
+| écarté | pourquoi |
+|---|---|
+| génération déclenchée par la découverte, un point d'entrée `Discover(cases)` | il n'y a rien à générer : le type d'une case se calcule quand on la demande |
+| périmètre à générer = chunks du disque **plus un anneau** | la marge n'a d'objet que si quelque chose est généré par morceaux |
+| le piège des bords de tuile (§4.2) | pas de tuiles, pas de masque de transition. Le sol est un shader procédural continu par fragment : il n'a pas de couture à produire |
+| générer à la sortie d'une mission plutôt qu'au retour | idem — rien à préparer |
+| « la Tilemap ne contient que ce qui est généré » | il n'y a aucune Tilemap dans le projet |
+| déchargement des chunks visuels | sans objet, et déjà écarté pour l'instant |
+| « au premier lancement, générer largement » (rayon de 60) | le joueur n'apparaît pas dans le noir : le sol est dessiné par un shader qui n'attend rien |
 
-**Un seul point d'entrée pour la découverte.** `Discover(cases)` génère les chunks nécessaires avec
-leur marge, puis écrit l'état. Toute source future — un robot qui s'aventure hors zone, un drone,
-une portée d'artillerie — appelle le même point et ne coûte rien de plus à écrire.
+**Ce qui survit de §4.5**, et qui a été traité :
 
-**L'image de carte est produite à la découverte**, une par chunk découvert. Elle n'entre pas en
-sauvegarde : le terrain étant redérivable, elle se reconstruit au chargement, chunk par chunk et à
-la demande à la première ouverture de la carte. C'est aussi ce qui alimentera une mini-carte si tu
-en ajoutes une.
-
-**Le monde a un bord.** Au-delà de la limite, un mur infranchissable, et du brouillard opaque comme
-partout ailleurs. Deux conséquences à traiter : les secteurs hors carte ne sont jamais des
-destinations valides, et l'élargissement de la couronne de mission doit s'arrêter au bord au lieu de
-chercher indéfiniment — un joueur installé dans un coin ne doit pas provoquer de boucle.
-
-**La graine doit venir de la partie, pas de l'asset.** `SaveCurrentGame` écrit aujourd'hui
-`TerrainSeed` depuis l'asset de réglages. Sur une carte entièrement redérivée au chargement, ce
-n'est plus un défaut bénin : modifier l'asset entre deux sessions régénérerait un monde différent
-sous les bâtiments existants. Corriger pour lire la graine de la partie en cours, et verrouiller par
-un test — sauvegarder, modifier l'asset, recharger, et vérifier que le terrain est inchangé.
+- **La Tilemap ne doit jamais porter d'état autoritaire.** Règle d'architecture du projet,
+  trivialement tenue puisqu'il n'y en a pas. À reposer si une Tilemap apparaît un jour.
+- **La simulation ne dépend pas de la génération.** Vérifié plutôt que construit, comme demandé : un
+  bâtiment au coin d'une carte de 10 000, sur du sol jamais découvert, produit exactement comme celui
+  du centre. Verrouillé par test.
+- **Le monde a un bord.** Les secteurs hors carte ne sont jamais des destinations, et l'élargissement
+  de la couronne s'arrête au bord au lieu de chercher indéfiniment.
+- **L'image de carte est produite à la découverte** — pas encore fait, et cette fois c'est bien un
+  travail restant et non un point sans objet.
 
 ## 4.6 Bornes restantes
 
@@ -235,17 +212,13 @@ graine — au lieu de deux découpages décalés à traduire l'un dans l'autre �
 par bloc apparaîtra.
 
 **La zone de départ doit être posée avant toute dérivation.** `WorldGenerator` place six grappes
-autour du Noyau. Avec une génération paresseuse il n'y a plus de « génération du monde » : il faut
-dire explicitement quand ce contenu est posé, et garantir qu'il l'est **avant** que la dérivation ne
-s'applique aux secteurs concernés. La règle « un secteur qui porte du contenu placé garde ce
+autour du Noyau. Cette contrainte ne concerne plus le terrain — qui n'est plus généré du tout — mais
+le **contenu des secteurs**, qui reste dérivé à la demande : il faut dire explicitement quand le
+contenu de départ est posé, et garantir qu'il l'est **avant** que la dérivation ne s'applique aux
+secteurs concernés. La règle « un secteur qui porte du contenu placé garde ce
 contenu » suppose que ce contenu existe déjà ; si l'ordre s'inverse, la zone de départ se fait
 écraser par du contenu aléatoire et l'introduction devient injouable. À traiter comme une contrainte
 d'ordonnancement explicite, pas comme une conséquence supposée.
-
-**Au premier lancement, générer largement.** Rayon de 60 cases autour du Noyau, marges comprises.
-Ce n'est pas un enjeu de performance, mais il faut le nommer : sans cela, une implémentation
-littérale de « rien n'est généré tant que rien n'est découvert » ferait apparaître le joueur dans le
-noir.
 
 **Les vieilles sauvegardes cassent pendant le développement — accepté.** Puisque le terrain est
 redérivé au chargement, toute modification de la génération — bruit, densité, seuils — rend une
@@ -499,7 +472,8 @@ tranchée, et dans cet ordre :
    Au-delà, les trois chantiers deviennent obligatoires.
 2. **La texture qui suit la caméra.** Le moins coûteux, entièrement contenu dans `FogOfWarView`.
 3. **L'état de découverte épars.** Interne à `DiscoveryRuntime`, invisible des appelants.
-4. **La génération de terrain paresseuse.** Le plus lourd, et le seul à toucher plusieurs systèmes.
+4. **Le terrain cesse d'être matérialisé.** Attendu comme le plus lourd des trois ; s'est révélé le
+   plus léger une fois vérifié dans le code — il n'y avait ni Tilemap ni consommateur, voir §4.
 
 ## 6. Ce que ce document ne traite pas
 

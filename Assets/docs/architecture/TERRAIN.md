@@ -14,11 +14,15 @@ It does **not** cover how the map is divided, discovered or hidden — chunks, s
 
 ## 1. Gameplay-authoritative terrain (`Game.Grid`)
 
-`TerrainRuntime` (`Assets/Scripts/Grid/TerrainRuntime.cs`) is the sole source of truth for per-cell terrain type. It is generated once, deterministically, from `TerrainGenerationSettings` (`Game.Data`: `size`, `seed`, `terrainScale`, `proportion`):
+`TerrainRuntime` (`Assets/Scripts/Grid/TerrainRuntime.cs`) is the sole source of truth for per-cell terrain type. It is a **pure function of the seed and the coordinate**, computed on demand from `TerrainGenerationSettings` (`Game.Data`: `size`, `seed`, `terrainScale`, `proportion`):
 
 - A 3-octave Perlin fBm (weights 0.6/0.3/0.1 at frequencies ×1/×2.1/×4.3, via `SampleContinuous`) is sampled per cell; a cell is `TerrainType.Top` if the value is below `proportion`, otherwise `TerrainType.Base`. Out-of-bounds cells read as `Base`.
+- **Nothing is stored.** There is no per-cell array: `GetTerrainType` computes its answer each time. A world of any size therefore costs nothing to hold or to construct, which is what lets the map grow. The cost moved from memory to three Perlin samples per query; nothing queries it per frame today, and a cache added later should be filled *from* this function so purity survives the optimisation.
+- Because nothing is stored, the order cells are asked about cannot matter — the determinism the save relies on is structural rather than a discipline to keep. `TerrainRuntimeTests` pins it, including across chunk boundaries, so that a future cache cannot introduce a seam unnoticed.
 - `SampleContinuous` is exposed publicly so Presentation could rebuild a higher-resolution mask derived from the exact same function, if a gameplay-driven visual ever needs one — it is not currently consumed by any renderer.
 - `GetTerrainType` currently has no gameplay consumers (only its own EditMode tests) and does not influence rendering. Its existence is reserved for later gameplay rules (e.g. terrain-dependent placement or movement).
+
+**Terrain does not enter the save.** It is re-derived at load from the four numbers the save carries (`TerrainSeed`, `TerrainSize`, `TerrainScale`, `TerrainProportion`), which is why those must be captured from the **running world** rather than from the settings asset — editing the asset between two sessions would otherwise regenerate a different world underneath buildings already placed.
 
 `Game.Grid` owns this data (`PROJECT_ARCHITECTURE.md` §7); do not access `TerrainRuntime` internals from outside approved contracts, and do not let a Tilemap or any visual stand in as the source of truth for terrain type.
 

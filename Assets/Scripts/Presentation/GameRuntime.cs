@@ -407,10 +407,18 @@ namespace Game.Presentation
         {
             var data = new SaveData
             {
-                TerrainSeed = terrainSettings.Seed,
-                TerrainSize = terrainSettings.Size,
-                TerrainScale = terrainSettings.TerrainScale,
-                TerrainProportion = terrainSettings.Proportion,
+                // From the RUNNING world, never from the settings asset. Those agree on a fresh
+                // game, but a loaded one runs on the values its save carried - and writing the
+                // asset's back would silently re-stamp the save with whatever the asset says today.
+                //
+                // That was a harmless slip while terrain was a stored array reloaded from the save.
+                // It is not one now that terrain is re-derived from these four numbers: editing the
+                // asset between two sessions would regenerate a different world underneath the
+                // buildings the player had already placed.
+                TerrainSeed = Terrain.Seed,
+                TerrainSize = Terrain.Size,
+                TerrainScale = Terrain.TerrainScale,
+                TerrainProportion = Terrain.Proportion,
                 Discovered = Discovery?.CaptureState(),
                 ComputeReserve = Compute.Reserve,
                 ResearchActiveId = Research.ActiveResearch != null ? Research.ActiveResearch.Id : null,
