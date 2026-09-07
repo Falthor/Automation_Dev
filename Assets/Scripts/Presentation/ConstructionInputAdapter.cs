@@ -711,13 +711,21 @@ namespace Game.Presentation
 
             if (mouse.rightButton.wasPressedThisFrame)
             {
-                // Right-click while a building/conveyor is armed for placement also cancels the
-                // ghost/construction tool - a right-click "cancel" gesture is the expected escape
-                // hatch mid-place - but demolition still happens underneath it regardless: right-
-                // click stays the one method to remove an existing building.
+                // While a ghost is armed, right-click cancels it and does nothing else.
+                //
+                // It used to cancel AND demolish whatever was underneath, on the reasoning that
+                // right-click is the one way to remove a building. That reasoning ignores where the
+                // player's attention is: with a ghost on the cursor the gesture means "stop placing",
+                // and it is aimed whereever the ghost happened to be - usually over the base they are
+                // building in. So the escape hatch destroyed a working building as a side effect, and
+                // the sweep it armed could take out several while the button stayed down.
+                //
+                // Demolition is not lost, it is one click further: the ghost is gone now, so the next
+                // right-click demolishes normally.
                 if (gameRuntime.Construction.Selected != null)
                 {
                     gameRuntime.Construction.Cancel();
+                    return;
                 }
 
                 DemolishAt(cell);
