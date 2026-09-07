@@ -48,22 +48,34 @@ namespace Game.Data
             [SerializeField, Min(0f)] float clusterRadius;
 
             /// <summary>
-            /// Multiplied into the sprite. White leaves the art as authored, which is what most kinds
-            /// want; the large rocks were muted towards the ground's own tone so they read as part of
-            /// the terrain rather than as objects dropped on it. A SpriteRenderer colour can only
-            /// darken, so a channel above 1 does nothing but clip.
+            /// One multiplier per entry of <see cref="Sprites"/>, muting each towards the ground's own
+            /// tone so a rock reads as part of the terrain rather than as an object dropped on it.
+            ///
+            /// <b>Baked, not computed.</b> A sprite's average colour is a constant of the art, so it
+            /// is authored here once (Tools/Decor/Bake Sprite Tints) rather than measured at every
+            /// launch — the old whole-map scatter read every rock texture back from the GPU on
+            /// startup, which is a cost the game should not pay for a number that never changes.
+            /// Empty, or shorter than the sprite list, simply leaves those sprites untinted.
+            ///
+            /// Baked against the ground profile's own textures, so it goes stale if those change;
+            /// `DecorTintBakeTests` recomputes and compares, which is what turns that into a failing
+            /// test rather than rocks quietly not matching their ground.
             /// </summary>
-            [SerializeField] Color tint = Color.white;
+            [SerializeField] Color[] spriteTints = System.Array.Empty<Color>();
 
             public string Id => id;
             public Sprite[] Sprites => sprites;
             public bool Raised => raised;
             public float[] BandWeights => bandWeights;
             public Vector2 ScaleRange => scaleRange;
-            public Color Tint => tint;
+            public Color[] SpriteTints => spriteTints;
             public float ClusterChance => clusterChance;
             public Vector2Int ClusterSize => clusterSize;
             public float ClusterRadius => clusterRadius;
+
+            /// <summary>The baked tint for one sprite, or white when none was baked for it. Never throws on a tint list that has fallen behind the sprite list - an unbaked sprite shows its own colours, which is wrong-looking rather than broken.</summary>
+            public Color TintFor(int spriteIndex)
+                => spriteIndex >= 0 && spriteIndex < spriteTints.Length ? spriteTints[spriteIndex] : Color.white;
         }
 
         [Header("Densité")]

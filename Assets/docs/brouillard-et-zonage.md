@@ -693,6 +693,33 @@ taille d'un chunk, et une ancre qui ne peut pas atteindre le chunk dérivé est 
 Mesuré en Play : 2 072 objets contre 1 888 pour le semis uniforme, toujours aucun à `sortingOrder` 0.
 À l'écran, des fourrés avec du sol nu entre eux, là où il y avait un mouchetis régulier.
 
+### 3.15 La teinte des rochers : une régression qui n'avait jamais eu lieu
+
+J'avais rapporté comme écart visuel que les grands rochers n'étaient plus « teintés vers le ton du
+sol » comme dans l'ancien éparpilleur. **C'était faux, et la mesure l'a montré au premier bake.**
+
+L'ancienne formule était `min(1, sol / brut)`, plafonnée à 1 parce qu'une couleur de `SpriteRenderer`
+ne peut qu'assombrir — au-delà de 1 elle ne rehausse pas, elle écrête vers le blanc. Or :
+
+| | rouge | vert | bleu |
+|---|---|---|---|
+| ton du sol | 0,431 | 0,343 | 0,259 |
+| `large_rock` (moyenne) | 0,310 | 0,169 | 0,089 |
+
+Tous les rochers sont déjà plus sombres que le sol dans les trois canaux (0/5, 0/10, 0/8 sprites plus
+clairs). Le plafond se déclenchait donc partout : **`RockTint` rendait blanc pour chaque rocher.** Le
+bake le confirme sur l'ensemble — 58 teintes blanches sur 61, les trois exceptions étant des fleurs
+qui perdent de 2 à 11 % de rouge, sous le seuil du perceptible.
+
+**Le mécanisme est conservé quand même**, et la raison est explicite plutôt que par défaut : c'est un
+chemin de donnée correct à coût d'exécution nul, saturé à 1,0 sur l'art d'aujourd'hui, qui se remettra
+à agir tout seul si le sol s'éclaircit. Ce qui est retiré, c'est la lecture de soixante textures au
+démarrage que l'ancien payait à chaque entrée en Play pour retrouver les mêmes nombres.
+
+**L'enseignement n'est pas sur la teinte.** J'avais rapporté un écart en comparant deux morceaux de
+code plutôt qu'en mesurant deux images. Un écart annoncé sans mesure est une dette : celui-ci a fait
+demander une fonctionnalité pour combler un manque qui n'existait pas.
+
 ---
 
 ## 4. Dette de test soldée avant l'étape 1

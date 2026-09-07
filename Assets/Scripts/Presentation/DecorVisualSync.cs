@@ -177,8 +177,10 @@ namespace Game.Presentation
             DecorSettings.Kind kind = _settings.Kinds[Mathf.Clamp(item.Kind, 0, _settings.Kinds.Length - 1)];
 
             Sprite[] sprites = kind.Sprites;
-            renderer.sprite = sprites != null && sprites.Length > 0 ? sprites[(int)(item.Draw / 256u % (uint)sprites.Length)] : null;
-            renderer.color = kind.Tint;
+            int spriteIndex = sprites != null && sprites.Length > 0 ? (int)(item.Draw / 256u % (uint)sprites.Length) : -1;
+
+            renderer.sprite = spriteIndex >= 0 ? sprites[spriteIndex] : null;
+            renderer.color = kind.TintFor(spriteIndex);
 
             float scale = Mathf.Lerp(kind.ScaleRange.x, kind.ScaleRange.y, item.Scale01);
             go.transform.localScale = new Vector3(scale, scale, 1f);
