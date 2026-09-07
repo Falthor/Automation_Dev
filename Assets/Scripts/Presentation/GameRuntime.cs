@@ -234,7 +234,8 @@ namespace Game.Presentation
             // once here rather than wired in the scene: there is one zoom controller, and a missing
             // one only means the ladder assumes a zero-height view, which still ranks correctly.
             var zoom = FindAnyObjectByType<CameraZoomController>();
-            DepthSort = new DepthSortLadder(zoom != null ? zoom.MaxOrthographicSize : 0f);
+            _maxOrthographicSize = zoom != null ? zoom.MaxOrthographicSize : 0f;
+            DepthSort = new DepthSortLadder(_maxOrthographicSize);
             _depthSortCamera = Camera.main;
 
             SaveData loadedSave = PendingGameStart.LoadedSave;
@@ -466,8 +467,11 @@ namespace Game.Presentation
         }
 
         /// <summary>The radius last written into the discovery state, so a repeat pass costs one comparison. NaN until the first pass, which no real radius equals.</summary>
-        /// <summary>The camera the depth ladder follows. Cached once - Camera.main is a scene search.</summary>
+        /// <summary>The camera the depth ladder and the fog window both follow. Cached once - Camera.main is a scene search.</summary>
         Camera _depthSortCamera;
+
+        /// <summary>The zoom-out cap. It is what bounds how much world can be on screen at once, which is what sizes both the depth ladder and the fog's window.</summary>
+        float _maxOrthographicSize;
 
         float _lastRevealedCoreRadius = float.NaN;
 
@@ -657,7 +661,11 @@ namespace Game.Presentation
                     // research hook here either, unlike actionRadiusView above - extending the
                     // radius reveals cells, and revealed cells are what the fog already reads. A
                     // radius passed to this view is how it used to be a disc with no memory.
-                    fogOfWarView.Initialize(Discovery, Grid);
+                    // The camera and the zoom-out cap, because the fog texture is now a window that
+                    // follows the view rather than a copy of the map - see FogOfWarView. Same two
+                    // inputs the depth ladder is built from, and for the same reason: how much world
+                    // can be on screen at once is what bounds both.
+                    fogOfWarView.Initialize(Discovery, Grid, _depthSortCamera, _maxOrthographicSize);
                 }
 
                 // Start the camera centered on the Core - otherwise its fixed scene position

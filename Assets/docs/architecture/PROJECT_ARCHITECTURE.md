@@ -181,6 +181,13 @@ is the writer, after `Research.Tick` so a widened radius is written the frame it
 compares it against what it last uploaded, which is the whole of "re-upload only when the state
 changed".
 
+**The fog texture is a window that follows the camera**, not a copy of the map: one texel per cell
+over a whole world would be 16 MB at 4 000 cells and past most GPUs' limit beyond 8 192, while the
+zoom-out cap bounds how much can be seen at once. Its size is therefore independent of the map's. The
+window re-anchors only when the camera nears its edge, and outside it the shader reads undiscovered -
+clamping to the border texel would smear discovered state outwards. The fog is fully opaque: below
+that, the camera's own background shows through wherever no terrain is drawn.
+
 **Sectors are the unit a mission is aimed at.** A regular tiling: `SectorGrid` turns a coordinate
 into a sector index, origin, centre and cells by arithmetic - nothing is walked, nothing is stored,
 and there is no list of sectors. That is what makes their generation lazy by construction rather than

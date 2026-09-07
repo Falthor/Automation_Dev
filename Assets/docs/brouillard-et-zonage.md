@@ -11,9 +11,8 @@
 > |---|---|
 > | 625 secteurs, vocabulaire de noms de 768 combinaisons | **390 625** secteurs : la bijection ne suffit plus, vocabulaire ou méthode à revoir |
 > | couronne de mission « rayon du Noyau + 30 » | **deux portées** : exploration à 250 et au-delà, minière entre le rayon courant et 250, toutes deux dérivées |
-> | `FogOfWarView` : une texture couvrant toute la carte | texture **qui suit la caméra**, taille indépendante du monde |
 >
-> **Traité depuis :** les rangs de profondeur sont devenus relatifs à la caméra (§3.9), le découpage est passé aux secteurs de 16 alignés sur des chunks de 64 (§3.10), et l'état de découverte est devenu épars (§3.11).
+> **Traité depuis :** les rangs de profondeur sont devenus relatifs à la caméra (§3.9), le découpage est passé aux secteurs de 16 alignés sur des chunks de 64 (§3.10), l'état de découverte est devenu épars (§3.11) et la texture du brouillard suit la caméra (§3.12).
 >
 > Restent valables sans réserve : la séparation « le rayon écrit, il ne définit pas », le RLE de
 > sauvegarde, la scission `ValueNoise.hlsl` / `NanoNoise.hlsl`, le `linear: true` sur la texture R8,
@@ -565,6 +564,42 @@ monde.
 
 Une erreur au passage, dans mon propre test : j'attendais 5 chunks là où 4 étaient justes, ayant placé
 le premier disque dans un chunk que le second touchait déjà.
+
+### 3.12 La texture du brouillard suit la caméra
+
+Une texture d'un texel par case couvrant la carte pèse 16 Mo à 4 000 et dépasse la taille maximale de
+beaucoup de GPU au-delà de 8 192. La parade vient de la même contrainte de jeu que les rangs de tri :
+**le dézoom est plafonné**, donc le joueur ne voit jamais qu'une portion bornée du monde. La texture
+couvre une **fenêtre de 256 cases** qui suit la caméra, et sa taille cesse de dépendre de celle du
+monde.
+
+Mesuré en Play : **256×256, soit 64 Ko**, contre 300×300 auparavant — et ce serait toujours 64 Ko sur
+une carte de 10 000.
+
+**Le ré-ancrage est rare.** Mesuré : 20 cases de panoramique ne bougent rien, 140 cases produisent
+**un seul** ré-ancrage. Le reste du temps c'est une comparaison par frame.
+
+**Un piège que le passage à une fenêtre crée de toutes pièces.** `wrapMode = Clamp` faisait lire
+« inconnu » hors carte parce que le bord de la texture *était* inconnu. Une fenêtre qui bouge a des
+texels découverts sur son bord, et le clamp les étalerait vers l'extérieur en un coin de brouillard
+dissipé. Le shader force donc `discovered = 0` hors de l'intervalle UV : ce qui n'a pas d'état est
+inconnu, et hors de la fenêtre il n'y a pas d'état du tout. Sans effet à l'écran, la fenêtre
+contenant toujours la vue.
+
+#### Le brouillard devient opaque
+
+La directive §2 exige que « l'extérieur de la carte reste opaque, comme l'intérieur non découvert ».
+Il ne l'était pas : à `alpha = 0,96`, les 4 % qui passaient montraient un peu plus de terrain à
+l'intérieur — ce qui se lisait comme de l'atmosphère — mais **la skybox de la caméra** au-delà du
+bord du monde. Un lavis bleu là où le sol inconnu était brun : la limite de la carte se dessinait
+toute seule pour le joueur.
+
+Mesuré pixel par pixel : à `alpha = 1`, l'extérieur de la carte et l'intérieur non découvert donnent
+exactement `(0.020, 0.031, 0.051)`. À 0,96 ils donnent `(0.075, 0.098, 0.114)` et
+`(0.071, 0.059, 0.063)` — visiblement différents.
+
+C'est aussi ce que la directive §4.5 annonce pour la génération paresseuse : un trou dans l'opacité
+ne montrerait alors pas un paysage mais le néant. L'étanchéité cesse d'être une question esthétique.
 
 ---
 

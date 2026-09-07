@@ -3851,12 +3851,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.FogOfWarView
   fogShader: {fileID: 4800000, guid: f9a7c25d832b3fd44857bed7c4875b4c, type: 3}
-  fogColor: {r: 0.02, g: 0.03, b: 0.05, a: 0.96}
+  fogColor: {r: 0.02, g: 0.03, b: 0.05, a: 1}
   borderSoftness: 0.114
   noiseScale: 3
   noiseWeight: 0.396
   texelsPerCell: 1
-  outsideMarginCells: 400
+  windowCells: 256
 --- !u!4 &1659034850
 Transform:
   m_ObjectHideFlags: 0
