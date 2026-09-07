@@ -22,12 +22,16 @@ public static class WildDecorationAutoRegenerate
         EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
     }
 
+    /// <summary>
+    /// Disabled while the windowed decor replaces this. Scattering the whole map cannot survive a
+    /// large one: the biome map alone is rendered at 4 pixels per world unit, which is a 40 000 x
+    /// 40 000 texture at 10 000 cells - 6.4 GB, and past every GPU's maximum size. Entering Play
+    /// would fail before anything could be measured.
+    ///
+    /// The menu item still works and is still useful on a small map; only the automatic hook is off.
+    /// </summary>
     static void OnPlayModeStateChanged(PlayModeStateChange state)
     {
-        if (state == PlayModeStateChange.EnteredPlayMode)
-        {
-            EditorApplication.update += WaitForWorldThenRegenerate;
-        }
     }
 
     static void WaitForWorldThenRegenerate()
