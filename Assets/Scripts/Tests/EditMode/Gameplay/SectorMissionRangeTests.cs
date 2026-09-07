@@ -23,6 +23,7 @@ namespace Game.Tests.EditMode.Gameplay
         static readonly Vector2 CoreCenter = new Vector2(150f, 150f);
 
         const int SectorSize = 16;
+        const int ChunkSize = 64;
 
         static SectorGrid NewGrid() => new SectorGrid(MapSize, SectorSize);
 
@@ -39,7 +40,7 @@ namespace Game.Tests.EditMode.Gameplay
         public void ExtendingTheRadius_MovesTheRingOutward()
         {
             var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
+            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
             var range = new SectorMissionRange();
 
             List<int> near = Destinations(range, grid, discovery, 22f);
@@ -61,7 +62,7 @@ namespace Game.Tests.EditMode.Gameplay
             var range = new SectorMissionRange();
 
             const float radius = 40f;
-            foreach (int index in Destinations(range, grid, new DiscoveryRuntime(MapSize), radius))
+            foreach (int index in Destinations(range, grid, new DiscoveryRuntime(MapSize, ChunkSize), radius))
             {
                 Assert.Greater(Vector2.Distance(grid.CenterCells(index), CoreCenter), radius, $"sector {index} is inside the radius");
             }
@@ -74,7 +75,7 @@ namespace Game.Tests.EditMode.Gameplay
             var range = new SectorMissionRange();
 
             const float radius = 22f;
-            foreach (int index in Destinations(range, grid, new DiscoveryRuntime(MapSize), radius))
+            foreach (int index in Destinations(range, grid, new DiscoveryRuntime(MapSize, ChunkSize), radius))
             {
                 Assert.LessOrEqual(
                     Vector2.Distance(grid.CenterCells(index), CoreCenter),
@@ -88,7 +89,7 @@ namespace Game.Tests.EditMode.Gameplay
         public void TheRangeIsASetting_AndWideningItAddsDestinations()
         {
             var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
+            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
 
             var tight = new SectorMissionRange { RangeBeyondRadiusCells = 15f };
             var loose = new SectorMissionRange { RangeBeyondRadiusCells = 45f };
@@ -104,7 +105,7 @@ namespace Game.Tests.EditMode.Gameplay
             var range = new SectorMissionRange { RangeBeyondRadiusCells = 30f };
             const float radius = 22f;
 
-            List<int> destinations = Destinations(range, grid, new DiscoveryRuntime(MapSize), radius);
+            List<int> destinations = Destinations(range, grid, new DiscoveryRuntime(MapSize, ChunkSize), radius);
 
             foreach (int index in destinations)
             {
@@ -124,7 +125,7 @@ namespace Game.Tests.EditMode.Gameplay
         public void ASectorAlreadyDiscovered_IsNoLongerADestination()
         {
             var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
+            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
             var range = new SectorMissionRange();
 
             List<int> before = Destinations(range, grid, discovery, 22f);
@@ -139,7 +140,7 @@ namespace Game.Tests.EditMode.Gameplay
         public void WhenTheRingEmpties_ItWidensRatherThanGoingSilent()
         {
             var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
+            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
             var range = new SectorMissionRange();
 
             // Empty the ring the player can currently reach.
@@ -161,7 +162,7 @@ namespace Game.Tests.EditMode.Gameplay
             var grid = NewGrid();
             var into = new List<int>();
 
-            SectorRangeResult result = new SectorMissionRange().Destinations(grid, new DiscoveryRuntime(MapSize), CoreCenter, 22f, into);
+            SectorRangeResult result = new SectorMissionRange().Destinations(grid, new DiscoveryRuntime(MapSize, ChunkSize), CoreCenter, 22f, into);
 
             Assert.IsFalse(result.Widened);
             Assert.IsFalse(result.Exhausted);
@@ -173,7 +174,7 @@ namespace Game.Tests.EditMode.Gameplay
         public void AFullyDiscoveredMap_ReportsItselfExhausted()
         {
             var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
+            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
             for (int index = 0; index < grid.Count; index++) discovery.RevealCells(grid.CellsOf(index));
 
             SectorRangeResult result = new SectorMissionRange().Destinations(grid, discovery, CoreCenter, 22f, new List<int>());

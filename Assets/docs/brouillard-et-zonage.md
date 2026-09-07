@@ -11,10 +11,9 @@
 > |---|---|
 > | 625 secteurs, vocabulaire de noms de 768 combinaisons | **390 625** secteurs : la bijection ne suffit plus, vocabulaire ou méthode à revoir |
 > | couronne de mission « rayon du Noyau + 30 » | **deux portées** : exploration à 250 et au-delà, minière entre le rayon courant et 250, toutes deux dérivées |
-> | `DiscoveryRuntime` : tableau plein alloué au lancement | stockage **épars par chunk**, créé à la première écriture |
 > | `FogOfWarView` : une texture couvrant toute la carte | texture **qui suit la caméra**, taille indépendante du monde |
 >
-> **Traité depuis :** les rangs de profondeur sont devenus relatifs à la caméra (§3.9), et le découpage est passé aux secteurs de 16 alignés sur des chunks de 64 (§3.10).
+> **Traité depuis :** les rangs de profondeur sont devenus relatifs à la caméra (§3.9), le découpage est passé aux secteurs de 16 alignés sur des chunks de 64 (§3.10), et l'état de découverte est devenu épars (§3.11).
 >
 > Restent valables sans réserve : la séparation « le rayon écrit, il ne définit pas », le RLE de
 > sauvegarde, la scission `ValueNoise.hlsl` / `NanoNoise.hlsl`, le `linear: true` sur la texture R8,
@@ -538,6 +537,34 @@ Faux : elle suit la taille du secteur mais pas le **rognage par le bord de carte
 multiple de 16, donc les secteurs des deux derniers rangs sont tronqués, et `ContentsOf` dispersait
 des gisements hors carte — `IndexAt` renvoyait -1. Avec 12 le cas n'existait pas, 300/12 tombant
 juste. `ContentsOf` calcule maintenant l'étendue réelle du secteur avant de tirer.
+
+### 3.11 L'état de découverte devient épars
+
+Un octet par case alloué au lancement fait 100 Mo sur une carte de 10 000 — pour une carte qui restera
+inconnue à 99 % pendant toute la partie. `DiscoveryRuntime` stocke maintenant **un tableau par chunk,
+créé à la première écriture**. Un chunk où personne n'a jamais rien révélé n'existe pas, et répondre
+« inconnu » pour ses cases ne coûte rien.
+
+**Le défaut d'un chunk absent est le seul vrai risque, et il est verrouillé par test :** un chunk
+absent vaut **inconnu**, jamais découvert. Alloué à `Discovered`, un seul chunk révélerait 4 096 cases
+d'un coup, et la carte entière dès qu'on la touche.
+
+**Rien n'est visible de l'extérieur.** C'est la contrainte que la directive §3.1 pose, et elle est
+tenue : aucune signature n'a changé sauf le constructeur, qui reçoit la taille de chunk en `int` —
+`Game.Grid` ne doit pas dépendre de `Game.Data`, même raison que `TerrainRuntime`.
+
+**La forme sauvegardée est inchangée**, ce qui compte puisque `CONTRACTS.md` §14 l'épingle. Un test le
+prouve autrement qu'en relisant le code : deux cartes avec les mêmes révélations mais des tailles de
+chunk différentes (64 et 8) produisent **la même chaîne**. La capture saute les chunks absents en bloc
+plutôt que case par case, et la restauration n'en matérialise aucun pour les segments inconnus — c'est
+là que se trouve l'économie sur une carte majoritairement noire.
+
+Mesuré par test : révéler le disque de départ sur une carte de 300 et sur une carte de **10 000**
+matérialise exactement le même nombre de chunks. Le coût suit ce qui a été exploré, plus la taille du
+monde.
+
+Une erreur au passage, dans mon propre test : j'attendais 5 chunks là où 4 étaient justes, ayant placé
+le premier disque dans un chunk que le second touchait déjà.
 
 ---
 

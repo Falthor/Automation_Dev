@@ -243,7 +243,7 @@ namespace Game.Presentation
             if (loadedSave != null)
             {
                 Terrain = new TerrainRuntime(loadedSave.TerrainSize, loadedSave.TerrainSeed, loadedSave.TerrainScale, loadedSave.TerrainProportion);
-                Discovery = new DiscoveryRuntime(Terrain.Size);
+                Discovery = new DiscoveryRuntime(Terrain.Size, sectorSettings.ChunkSizeCells);
                 Discovery.RestoreState(loadedSave.Discovered);
                 Compute.RestoreReserve(loadedSave.ComputeReserve);
 
@@ -260,7 +260,7 @@ namespace Game.Presentation
             else
             {
                 Terrain = new TerrainRuntime(terrainSettings.Size, terrainSettings.Seed, terrainSettings.TerrainScale, terrainSettings.Proportion);
-                Discovery = new DiscoveryRuntime(Terrain.Size);
+                Discovery = new DiscoveryRuntime(Terrain.Size, sectorSettings.ChunkSizeCells);
 
                 // The player's starting resources live in the Core chest fixture placed by
                 // WorldGenerator.Generate (WorldGenerationSettings.CoreStorageDefinition), one cell

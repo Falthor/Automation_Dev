@@ -20,6 +20,7 @@ namespace Game.Tests.EditMode.Gameplay
         static readonly Vector2 CoreCenter = new Vector2(150f, 150f);
 
         const int SectorSize = 16;
+        const int ChunkSize = 64;
 
         // The shipped thresholds, in cells - SectorSettings' own defaults, restated so a test can
         // fail when the asset is wrong rather than following it.
@@ -240,7 +241,7 @@ namespace Game.Tests.EditMode.Gameplay
                 SectorContents contents = catalog.ContentsOf(index);
                 if (contents.Feature == SectorFeature.None) continue;
 
-                var fresh = new DiscoveryRuntime(MapSize);
+                var fresh = new DiscoveryRuntime(MapSize, ChunkSize);
                 catalog.Grid.RevealInscribedDisc(index, fresh);
 
                 Assert.IsTrue(fresh.IsDiscovered(contents.FeatureCell), $"sector {index}'s feature fell outside its own revealed disc");
@@ -255,7 +256,7 @@ namespace Game.Tests.EditMode.Gameplay
 
             for (int index = 0; index < catalog.Grid.Count; index++)
             {
-                var disc = new DiscoveryRuntime(MapSize);
+                var disc = new DiscoveryRuntime(MapSize, ChunkSize);
                 catalog.Grid.RevealInscribedDisc(index, disc);
 
                 foreach (GridCoord deposit in catalog.ContentsOf(index).DepositCells)

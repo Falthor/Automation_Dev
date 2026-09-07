@@ -18,6 +18,9 @@ namespace Game.Tests.EditMode.Presentation
     {
         const int Size = 8;
 
+        /// <summary>The shipped chunk size - discovery storage is per chunk.</summary>
+        const int ChunkSize = 64;
+
         static byte[] NewBuffer(int size, int texelsPerCell) => new byte[size * texelsPerCell * size * texelsPerCell];
 
         static byte TexelAt(byte[] texels, int side, int x, int y) => texels[y * side + x];
@@ -25,7 +28,7 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void AnUndiscoveredMap_PacksToAllZero()
         {
-            var discovery = new DiscoveryRuntime(Size);
+            var discovery = new DiscoveryRuntime(Size, ChunkSize);
             byte[] texels = NewBuffer(Size, 1);
 
             FogOfWarView.PackTexels(discovery, 1, texels);
@@ -40,7 +43,7 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void ACellIsWrittenAtItsOwnRowAndColumn()
         {
-            var discovery = new DiscoveryRuntime(Size);
+            var discovery = new DiscoveryRuntime(Size, ChunkSize);
             discovery.Reveal(new GridCoord(1, 6));
             byte[] texels = NewBuffer(Size, 1);
 
@@ -54,7 +57,7 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void EveryDiscoveredCell_AndOnlyThose_AreLit()
         {
-            var discovery = new DiscoveryRuntime(Size);
+            var discovery = new DiscoveryRuntime(Size, ChunkSize);
             discovery.RevealDisc(new Vector2(2f, 3f), 1.5f);
             byte[] texels = NewBuffer(Size, 1);
 
@@ -75,7 +78,7 @@ namespace Game.Tests.EditMode.Presentation
         [TestCase(3)]
         public void AtSeveralTexelsPerCell_EachCellFillsItsOwnBlock(int texelsPerCell)
         {
-            var discovery = new DiscoveryRuntime(Size);
+            var discovery = new DiscoveryRuntime(Size, ChunkSize);
             discovery.Reveal(new GridCoord(2, 5));
 
             int side = Size * texelsPerCell;
@@ -96,7 +99,7 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void ATooSmallBufferOrABadArgument_IsIgnoredRatherThanOverrunning()
         {
-            var discovery = new DiscoveryRuntime(Size);
+            var discovery = new DiscoveryRuntime(Size, ChunkSize);
             discovery.Reveal(new GridCoord(0, 0));
 
             Assert.DoesNotThrow(() => FogOfWarView.PackTexels(discovery, 1, new byte[4]));
@@ -113,7 +116,7 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void ARegionRevealedFarFromAnyRadius_PacksLikeAnyOther()
         {
-            var discovery = new DiscoveryRuntime(Size);
+            var discovery = new DiscoveryRuntime(Size, ChunkSize);
             discovery.RevealCells(new[] { new GridCoord(7, 0), new GridCoord(7, 1) });
             byte[] texels = NewBuffer(Size, 1);
 

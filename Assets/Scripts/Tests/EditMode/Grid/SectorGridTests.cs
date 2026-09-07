@@ -18,6 +18,9 @@ namespace Game.Tests.EditMode.Grid
     {
         const int MapSize = 300;
 
+        /// <summary>The shipped chunk size - discovery storage is per chunk.</summary>
+        const int ChunkSize = 64;
+
         /// <summary>The game's sector size, from SectorSettings. Restated here rather than read from the asset: a test that follows the setting could not fail when the setting is wrong.</summary>
         const int SectorSize = 16;
 
@@ -89,7 +92,7 @@ namespace Game.Tests.EditMode.Grid
         public void RevealingASector_LeavesItsFourCornersHidden()
         {
             var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
+            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
 
             grid.RevealInscribedDisc(0, discovery);
 
@@ -104,7 +107,7 @@ namespace Game.Tests.EditMode.Grid
         public void RevealingASector_ReachesTheMiddleOfEachSide()
         {
             var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
+            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
 
             grid.RevealInscribedDisc(0, discovery);
 
@@ -118,7 +121,7 @@ namespace Game.Tests.EditMode.Grid
         public void RevealingASector_TouchesNoCellOutsideIt()
         {
             var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
+            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
             int sector = grid.IndexAt(new GridCoord(150, 150));
 
             grid.RevealInscribedDisc(sector, discovery);
@@ -138,7 +141,7 @@ namespace Game.Tests.EditMode.Grid
         public void TwoRevealedNeighbours_LeaveAnUndiscoveredFringeBetweenThem()
         {
             var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
+            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
 
             grid.RevealInscribedDisc(0, discovery);
             grid.RevealInscribedDisc(1, discovery);
@@ -154,7 +157,7 @@ namespace Game.Tests.EditMode.Grid
         public void RevealingTheSameSectorTwice_ChangesNothingTheSecondTime()
         {
             var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
+            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
 
             int first = grid.RevealInscribedDisc(3, discovery);
             int version = discovery.Version;
@@ -171,7 +174,7 @@ namespace Game.Tests.EditMode.Grid
         public void AnUntouchedSector_IsUnknown()
         {
             var grid = NewGrid();
-            Assert.AreEqual(SectorDiscovery.Unknown, grid.DiscoveryOf(0, new DiscoveryRuntime(MapSize)));
+            Assert.AreEqual(SectorDiscovery.Unknown, grid.DiscoveryOf(0, new DiscoveryRuntime(MapSize, ChunkSize)));
         }
 
         /// <summary>Partial is where a mission-revealed sector stays: the disc can never cover the corners.</summary>
@@ -179,7 +182,7 @@ namespace Game.Tests.EditMode.Grid
         public void ASectorOpenedByAMission_StaysPartialForever()
         {
             var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
+            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
 
             grid.RevealInscribedDisc(0, discovery);
 
@@ -190,7 +193,7 @@ namespace Game.Tests.EditMode.Grid
         public void ASectorWhoseEveryCellIsSeen_IsDiscovered()
         {
             var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
+            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
 
             discovery.RevealCells(grid.CellsOf(0));
 
@@ -216,8 +219,8 @@ namespace Game.Tests.EditMode.Grid
         {
             var grid = NewGrid();
 
-            Assert.DoesNotThrow(() => grid.RevealInscribedDisc(-1, new DiscoveryRuntime(MapSize)));
-            Assert.DoesNotThrow(() => grid.RevealInscribedDisc(99999, new DiscoveryRuntime(MapSize)));
+            Assert.DoesNotThrow(() => grid.RevealInscribedDisc(-1, new DiscoveryRuntime(MapSize, ChunkSize)));
+            Assert.DoesNotThrow(() => grid.RevealInscribedDisc(99999, new DiscoveryRuntime(MapSize, ChunkSize)));
             Assert.DoesNotThrow(() => grid.RevealInscribedDisc(0, null));
             Assert.AreEqual(SectorDiscovery.Unknown, grid.DiscoveryOf(0, null));
             CollectionAssert.IsEmpty(grid.CellsOf(-1).ToList());

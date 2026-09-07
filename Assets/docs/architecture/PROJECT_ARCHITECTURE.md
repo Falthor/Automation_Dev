@@ -175,6 +175,8 @@ mission is another - and a discovered cell stays discovered whatever the radius 
 building, so no read path can recompute a distance and turn the fog back into a disc. `GameRuntime`
 is the writer, after `Research.Tick` so a widened radius is written the frame it is granted.
 
+**Stored per chunk, created on first write.** A chunk nobody has revealed a cell in does not exist, and an absent chunk reads as unknown - never as discovered, which would reveal the map wholesale. The cost follows what the player has explored rather than the size of the world, so a 300-cell map and a 10 000-cell one cost the same for the same exploration. This is storage only: no caller can tell, and the captured save string is unchanged (§14).
+
 `DiscoveryRuntime.Version` advances only when a call actually changed something. The fog renderer
 compares it against what it last uploaded, which is the whole of "re-upload only when the state
 changed".
