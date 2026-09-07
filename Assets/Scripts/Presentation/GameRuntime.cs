@@ -86,6 +86,12 @@ namespace Game.Presentation
         /// </summary>
         [SerializeField] SectorSettings sectorSettings;
 
+        /// <summary>What grows on the ground and how thickly. Optional: null means a world with no decor, which is a plain world rather than a broken one.</summary>
+        [SerializeField] DecorSettings decorSettings;
+
+        /// <summary>Draws the decor of the chunks around the camera. Optional, like the settings above.</summary>
+        [SerializeField] DecorVisualSync decorVisuals;
+
         [Header("World generation (Core + ore deposits, spawned once at game start)")]
         [SerializeField] WorldGenerationSettings worldGenerationSettings;
         [SerializeField] ActionRadiusView actionRadiusView;
@@ -114,6 +120,9 @@ namespace Game.Presentation
 
         /// <summary>What the player has discovered, one state per cell. Written by the Core's radius (RevealDiscoveredByCore) and later by missions; read by the fog renderer, which must never recompute a distance to the Core instead.</summary>
         public DiscoveryRuntime Discovery { get; private set; }
+
+        /// <summary>What grows on the ground, derived per chunk, minus what the player has cleared. Null when no decor settings are configured.</summary>
+        public DecorRuntime Decor { get; private set; }
 
         /// <summary>The map cut into sectors - pure geometry, the unit a mission is aimed at.</summary>
         public SectorGrid Sectors { get; private set; }
@@ -246,6 +255,7 @@ namespace Game.Presentation
                 Terrain = new TerrainRuntime(loadedSave.TerrainSize, loadedSave.TerrainSeed, loadedSave.TerrainScale, loadedSave.TerrainProportion);
                 Discovery = new DiscoveryRuntime(Terrain.Size, sectorSettings.ChunkSizeCells);
                 Discovery.RestoreState(loadedSave.Discovered);
+                _pendingDecorRemoved = loadedSave.DecorRemoved;
                 Compute.RestoreReserve(loadedSave.ComputeReserve);
 
                 var restoredQueue = new List<ResearchDefinition>();
@@ -420,6 +430,10 @@ namespace Game.Presentation
                 TerrainScale = Terrain.TerrainScale,
                 TerrainProportion = Terrain.Proportion,
                 Discovered = Discovery?.CaptureState(),
+
+                // Only what the player cleared. What grows re-derives itself from the seed, so
+                // storing it would be storing what the seed already says.
+                DecorRemoved = Decor?.CaptureState(),
                 ComputeReserve = Compute.Reserve,
                 ResearchActiveId = Research.ActiveResearch != null ? Research.ActiveResearch.Id : null,
                 ResearchProgress = Research.AbsorbedCu,
@@ -474,26 +488,95 @@ namespace Game.Presentation
             SaveCurrentGame();
         }
 
-        /// <summary>The radius last written into the discovery state, so a repeat pass costs one comparison. NaN until the first pass, which no real radius equals.</summary>
         /// <summary>The camera the depth ladder and the fog window both follow. Cached once - Camera.main is a scene search.</summary>
         Camera _depthSortCamera;
 
         /// <summary>The zoom-out cap. It is what bounds how much world can be on screen at once, which is what sizes both the depth ladder and the fog's window.</summary>
         float _maxOrthographicSize;
 
+        /// <summary>
+        /// The cleared-decor list from the save, held between Awake and Start.
+        ///
+        /// DecorRuntime cannot be built in Awake: it needs the ground material's biome parameters,
+        /// and TerrainView only writes those in Start. So the save is read where saves are read, and
+        /// applied where the runtime can exist.
+        /// </summary>
+        string _pendingDecorRemoved;
+
+        /// <summary>The radius last written into the discovery state, so a repeat pass costs one comparison. NaN until the first pass, which no real radius equals.</summary>
         float _lastRevealedCoreRadius = float.NaN;
 
         /// <summary>
-        /// The Core's action radius writes into the discovery state - today the only source of
-        /// revelation there is, with missions to come.
+        /// Builds the decor runtime and hands it to its view.
         ///
-        /// It <b>writes</b>, it does not define: nothing ever reads the radius back to decide what is
-        /// visible. A cell the radius once covered stays discovered whatever the radius does
-        /// afterwards, which is the whole difference between this and the disc the fog used to be.
+        /// In Start rather than Awake, and that is not a preference: the biome classification needs
+        /// the ground material's own parameters, and TerrainView writes those in its own Initialize.
+        /// Reading them from the material rather than from the profile asset keeps a single source -
+        /// whatever the shader was actually given is what the decor is placed against.
         ///
-        /// Called from the tick and idempotent: the disc is only walked when the radius has actually
-        /// moved since the last pass, so repeating it every frame allocates nothing and walks nothing.
+        /// Missing settings mean a world with no decor, not a broken one.
         /// </summary>
+        void InitialiseDecor()
+        {
+            if (decorSettings == null || Terrain == null) return;
+
+            Material groundMaterial = terrainView != null ? terrainView.GroundMaterial : null;
+            if (groundMaterial == null) return;
+
+            Vector4 origin = groundMaterial.GetVector("_VariationOrigin");
+            var biome = new BiomeField(
+                new Vector2(origin.x, origin.y),
+                groundMaterial.GetFloat("_BiomeCellSize"),
+                groundMaterial.GetFloat("_BiomeSeed"),
+                new[]
+                {
+                    groundMaterial.GetFloat("_BiomeWeight0"),
+                    groundMaterial.GetFloat("_BiomeWeight1"),
+                    groundMaterial.GetFloat("_BiomeWeight2")
+                },
+                (int)groundMaterial.GetFloat("_BiomeTexCount"));
+
+            Decor = new DecorRuntime(Terrain.Size, sectorSettings.ChunkSizeCells, Terrain.Seed, biome,
+                decorSettings.BandWeightsPerKind(), decorSettings.ItemsPerChunk, decorSettings.BandEdgeExclusion);
+
+            // What the player cleared, from the save. Applied before the view spawns anything, so a
+            // cleared rock is never briefly visible on load.
+            Decor.RestoreState(_pendingDecorRemoved);
+            _pendingDecorRemoved = null;
+
+            if (decorVisuals != null)
+            {
+                decorVisuals.Initialize(Decor, Grid, DepthSort, decorSettings, _depthSortCamera, _maxOrthographicSize);
+            }
+
+            // Handed over after the runtime exists: ConstructionService is built in Awake, and the
+            // decor cannot be. Every building created from here on clears its own ground.
+            if (Construction != null)
+            {
+                Construction.Decor = Decor;
+                Construction.DecorCleared = cell => decorVisuals?.ForgetCell(cell);
+            }
+
+            // And everything already standing. Buildings restored from a save were created before
+            // this point, and a save predating the decor lists nothing at all - without this sweep,
+            // an old base would be growing rocks inside its own factories.
+            ClearDecorUnderExistingBuildings();
+        }
+
+        /// <summary>One pass over what is already on the grid, so the decor is consistent with it whatever order the two came into existence.</summary>
+        void ClearDecorUnderExistingBuildings()
+        {
+            if (Decor == null || Construction == null) return;
+
+            if (World?.Core != null) Construction.ClearDecorUnder(World.Core.Definition, World.Core.Cell);
+            if (World?.CoreStorage != null) Construction.ClearDecorUnder(World.CoreStorage.Definition, World.CoreStorage.Cell);
+
+            foreach (BuildingRuntime building in _restoredBuildings)
+            {
+                Construction.ClearDecorUnder(building.Definition, building.Cell);
+            }
+        }
+
         /// <summary>
         /// Puts every DepthSortedDecor currently in the scene on the depth ladder, and answers how
         /// many. Decor that rises above its base carries a marker rather than a baked rank, because a
@@ -549,6 +632,17 @@ namespace Game.Presentation
             Construction.BeginRelocation(building);
         }
 
+        /// <summary>
+        /// The Core's action radius writes into the discovery state - today the only source of
+        /// revelation there is, with missions to come.
+        ///
+        /// It <b>writes</b>, it does not define: nothing ever reads the radius back to decide what is
+        /// visible. A cell the radius once covered stays discovered whatever the radius does
+        /// afterwards, which is the whole difference between this and the disc the fog used to be.
+        ///
+        /// Called from the tick and idempotent: the disc is only walked when the radius has actually
+        /// moved since the last pass, so repeating it every frame allocates nothing and walks nothing.
+        /// </summary>
         void RevealDiscoveredByCore()
         {
             if (Discovery == null || World?.Core == null) return;
@@ -613,6 +707,7 @@ namespace Game.Presentation
             }
 
             RegisterSceneDepthSortedDecor();
+            InitialiseDecor();
 
             GroundSlabSettings = BuildGroundSlabSettings();
             GroundSlabNeighborLinker = new GroundSlabNeighborLinker(Grid);

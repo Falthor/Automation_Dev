@@ -33,6 +33,7 @@ namespace Game.Tests.EditMode.Save
             TerrainScale = 0.25f,
             TerrainProportion = 0.5f,
             Discovered = "0:120,1:16,0:120",
+            DecorRemoved = "4096,4097,131072",
             ComputeReserve = 12.5f,
             ResearchActiveId = "automation",
             ResearchProgress = 0.75f,
@@ -66,7 +67,7 @@ namespace Game.Tests.EditMode.Save
         static readonly string[] ExpectedRootKeys =
         {
             "Version", "SavedAtUtc",
-            "TerrainSeed", "TerrainSize", "TerrainScale", "TerrainProportion", "Discovered",
+            "TerrainSeed", "TerrainSize", "TerrainScale", "TerrainProportion", "Discovered", "DecorRemoved",
             "ComputeReserve",
             "ResearchActiveId", "ResearchProgress", "ResearchQueue", "ResearchUnlocked",
             "ConstructionSites", "CoreDirectives",
@@ -147,6 +148,13 @@ namespace Game.Tests.EditMode.Save
             Assert.AreEqual(original.TerrainSize, restored.TerrainSize);
             Assert.AreEqual(original.TerrainScale, restored.TerrainScale);
             Assert.AreEqual(original.TerrainProportion, restored.TerrainProportion);
+
+            // The two derived-world fields: the seed re-derives what they describe, so what is stored
+            // is only what the player did to it. A silent loss here reads on screen as fog reclosing
+            // and cleared rocks growing back, never as an error.
+            Assert.AreEqual(original.Discovered, restored.Discovered);
+            Assert.AreEqual(original.DecorRemoved, restored.DecorRemoved);
+
             Assert.AreEqual(original.ComputeReserve, restored.ComputeReserve);
             Assert.AreEqual(original.ResearchActiveId, restored.ResearchActiveId);
             Assert.AreEqual(original.ResearchProgress, restored.ResearchProgress);
@@ -181,6 +189,8 @@ namespace Game.Tests.EditMode.Save
             Assert.IsNull(restored.BuildingCap, "Absent means absent, never 0.");
             Assert.IsNull(restored.PlayTimeSeconds, "A save from before the run clock is not a run that lasted zero seconds.");
             Assert.IsNull(restored.ConstructionSites, "A save from before the robots restores without one.");
+            Assert.IsNull(restored.DecorRemoved,
+                "A save from before the decor recorded no clearing, which DecorRuntime.RestoreState reads as a world nobody has cleared anything in.");
         }
     }
 }

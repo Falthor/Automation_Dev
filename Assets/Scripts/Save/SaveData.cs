@@ -54,6 +54,24 @@ namespace Game.Save
         /// </summary>
         public string Discovered;
 
+        /// <summary>
+        /// The cells whose decor the player has cleared, as a comma-separated list of indices
+        /// (DecorRuntime.CaptureState).
+        ///
+        /// <b>Only the removals.</b> What grows is a pure function of the world seed and re-derives
+        /// itself at load, so storing it would be storing what the seed already says. What the seed
+        /// cannot say is that a rock was cleared to make room for a building - and without this, that
+        /// rock grows back the moment the camera leaves and returns, which is the whole trap the
+        /// delta set exists for.
+        ///
+        /// A plain string for the same reason as Discovered: Game.Grid references only Game.Core and
+        /// Game.Data, and a JObject would give it a JSON dependency it has no other use for. No
+        /// Version bump - an additive field with a per-field fallback, like Discovered and BuildingCap
+        /// before it. A save predating it restores as a world nobody has cleared anything in, which is
+        /// exactly what it recorded.
+        /// </summary>
+        public string DecorRemoved;
+
         public float ComputeReserve;
 
         public string ResearchActiveId;
