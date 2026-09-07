@@ -22,6 +22,12 @@
 > la carte dézoomée.
 
 
+> **L'état courant du sous-système est décrit dans
+> [`architecture/MAP.md`](architecture/MAP.md)**, qui fait autorité. Ce carnet garde le *pourquoi* :
+> les décisions prises, les écarts par rapport aux spécifications, les pièges rencontrés et les
+> mesures qui ont tranché. Pour savoir ce que fait le code aujourd'hui, lire `MAP.md` ; pour savoir
+> pourquoi il le fait ainsi, lire ici.
+
 Carnet d'implémentation de [`directive-brouillard-et-zonage.md`](directive-brouillard-et-zonage.md).
 Les décisions prises, les écarts par rapport à la spec et pourquoi, et ce qu'il faut savoir pour
 reprendre. Le document directeur reste la référence de conception ; celui-ci enregistre ce qui a

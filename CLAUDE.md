@@ -11,6 +11,7 @@ Entry point for the Unity project's development documentation.
 5. Read a more specific subsystem document when the task concerns a documented subsystem.
 6. For Global UI / HUD work (Top Bar, Bottom Nav, panel routing, Selection), also read `docs/architecture/GLOBAL_UI.md` — an imported Godot reference spec, not a Unity implementation to port mechanically. Its own header states exactly which sections are already implemented in Unity versus future work; treat sections marked "not implemented yet" as intent/rationale only, never as a description of current Unity code.
 7. For terrain work (gameplay terrain type, ground rendering, biome blend, relief lighting), also read `docs/architecture/TERRAIN.md` — a native Unity subsystem document, fully authoritative for current behavior (not an imported reference).
+8. For map work (how the map is divided into chunks and sectors, discovery state, fog of war, sector identity and mission reach), also read `docs/architecture/MAP.md` — a native Unity subsystem document, authoritative for current behavior. It carries its own "what is not built yet" section; `Assets/docs/directive-grande-carte.md` states the intent it is being scaled towards, and is not a description of current code.
 
 ## Mandatory principles
 
@@ -44,4 +45,4 @@ Build Settings scene order, and before any measurement session run outside the E
 
 `DEVELOPMENT_RULES.md` → `PROJECT_ARCHITECTURE.md` → `CONTRACTS.md` → `WORKFLOW.md`
 
-Subsystem-specific documents may provide the detailed behavior for their own domain (e.g. `GLOBAL_UI.md` for the Global UI/HUD, `TERRAIN.md` for terrain). Where a subsystem document and this order disagree, the four documents above still win.
+Subsystem-specific documents may provide the detailed behavior for their own domain (e.g. `GLOBAL_UI.md` for the Global UI/HUD, `TERRAIN.md` for terrain, `MAP.md` for the map's division, discovery and fog). Where a subsystem document and this order disagree, the four documents above still win.

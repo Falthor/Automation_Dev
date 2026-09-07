@@ -2,8 +2,11 @@
 
 Authoritative subsystem document for terrain: the gameplay-side terrain data owned by `Game.Grid`, and the presentation-side ground rendering owned by `Game.Presentation` (`TerrainView`, `GroundTextureProfile`, `ShadedGroundTiled.shader`, `CloudShadowOverlay.shader`).
 
+It does **not** cover how the map is divided, discovered or hidden — chunks, sectors, discovery state and fog of war are [`MAP.md`](MAP.md).
+
 ## Related documents
 
+- [`MAP.md`](MAP.md) — the map's division, discovery state, fog of war and sectors. `TerrainRuntime.Seed` is what its sector identities derive from.
 - [`DEVELOPMENT_RULES.md`](DEVELOPMENT_RULES.md) — determinism rule (§ "Deterministic generators must produce identical results for identical seed and parameters when determinism is part of the contract").
 - [`PROJECT_ARCHITECTURE.md`](PROJECT_ARCHITECTURE.md) — §7 Grid (terrain gameplay data ownership), §10 Presentation (the `GroundTextureProfile` preset pattern). This document expands both with implementation detail; where the two disagree, `PROJECT_ARCHITECTURE.md` wins per the source-of-truth order in `CLAUDE.md`.
 
