@@ -68,6 +68,49 @@ namespace Game.Gameplay.Buildings
             FacingRotation = facingRotation;
         }
 
+        /// <summary>
+        /// Whether this building can be turned where it stands, without freeing and re-checking its
+        /// ground.
+        ///
+        /// True only for a square footprint, and that is not a formality: turning a 2x3 building
+        /// makes it occupy a different set of cells, which may be taken. Every footprint in the
+        /// project is square today (1x1 to 4x4), so the answer is always yes - this exists so that
+        /// the day a rectangular one is added, rotation refuses it instead of silently corrupting
+        /// the occupancy map. A test pins that.
+        /// </summary>
+        public virtual bool CanRotateInPlace => Definition != null && Definition.FootprintSize.x == Definition.FootprintSize.y;
+
+        /// <summary>
+        /// Turns the building, and with it every cell its arrows point at.
+        ///
+        /// Nothing else has to be told. The transport layer resolves inputs and outputs from
+        /// GetOutputCells()/GetInputCells() against the grid on every tick and caches no adjacency,
+        /// so a belt that fed the old output side simply stops being fed, and one on the new side
+        /// starts - within the same tick, with the items already riding it untouched.
+        ///
+        /// The <b>view</b> is the exception: it is built once at spawn with its arrows baked in as
+        /// children, so a caller that changes rotation on a building the player can see must respawn
+        /// it (BuildingSpawner.RemoveView then SpawnView). ConstructionService.TryRotateInPlace is
+        /// the supported way in and reports back so its caller can do exactly that.
+        /// </summary>
+        public virtual void SetFacingRotation(Direction rotation)
+        {
+            FacingRotation = rotation;
+        }
+
+        /// <summary>
+        /// Changes the cell this building reports standing on.
+        ///
+        /// <b>This does not touch the grid.</b> It records the new address; freeing the old cells and
+        /// claiming the new ones is the caller's job, and doing only one of the two leaves the
+        /// occupancy map lying. ConstructionService.TryRelocate is the one supported caller and does
+        /// both, in order.
+        /// </summary>
+        public void MoveTo(GridCoord cell)
+        {
+            Cell = cell;
+        }
+
         /// <summary>Returns the item currently available for transfer, or null when none is available.</summary>
         public virtual object PeekPullableItem() => null;
 

@@ -118,6 +118,13 @@ namespace Game.Presentation
         /// <summary>Which sectors are currently within mission reach. Reads the Core's radius at call time, so extending it moves the ring on its own.</summary>
         public SectorMissionRange MissionRange { get; private set; }
 
+        /// <summary>
+        /// Redraws one building's view, given the cell its current view is filed under. Installed by
+        /// ConstructionInputAdapter, which owns the scene's only BuildingSpawner; null in a scene
+        /// without one (a test), where rotating still changes the runtime and simply draws nothing.
+        /// </summary>
+        public System.Action<BuildingRuntime, GridCoord> BuildingViewRebuilder { get; set; }
+
         public ConstructionService Construction { get; private set; }
         public WorldGenerator World { get; private set; }
         public TransportSystem Transport { get; private set; }
@@ -450,6 +457,35 @@ namespace Game.Presentation
         /// Called from the tick and idempotent: the disc is only walked when the radius has actually
         /// moved since the last pass, so repeating it every frame allocates nothing and walks nothing.
         /// </summary>
+        /// <summary>
+        /// Turns a placed building a quarter turn and redraws it - what the panels' rotate button
+        /// calls. Kept here rather than in each panel so the runtime change and the view rebuild can
+        /// never be done one without the other.
+        /// </summary>
+        public bool RotateBuilding(BuildingRuntime building)
+        {
+            if (building == null || Construction == null) return false;
+
+            GridCoord cell = building.Cell;
+            if (!Construction.TryRotateInPlace(cell, out BuildingRuntime rotated)) return false;
+
+            BuildingViewRebuilder?.Invoke(rotated, cell);
+            return true;
+        }
+
+        /// <summary>
+        /// Starts moving a building: the ghost follows the mouse under the ordinary placement rules,
+        /// and the next left click puts it down (ConstructionInputAdapter.RelocateTo). The caller
+        /// closes its own panel - the gesture happens on the map, and which panel is open is the
+        /// UI's business, not this one's.
+        /// </summary>
+        public void BeginBuildingRelocation(BuildingRuntime building)
+        {
+            if (building == null || Construction == null) return;
+
+            Construction.BeginRelocation(building);
+        }
+
         void RevealDiscoveredByCore()
         {
             if (Discovery == null || World?.Core == null) return;

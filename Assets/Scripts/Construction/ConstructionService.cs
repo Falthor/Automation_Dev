@@ -125,14 +125,24 @@ namespace Game.Construction
         /// <summary>Restores the persisted cap directly (TASK_04_PLAFOND_RAYON.md §6) - never re-derived from ResearchSystem.IsUnlocked, so a future non-research source of extra cap wouldn't need to also be mirrored here. Falls back to DefaultBuildingCap for an absent/older save.</summary>
         public void RestoreBuildingCap(int? cap) => BuildingCap = cap ?? DefaultBuildingCap;
 
+        /// <summary>
+        /// The building currently being moved, or null. While this is set, the ghost and every
+        /// placement gate run exactly as they do for a new building - the difference is only what
+        /// the click does at the end (TryRelocate rather than TryPlace) and that this building's own
+        /// ground does not block it.
+        /// </summary>
+        public BuildingRuntime RelocationTarget { get; private set; }
+
         public void SelectBuilding(BuildingDefinition definition)
         {
+            RelocationTarget = null;
             Selected = definition;
             PreviewRotation = Direction.North;
         }
 
         public void Cancel()
         {
+            RelocationTarget = null;
             Selected = null;
         }
 
@@ -284,6 +294,95 @@ namespace Game.Construction
             }
 
             redirected = existing;
+            return true;
+        }
+
+        /// <summary>
+        /// Turns a building that is already standing, a quarter turn clockwise, and answers whether
+        /// it did.
+        ///
+        /// Demolishing and rebuilding was the only way to change which side a factory takes from and
+        /// hands out to. That charged the bill a second time, dropped a working building back to a
+        /// blue silhouette until a robot came round, and lost whatever it was holding - for a gesture
+        /// whose whole intent was "this one faces that way now". Nothing is spent here, no site is
+        /// opened, and the building keeps its recipe, its progress and its contents.
+        ///
+        /// Same reasoning as TryRedirectExistingConveyor, one step more general: what the player
+        /// already owns can be re-aimed without being re-bought.
+        ///
+        /// Refused for the Core and its chest (they are not the player's to rearrange), for anything
+        /// still under construction (it belongs to a chantier, not to the player yet), and for a
+        /// non-square footprint, which would land on different cells - see
+        /// BuildingRuntime.CanRotateInPlace.
+        ///
+        /// The caller must respawn the view: arrows are baked into it as children at spawn time.
+        /// </summary>
+        public bool TryRotateInPlace(GridCoord cell, out BuildingRuntime rotated)
+        {
+            rotated = null;
+
+            if (!(_grid.GetOccupant(cell) is BuildingRuntime building)) return false;
+            if (building.IsUnderConstruction || IsProtectedFromDemolition(building)) return false;
+            if (!building.CanRotateInPlace) return false;
+            if (_constructionSites != null && _constructionSites.TryGetSiteContaining(building, out _)) return false;
+
+            building.SetFacingRotation(building.FacingRotation.RotateCW(1));
+
+            rotated = building;
+            return true;
+        }
+
+        /// <summary>
+        /// Starts moving a building the player already owns: the ghost, the rotation preview and
+        /// every placement gate come back exactly as they are for a new one, because Selected really
+        /// is set to its definition.
+        ///
+        /// The building stays where it is, working, until the move is confirmed. Cancelling costs
+        /// nothing and changes nothing.
+        /// </summary>
+        public void BeginRelocation(BuildingRuntime building)
+        {
+            if (building == null || building.IsUnderConstruction || IsProtectedFromDemolition(building)) return;
+            if (_constructionSites != null && _constructionSites.TryGetSiteContaining(building, out _)) return;
+
+            Selected = building.Definition;
+            PreviewRotation = building.FacingRotation;
+            RelocationTarget = building;
+        }
+
+        /// <summary>
+        /// Finishes a move: frees the old ground, takes the new, and answers whether it did.
+        ///
+        /// <b>The same instance moves.</b> Nothing is copied, so a chest's contents are not
+        /// "transferred" anywhere - they were never anywhere but inside this object, and it is the
+        /// object that changed address. There is therefore no partial transfer to handle, no
+        /// overflow if the destination were smaller, and nothing for a robot to carry: the save
+        /// captures the same building with the same state at a new cell.
+        ///
+        /// Costs nothing, for the same reason turning a belt costs nothing - the building is already
+        /// paid for. It does not pass through the building cap either: moving one does not add one.
+        /// </summary>
+        public bool TryRelocate(GridCoord destination, out BuildingRuntime moved)
+        {
+            moved = null;
+
+            BuildingRuntime building = RelocationTarget;
+            if (building == null || Selected == null) return false;
+
+            // Every gate except affordability, which a move has no business reading - see
+            // TryRedirectExistingConveyor for the same exception and the same reason.
+            PlacementRefusalReason refusal = GetPlacementRefusalReason(destination);
+            if (refusal != PlacementRefusalReason.None && refusal != PlacementRefusalReason.CannotAfford) return false;
+
+            _grid.ClearOccupantFootprint(building.Cell, building.Definition.FootprintCells);
+            building.MoveTo(destination);
+            building.SetFacingRotation(PreviewRotation);
+            _grid.SetOccupantFootprint(destination, building.Definition.FootprintCells, building);
+
+            RelocationTarget = null;
+            Selected = null;
+
+            moved = building;
             return true;
         }
 
@@ -485,7 +584,10 @@ namespace Game.Construction
                 return PlacementRefusalReason.CannotAfford;
             }
 
-            if (Selected.CountsAgainstBuildingCap && OccupiedBuildingSlots >= BuildingCap)
+            // Not for a move: the building being moved is already one of the occupied slots, so
+            // reading the cap here would refuse to rearrange a base precisely when it is full -
+            // which is when rearranging it matters most. A move adds nothing to count.
+            if (RelocationTarget == null && Selected.CountsAgainstBuildingCap && OccupiedBuildingSlots >= BuildingCap)
             {
                 return PlacementRefusalReason.BuildingCapReached;
             }
@@ -515,7 +617,13 @@ namespace Game.Construction
             // Checks every cell of the footprint, not just the origin - a building whose origin
             // sits on empty ground but whose footprint extends onto a deposit (or any other
             // occupant) must still be rejected, not just partially overlap it unnoticed.
-            return _grid.IsAreaFree(cell, Selected.FootprintSize) ? PlacementRefusalReason.None : PlacementRefusalReason.CellOccupied;
+            //
+            // A building being moved is not an obstacle to itself: without that exception every
+            // destination overlapping where it already stands would be refused, starting with one
+            // cell over.
+            return _grid.IsAreaFree(cell, Selected.FootprintCells, RelocationTarget)
+                ? PlacementRefusalReason.None
+                : PlacementRefusalReason.CellOccupied;
         }
 
         bool IsFootprintPlaceableOverConveyors(GridCoord origin, Vector2Int[] cells)

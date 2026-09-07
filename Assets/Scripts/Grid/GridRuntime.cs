@@ -80,6 +80,25 @@ namespace Game.Grid
             return true;
         }
 
+        /// <summary>
+        /// True when every relative cell is unoccupied <b>or</b> already held by
+        /// <paramref name="ignoring"/> - what moving a building has to ask.
+        ///
+        /// A building being relocated stands on its own ground, so the plain check would refuse every
+        /// destination that overlaps where it currently is, including "one cell to the left". The
+        /// mover is not an obstacle to itself.
+        /// </summary>
+        public bool IsAreaFree(GridCoord origin, Vector2Int[] cells, object ignoring)
+        {
+            foreach (Vector2Int offset in cells)
+            {
+                object occupant = GetOccupant(new GridCoord(origin.X + offset.x, origin.Y + offset.y));
+                if (occupant != null && !ReferenceEquals(occupant, ignoring)) return false;
+            }
+
+            return true;
+        }
+
         /// <summary>Registers the same occupant on every relative cell of a masked footprint (origin + offset).</summary>
         public void SetOccupantFootprint(GridCoord origin, Vector2Int[] cells, object occupant)
         {

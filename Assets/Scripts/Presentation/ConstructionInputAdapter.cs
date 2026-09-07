@@ -124,6 +124,12 @@ namespace Game.Presentation
                 // segment's assembly and swap in the real building themselves. A second spawner
                 // built over there would keep its own per-cell view dictionary, and demolition
                 // would stop finding views created by the other.
+                // Same reason, for the panels: a building whose rotation changed needs its view
+                // rebuilt (its arrows are baked children), and the UI has no spawner of its own.
+                // Lending this one keeps every view in the single per-cell dictionary demolition
+                // reads from.
+                gameRuntime.BuildingViewRebuilder = RebuildView;
+
                 if (gameRuntime.ConstructionSiteVisuals != null)
                 {
                     gameRuntime.ConstructionSiteVisuals.SetViewSpawner(_spawner.SpawnView);
@@ -340,6 +346,15 @@ namespace Game.Presentation
         {
             var mouse = Mouse.current;
             if (mouse == null || gameRuntime.Construction.Selected == null) return;
+
+            // A move borrows the whole placement gesture - same ghost, same gates, same R to turn -
+            // and differs only here, at the click: one building changes address instead of a new
+            // chantier being opened. Never a drag: there is one building to move, not a run to lay.
+            if (gameRuntime.Construction.RelocationTarget != null)
+            {
+                if (mouse.leftButton.wasPressedThisFrame) RelocateTo(cell);
+                return;
+            }
 
             if (mouse.leftButton.wasPressedThisFrame)
             {
@@ -741,6 +756,35 @@ namespace Game.Presentation
 
                 DemolishAt(current);
             }
+        }
+
+        /// <summary>
+        /// Completes a move. The runtime is the same object at a new address, so nothing is
+        /// transferred and nothing is re-registered with transport or the item views - those key on
+        /// the building, not on where it stands. Only the view has to be rebuilt, because it is
+        /// keyed by cell and carries its arrows as baked children.
+        /// </summary>
+        void RelocateTo(GridCoord cell)
+        {
+            GridCoord previousCell = gameRuntime.Construction.RelocationTarget.Cell;
+
+            if (!gameRuntime.Construction.TryRelocate(cell, out BuildingRuntime moved)) return;
+
+            RebuildView(moved, previousCell);
+        }
+
+        /// <summary>
+        /// Destroys a building's view and draws it again from its current state. The view is keyed
+        /// by cell and its arrows are children fixed at spawn, so both a rotation and a move need
+        /// this - <paramref name="previousCell"/> is where the old view is filed, which is not where
+        /// the building now stands after a move.
+        /// </summary>
+        void RebuildView(BuildingRuntime building, GridCoord previousCell)
+        {
+            if (building == null || _spawner == null) return;
+
+            _spawner.RemoveView(previousCell);
+            _spawner.SpawnView(building);
         }
 
         void DemolishAt(GridCoord cell)
