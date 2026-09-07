@@ -14,6 +14,10 @@ namespace Game.Grid
     /// </summary>
     public sealed class TerrainRuntime
     {
+        /// <summary>Distinct salts so the two offsets are independent draws rather than the same number twice.</summary>
+        const uint OffsetXSalt = 0x9E3779B9;
+        const uint OffsetYSalt = 0x85EBCA6B;
+
         readonly float _offsetX;
         readonly float _offsetY;
 
@@ -40,9 +44,17 @@ namespace Game.Grid
             TerrainScale = terrainScale;
             Proportion = proportion;
 
-            var rng = new System.Random(seed);
-            _offsetX = (float)(rng.NextDouble() * 1000.0);
-            _offsetY = (float)(rng.NextDouble() * 1000.0);
+            // NOT System.Random. It has no guarantee of stability across runtime versions, and the
+            // terrain is re-derived at every load rather than saved: the day a Unity upgrade changed
+            // its sequence, every existing world would recompose underneath buildings that ARE saved,
+            // and a player would find their base on ground they do not recognise. That was harmless
+            // while the terrain was a stored array; making the terrain derived is what made it
+            // payable, so it is paid here.
+            //
+            // Two independent draws, from two salts rather than two successive calls - there is no
+            // sequence to advance.
+            _offsetX = (float)(DeterministicHash.Unit(seed, 0, OffsetXSalt) * 1000.0);
+            _offsetY = (float)(DeterministicHash.Unit(seed, 0, OffsetYSalt) * 1000.0);
 
         }
 

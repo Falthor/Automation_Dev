@@ -205,24 +205,14 @@ namespace Game.Gameplay.Sectors
         }
 
         /// <summary>
-        /// An integer mixer written out here rather than borrowed from string.GetHashCode or
-        /// Random - both are free to change between runtimes, and this has to give the same answer
-        /// in a save loaded next year as it did when the save was written.
+        /// The shared runtime-stable mixer (Game.Core). It used to be written out here; it moved when
+        /// the terrain came to need exactly the same guarantee, and moved rather than being copied
+        /// for the reason a hash is always worth sharing - two copies are two things that can drift,
+        /// and a drifting hash silently recomposes a world under buildings that were saved.
+        ///
+        /// The arithmetic is unchanged, and a test with hard-coded names proves it: moving it must
+        /// not have renamed a single sector.
         /// </summary>
-        static uint Hash(int seed, int index, uint salt)
-        {
-            unchecked
-            {
-                uint h = (uint)seed * 2654435761u;
-                h ^= (uint)index * 2246822519u;
-                h ^= salt;
-                h ^= h >> 15;
-                h *= 2246822519u;
-                h ^= h >> 13;
-                h *= 3266489917u;
-                h ^= h >> 16;
-                return h;
-            }
-        }
+        static uint Hash(int seed, int index, uint salt) => DeterministicHash.Mix(seed, index, salt);
     }
 }

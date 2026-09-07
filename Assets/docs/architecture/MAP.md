@@ -118,6 +118,11 @@ contents as pure functions of the world seed and the sector index, when asked. T
 terrain's (`TerrainRuntime.Seed`) — the only one a save restores — so the same sector answers the same
 thing in a loaded game.
 
+The mixing goes through `Game.Core.DeterministicHash`, shared with the terrain and explicitly written
+out: `System.Random` and `string.GetHashCode` are barred from anything derived, because neither is
+guaranteed stable across runtime versions and a change would rename every sector in every existing
+world. Frozen by tests with hard-coded names.
+
 - **Names are unique by construction**, through an injective index-to-vocabulary mapping rather than a
   draw that would need a registry to check. A test fails when the vocabulary no longer covers the
   sector count, which is what will happen when the map grows.

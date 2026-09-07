@@ -291,5 +291,31 @@ namespace Game.Tests.EditMode.Gameplay
             Assert.AreEqual(SectorFeature.None, catalog.ContentsOf(-1).Feature);
             Assert.IsNotNull(catalog.ContentsOf(-1).DepositCells);
         }
+
+        // ---- Frozen identities ----
+
+        /// <summary>
+        /// Hard-coded names and risks, captured before the hash moved into Game.Core and asserted
+        /// after. Two purposes, both of which need literals rather than a recomputed expectation:
+        /// it proves the move renamed nothing, and it catches a runtime whose arithmetic has changed
+        /// underneath a world that is derived rather than saved.
+        ///
+        /// <b>If this fails, do not update the strings.</b> Every existing world has just been
+        /// renamed; find out what moved.
+        /// </summary>
+        [TestCase(0, "Balise du Levant", SectorRisk.Moderate)]
+        [TestCase(1, "Brèche de Schiste", SectorRisk.High)]
+        [TestCase(7, "Épave de Sel", SectorRisk.Low)]
+        [TestCase(100, "Vestiges des Sondes", SectorRisk.High)]
+        [TestCase(180, "Relais de Fer", SectorRisk.Low)]
+        [TestCase(360, "Relais de l'Orage", SectorRisk.Moderate)]
+        public void SectorIdentitiesAreFrozen(int index, string expectedName, SectorRisk expectedRisk)
+        {
+            SectorCatalog catalog = NewCatalog();
+
+            Assert.AreEqual(expectedName, catalog.NameOf(index));
+            Assert.AreEqual(expectedRisk, catalog.RiskOf(index));
+        }
+
     }
 }

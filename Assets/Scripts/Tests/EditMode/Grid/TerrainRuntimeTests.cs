@@ -237,5 +237,66 @@ namespace Game.Tests.EditMode.Grid
 
             Assert.Greater(differences, 0, "If these matched, the seed would not be doing anything.");
         }
+
+        // ---- Frozen against the runtime ----
+
+        /// <summary>
+        /// Hard-coded terrain, for the one reason that justifies literals: this world is
+        /// <b>re-derived at every load rather than saved</b>, while the buildings standing on it are
+        /// saved. If the arithmetic underneath ever answers differently - a Unity upgrade, a
+        /// well-meaning refactor of the hash - the ground recomposes under a base the player built,
+        /// and they find it straddling terrain they do not recognise.
+        ///
+        /// A test that recomputed its expectation would move with the change and see nothing. Four
+        /// Top and four Base, deliberately: an implementation that returned one constant would pass
+        /// half a lopsided set.
+        ///
+        /// <b>If this fails, do not update the values.</b> Every existing world has just changed
+        /// shape. Find out what moved.
+        /// </summary>
+        [TestCase(287, 0, TerrainType.Top)]
+        [TestCase(164, 37, TerrainType.Top)]
+        [TestCase(246, 74, TerrainType.Top)]
+        [TestCase(205, 148, TerrainType.Top)]
+        [TestCase(0, 0, TerrainType.Base)]
+        [TestCase(41, 0, TerrainType.Base)]
+        [TestCase(82, 0, TerrainType.Base)]
+        [TestCase(123, 0, TerrainType.Base)]
+        public void TerrainIsFrozenAgainstTheRuntime(int x, int y, TerrainType expected)
+        {
+            var terrain = new TerrainRuntime(size: 300, seed: 20260907, terrainScale: 45f, proportion: 0.3f);
+
+            Assert.AreEqual(expected, terrain.GetTerrainType(new GridCoord(x, y)));
+        }
+
+        /// <summary>
+        /// The offsets come from an explicit hash, never from System.Random - which has no guarantee
+        /// of stability across runtime versions and would therefore reshape every derived world on a
+        /// Unity upgrade. Asserted rather than trusted: a seed of zero has to produce a real offset,
+        /// which is exactly what a mixer fed no salt would fail to do.
+        /// </summary>
+        [Test]
+        public void AZeroSeedStillProducesARealWorld()
+        {
+            var zero = new TerrainRuntime(size: 60, seed: 0, terrainScale: 45f, proportion: 0.3f);
+            var one = new TerrainRuntime(size: 60, seed: 1, terrainScale: 45f, proportion: 0.3f);
+
+            int differences = 0;
+            int tops = 0;
+
+            for (int y = 0; y < 60; y++)
+            {
+                for (int x = 0; x < 60; x++)
+                {
+                    var cell = new GridCoord(x, y);
+                    if (zero.GetTerrainType(cell) == TerrainType.Top) tops++;
+                    if (zero.GetTerrainType(cell) != one.GetTerrainType(cell)) differences++;
+                }
+            }
+
+            Assert.Greater(tops, 0, "a zero seed produced a uniform world - its offsets did not mix");
+            Assert.Greater(differences, 0, "seed 0 and seed 1 produced the same world");
+        }
+
     }
 }

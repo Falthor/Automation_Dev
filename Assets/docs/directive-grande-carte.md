@@ -134,6 +134,14 @@ C'est ce qui garde une sauvegarde minuscule sur une carte de 10 000, et une rais
 la pureté : si le terrain n'est pas exactement reproductible, une sauvegarde rechargée montre un
 autre monde.
 
+**Corollaire traité : la source d'aléa doit être stable entre versions de runtime.** Les décalages du
+bruit venaient de `System.Random`, qui n'offre aucune garantie de stabilité. Anodin tant que le
+terrain était stocké et sauvegardé ; sur un terrain redérivé, une mise à jour d'Unity aurait suffi à
+recomposer tous les mondes existants sous des bâtiments qui, eux, sont sauvegardés. Corrigé
+maintenant plutôt qu'avant diffusion : le coût de la correction ne fait qu'augmenter, et aujourd'hui
+il ne coûte que les parties de test. `Game.Core.DeterministicHash`, verrouillé par des tests à valeurs
+codées en dur.
+
 **Corollaire traité : la graine vient de la partie, pas de l'asset.** `SaveCurrentGame` réécrivait
 les quatre nombres du terrain depuis l'asset de réglages. Anodin tant que le terrain était stocké et
 relu de la sauvegarde ; plus du tout sur un terrain redérivé, où modifier l'asset entre deux sessions
