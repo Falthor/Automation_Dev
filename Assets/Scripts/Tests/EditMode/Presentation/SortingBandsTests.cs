@@ -22,8 +22,9 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void ALowerRow_DrawsInFrontOfAHigherOne()
         {
-            int low = SortingBands.Sorted(4f, SortingBands.SubSprite);
-            int high = SortingBands.Sorted(9f, SortingBands.SubSprite);
+            // Depth below the window's top, so a bigger number is further down the screen.
+            int low = SortingBands.SortedFromDepth(9f, SortingBands.SubSprite);
+            int high = SortingBands.SortedFromDepth(4f, SortingBands.SubSprite);
 
             Assert.Greater(low, high, "Lower on the grid means nearer the camera.");
         }
@@ -31,10 +32,10 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void SubLayers_StackSilhouetteShadowSpriteOverlay_WithinOneRow()
         {
-            int silhouette = SortingBands.Sorted(7f, SortingBands.SubSilhouette);
-            int shadow = SortingBands.Sorted(7f, SortingBands.SubShadow);
-            int sprite = SortingBands.Sorted(7f, SortingBands.SubSprite);
-            int overlay = SortingBands.Sorted(7f, SortingBands.SubOverlay);
+            int silhouette = SortingBands.SortedFromDepth(7f, SortingBands.SubSilhouette);
+            int shadow = SortingBands.SortedFromDepth(7f, SortingBands.SubShadow);
+            int sprite = SortingBands.SortedFromDepth(7f, SortingBands.SubSprite);
+            int overlay = SortingBands.SortedFromDepth(7f, SortingBands.SubOverlay);
 
             Assert.Less(silhouette, shadow);
             Assert.Less(shadow, sprite);
@@ -48,8 +49,8 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void ARowAlwaysOutranksASubLayer()
         {
-            int nearestSubLayerOfAFarRow = SortingBands.Sorted(8f, SortingBands.SubOverlay);
-            int lowestSubLayerOfANearRow = SortingBands.Sorted(7f, SortingBands.SubSilhouette);
+            int nearestSubLayerOfAFarRow = SortingBands.SortedFromDepth(7f, SortingBands.SubOverlay);
+            int lowestSubLayerOfANearRow = SortingBands.SortedFromDepth(8f, SortingBands.SubSilhouette);
 
             Assert.Greater(lowestSubLayerOfANearRow, nearestSubLayerOfAFarRow);
         }
@@ -101,9 +102,9 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void AnExtractorSilhouette_IsNeverHiddenBehindItsDeposit()
         {
-            Assert.Greater(SortingBands.Sorted(0f, SortingBands.SubSilhouette), SortingBands.Deposit);
-            Assert.Greater(SortingBands.Sorted(511f, SortingBands.SubSilhouette), SortingBands.Deposit,
-                "True at the far edge of the world too, not just near the origin.");
+            Assert.Greater(SortingBands.SortedFromDepth(0f, SortingBands.SubSilhouette), SortingBands.Deposit);
+            Assert.Greater(SortingBands.SortedFromDepth(SortingBands.AddressableRows, SortingBands.SubSilhouette), SortingBands.Deposit,
+                "True at the far edge of the window too, not just at its top.");
         }
 
         [Test]
@@ -118,8 +119,9 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void TheWholeLadderFitsInASortingOrder()
         {
-            // Unity stores sortingOrder as a short. The band is sized for a world ten times the
-            // current 60 cells, so this is headroom being asserted, not a close call.
+            // Unity stores sortingOrder as a short. The ladder is sized for the view window, not
+            // for the world, so this stays true at any map size - which is the whole point of the
+            // change. Asserted anyway: AddressableRows is the one knob that can break it.
             Assert.Less(SortingBands.Fog, short.MaxValue);
             Assert.GreaterOrEqual(SortingBands.TerrainBase, short.MinValue);
         }
@@ -127,8 +129,8 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void OutOfRangeCoordinates_ClampInsteadOfWrappingIntoAnotherBand()
         {
-            int belowWorld = SortingBands.Sorted(-50f, SortingBands.SubSprite);
-            int beyondWorld = SortingBands.Sorted(100000f, SortingBands.SubSprite);
+            int belowWorld = SortingBands.SortedFromDepth(-50f, SortingBands.SubSprite);
+            int beyondWorld = SortingBands.SortedFromDepth(100000f, SortingBands.SubSprite);
 
             Assert.GreaterOrEqual(belowWorld, SortingBands.SortedFirst);
             Assert.LessOrEqual(belowWorld, SortingBands.SortedLast);
@@ -137,20 +139,22 @@ namespace Game.Tests.EditMode.Presentation
         }
 
         /// <summary>
-        /// The door the baked decor could otherwise leave open. WildDecorationGenerator writes
-        /// GameObjects into a scene, so every rank it assigns is frozen there: it is the one place a
-        /// stale draw order cannot be corrected at load, because nothing recomputes it. The generator
-        /// calls SortingBands rather than copying the formula; this recomputes what is actually
-        /// stored and fails if the two have drifted apart.
+        /// No scene may carry a sorted-band rank at all - a stronger rule than the one this replaces,
+        /// and a simpler one.
         ///
-        /// It scans every scene in the build rather than one by name, so a scene gaining baked decor
-        /// is covered without anyone remembering to add it here.
+        /// It used to recompute each baked rank and compare. That comparison stopped being possible
+        /// the moment ranks became relative to a moving window: a number frozen in a scene is only
+        /// true for the window it was computed against, and there is no way to check it after the
+        /// fact because the window it belonged to is gone. So the rank cannot be stored at all - it
+        /// has to be handed out at runtime by <see cref="DepthSortLadder"/>.
+        ///
+        /// Scans every scene rather than one by name, so a scene gaining decor is covered without
+        /// anyone remembering to add it here.
         /// </summary>
         [Test]
-        public void BakedSceneRanks_MatchWhatTheLadderComputesToday()
+        public void NoSceneCarriesASortedBandRank()
         {
-            var mismatches = new List<string>();
-            int checkedRenderers = 0;
+            var baked = new List<string>();
 
             foreach (string path in ScenePaths())
             {
@@ -164,11 +168,7 @@ namespace Game.Tests.EditMode.Presentation
                             int stored = renderer.sortingOrder;
                             if (stored < SortingBands.SortedFirst || stored > SortingBands.SortedLast) continue;
 
-                            checkedRenderers++;
-                            int recomputed = SortingBands.SortedFromBounds(renderer, stored % SortingBands.SubLayers);
-                            if (recomputed == stored) continue;
-
-                            mismatches.Add($"{path}:{renderer.name} stored {stored}, recomputed {recomputed}");
+                            baked.Add($"{path}:{renderer.name} carries {stored}");
                         }
                     }
                 }
@@ -178,15 +178,11 @@ namespace Game.Tests.EditMode.Presentation
                 }
             }
 
-            Assert.IsEmpty(mismatches,
-                "A baked rank no longer matches the ladder. Re-run Tools/Wild Decoration/Regenerate All, "
-                + "or fix whatever wrote these by hand:\n" + string.Join("\n", mismatches));
-
-            // Said out loud rather than left to a silently green run: nothing is baked into a scene
-            // today (the wild scatter is regenerated on every Play Mode entry and discarded on exit),
-            // so this currently guards a door that is not yet open. It closes the moment decor is
-            // saved into a scene, which is the point.
-            if (checkedRenderers == 0) Assert.Pass("No baked sorted-band renderer in any scene yet.");
+            Assert.IsEmpty(baked,
+                "A sorted-band rank is stored in a scene. It is measured against a depth window that "
+                + "follows the camera, so a frozen copy is wrong as soon as the camera moves. Whatever "
+                + "wrote these must register with DepthSortLadder at runtime instead:\n"
+                + string.Join("\n", baked));
         }
 
         static IEnumerable<string> ScenePaths()

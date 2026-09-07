@@ -26,6 +26,13 @@ namespace Game.Presentation
         [SerializeField, Min(0.01f)] float maxOrthographicSize = 40f;
         [SerializeField, Min(0.01f)] float smoothing = 12f;
 
+        /// <summary>
+        /// The zoom-out cap, in orthographic half-height. Read by DepthSortLadder, which sizes its
+        /// depth window from it: how much world can be on screen at once is exactly what decides how
+        /// many draw orders the sorted band needs.
+        /// </summary>
+        public float MaxOrthographicSize => maxOrthographicSize;
+
         Camera _camera;
         float _targetSize;
 

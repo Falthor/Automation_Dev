@@ -29,6 +29,12 @@ namespace Game.Presentation
     /// </list>
     ///
     /// Fog sits above all four.
+    ///
+    /// <b>The sorted band is measured against the camera, not the world.</b> Its ranks are handed
+    /// out by <see cref="DepthSortLadder"/> against a window that follows the view; the constants
+    /// here are the ladder's geometry, not a map of the world. A consequence worth stating once: a
+    /// sorted-band rank can never be written into a scene, because it is only true for the window it
+    /// was computed against. Baked decor that rises above its base has to be ranked at runtime.
     /// </summary>
     public static class SortingBands
     {
@@ -80,24 +86,29 @@ namespace Game.Presentation
 
         /// <summary>
         /// Quantisation of the depth key, per world unit. At the scene's cell size of 1 that is four
-        /// sub-steps per cell, which separates anything the player can place while keeping the band
-        /// small enough to sit inside a short several times over.
+        /// sub-steps per cell, which separates anything the player can place.
         /// </summary>
         public const int StepsPerWorldUnit = 4;
 
         /// <summary>
-        /// World rows the band can address. The map is <b>300</b> cells
-        /// (Assets/Data/Terrain/DefaultTerrain.asset - the C# default of 60 on
-        /// TerrainGenerationSettings is never what runs), so the margin here is 1.7x, not the order
-        /// of magnitude this comment used to claim.
+        /// World rows the band addresses - <b>of the view window, not of the world</b>.
         ///
-        /// That is still enough, and the ceiling is not the one to watch: 512 rows x 4 steps x 4
-        /// sub-layers puts the top of the ladder (Fog) at 8493, well inside a short. What breaks
-        /// first is this constant, and it breaks quietly - Sorted() clamps, so everything past row
-        /// 512 would collapse onto one order and stop sorting by depth. Raise it before growing the
-        /// map, and recheck the short then: at 4 sub-layers the band alone is AddressableRows * 16.
+        /// This used to be the world's own height, and that is what stops working: sortingOrder is a
+        /// short, and a 10 000-cell map at 4 steps and 4 sub-layers would need 160 000 values. It
+        /// would not fail loudly either - <see cref="SortedFromDepth"/> clamps, so everything past
+        /// the last addressable row collapses onto one order and quietly stops sorting by depth.
+        ///
+        /// The way out is that <b>only what is on screen at the same time has to be ordered</b>, and
+        /// the zoom-out cap bounds that. The ladder is therefore anchored to a window that follows
+        /// the camera (<see cref="DepthSortLadder"/>), and its size no longer has anything to do
+        /// with the size of the map: a 300-cell world and a 10 000-cell one cost the same 4 096
+        /// orders.
+        ///
+        /// 256 rows against a 60-row view leaves ~98 world units of slack on each side, which is how
+        /// far the camera pans between two re-anchorings. Raising it buys rarer re-anchorings and
+        /// costs orders; the whole ladder must stay inside a short, which a test asserts.
         /// </summary>
-        public const int AddressableRows = 512;
+        public const int AddressableRows = 256;
 
         const int Steps = AddressableRows * StepsPerWorldUnit;
 
@@ -135,25 +146,25 @@ namespace Game.Presentation
         public const int Fog = PlacementPreview + 100;
 
         /// <summary>
-        /// The depth rank of something standing at <paramref name="worldBottomY"/> - the world Y of
-        /// the <b>lowest</b> point it stands on, never the centre of its art. For a building that is
-        /// the bottom edge of its footprint (GridRuntime.CellToWorld, which returns the corner); for
-        /// a scattered rock, the bottom edge of its sprite; for a robot, its own position.
+        /// The depth rank of something standing <paramref name="depthBelowWindowTop"/> world units
+        /// below the top of the current view window - see <see cref="DepthSortLadder"/>, which owns
+        /// that window and is the only thing that should be calling this.
         ///
-        /// Lower on the grid gives a higher order, so it draws in front. Stated as a world
-        /// coordinate rather than a row index so grid-aligned buildings and free-standing decor go
-        /// through the same function - the one thing that keeps a baked scene and the runtime from
-        /// drifting apart.
+        /// The measurement is taken from the <b>lowest</b> point the thing stands on, never the
+        /// centre of its art: the bottom edge of a building's footprint, the bottom of a scattered
+        /// rock's sprite. Deeper means further down the screen, means drawn in front.
+        ///
+        /// <b>Relative, not absolute.</b> The rank of one object is meaningless on its own now; only
+        /// the comparison between two objects measured against the same window means anything. That
+        /// is also why a rank can no longer be baked into a scene - it would be a number frozen
+        /// against a window that has since moved. Nothing outside the window is ordered correctly
+        /// either, and nothing outside it is visible.
         /// </summary>
-        public static int Sorted(float worldBottomY, int subLayer)
+        public static int SortedFromDepth(float depthBelowWindowTop, int subLayer)
         {
-            int step = Mathf.Clamp(Mathf.FloorToInt(worldBottomY * StepsPerWorldUnit), 0, Steps - 1);
+            int step = Mathf.Clamp(Mathf.FloorToInt(depthBelowWindowTop * StepsPerWorldUnit), 0, Steps - 1);
             int sub = Mathf.Clamp(subLayer, 0, SubLayers - 1);
-            return SortedFirst + (Steps - 1 - step) * SubLayers + sub;
+            return SortedFirst + step * SubLayers + sub;
         }
-
-        /// <summary>The rank of a renderer's own art, measured off the bottom of what it actually draws - what free-standing decor uses, since it owns no footprint.</summary>
-        public static int SortedFromBounds(Renderer renderer, int subLayer)
-            => Sorted(renderer.bounds.min.y, subLayer);
     }
 }

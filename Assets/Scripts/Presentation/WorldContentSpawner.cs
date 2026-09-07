@@ -27,6 +27,9 @@ namespace Game.Presentation
         readonly GroundSlabNeighborLinker _groundSlabNeighborLinker;
         readonly BuildingShadowSettings _shadowSettings;
 
+        /// <summary>The scene's one depth ladder - see BuildingSpawner for why it is never null and why there must only be one.</summary>
+        readonly DepthSortLadder _depthSort;
+
         /// <summary>
         /// groundSlabSettings is optional; null (or its diffuse/normal being null) means the Core
         /// spawns with no concrete pad. groundSlabNeighborLinker is optional too; null means the
@@ -34,13 +37,14 @@ namespace Game.Presentation
         /// is optional as well; null means the Core casts no drop shadow - same all-or-nothing
         /// convention as the slab, no hardcoded fallback look.
         /// </summary>
-        public WorldContentSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory, GroundSlabSettings groundSlabSettings = null, GroundSlabNeighborLinker groundSlabNeighborLinker = null, BuildingShadowSettings shadowSettings = null)
+        public WorldContentSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory, GroundSlabSettings groundSlabSettings = null, GroundSlabNeighborLinker groundSlabNeighborLinker = null, BuildingShadowSettings shadowSettings = null, DepthSortLadder depthSort = null)
         {
             _grid = grid;
             _spriteFactory = spriteFactory;
             _groundSlabSettings = groundSlabSettings;
             _groundSlabNeighborLinker = groundSlabNeighborLinker;
             _shadowSettings = shadowSettings;
+            _depthSort = depthSort ?? new DepthSortLadder(0f);
         }
 
         public void SpawnCore(BuildingRuntime core)
@@ -80,7 +84,7 @@ namespace Game.Presentation
             // The Core is depth-sorted like every other building: its art is a full cell taller than
             // its footprint, so it overhangs the row above and has to be able to lose to whatever
             // stands there. Keyed on the bottom of the footprint, never the centre of the art.
-            renderer.sortingOrder = SortingBands.Sorted(_grid.CellToWorld(core.Cell).y, SortingBands.SubSprite);
+            _depthSort.Register(renderer, _grid.CellToWorld(core.Cell).y, SortingBands.SubSprite);
 
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite

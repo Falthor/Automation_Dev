@@ -104,12 +104,12 @@ namespace Game.Tests.PlayMode
         [Test]
         public void TakesItsOrderFromItsCaster_OneSubLayerUnderIt()
         {
-            int casterOrder = SortingBands.Sorted(12f, SortingBands.SubSprite);
+            int casterOrder = SortingBands.SortedFromDepth(12f, SortingBands.SubSprite);
             DropShadow shadow = NewCaster(NewSettings(), NewSprite(), Vector3.zero, Vector3.one, casterOrder);
             var caster = shadow.GetComponent<SpriteRenderer>();
 
             Assert.AreEqual(caster.sortingLayerID, shadow.ShadowRenderer.sortingLayerID);
-            Assert.AreEqual(SortingBands.Sorted(12f, SortingBands.SubShadow), shadow.ShadowRenderer.sortingOrder,
+            Assert.AreEqual(SortingBands.SortedFromDepth(12f, SortingBands.SubShadow), shadow.ShadowRenderer.sortingOrder,
                 "Same row as its caster, one sub-layer below.");
             Assert.Less(shadow.ShadowRenderer.sortingOrder, caster.sortingOrder,
                 "The shadow must draw under the building casting it.");
@@ -119,8 +119,8 @@ namespace Game.Tests.PlayMode
         [Test]
         public void ShadowsOfDifferentRows_KeepTheirCastersOrder()
         {
-            DropShadow near = NewCaster(NewSettings(), NewSprite(), Vector3.zero, Vector3.one, SortingBands.Sorted(4f, SortingBands.SubSprite));
-            DropShadow far = NewCaster(NewSettings(), NewSprite(), Vector3.zero, Vector3.one, SortingBands.Sorted(9f, SortingBands.SubSprite));
+            DropShadow near = NewCaster(NewSettings(), NewSprite(), Vector3.zero, Vector3.one, SortingBands.SortedFromDepth(4f, SortingBands.SubSprite));
+            DropShadow far = NewCaster(NewSettings(), NewSprite(), Vector3.zero, Vector3.one, SortingBands.SortedFromDepth(9f, SortingBands.SubSprite));
 
             Assert.Greater(near.ShadowRenderer.sortingOrder, far.ShadowRenderer.sortingOrder,
                 "The lower building's shadow draws in front of the higher building's.");

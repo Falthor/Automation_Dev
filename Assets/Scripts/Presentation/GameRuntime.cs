@@ -119,6 +119,13 @@ namespace Game.Presentation
         public SectorMissionRange MissionRange { get; private set; }
 
         /// <summary>
+        /// The scene's one depth ladder - every sorted-band rank comes from it. There must be
+        /// exactly one: a rank is only meaningful against the window it was measured in, so ranks
+        /// from two ladders are not comparable.
+        /// </summary>
+        public DepthSortLadder DepthSort { get; private set; }
+
+        /// <summary>
         /// Redraws one building's view, given the cell its current view is filed under. Installed by
         /// ConstructionInputAdapter, which owns the scene's only BuildingSpawner; null in a scene
         /// without one (a test), where rotating still changes the runtime and simply draws nothing.
@@ -215,6 +222,14 @@ namespace Game.Presentation
             Transport = new TransportSystem(Grid);
             Notifications = new NotificationSystem();
             Clock = new PlayClock();
+
+            // Sized from the zoom-out cap, because that is exactly what bounds how much world can be
+            // on screen at once - and therefore how many draw orders the sorted band needs. Found
+            // once here rather than wired in the scene: there is one zoom controller, and a missing
+            // one only means the ladder assumes a zero-height view, which still ranks correctly.
+            var zoom = FindAnyObjectByType<CameraZoomController>();
+            DepthSort = new DepthSortLadder(zoom != null ? zoom.MaxOrthographicSize : 0f);
+            _depthSortCamera = Camera.main;
 
             SaveData loadedSave = PendingGameStart.LoadedSave;
             PendingGameStart.RequestNewGame(); // consume immediately - never read a second time this session
@@ -444,6 +459,9 @@ namespace Game.Presentation
         }
 
         /// <summary>The radius last written into the discovery state, so a repeat pass costs one comparison. NaN until the first pass, which no real radius equals.</summary>
+        /// <summary>The camera the depth ladder follows. Cached once - Camera.main is a scene search.</summary>
+        Camera _depthSortCamera;
+
         float _lastRevealedCoreRadius = float.NaN;
 
         /// <summary>
@@ -457,6 +475,32 @@ namespace Game.Presentation
         /// Called from the tick and idempotent: the disc is only walked when the radius has actually
         /// moved since the last pass, so repeating it every frame allocates nothing and walks nothing.
         /// </summary>
+        /// <summary>
+        /// Puts every DepthSortedDecor currently in the scene on the depth ladder, and answers how
+        /// many. Decor that rises above its base carries a marker rather than a baked rank, because a
+        /// sorted-band rank is only true for the depth window it was measured in.
+        ///
+        /// Public because Start() is not the only moment decor appears: WildDecorationGenerator
+        /// scatters rocks on every Play Mode entry, and it runs <b>after</b> Start() - it waits for
+        /// World and Grid to exist. Anything born after the startup sweep has to ask for a second
+        /// one, or it keeps sortingOrder 0 and sinks into the ground band.
+        ///
+        /// A scene search, so it belongs to a scattering pass and never to a frame. Registering the
+        /// same renderer twice would rank it twice, so the ladder is asked to forget it first.
+        /// </summary>
+        public int RegisterSceneDepthSortedDecor()
+        {
+            int registered = 0;
+
+            foreach (DepthSortedDecor decor in FindObjectsByType<DepthSortedDecor>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                decor.RegisterWith(DepthSort);
+                registered++;
+            }
+
+            return registered;
+        }
+
         /// <summary>
         /// Turns a placed building a quarter turn and redraws it - what the panels' rotate button
         /// calls. Kept here rather than in each panel so the runtime change and the view rebuild can
@@ -527,6 +571,12 @@ namespace Game.Presentation
             // where it stood, without knowing pause exists. See PlayClock.
             Clock.Advance(Time.deltaTime);
 
+            // Not part of the simulation tick - where the player is looking is not simulation state,
+            // which is why it sits after the clock and reads no deltaTime at all. On almost every
+            // frame this is one subtraction and one comparison; it only re-ranks anything when the
+            // camera has panned out of the ladder's slack, roughly every 98 world units.
+            if (_depthSortCamera != null) DepthSort?.FollowCamera(_depthSortCamera.transform.position.y);
+
             // The cell grid is a construction aid, not permanent decoration: it shows only while
             // a building is armed for placement. Driven from here rather than from the
             // construction input adapter because this object already owns the view's reference
@@ -543,6 +593,8 @@ namespace Game.Presentation
                 terrainView.Initialize(Terrain, Grid);
             }
 
+            RegisterSceneDepthSortedDecor();
+
             GroundSlabSettings = BuildGroundSlabSettings();
             GroundSlabNeighborLinker = new GroundSlabNeighborLinker(Grid);
 
@@ -558,7 +610,7 @@ namespace Game.Presentation
 
             if (World != null)
             {
-                var contentSpawner = new WorldContentSpawner(Grid, new ProceduralSpriteFactory(), GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings);
+                var contentSpawner = new WorldContentSpawner(Grid, new ProceduralSpriteFactory(), GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings, DepthSort);
                 contentSpawner.SpawnCore(World.Core);
                 Transport.Register(World.Core);
 
@@ -567,7 +619,7 @@ namespace Game.Presentation
                 // instead, already registered and viewed like any other placed Storage box.
                 if (World.CoreStorage != null)
                 {
-                    var coreStorageSpawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings);
+                    var coreStorageSpawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings, DepthSort);
                     coreStorageSpawner.SpawnView(World.CoreStorage);
                     Transport.Register(World.CoreStorage);
                 }
@@ -619,7 +671,7 @@ namespace Game.Presentation
                 // Passed the same presentation settings as the placement path, which it was not:
                 // a building coming back from a save has to look like the one that was placed, and
                 // this spawner was giving it neither a concrete slab nor a shadow.
-                var spawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings);
+                var spawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings, DepthSort);
                 foreach (BuildingRuntime building in _restoredBuildings)
                 {
                     spawner.SpawnView(building);

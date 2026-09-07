@@ -59,6 +59,15 @@ namespace Game.Presentation
         System.Func<GridCoord, Vector2Int, SpriteRenderer> _spawnConvertingSlab;
         ConstructionSiteSystem _sites;
         GridRuntime _grid;
+
+        DepthSortLadder _depthSort;
+
+        /// <summary>
+        /// The scene's one depth ladder, resolved through GameRuntime like _grid above. Falls back to
+        /// a private one where there is no GameRuntime - an EditMode test binding its systems
+        /// directly - so site renderers are still ranked by row rather than all landing on one order.
+        /// </summary>
+        public DepthSortLadder DepthSort => _depthSort ?? (_depthSort = new DepthSortLadder(0f));
         bool _subscribed;
 
         /// <summary>
@@ -222,6 +231,7 @@ namespace Game.Presentation
         {
             if (_sites == null && gameRuntime != null) _sites = gameRuntime.ConstructionSites;
             if (_grid == null && gameRuntime != null) _grid = gameRuntime.Grid;
+            if (_depthSort == null && gameRuntime != null) _depthSort = gameRuntime.DepthSort;
             return _sites != null && _grid != null;
         }
 
@@ -361,7 +371,7 @@ namespace Game.Presentation
         {
             if (_views.TryGetValue(segment, out SegmentView existing) && existing.Silhouette != null) return existing;
 
-            var view = new SegmentView { Silhouette = NewRenderer($"ConstructionSite {segment.Cell}", SilhouetteOrderFor(segment)) };
+            var view = new SegmentView { Silhouette = NewRenderer($"ConstructionSite {segment.Cell}", segment, SortingBands.SubSilhouette) };
 
             // A building with no pad when finished gets none while converting - asked of the one
             // predicate BuildingSpawner answers it with, rather than re-listed here. Naming only
@@ -375,7 +385,7 @@ namespace Game.Presentation
 
             if (AssemblesMaterializedSegments)
             {
-                view.AssemblyRenderer = NewRenderer($"ConstructionAssembly {segment.Cell}", AssemblyOrderFor(segment));
+                view.AssemblyRenderer = NewRenderer($"ConstructionAssembly {segment.Cell}", segment, SortingBands.SubSprite);
                 view.Dissolve = view.AssemblyRenderer.gameObject.AddComponent<BuildDissolveView>();
                 view.Dissolve.Settings = settings;
 
@@ -395,17 +405,20 @@ namespace Game.Presentation
         /// by what stands in front of it just as the building will be. The silhouette takes the
         /// sub-layer below the sprite assembling over it.
         /// </summary>
-        int SilhouetteOrderFor(BuildingRuntime segment)
-            => SortingBands.Sorted(_grid.CellToWorld(segment.Cell).y, SortingBands.SubSilhouette);
-
-        int AssemblyOrderFor(BuildingRuntime segment)
-            => SortingBands.Sorted(_grid.CellToWorld(segment.Cell).y, SortingBands.SubSprite);
-
-        SpriteRenderer NewRenderer(string name, int sortingOrder)
+        /// <summary>
+        /// Creates a site renderer and puts it on the depth ladder at its segment's row.
+        ///
+        /// The ladder, not a stored number: a sorted-band rank is only true for the depth window it
+        /// was measured against, and that window follows the camera. Registering also means these
+        /// renderers get re-ranked with everything else when it moves, so a site keeps sitting
+        /// exactly where its finished building will - which is what makes the handover invisible.
+        /// </summary>
+        SpriteRenderer NewRenderer(string name, BuildingRuntime segment, int subLayer)
         {
             var go = new GameObject(name);
             var renderer = go.AddComponent<SpriteRenderer>();
-            renderer.sortingOrder = sortingOrder;
+
+            DepthSort.Register(renderer, _grid.CellToWorld(segment.Cell).y, subLayer);
             return renderer;
         }
 
@@ -417,9 +430,11 @@ namespace Game.Presentation
                 ? _grid.CellCenterToWorld(segment.Cell)
                 : _grid.FootprintCenterToWorld(segment.Cell, definition.FootprintSize);
 
+            // The rank is not re-applied here any more. A segment never changes row, so it was
+            // already redundant; now it would also be wrong - the ladder re-ranks its renderers when
+            // the depth window moves, and writing a value computed here would undo that.
             SpriteRenderer silhouette = view.Silhouette;
             silhouette.color = SilhouetteColor(view);
-            silhouette.sortingOrder = SilhouetteOrderFor(segment);
             silhouette.transform.position = position;
             ApplySizing(silhouette, sprite, segment, definition);
             ApplyRotation(silhouette.transform, segment, definition);

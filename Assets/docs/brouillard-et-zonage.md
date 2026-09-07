@@ -14,7 +14,8 @@
 > | couronne de mission « rayon du Noyau + 30 » | **deux portées** : exploration à 250 et au-delà, minière entre le rayon courant et 250, toutes deux dérivées |
 > | `DiscoveryRuntime` : tableau plein alloué au lancement | stockage **épars par chunk**, créé à la première écriture |
 > | `FogOfWarView` : une texture couvrant toute la carte | texture **qui suit la caméra**, taille indépendante du monde |
-> | `SortingBands` : rangs de profondeur en Y monde absolu | rangs **relatifs à la caméra** — sinon 160 000 valeurs pour un `short` borné à 32 767 |
+>
+> **Traité depuis :** les rangs de profondeur sont devenus relatifs à la caméra — voir §3.9 plus bas.
 >
 > Restent valables sans réserve : la séparation « le rayon écrit, il ne définit pas », le RLE de
 > sauvegarde, la scission `ValueNoise.hlsl` / `NanoNoise.hlsl`, le `linear: true` sur la texture R8,
@@ -432,7 +433,7 @@ c'est le levier d'équilibrage de la densité de ressources, à ajuster une fois
 Cette stratification remplace la règle « un secteur sur huit est vide » notée en 3.6, qui relevait
 d'un tirage indépendant.
 
-### 3.8 `SortingBands`, corrigé comme la directive le demande
+### 3.8 `SortingBands`, premier passage
 
 Le commentaire affirmait deux choses fausses : « le monde fait 60 cases » et une marge « d'un ordre de
 grandeur ». Vérifié : `Steps` = 2048, `SortedLast` = 8291, `Fog` = **8493** contre 32 767 pour un
@@ -440,6 +441,55 @@ grandeur ». Vérifié : `Steps` = 2048, `SortedLast` = 8291, `Fog` = **8493** c
 contre 300 cases, soit **1,7×**, et il casse en silence : `Sorted()` clampe, donc tout ce qui
 dépasserait la rangée 512 s'écraserait sur un seul ordre et cesserait d'être trié par profondeur. Le
 commentaire dit maintenant ça.
+
+### 3.9 Les rangs deviennent relatifs à la caméra
+
+Le §3.8 ci-dessus a corrigé un commentaire faux et mesuré la vraie marge. La marge n'était pas le
+problème : **le schéma lui-même ne passe pas l'échelle.** 10 000 cases à 4 pas et 4 sous-couches
+demandent 160 000 valeurs pour un `short` borné à 32 767, et l'échec est silencieux — `Sorted()`
+écrête, donc tout ce qui dépasse s'écrase sur un seul rang et cesse d'être trié, sans une seule
+erreur.
+
+**Ce qui rend la parade possible est une contrainte de jeu déjà posée : le dézoom est plafonné**
+(`maxOrthographicSize` = 30, soit 60 cases de haut au maximum). Seuls les objets simultanément
+visibles ont besoin d'être ordonnés entre eux. `DepthSortLadder` classe donc contre une **fenêtre de
+256 cases qui suit la caméra**, et la taille de la bande ne dépend plus de celle du monde : une carte
+de 300 et une carte de 10 000 coûtent les mêmes 4 096 rangs.
+
+**Le panoramique ne reclasse rien.** Tous les rangs se décalent de la même quantité quand la fenêtre
+bouge, donc leur comparaison — la seule chose qu'Unity lit — est inchangée. Les rangs ne sont
+recalculés qu'à un ré-ancrage, soit environ tous les 98 cases de déplacement vertical, pas par frame.
+
+**Le compromis, assumé et testé :** deux objets loin hors de la fenêtre s'écrasent sur le même rang.
+Ils sont hors écran, et c'est précisément ce qu'on échange contre un rang borné à n'importe quelle
+taille de carte.
+
+**Ce que ça interdit désormais : cuire un rang de la bande triée dans une scène.** Un nombre figé
+n'est vrai que pour la fenêtre contre laquelle il a été calculé. Le décor en relief porte donc un
+marqueur `DepthSortedDecor` et `GameRuntime` l'inscrit sur l'échelle au démarrage. Le test qui
+recalculait les rangs cuits pour les comparer a changé de nature : il vérifie maintenant qu'**aucune
+scène ne porte de rang de la bande triée**, ce qui est à la fois plus simple et plus fort.
+
+**Un bug attrapé en vérifiant plutôt qu'en supposant.** Le décor en relief semblait être un chemin
+mort — aucune scène ne contient de rang cuit. Il ne l'est pas : `WildDecorationAutoRegenerate`
+relance le générateur **à chaque entrée en Play**, et il attend que `World` et `Grid` existent, donc
+il tourne *après* `GameRuntime.Start()`. Le balayage d'inscription placé dans `Start()` ne trouvait
+donc rien, et les 527 rochers créés ensuite gardaient `sortingOrder = 0` — la bande sol, derrière
+absolument tout. Le balayage est devenu `GameRuntime.RegisterSceneDepthSortedDecor()`, public, appelé
+aussi à la fin de `RegenerateAll()`.
+
+Vérifié en Play sur la scène réelle, pas seulement en test : 527 marqueurs, **527 dans la bande
+triée, 0 resté au sol**. Autour du Noyau, au-delà d'un pas de quantification : **51 rochers
+correctement devant, 76 correctement derrière, 0 erreur**. Deux objets à moins de 0,25 case l'un de
+l'autre partagent leur rang — c'est la quantification à 4 pas par case, inchangée depuis toujours.
+
+**Une instance, pas un statique mutable.** Le projet tourne avec Domain Reload désactivé
+(`DEVELOPMENT_RULES.md` §5) : une origine de fenêtre en `static` survivrait à la session de jeu et
+distribuerait des rangs mesurés contre une caméra qui n'existe plus. `GameRuntime` possède l'unique
+échelle et la passe aux trois spawners.
+
+Mesuré avant de concevoir : **aucune scène ne portait de rang dans la bande triée** (tous à 0 ou 3),
+donc la bande est entièrement peuplée à l'exécution et le registre à rafraîchir est petit.
 
 ---
 

@@ -195,10 +195,18 @@ public static class WildDecorationGenerator
         GenerateLargeRocks(largeRockGroup, smallRockGroup, biomeMap, min, max, InDeposit, largeRockSprites, smallRockSprites);
         GenerateBigRocks(min, max, InDeposit, bigRockSprites);
 
+        // Raised decor carries a marker instead of a baked rank, and this is what turns the marker
+        // into an actual draw order. It has to happen HERE rather than being left to GameRuntime's
+        // own startup sweep: this generator runs after GameRuntime.Start() (it waits for World and
+        // Grid to exist), so anything it creates is born too late for that sweep and would keep
+        // sortingOrder 0 - which is the ground band, behind everything it is supposed to stand in
+        // front of.
+        int ranked = gameRuntime.RegisterSceneDepthSortedDecor();
+
         InstallCleanupWatcher();
         biomeMap.Dispose();
 
-        Debug.Log("WildDecorationGenerator: all 7 groups regenerated.");
+        Debug.Log($"WildDecorationGenerator: all 7 groups regenerated, {ranked} raised sprites put on the depth ladder.");
     }
 
     static void InstallCleanupWatcher()
@@ -448,9 +456,12 @@ public static class WildDecorationGenerator
         sr.sprite = sprite;
         if (color.HasValue) sr.color = color.Value;
 
-        sr.sortingOrder = raised
-            ? SortingBands.SortedFromBounds(sr, SortingBands.SubSprite)
-            : SortingBands.FlatVegetation;
+        // Flat decor gets its fixed ground-band order written here. Raised decor cannot: a
+        // sorted-band rank is measured against a depth window that follows the camera, so a number
+        // baked into a scene would be true only for wherever the camera happened to be. It gets a
+        // marker component instead, and GameRuntime puts it on the ladder at startup.
+        if (raised) go.AddComponent<DepthSortedDecor>();
+        else sr.sortingOrder = SortingBands.FlatVegetation;
 
         return go;
     }
