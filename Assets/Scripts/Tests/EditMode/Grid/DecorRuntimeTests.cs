@@ -262,6 +262,88 @@ namespace Game.Tests.EditMode.Grid
             Assert.AreEqual(0, decor.RemovedCount);
         }
 
+        /// <summary>
+        /// A building's footprint is cells; decor is roughly one item per hundred cells. Recording a
+        /// removal for bare ground would put about a hundred useless entries in the save for every
+        /// rock actually cleared, and would make the delta set grow with the area a player has built
+        /// on rather than with what they removed. Measured on a 200-building base: 1 800 footprint
+        /// cells, 49 real clearings.
+        /// </summary>
+        [Test]
+        public void ClearingBareGround_RecordsNothing()
+        {
+            DecorRuntime decor = NewDecor();
+
+            var grown = new HashSet<int>();
+            foreach (DecorItem item in Chunk(decor, 3, 3)) grown.Add(item.Cell.Y * 640 + item.Cell.X);
+
+            int bare = 0;
+            for (int y = 3 * ChunkSize; y < 4 * ChunkSize && bare < 200; y++)
+            {
+                for (int x = 3 * ChunkSize; x < 4 * ChunkSize && bare < 200; x++)
+                {
+                    if (grown.Contains(y * 640 + x)) continue;
+                    Assert.IsFalse(decor.Remove(new GridCoord(x, y)), "bare ground was recorded as cleared");
+                    bare++;
+                }
+            }
+
+            Assert.Greater(bare, 0);
+            Assert.AreEqual(0, decor.RemovedCount);
+        }
+
+        [Test]
+        public void GrowsAt_AgreesWithWhatTheChunkHolds()
+        {
+            DecorRuntime decor = NewDecor();
+            List<DecorItem> items = Chunk(decor, 4, 4);
+            Assert.Greater(items.Count, 0);
+
+            foreach (DecorItem item in items) Assert.IsTrue(decor.GrowsAt(item.Cell));
+
+            decor.Remove(items[0].Cell);
+            Assert.IsFalse(decor.GrowsAt(items[0].Cell), "a cleared cell still answered that something grows on it");
+        }
+
+        // ---- Ground taken by something the player did not clear ----
+
+        /// <summary>
+        /// An ore deposit's footprint grows nothing, and none of it reaches the save: the deposit is
+        /// the seed's doing, not the player's, and it can be mined out - at which point the ground is
+        /// free again. The whole-map scatter this replaces excluded deposit rects the same way.
+        /// </summary>
+        [Test]
+        public void GroundTakenByADeposit_GrowsNothing_AndIsNeverRecorded()
+        {
+            DecorRuntime decor = NewDecor();
+            List<DecorItem> before = Chunk(decor, 5, 5);
+            Assert.Greater(before.Count, 0);
+
+            GridCoord taken = before[0].Cell;
+            decor.GroundIsTaken = cell => cell.X == taken.X && cell.Y == taken.Y;
+
+            Assert.IsFalse(decor.GrowsAt(taken));
+            foreach (DecorItem item in Chunk(decor, 5, 5)) Assert.AreNotEqual(taken, item.Cell);
+
+            Assert.IsFalse(decor.Remove(taken));
+            Assert.AreEqual(0, decor.RemovedCount, "a deposit's footprint must not enter the player's clearing history");
+        }
+
+        /// <summary>The other half: what a deposit covered comes back when the deposit goes, because nothing about it was ever stored.</summary>
+        [Test]
+        public void WhenTheGroundStopsBeingTaken_ItGrowsAgain()
+        {
+            DecorRuntime decor = NewDecor();
+            GridCoord cell = Chunk(decor, 5, 5)[0].Cell;
+
+            bool taken = true;
+            decor.GroundIsTaken = c => taken && c.X == cell.X && c.Y == cell.Y;
+            Assert.IsFalse(decor.GrowsAt(cell));
+
+            taken = false;
+            Assert.IsTrue(decor.GrowsAt(cell), "the memo of what the seed decides must not have swallowed a live answer");
+        }
+
         // ---- Through a save ----
 
         [Test]

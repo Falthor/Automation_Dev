@@ -544,6 +544,11 @@ namespace Game.Presentation
             Decor.RestoreState(_pendingDecorRemoved);
             _pendingDecorRemoved = null;
 
+            // Ore deposits, live rather than stored. The old whole-map scatter excluded their
+            // footprints and this keeps that; putting them in the removal set instead would write
+            // hundreds of cells into every save and leave them bare once the deposit is mined out.
+            Decor.GroundIsTaken = cell => Grid.GetOccupant(cell) is DepositRuntime;
+
             if (decorVisuals != null)
             {
                 decorVisuals.Initialize(Decor, Grid, DepthSort, decorSettings, _depthSortCamera, _maxOrthographicSize);
@@ -578,19 +583,19 @@ namespace Game.Presentation
         }
 
         /// <summary>
-        /// Puts every DepthSortedDecor currently in the scene on the depth ladder, and answers how
-        /// many. Decor that rises above its base carries a marker rather than a baked rank, because a
-        /// sorted-band rank is only true for the depth window it was measured in.
+        /// Puts every DepthSortedDecor authored into the scene on the depth ladder. Decor that rises
+        /// above its base carries a marker rather than a baked rank, because a sorted-band rank is
+        /// only true for the depth window it was measured in.
         ///
-        /// Public because Start() is not the only moment decor appears: WildDecorationGenerator
-        /// scatters rocks on every Play Mode entry, and it runs <b>after</b> Start() - it waits for
-        /// World and Grid to exist. Anything born after the startup sweep has to ask for a second
-        /// one, or it keeps sortingOrder 0 and sinks into the ground band.
+        /// <b>For hand-placed scene objects only.</b> The wild decor is not among them: it is derived
+        /// per chunk and DecorVisualSync registers each sprite as it enters the window, which is what
+        /// removed the bug this sweep was written for - a scatter that ran after Start() and left 527
+        /// rocks at sortingOrder 0, sunk into the ground band.
         ///
-        /// A scene search, so it belongs to a scattering pass and never to a frame. Registering the
-        /// same renderer twice would rank it twice, so the ladder is asked to forget it first.
+        /// A scene search, so it belongs to startup and never to a frame. Registering the same
+        /// renderer twice would rank it twice, so the ladder is asked to forget it first.
         /// </summary>
-        public int RegisterSceneDepthSortedDecor()
+        int RegisterSceneDepthSortedDecor()
         {
             int registered = 0;
 

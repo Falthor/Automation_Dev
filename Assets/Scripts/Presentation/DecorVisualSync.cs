@@ -178,6 +178,7 @@ namespace Game.Presentation
 
             Sprite[] sprites = kind.Sprites;
             renderer.sprite = sprites != null && sprites.Length > 0 ? sprites[(int)(item.Draw / 256u % (uint)sprites.Length)] : null;
+            renderer.color = kind.Tint;
 
             float scale = Mathf.Lerp(kind.ScaleRange.x, kind.ScaleRange.y, item.Scale01);
             go.transform.localScale = new Vector3(scale, scale, 1f);

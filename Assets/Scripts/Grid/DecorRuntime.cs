@@ -45,6 +45,15 @@ namespace Game.Grid
         /// <summary>Cells the player has cleared. Sparse and small: it holds what a player has actually removed, not a mask of the map.</summary>
         readonly HashSet<int> _removed = new HashSet<int>();
 
+        /// <summary>Scratch for the derivation memo, so asking whether a cell holds anything allocates nothing once its chunk is known.</summary>
+        readonly List<DecorItem> _probe = new List<DecorItem>();
+
+        /// <summary>How many chunks' derivations GrowsAt remembers at once. A base's footprint spans a few; past that the cache is dropped rather than evicted one by one, because nothing here is a working set worth managing.</summary>
+        const int DerivedChunkCacheSize = 32;
+
+        /// <summary>Which cells each derived chunk lands on, by chunk index. Seed-only, so it never needs invalidating.</summary>
+        readonly Dictionary<int, HashSet<int>> _derivedCells = new Dictionary<int, HashSet<int>>();
+
         public int MapSizeCells { get; }
         public int ChunkSizeCells { get; }
 
@@ -74,16 +83,49 @@ namespace Game.Grid
             _bandEdgeExclusion = Mathf.Max(0f, bandEdgeExclusion);
         }
 
+        /// <summary>
+        /// Ground that is taken by something the player did not clear - today, an ore deposit.
+        ///
+        /// <b>Live, not stored</b>, and that is the whole point of it being separate from the removal
+        /// set. A deposit is not the player's doing: recording its footprint as cleared would write
+        /// hundreds of cells into every save to say something the seed already knows, and would leave
+        /// them cleared forever once the deposit is mined out. Consulted at collect time instead, so
+        /// the ground simply comes back when the deposit goes.
+        ///
+        /// Optional: null means nothing is taken, which is what a headless test wants.
+        /// </summary>
+        public System.Func<GridCoord, bool> GroundIsTaken { get; set; }
+
         public bool ContainsChunk(int chunkX, int chunkY)
             => chunkX >= 0 && chunkX < ChunksPerAxis && chunkY >= 0 && chunkY < ChunksPerAxis;
 
         /// <summary>
         /// Everything growing in one chunk, appended to a caller-owned list so a window refresh
-        /// allocates nothing. Cleared cells are filtered out here, so no caller has to remember to.
+        /// allocates nothing. Cleared and taken cells are filtered out here, so no caller has to
+        /// remember to.
         /// </summary>
         public void CollectChunk(int chunkX, int chunkY, List<DecorItem> into)
         {
-            if (into == null || !ContainsChunk(chunkX, chunkY) || KindCount == 0) return;
+            if (into == null) return;
+
+            int first = into.Count;
+            DeriveChunk(chunkX, chunkY, into);
+
+            // The two live filters, applied after the derivation rather than inside it. What a chunk
+            // holds must depend on nothing but the seed and the coordinates - that is what lets
+            // GrowsAt memoise it. What the player cleared and what a deposit sits on both change
+            // during a game, so they are removed from the answer, never from the derivation.
+            for (int i = into.Count - 1; i >= first; i--)
+            {
+                GridCoord cell = into[i].Cell;
+                if (IsRemoved(cell) || (GroundIsTaken != null && GroundIsTaken(cell))) into.RemoveAt(i);
+            }
+        }
+
+        /// <summary>What the seed alone puts in a chunk, before anything that has happened since. Pure in the sense the large-map directive asks for: same seed, same coordinates, same answer, whatever order chunks are asked in and whatever the player has done.</summary>
+        void DeriveChunk(int chunkX, int chunkY, List<DecorItem> into)
+        {
+            if (!ContainsChunk(chunkX, chunkY) || KindCount == 0) return;
 
             int chunkIndex = chunkY * ChunksPerAxis + chunkX;
             int originX = chunkX * ChunkSizeCells;
@@ -103,8 +145,6 @@ namespace Game.Grid
                 if (x >= MapSizeCells || y >= MapSizeCells) continue;   // the map's edge clips the last chunks
 
                 var cell = new GridCoord(x, y);
-                if (IsRemoved(cell)) continue;
-
                 var world = new Vector2(x + 0.5f, y + 0.5f);
 
                 // Too close to a band boundary is where the CPU port and the shader can disagree.
@@ -155,8 +195,55 @@ namespace Game.Grid
 
         public bool IsRemoved(GridCoord cell) => Contains(cell) && _removed.Contains(Index(cell));
 
-        /// <summary>Records that whatever grew here has been cleared. Returns true only if that changed something, so a caller can tell a real clearing from a repeat.</summary>
-        public bool Remove(GridCoord cell) => Contains(cell) && _removed.Add(Index(cell));
+        /// <summary>
+        /// Whether anything actually grows at a cell right now.
+        ///
+        /// <b>The chunk's derivation is memoised</b>, and that is not a micro-optimisation. Asked
+        /// once per cell it costs a full chunk derivation each time: a 200-building base sweeping its
+        /// own footprint at load measured 231 ms - a visible hitch, growing with the size of the base.
+        /// Footprints are contiguous, so a handful of remembered chunks turns that back into a few
+        /// derivations. Only what the seed decides is remembered; what the player cleared and what a
+        /// deposit covers are asked live, so nothing here can go stale.
+        /// </summary>
+        public bool GrowsAt(GridCoord cell)
+        {
+            if (!Contains(cell)) return false;
+            if (IsRemoved(cell)) return false;
+            if (GroundIsTaken != null && GroundIsTaken(cell)) return false;
+
+            return DerivedCellsOf(cell.X / ChunkSizeCells, cell.Y / ChunkSizeCells).Contains(Index(cell));
+        }
+
+        /// <summary>The cells one chunk's derivation lands on. Cached, and dropped wholesale once the cache is bigger than a base's worth of chunks - a bound rather than a policy, since the access pattern is a footprint sweep and never a map walk.</summary>
+        HashSet<int> DerivedCellsOf(int chunkX, int chunkY)
+        {
+            int chunkIndex = chunkY * ChunksPerAxis + chunkX;
+            if (_derivedCells.TryGetValue(chunkIndex, out HashSet<int> cached)) return cached;
+
+            if (_derivedCells.Count >= DerivedChunkCacheSize) _derivedCells.Clear();
+
+            _probe.Clear();
+            DeriveChunk(chunkX, chunkY, _probe);
+
+            var cells = new HashSet<int>();
+            foreach (DecorItem item in _probe) cells.Add(Index(item.Cell));
+
+            _derivedCells[chunkIndex] = cells;
+            return cells;
+        }
+
+        /// <summary>
+        /// Records that whatever grew here has been cleared. Returns true only if that changed
+        /// something, so a caller can tell a real clearing from a repeat.
+        ///
+        /// <b>Nothing is recorded where nothing grows</b>, and the difference is not small. A
+        /// building's footprint is cells, decor is roughly one item per hundred cells: recording the
+        /// whole footprint would put about a hundred entries in the save for every rock actually
+        /// cleared, and would make the delta set grow with the area a player has built on rather than
+        /// with what they have removed. The set is meant to be the player's clearing history, and
+        /// this is what keeps it that.
+        /// </summary>
+        public bool Remove(GridCoord cell) => GrowsAt(cell) && _removed.Add(Index(cell));
 
         int Index(GridCoord cell) => cell.Y * MapSizeCells + cell.X;
 

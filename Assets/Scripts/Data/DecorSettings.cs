@@ -36,11 +36,20 @@ namespace Game.Data
 
             [SerializeField] Vector2 scaleRange = new Vector2(0.8f, 1.3f);
 
+            /// <summary>
+            /// Multiplied into the sprite. White leaves the art as authored, which is what most kinds
+            /// want; the large rocks were muted towards the ground's own tone so they read as part of
+            /// the terrain rather than as objects dropped on it. A SpriteRenderer colour can only
+            /// darken, so a channel above 1 does nothing but clip.
+            /// </summary>
+            [SerializeField] Color tint = Color.white;
+
             public string Id => id;
             public Sprite[] Sprites => sprites;
             public bool Raised => raised;
             public float[] BandWeights => bandWeights;
             public Vector2 ScaleRange => scaleRange;
+            public Color Tint => tint;
         }
 
         [Header("Densité")]

@@ -618,6 +618,49 @@ Quiconque voudra un jour adoucir le brouillard doit trouver cette raison à côt
 il la baissera en croyant faire un réglage de goût. Elle est donc écrite dans le commentaire du champ
 `fogColor` lui-même, pas seulement ici.
 
+### 3.13 Le décor cesse d'être posé sur toute la carte
+
+Le décor était éparpillé sur le monde entier au démarrage : 2 800 objets à 300, donc **plus d'un
+demi-million à 10 000**. Il existe désormais comme le brouillard — une fenêtre autour de la caméra —
+et se dérive par chunk, fonction pure de la graine et des coordonnées, avec les mêmes trois interdits
+que le terrain et `DeterministicHash` plutôt que `System.Random`. Densité **par chunk**, jamais un
+total : 500 rochers, c'est un semis à 300 et c'est invisible à 10 000.
+
+Mesuré en Play à 10 000 : 16 chunks vivants, **1 888 objets**, 619 sur l'échelle de profondeur,
+**aucun à `sortingOrder` 0**. Ce dernier chiffre est le bug des 527 rochers, disparu par
+construction : plus aucun balayage de démarrage ne court après un générateur, un sprite s'inscrit en
+entrant dans la fenêtre et se désinscrit en sortant.
+
+**Deux filtres, et c'est la différence entre eux qui porte la conception.**
+
+Ce que le joueur a dégagé est **stocké** (`SaveData.DecorRemoved`), parce que la dérivation ignore
+tout de ce qui s'est passé sur le sol. Ce qu'un gisement occupe est filtré **en direct** et n'entre
+jamais dans la sauvegarde : le gisement est l'œuvre de la graine, pas du joueur, et il peut être
+épuisé — auquel cas le sol redevient libre tout seul.
+
+**Le point mesuré qui a retourné une intuition.** L'attention portait sur la *taille* du jeu de
+deltas qu'une vieille sauvegarde produit d'un coup en dégageant sous chaque bâtiment restauré. Elle
+est négligeable : **440 octets** pour une base de 200 bâtiments, 4 Ko pour 2 000. C'est le *temps*
+qui ne l'était pas — **231 ms**, une saccade visible au chargement, croissant avec la base. La cause :
+demander « est-ce que quelque chose pousse ici ? » cellule par cellule dérivait le chunk entier à
+chaque fois. Une mémoïsation des chunks dérivés ramène 231 ms à **3 ms**, et 2 000 bâtiments coûtent
+alors la même chose que 200 — le coût a cessé de croître avec la base.
+
+Ce qui rend la mémoïsation sûre est le partage : seul ce que la graine décide est mémorisé, ce que le
+joueur a dégagé et ce qu'un gisement couvre restent demandés en direct. Un cache de la réponse
+complète aurait été faux dès le premier rocher dégagé.
+
+**Et une correction que la mesure a rendue évidente.** Une emprise se compte en cases, le décor pousse
+à raison d'un objet pour cent cases : enregistrer toute l'emprise mettait une centaine d'entrées
+inutiles dans la sauvegarde pour chaque rocher réellement dégagé — 1 800 cases balayées pour **49**
+vrais dégagements. Le jeu de deltas doit être l'historique de ce que le joueur a enlevé, pas la
+surface sur laquelle il a bâti.
+
+**L'ordre dans `CreateAndRegister`.** Le décor est dégagé **avant** que le bâtiment prenne la case.
+Rien ne lit l'occupant aujourd'hui, mais un filtre d'occupation ajouté plus tard verrait une case déjà
+prise, conclurait que rien n'y poussait, n'enregistrerait aucun retrait — et le rocher reviendrait au
+rechargement suivant. L'ordre est ce qui empêche ce piège d'exister.
+
 ---
 
 ## 4. Dette de test soldée avant l'étape 1

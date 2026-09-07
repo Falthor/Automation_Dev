@@ -1,6 +1,6 @@
 # Terrain
 
-Authoritative subsystem document for terrain: the gameplay-side terrain data owned by `Game.Grid`, and the presentation-side ground rendering owned by `Game.Presentation` (`TerrainView`, `GroundTextureProfile`, `ShadedGroundTiled.shader`, `CloudShadowOverlay.shader`).
+Authoritative subsystem document for terrain: the gameplay-side terrain data owned by `Game.Grid`, the presentation-side ground rendering owned by `Game.Presentation` (`TerrainView`, `GroundTextureProfile`, `ShadedGroundTiled.shader`, `CloudShadowOverlay.shader`), and the wild decor scattered on top of it.
 
 It does **not** cover how the map is divided, discovered or hidden — chunks, sectors, discovery state and fog of war are [`MAP.md`](MAP.md).
 
@@ -78,3 +78,20 @@ To add another base or accent texture: drop the `Texture2D` (and optional normal
 ## 3. Cloud shadow overlay
 
 `Custom/CloudShadowOverlay` (pre-existing, unrelated to the biome work above): an animated moving-noise shadow tint, configured via `TerrainView`'s `showCloudShadows`/`cloudScale`/`cloudSpeed`/`cloudCoverage`/`cloudSoftness`/`cloudShadowOpacity`/`cloudShadowColor`. Purely decorative, no gameplay coupling.
+
+## 4. Wild decor
+
+Rocks, bushes, flowers and dead wood scattered on the ground. No gameplay effect: decor blocks nothing, is never an occupant, and a building placed over it simply clears it.
+
+**Derived per chunk, like the terrain and for the same reason.** `DecorRuntime` (`Assets/Scripts/Grid/DecorRuntime.cs`) answers what one chunk holds as a pure function of the world seed and the chunk's coordinates, via `DeterministicHash` — never `System.Random`. No neighbouring chunk is consulted, nothing is placed step by step, and there is no sequential state to advance, so a chunk answers the same thing whether it is asked first, last, or twice. Density is expressed **per chunk** (`DecorSettings.itemsPerChunk`), never as a total for the map: a total cannot follow a change of map size.
+
+**A window, not a world.** `DecorVisualSync` (`Game.Presentation`) instantiates only the chunks covering the widest possible view plus `windowMarginCells`, and pools the objects it takes away. The chunk grid is the hysteresis — panning inside one chunk costs a comparison. Raised kinds register with `DepthSortLadder` on entering the window and unregister on leaving; flat kinds take `SortingBands.FlatVegetation` and never touch the ladder.
+
+**Two filters, and the difference between them is the whole design:**
+
+- **What the player cleared** is stored, in `SaveData.DecorRemoved` (`CONTRACTS.md` §14). The derivation knows nothing of what happened on the ground, so without this a rock cleared to make room for a building grows back the moment the camera leaves and returns. `ConstructionService.CreateAndRegister` is the single chokepoint that records it — every building passes through it, whether placed, restored from a save, or materialised by a robot, and it clears **before** taking the cell.
+- **What is taken by something the seed already knows** — today an ore deposit — is filtered live through `DecorRuntime.GroundIsTaken` and never stored. Recording a deposit's footprint would write hundreds of cells into every save to say something the seed can answer, and would leave the ground bare once the deposit was mined out.
+
+Nothing is recorded where nothing grows: a footprint is cells, decor is roughly one item per hundred cells, so an unfiltered sweep would put about a hundred useless entries in the save for every rock actually cleared. `DecorRuntime.GrowsAt` memoises the chunk derivations it needs for this — measured, a 200-building base sweeping its own footprint at load costs 3 ms rather than 231.
+
+The CPU classification of which ground band a spot sits on is `BiomeField` — a float32 port of the ground shader's own base-layer maths, deliberately matching the shader's precision rather than exceeding it (see §2 and the class summary). `DecorSettings.bandEdgeExclusion` grows nothing within a rounding of a band boundary, which is where the port and the GPU can disagree.

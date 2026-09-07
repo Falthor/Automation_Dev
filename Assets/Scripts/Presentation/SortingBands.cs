@@ -53,7 +53,7 @@ namespace Game.Presentation
         /// <summary>Painted-on ground marks (mud, sand) - under everything laid on top of them.</summary>
         public const int FlatDecor = GroundCoverage + 1;
 
-        /// <summary>Flowers, bushes, dead wood, pebbles: vegetation whose art has no rising silhouette. The raised rocks are in the sorted band instead - see WildDecorationGenerator.</summary>
+        /// <summary>Flowers, bushes, dead wood, pebbles: vegetation whose art has no rising silhouette. The raised rocks are in the sorted band instead - see DecorSettings.Kind.Raised.</summary>
         public const int FlatVegetation = FlatDecor + 1;
 
         /// <summary>Above the vegetation on purpose: concrete poured over a flower has to cover it.</summary>

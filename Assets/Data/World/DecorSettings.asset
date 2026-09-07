@@ -1,0 +1,152 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a0ac6808510e29241b9baa7a0751d8bb, type: 3}
+  m_Name: DecorSettings
+  m_EditorClassIdentifier: Game.Data::Game.Data.DecorSettings
+  itemsPerChunk: 120
+  bandEdgeExclusion: 0.004
+  windowMarginCells: 48
+  poolSize: 768
+  kinds:
+  - id: flower_pale
+    sprites:
+    - {fileID: 21300000, guid: 2fab938e447f1a349bba166eb979a64b, type: 3}
+    - {fileID: 21300000, guid: e4ed29b4cda08f84b9fc1ab3182ebad6, type: 3}
+    - {fileID: 21300000, guid: 7c5b68f184b88a04a94a1ee3dc447cb6, type: 3}
+    - {fileID: 21300000, guid: 99d13150216af194d8b25bb9021e3c7d, type: 3}
+    - {fileID: 21300000, guid: 8994d972cf8009c46bd6da8046cf111e, type: 3}
+    - {fileID: 21300000, guid: 9515a7bf1efac464184fe779d084445d, type: 3}
+    - {fileID: 21300000, guid: b207e43845ef824429624e867e19448d, type: 3}
+    - {fileID: 21300000, guid: 55da4313872151840983b0cdb36f5f2f, type: 3}
+    - {fileID: 21300000, guid: 5d522dbf6c9608b43abe9ed73cc0e471, type: 3}
+    - {fileID: 21300000, guid: 7fe1172ed192d344f8fe48df295ea5ba, type: 3}
+    - {fileID: 21300000, guid: fee49eac7ac1cd3468ea45150ccbeb15, type: 3}
+    raised: 0
+    bandWeights:
+    - 0
+    - 0
+    - 28
+    scaleRange: {x: 0.48, y: 0.78}
+    tint: {r: 1, g: 1, b: 1, a: 1}
+  - id: flower_warm
+    sprites:
+    - {fileID: 21300000, guid: 40a21bfe05f3890489c76b105dbe4f42, type: 3}
+    - {fileID: 21300000, guid: 5df9c5a5057b22145bff97d08622a80e, type: 3}
+    - {fileID: 21300000, guid: d7560dd17807f084c936ddf4c2335416, type: 3}
+    - {fileID: 21300000, guid: 9af942590798a2e4692d3cd4e1503785, type: 3}
+    - {fileID: 21300000, guid: 598c59339a269a1448480fceb1141c89, type: 3}
+    - {fileID: 21300000, guid: e0bc2cf469b5f8e48b6681faa9341342, type: 3}
+    raised: 0
+    bandWeights:
+    - 10
+    - 10
+    - 0
+    scaleRange: {x: 0.48, y: 0.78}
+    tint: {r: 1, g: 1, b: 1, a: 1}
+  - id: clear_bush
+    sprites:
+    - {fileID: 21300000, guid: 2bac2c6f167d52143a64d37e2d281f82, type: 3}
+    - {fileID: 21300000, guid: e40d67d62bb45334883fef9b2fd03827, type: 3}
+    - {fileID: 21300000, guid: bea17b928e54bf6409525af1bf623b83, type: 3}
+    - {fileID: 21300000, guid: 6b5e7863630f99d479026bfb4f063c35, type: 3}
+    - {fileID: 21300000, guid: 12fbbf2c57ebc8f489a299ad0b5e4aec, type: 3}
+    - {fileID: 21300000, guid: 399d1c49881e1184fb8307f0d300d68c, type: 3}
+    - {fileID: 21300000, guid: 04641e3854012fb4d990b3e1334cdc56, type: 3}
+    raised: 0
+    bandWeights:
+    - 16
+    - 16
+    - 0
+    scaleRange: {x: 0.48, y: 0.78}
+    tint: {r: 1, g: 1, b: 1, a: 1}
+  - id: bush
+    sprites:
+    - {fileID: 21300000, guid: 9d35cfd15050b7047aa99dadb6ed1e1d, type: 3}
+    - {fileID: 21300000, guid: 108191a2ced6132468cb9a5b2f1ba23c, type: 3}
+    - {fileID: 21300000, guid: 3739b292b31cae347bd201d848134bfc, type: 3}
+    - {fileID: 21300000, guid: 8eaee57c293d6694bbebe598a6a6b559, type: 3}
+    - {fileID: 21300000, guid: 222ff7321a6fbb341b70cc8c4c4dc1d7, type: 3}
+    - {fileID: 21300000, guid: 5f1ae00769a580746a79b3bd31aa0dbe, type: 3}
+    raised: 0
+    bandWeights:
+    - 0
+    - 25
+    - 25
+    scaleRange: {x: 0.48, y: 0.84}
+    tint: {r: 1, g: 1, b: 1, a: 1}
+  - id: tree
+    sprites:
+    - {fileID: 21300000, guid: da56d9824f4776a4a926788a99e49c3e, type: 3}
+    - {fileID: 21300000, guid: 9cb13801cca19a748a7ea8358fdcebe4, type: 3}
+    - {fileID: 21300000, guid: 380bb684bac1c3e49a4b5a7de225f8e1, type: 3}
+    - {fileID: 21300000, guid: 9b8d27741eccf384397e49d7348f7267, type: 3}
+    - {fileID: 21300000, guid: 9b47c3a5346949d4a96e6d736663ef3f, type: 3}
+    - {fileID: 21300000, guid: 8ddb82abba2b60e4a98f9d0e702d5bff, type: 3}
+    - {fileID: 21300000, guid: 304c69ef72b1e724bbe87aa3ed3d257c, type: 3}
+    - {fileID: 21300000, guid: 53b52d1694ac6bf44935cbda9dcea5ee, type: 3}
+    raised: 0
+    bandWeights:
+    - 1.6
+    - 1.6
+    - 0
+    scaleRange: {x: 0.6, y: 0.9}
+    tint: {r: 1, g: 1, b: 1, a: 1}
+  - id: small_rock
+    sprites:
+    - {fileID: 21300000, guid: 23d06bf42da8dce4ca582a8e078cca44, type: 3}
+    - {fileID: 21300000, guid: 43f11d074342da1468d8b876d0bd1133, type: 3}
+    - {fileID: 21300000, guid: dcdbd73cc8882ef46a72801b751b8a9d, type: 3}
+    - {fileID: 21300000, guid: b5f2012e95a09ff44a0ca4a2642bf6a0, type: 3}
+    - {fileID: 21300000, guid: 7395cbd7a1983d349a46ab502b0eb2bf, type: 3}
+    - {fileID: 21300000, guid: df2a3dd7a2cb8c84f950000f855dcec9, type: 3}
+    - {fileID: 21300000, guid: ad32eb6fe9b251e4e9ce86f408063495, type: 3}
+    - {fileID: 21300000, guid: cfb56a7a2b2647942b89280610ea0682, type: 3}
+    - {fileID: 21300000, guid: dffe6a852b91d9a4399a0a0a5af98895, type: 3}
+    - {fileID: 21300000, guid: f8dac39ce02b440419cdb7ce73d928d5, type: 3}
+    raised: 1
+    bandWeights:
+    - 15
+    - 15
+    - 15
+    scaleRange: {x: 0.48, y: 0.78}
+    tint: {r: 1, g: 1, b: 1, a: 1}
+  - id: large_rock
+    sprites:
+    - {fileID: 21300000, guid: 462b7e796ffee19408fdaa5c47f080cc, type: 3}
+    - {fileID: 21300000, guid: f2005a8d4d5c58944b7c680d14c7e6b8, type: 3}
+    - {fileID: 21300000, guid: 421aeedba4173c446bcd34bffae79d94, type: 3}
+    - {fileID: 21300000, guid: b057ec60a4cf7d745a5cae851ee5f26c, type: 3}
+    - {fileID: 21300000, guid: 732f62d93b173954495d45bfde622e3d, type: 3}
+    raised: 1
+    bandWeights:
+    - 3
+    - 3
+    - 3
+    scaleRange: {x: 0.51, y: 0.72}
+    tint: {r: 1, g: 1, b: 1, a: 1}
+  - id: big_rock
+    sprites:
+    - {fileID: 21300000, guid: ec2408eca7b7ab8418a46037b6e2279f, type: 3}
+    - {fileID: 21300000, guid: 7b2b6ade7a449fd4789ed3602fcb738a, type: 3}
+    - {fileID: 21300000, guid: f8d2ee2676bd183499d468649e45298d, type: 3}
+    - {fileID: 21300000, guid: ded384677a08f4a4cb8f8e872230e849, type: 3}
+    - {fileID: 21300000, guid: 770a800a62edf684c9ee0cca15c5b196, type: 3}
+    - {fileID: 21300000, guid: e394b82e907fc7e45af432180ad16d07, type: 3}
+    - {fileID: 21300000, guid: 8ca5383d3fdaf194d8040937332c3b91, type: 3}
+    - {fileID: 21300000, guid: 014380f18b8853141af07f08199109e1, type: 3}
+    raised: 1
+    bandWeights:
+    - 1.6
+    - 1.6
+    - 1.6
+    scaleRange: {x: 0.51, y: 0.72}
+    tint: {r: 1, g: 1, b: 1, a: 1}

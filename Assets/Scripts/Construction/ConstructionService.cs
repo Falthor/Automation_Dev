@@ -424,9 +424,13 @@ namespace Game.Construction
         /// </summary>
         BuildingRuntime CreateAndRegister(BuildingDefinition definition, GridCoord cell, Direction rotation)
         {
-            BuildingRuntime runtime = CreateAndRegisterOccupant(definition, cell, rotation);
+            // Before the building takes the cell, not after. What grows is asked of the ground, and
+            // the ground is about to stop being free - a check made afterwards would see an occupied
+            // cell, conclude nothing grew there, and record no removal. The rock would then come back
+            // on the next reload. Nothing reads the occupant today, and this ordering is what keeps
+            // that from becoming a trap the day something does.
             ClearDecorUnder(definition, cell);
-            return runtime;
+            return CreateAndRegisterOccupant(definition, cell, rotation);
         }
 
         /// <summary>
