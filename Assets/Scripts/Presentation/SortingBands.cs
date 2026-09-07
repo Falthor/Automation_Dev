@@ -35,39 +35,52 @@ namespace Game.Presentation
     /// here are the ladder's geometry, not a map of the world. A consequence worth stating once: a
     /// sorted-band rank can never be written into a scene, because it is only true for the window it
     /// was computed against. Baked decor that rises above its base has to be ranked at runtime.
+    ///
+    /// <b>Every order is derived from the one below it.</b> No literal but the first, and no gap
+    /// between the bands. Gaps used to exist so a layer could be inserted without renumbering what
+    /// came after - they buy nothing now, because no rank is stored anywhere at all: not in a scene,
+    /// not in a save, not on disk. Everything is recomputed at load, so renumbering is free, and a
+    /// chain beats a gap - inserting a layer is one line and the rest follows.
     /// </summary>
     public static class SortingBands
     {
         // ---- Ground band ----
 
         public const int TerrainBase = 0;
-        public const int TerrainTop = 1;
-        public const int GroundCoverage = 2;
+        public const int TerrainTop = TerrainBase + 1;
+        public const int GroundCoverage = TerrainTop + 1;
 
         /// <summary>Painted-on ground marks (mud, sand) - under everything laid on top of them.</summary>
-        public const int FlatDecor = 3;
+        public const int FlatDecor = GroundCoverage + 1;
 
         /// <summary>Flowers, bushes, dead wood, pebbles: vegetation whose art has no rising silhouette. The raised rocks are in the sorted band instead - see WildDecorationGenerator.</summary>
-        public const int FlatVegetation = 4;
+        public const int FlatVegetation = FlatDecor + 1;
 
         /// <summary>Above the vegetation on purpose: concrete poured over a flower has to cover it.</summary>
-        public const int GroundSlab = 5;
+        public const int GroundSlab = FlatVegetation + 1;
 
-        public const int DepositGlow = 6;
+        public const int DepositGlow = GroundSlab + 1;
 
         /// <summary>Ore deposits are a scatter of small chunks lying on the ground, not a mound - flat, so an Extractor's construction silhouette is never hidden behind the deposit it stands on.</summary>
-        public const int Deposit = 7;
+        public const int Deposit = DepositGlow + 1;
 
-        public const int GridLines = 8;
-        public const int ActionRadius = 9;
+        public const int GridLines = Deposit + 1;
+        public const int ActionRadius = GridLines + 1;
 
-        public const int Conveyor = 10;
+        public const int Conveyor = ActionRadius + 1;
 
         /// <summary>Added on odd cells so two overscanned belts never share an order at their seam - see ConveyorView.</summary>
         public const int ConveyorSeamParity = 1;
 
-        /// <summary>Above the belts carrying them, below every building: an item passing behind a factory is hidden by it.</summary>
-        public const int TransportedItem = 12;
+        /// <summary>
+        /// Above the belts carrying them, below every building: an item passing behind a factory is
+        /// hidden by it.
+        ///
+        /// Two slots past Conveyor rather than one, and written as such: the seam parity above puts
+        /// odd belts on Conveyor + 1, so a single step would sit items level with half the belts in
+        /// the world.
+        /// </summary>
+        public const int TransportedItem = Conveyor + ConveyorSeamParity + 1;
 
         /// <summary>
         /// A Splitter/Crossroad's RenderOverscan deliberately makes its arms overlap the neighbouring
@@ -80,7 +93,10 @@ namespace Game.Presentation
         /// inside that same overlap, and an equal order made it flicker in and out as the tie-break
         /// flipped. Cross always winning covers it cleanly instead.
         /// </summary>
-        public const int CrossPiece = 13;
+        public const int CrossPiece = TransportedItem + 1;
+
+        /// <summary>Where the ground band ends. The sorted band starts from it, so no gap can open between the two by accident.</summary>
+        public const int GroundLast = CrossPiece;
 
         // ---- Sorted band ----
 
@@ -121,7 +137,7 @@ namespace Game.Presentation
         /// <summary>A building's own input/output arrows - drawn over the building they belong to, never under it.</summary>
         public const int SubOverlay = 3;
 
-        public const int SortedFirst = 100;
+        public const int SortedFirst = GroundLast + 1;
         public const int SortedLast = SortedFirst + Steps * SubLayers - 1;
 
         // ---- Flying band ----
@@ -137,13 +153,28 @@ namespace Game.Presentation
         /// <summary>The builder drones, and later anything else genuinely airborne. Fixed, above every depth-sorted thing: a drone flies over the base rather than queueing for a place in it.</summary>
         public const int FlyingFirst = FlyingShadow + 1;
 
+        /// <summary>
+        /// How many orders the flying band holds, its first included. Named rather than left as the
+        /// bare gap of 100 that used to sit here: it states that the band can take seven more kinds of
+        /// airborne thing, and it is the one number to raise when an eighth appears.
+        /// </summary>
+        public const int FlyingLayers = 8;
+
+        public const int FlyingLast = FlyingFirst + FlyingLayers - 1;
+
         // ---- Information band ----
 
-        public const int PlacementPreview = FlyingFirst + 100;
+        public const int PlacementPreview = FlyingLast + 1;
         public const int PlacementPreviewArrow = PlacementPreview + 1;
-        public const int HoverOutline = PlacementPreview + 2;
+        public const int HoverOutline = PlacementPreviewArrow + 1;
 
-        public const int Fog = PlacementPreview + 100;
+        public const int InformationLast = HoverOutline;
+
+        /// <summary>
+        /// The fog, over everything - the information band included. A placement preview showing
+        /// through undiscovered ground would answer a question about terrain the player has not found.
+        /// </summary>
+        public const int Fog = InformationLast + 1;
 
         /// <summary>
         /// The depth rank of something standing <paramref name="depthBelowWindowTop"/> world units

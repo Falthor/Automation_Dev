@@ -203,13 +203,17 @@ ne traverse jamais l'ensemble « en cours ».
   `groundOverflowCells`. Une emprise 3×3 se voit donc sur un peu plus de 4×4, avec des contours
   irréguliers. Mettre `groundOverflowCells` à 0 ramène la frontière sur le rectangle et rend le
   carré ; c'est la valeur à ne pas choisir.
-- **Les valeurs de la couche de sol n'ont pas encore été réglées à l'œil.** `groundLeadShare` 0,5,
-  `groundOverflowCells` 0,45, `groundRimWidth`
-  0,08 et `groundTexelsPerCell` 4 sont des valeurs de départ posées par raisonnement, pas mesurées à
-  la distance de caméra réelle comme l'ont été celles du dissolve. À rejuger sur une Fonderie et sur
-  un convoyeur, qui sont les deux extrêmes de taille. La forme, elle, a été validée à l'écran.
-  `groundOverflowCells` est passé de 0,75 à 0,45 en même temps que le seuil changeait d'origine
-  (contour → coin) : les deux se compensent, la portée totale de la Fonderie est inchangée.
+- **Les valeurs de la couche de sol sont validées.** `groundLeadShare` 0,5, `groundOverflowCells`
+  0,45, `groundRimWidth` 0,08 et `groundTexelsPerCell` 4 avaient été posées par raisonnement plutôt
+  que mesurées à la distance de caméra réelle, contrairement à celles du dissolve. Jugées à l'écran
+  depuis et conservées telles quelles : ce point est clos. `groundOverflowCells` est passé de 0,75 à
+  0,45 en même temps que le seuil changeait d'origine (contour → coin) ; les deux se compensent, la
+  portée totale de la Fonderie est inchangée.
+
+  Rappel utile si on y revient : **`groundOverflowCells` à 0 ramène la frontière sur le rectangle de
+  l'emprise et rend le carré visible.** C'est la seule valeur à ne pas choisir, pour la raison
+  générale énoncée dans *Les écarts* — tant qu'une frontière est bornée par une géométrie, c'est
+  cette géométrie qu'on voit.
 - **Une seule zone existe aujourd'hui**, celle du Noyau. Le composant traite les zones comme un
   ensemble et le seul endroit à étendre pour un Agent IA est `CollectZones`. Le partitionnement
   repose sur la garantie qu'un robot ne travaille que dans sa zone ; **les zones ne se recouvrent

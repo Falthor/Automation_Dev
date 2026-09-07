@@ -262,6 +262,8 @@ One sorting layer (`Default`); depth is resolved entirely by `sortingOrder`, and
 | Flying | fixed | empty - the robots walk, so they are in the sorted band. Kept for drones, projectiles, aerial effects |
 | Information | fixed | placement previews, their arrows, the hover outline |
 
+**Every order is derived from the one below it**, with no literal but the first and no gap between the bands. Gaps used to leave room for an insertion without renumbering what came after; they buy nothing now that no rank is stored anywhere - not in a scene, not in a save - so renumbering costs nothing and a chain beats a gap. Inserting a layer is one line, and the rest follows.
+
 **The sort key is the bottom edge, never the centre of the art** (`DepthSortLadder.Order(worldBottomY, subLayer)`): the footprint's bottom row for a building, the sprite's bottom for free-standing decor. Stated as a world coordinate so grid-aligned buildings and scattered decor go through one function. Within a row, four sub-layers: silhouette, shadow, sprite, overlay. A row's difference always outweighs a sub-layer's.
 
 **The sorted band is measured against the camera, not against the world.** `sortingOrder` is a `short`, and ranking off absolute world Y needs four values per cell per sub-layer - which fits a small map and silently stops working on a large one, because the rank clamps rather than failing. `DepthSortLadder` therefore ranks against a window that follows the view and re-anchors when the camera approaches its edge, so the band's size follows the zoom-out cap instead of the map: a 300-cell world and a 10 000-cell one cost the same 4 096 orders.
