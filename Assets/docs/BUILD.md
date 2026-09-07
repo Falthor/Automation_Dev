@@ -70,30 +70,34 @@ build actually landed, look at the timestamps inside `Automation_Data/` (`level0
 
 ---
 
-## 5. Shaders looked up by name — the one real trap
+## 5. Shaders are referenced as assets — do not go back to `Shader.Find`
 
-Six shaders are obtained at runtime through `Shader.Find`, not through a material asset:
+**Every shader the game needs is now a serialized asset reference on the component that uses it.**
+`Shader.Find` has no remaining caller in shipped code; the only occurrences left are doc comments
+explaining why it is not used, and editor-side tests, where it is harmless.
 
-| Shader | Used by |
-| --- | --- |
-| `Custom/ShadedGroundTiled` | `TerrainView` |
-| `Custom/CloudShadowOverlay` | `TerrainView` |
-| `Custom/BuildingGroundSlab` | `ProceduralSpriteFactory` |
-| `Custom/ActionRadiusOverlay` | `ActionRadiusView` |
-| `Custom/FogOfWar` | `FogOfWarView` |
-| `Custom/GridLinesOverlay` | `GridLineView` |
+This section used to say the opposite — six shaders resolved by name, all six kept alive by
+**Project Settings > Graphics > Always Included Shaders** — and to instruct that a new
+name-resolved shader be added to that list. Following that today would reintroduce exactly the
+fragility the asset references removed.
 
-Nothing references them as an asset, so the build strips any one of them that is not listed in
-**Project Settings > Graphics > Always Included Shaders**. A stripped shader makes `Shader.Find`
-return `null`, and `new Material(null)` throws — killing the rest of `GameRuntime.Start()` from
-wherever it happened. The Editor never reproduces this: nothing is stripped there.
+**Why an asset reference and not a name.** A shader reached only by name is stripped from a player
+build unless something lists it; `Shader.Find` then returns `null`, `new Material(null)` throws, and
+the rest of `GameRuntime.Start()` dies from wherever that happened. The Editor never reproduces it —
+nothing is stripped there. An asset reference cannot be stripped: the build sees the dependency.
 
-**Adding a shader that will be found by name means adding it to Always Included Shaders in the same
-change.** All six above are currently listed.
+**The rule now:** a component that needs a shader takes it as a `[SerializeField] Shader` and is
+wired in the scene. A class with no inspector of its own (`ProceduralSpriteFactory`) is handed one
+through a settings object rather than finding its own. `ShaderReferenceTests` pins this.
 
-The symptom is distinctive: terrain and builder drones still render (initialised before `Start()`,
-and driven from `LateUpdate` respectively) while the Core, its chest, ore deposits, action radius
-and fog are all missing and the camera never centres. That is one exception, not five bugs.
+**Always Included Shaders still lists the six**, which is now redundant rather than load-bearing —
+it inflates build time and size slightly and hides whether the references really work. Clearing it
+is safe only if verified by a real build, not in the Editor, so it is left listed and flagged here
+rather than removed on reasoning alone.
+
+The old symptom is worth keeping for recognition, in case a name lookup ever comes back: terrain and
+builder drones still render while the Core, its chest, ore deposits, action radius and fog are all
+missing and the camera never centres. That is one exception, not five bugs.
 
 ---
 

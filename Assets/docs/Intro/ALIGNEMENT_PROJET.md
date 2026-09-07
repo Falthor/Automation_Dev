@@ -1,5 +1,16 @@
 # Alignement du projet sur le GDD
 
+> **⚠ RELEVÉ DATÉ — NE FAIT PLUS FOI POUR LES VALEURS COURANTES.**
+>
+> Ce document enregistre un écart mesuré à un instant donné, et ses colonnes « valeur actuelle »
+> décrivent le dépôt tel qu'il était alors. Il n'est **pas** rafraîchi, délibérément : le réécrire
+> effacerait la trace de ce que le remaniement de l'introduction a réellement changé.
+>
+> Une valeur au moins a bougé depuis et n'est plus celle qu'on lit ici : `ComputeSystem.ReserveCap`
+> vaut **70 000** dans le code, contre les 60 000 que ce document donnait pour cible.
+>
+> **Pour une valeur courante, lire le code ou `architecture/CONTRACTS.md`.**
+
 Le GDD est la référence. Tout ce qui le contredit dans le projet actuel doit changer.
 
 Ce document liste chaque valeur à modifier, avec sa valeur actuelle relevée dans le

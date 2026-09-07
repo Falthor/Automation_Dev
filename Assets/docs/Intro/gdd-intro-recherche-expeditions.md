@@ -351,6 +351,15 @@ l'introduction, plus 380 CU de matériaux de construction.
 **Réserve de départ : 60 000 CU.** Marge sèche de 25 % sans rien acheter d'optionnel,
 18 % en prenant les deux, près de 45 % pour qui exploite les expéditions.
 
+> **⚠ Le code livre 70 000, pas 60 000** (`ComputeSystem.ReserveCap`). Ce n'est pas une copie
+> périmée d'une constante : toute l'analyse ci-dessus est dérivée de 60 000, et à 70 000 la marge
+> sèche passe de 25 % à **36 %** — un jeu sensiblement plus permissif que celui décrit ici.
+>
+> L'écart n'est **pas corrigé dans ce document**, parce que le trancher est une décision
+> d'équilibrage et non une mise à jour de documentation : soit la réserve redescend à 60 000 et ce
+> chiffrage redevient exact, soit elle reste à 70 000 et le chemin critique doit être rechiffré.
+> Les deux demandent de jouer, pas de relire.
+
 Trois profils de jeu en découlent, et c'est le signe que l'équilibrage est sain : le
 méthodique passe sans expéditions ni options, le curieux prend les deux optionnelles et
 se finance par l'exploration, le brouillon se rattrape aux expéditions.

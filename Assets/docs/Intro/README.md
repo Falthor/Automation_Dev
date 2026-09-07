@@ -90,9 +90,12 @@ Aucun pourcentage de réussite n'y figure, c'est délibéré.
 
 ## Ce qui n'est pas dans ce dossier
 
-- `Assets/docs/audit/CURRENT_STATE.md` — l'état réel du code, produit séparément
-- `Assets/docs/architecture/*` — architecture, contrats, règles et workflow du projet
+- `Assets/docs/architecture/*` — architecture, contrats, règles et workflow du projet. **C'est ce
+  dossier qui fait foi** pour tout ce qui touche à l'implémentation, avec les carnets à la racine de
+  `Assets/docs/` pour le pourquoi. En cas de contradiction entre le GDD et l'architecture existante,
+  c'est l'architecture qui décide *comment*, et le GDD qui décide *quoi*.
 
-Les deux font foi pour tout ce qui touche à l'implémentation. En cas de contradiction
-entre le GDD et l'architecture existante, c'est l'architecture qui décide *comment*, et le
-GDD qui décide *quoi*.
+- `Assets/docs/audit/CURRENT_STATE.md` — **ne fait pas foi.** C'est un constat daté d'avant les
+  chantiers brouillard, grande carte, décor et expéditions, et plusieurs de ses relevés sont
+  aujourd'hui faux. Ce README le présentait comme une des deux sources autoritaires ; il ne l'est
+  plus. Voir son propre en-tête.

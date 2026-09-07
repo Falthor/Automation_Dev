@@ -1,4 +1,18 @@
-# Audit — état actuel des systèmes économie / recherche / bâtiments
+# Audit — état des systèmes économie / recherche / bâtiments **au moment de l'audit**
+
+> **⚠ CONSTAT HISTORIQUE — NE FAIT PLUS FOI.**
+>
+> Un audit est une photographie, et celle-ci est datée d'avant les chantiers brouillard, grande
+> carte, décor et expéditions. Plusieurs de ses relevés sont désormais faux :
+>
+> | il relève | la valeur livrée |
+> |---|---|
+> | `ReserveCap = 25000f` | **70 000** |
+> | arborescence sans découverte, secteurs, missions ni décor | ces quatre systèmes existent |
+>
+> **Pour l'état réel du code, lire `architecture/` et les carnets**, jamais ce fichier. Il est
+> conservé parce qu'un constat daté reste utile pour comprendre d'où le projet vient — pas pour
+> savoir où il en est.
 
 Document de constat, en lecture seule. Il décrit ce que le code fait au moment de l'audit,
 sans recommandation ni proposition de refonte. Toute affirmation portant sur le code est

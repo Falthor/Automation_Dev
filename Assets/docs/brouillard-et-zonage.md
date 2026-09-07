@@ -28,7 +28,10 @@
 > mesures qui ont tranché. Pour savoir ce que fait le code aujourd'hui, lire `MAP.md` ; pour savoir
 > pourquoi il le fait ainsi, lire ici.
 
-Carnet d'implémentation de [`directive-brouillard-et-zonage.md`](directive-brouillard-et-zonage.md).
+Carnet d'implémentation du chantier brouillard et zonage. La directive qui l'a ouvert a été
+supprimée une fois le chantier fini : son corps décrivait une carte de 300 et une couronne de mission
+qui n'existent plus, et tout ce qu'elle avait de vrai a migré ici (les décisions) et dans
+[`architecture/MAP.md`](architecture/MAP.md) (l'état livré). Git en garde le texte.
 Les décisions prises, les écarts par rapport à la spec et pourquoi, et ce qu'il faut savoir pour
 reprendre. Le document directeur reste la référence de conception ; celui-ci enregistre ce qui a
 réellement été construit.
