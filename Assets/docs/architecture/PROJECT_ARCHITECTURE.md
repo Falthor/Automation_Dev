@@ -156,10 +156,58 @@ Responsibilities include:
 - footprint validation
 - rotation handling
 - terrain gameplay data
+- per-cell discovery state
+- the sector partition (geometry only)
 - ore/deposit registry
 - grid coordinates and cell queries
 
 The grid must not depend on concrete production, transport, UI, or building subclasses merely to perform generic grid operations.
+
+### 7.1 Discovery and sectors
+
+**Discovery is per cell and authoritative** (`DiscoveryRuntime`, one `DiscoveryState` per cell). A
+revelation of any shape writes the cells it covers; a per-region state would forbid free-form
+revelations, and the reverse does not hold.
+
+**The radius writes, it does not define.** The Core's action radius is one writer among others - a
+mission is another - and a discovered cell stays discovered whatever the radius later does.
+`DiscoveryRuntime` deliberately knows nothing about the Core: it takes a centre and a radius, not a
+building, so no read path can recompute a distance and turn the fog back into a disc. `GameRuntime`
+is the writer, after `Research.Tick` so a widened radius is written the frame it is granted.
+
+`DiscoveryRuntime.Version` advances only when a call actually changed something. The fog renderer
+compares it against what it last uploaded, which is the whole of "re-upload only when the state
+changed".
+
+**Sectors are the unit a mission is aimed at.** A regular tiling: `SectorGrid` turns a coordinate
+into a sector index, origin, centre and cells by arithmetic - nothing is walked, nothing is stored,
+and there is no list of sectors. That is what makes their generation lazy by construction rather than
+by bookkeeping.
+
+Sizes come from `SectorSettings` and from nowhere else: `SectorGrid` and `SectorCatalog` take theirs
+as required constructor arguments, with no defaults, so a caller that forgets one fails to compile
+instead of silently disagreeing with the asset. Sectors tile chunks exactly (4×4 at the shipped 16
+and 64), because one division has to serve terrain generation, discovery storage and every per-region
+rule at once.
+
+**A mission reveals the disc inscribed in a sector, not the sector.** The four corners stay hidden,
+so two revealed neighbours leave an undiscovered fringe and the tiling never shows on screen - which
+is what allows the partition to be a plain grid.
+
+**A sector's identity is derived, never materialised** (`SectorCatalog`): name, risk and contents are
+pure functions of the world seed and the sector index, computed when asked. The seed is the terrain's
+(`TerrainRuntime.Seed`), the only one a save restores - so the same sector answers the same thing in a
+loaded game. Names are unique by construction, through an injective index-to-vocabulary mapping rather
+than a draw that would have to be checked against a registry.
+
+**Risk is measured in cells from the Core**, against thresholds that are exposed balance settings.
+Not in sectors crossed: that would tie a property of the world to a division of it, and move the whole
+gradient whenever the division changed.
+
+Mission reach (`SectorMissionRange`) is given the Core's current radius on every call and remembers
+none of it, so extending the radius moves the ring with no other number to correct. It reports whether
+it had to widen and whether the map is exhausted, so an empty result is never indistinguishable from a
+fault.
 
 ### Grid versus Tilemap
 
