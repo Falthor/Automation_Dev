@@ -19,8 +19,17 @@ namespace Game.Tests.EditMode.Gameplay
 
         static readonly Vector2 CoreCenter = new Vector2(150f, 150f);
 
+        const int SectorSize = 16;
+
+        // The shipped thresholds, in cells - SectorSettings' own defaults, restated so a test can
+        // fail when the asset is wrong rather than following it.
+        const float LowRiskWithin = 40f;
+        const float ModerateRiskWithin = 250f;
+        const float HighRiskWithin = 330f;
+
         static SectorCatalog NewCatalog(int seed = Seed)
-            => new SectorCatalog(new SectorGrid(MapSize), seed, CoreCenter);
+            => new SectorCatalog(new SectorGrid(MapSize, SectorSize), seed, CoreCenter,
+                LowRiskWithin, ModerateRiskWithin, HighRiskWithin);
 
         // ---- Determinism ----
 
@@ -30,7 +39,7 @@ namespace Game.Tests.EditMode.Gameplay
             var first = NewCatalog();
             var second = NewCatalog();
 
-            for (int index = 0; index < 625; index += 37)
+            for (int index = 0; index < 361; index += 37)
             {
                 Assert.AreEqual(first.NameOf(index), second.NameOf(index), $"name of sector {index}");
                 Assert.AreEqual(first.RiskOf(index), second.RiskOf(index), $"risk of sector {index}");
@@ -60,7 +69,7 @@ namespace Game.Tests.EditMode.Gameplay
             var first = NewCatalog();
             var second = NewCatalog();
 
-            for (int index = 0; index < 625; index += 53)
+            for (int index = 0; index < 361; index += 53)
             {
                 SectorContents a = first.ContentsOf(index);
                 SectorContents b = second.ContentsOf(index);
@@ -110,7 +119,7 @@ namespace Game.Tests.EditMode.Gameplay
         [Test]
         public void ThereAreEnoughNamesForEverySectorOfTheCurrentMap()
         {
-            Assert.GreaterOrEqual(SectorCatalog.NameCombinationCount, new SectorGrid(MapSize).Count);
+            Assert.GreaterOrEqual(SectorCatalog.NameCombinationCount, new SectorGrid(MapSize, SectorSize).Count);
         }
 
         [Test]
@@ -118,7 +127,7 @@ namespace Game.Tests.EditMode.Gameplay
         {
             var catalog = NewCatalog();
 
-            for (int index = 0; index < 625; index += 11)
+            for (int index = 0; index < 361; index += 11)
             {
                 string name = catalog.NameOf(index);
                 Assert.IsNotEmpty(name);
@@ -138,38 +147,85 @@ namespace Game.Tests.EditMode.Gameplay
 
         // ---- Risk ----
 
+        /// <summary>
+        /// On the current 300-cell map the farthest a sector centre can be from the middle is about
+        /// 212 cells, so the High and Critical bands are simply out of reach - the shipped thresholds
+        /// are calibrated for the 10 000-cell map this is heading towards. Low against Moderate is
+        /// what can be asserted here, and it is enough to pin the gradient's direction.
+        /// </summary>
         [Test]
         public void RiskGrowsWithDistanceFromTheCore()
         {
             var catalog = NewCatalog();
-            var grid = catalog.Grid;
-            int coreSector = grid.IndexAt(new GridCoord(150, 150));
 
-            // Averaged over a row, so the per-sector jitter cannot decide the outcome.
-            float near = AverageRisk(catalog, grid, coreSector, 1);
-            float far = AverageRisk(catalog, grid, coreSector, 8);
+            float near = AverageRiskAtAbout(catalog, 20f);
+            float far = AverageRiskAtAbout(catalog, 200f);
 
             Assert.Less(near, far, "A far sector should read as a bigger bet than a near one.");
         }
 
-        static float AverageRisk(SectorCatalog catalog, SectorGrid grid, int coreSector, int ring)
+        /// <summary>
+        /// The property the ring-counting version could not have, and the regression that would have
+        /// gone unnoticed: thresholds are in cells, so cutting the map differently does not move the
+        /// danger. Counting rings of sectors stretched the whole gradient by a third when the sector
+        /// size went from 12 to 16, silently and with nothing able to see it.
+        ///
+        /// Averaged, because the per-sector jitter is keyed on the index and the two grids number
+        /// their sectors differently - the gradient has to match, not each individual draw.
+        /// </summary>
+        [Test]
+        public void TheSameDistanceGivesTheSameRisk_WhateverTheSectorSize()
         {
-            int coreColumn = grid.ColumnOf(coreSector);
-            int coreRow = grid.RowOf(coreSector);
+            var coarse = NewCatalogWith(SectorSize, LowRiskWithin, ModerateRiskWithin, HighRiskWithin);
+            var fine = NewCatalogWith(8, LowRiskWithin, ModerateRiskWithin, HighRiskWithin);
 
+            foreach (float distance in new[] { 20f, 100f, 200f })
+            {
+                Assert.AreEqual(AverageRiskAtAbout(coarse, distance), AverageRiskAtAbout(fine, distance), 0.2f,
+                    $"at {distance} cells");
+            }
+        }
+
+        /// <summary>They are balance settings, not values derived from something else - so moving them has to move the risk, and nothing else has to be corrected alongside.</summary>
+        [Test]
+        public void TheThresholdsAreSettings_AndMovingThemMovesTheRisk()
+        {
+            var tight = NewCatalogWith(SectorSize, 10f, 20f, 30f);
+            var generous = NewCatalogWith(SectorSize, 200f, 250f, 300f);
+
+            Assert.Greater(AverageRiskAtAbout(tight, 100f), AverageRiskAtAbout(generous, 100f) + 1f,
+                "At the same distance, much tighter thresholds have to read as clearly more dangerous.");
+        }
+
+        static SectorCatalog NewCatalogWith(int sectorSize, float low, float moderate, float high)
+            => new SectorCatalog(new SectorGrid(MapSize, sectorSize), Seed, CoreCenter, low, moderate, high);
+
+        /// <summary>
+        /// The real risk, averaged over every sector roughly that far from the Core. Averaged on
+        /// purpose: RiskOf nudges individual sectors off the gradient by one band, so a single sector
+        /// says nothing about where the band boundaries are.
+        /// </summary>
+        static float AverageRiskAtAbout(SectorCatalog catalog, float distanceCells)
+        {
+            SectorGrid grid = catalog.Grid;
             int total = 0;
             int count = 0;
 
-            for (int column = coreColumn - ring; column <= coreColumn + ring; column++)
+            for (int index = 0; index < grid.Count; index++)
             {
-                int index = grid.IndexAt(column, coreRow + ring);
-                if (index < 0) continue;
+                float d = Vector2.Distance(grid.CenterCells(index), CoreCenter);
+                if (Mathf.Abs(d - distanceCells) > 20f) continue;
 
                 total += (int)catalog.RiskOf(index);
                 count++;
             }
 
-            return count == 0 ? 0f : total / (float)count;
+            // A handful of sectors is not an average, it is noise: the jitter moves a quarter of them
+            // by a whole band, so three samples can read 0.67 where the true value is 0.25.
+            Assert.GreaterOrEqual(count, 10,
+                $"only {count} sectors sit about {distanceCells} cells from the Core - too few to average.");
+
+            return total / (float)count;
         }
 
         // ---- Contents ----
@@ -179,7 +235,7 @@ namespace Game.Tests.EditMode.Gameplay
         {
             var catalog = NewCatalog();
 
-            for (int index = 0; index < 625; index += 29)
+            for (int index = 0; index < 361; index += 29)
             {
                 SectorContents contents = catalog.ContentsOf(index);
                 if (contents.Feature == SectorFeature.None) continue;

@@ -18,22 +18,25 @@ namespace Game.Tests.EditMode.Grid
     {
         const int MapSize = 300;
 
-        static SectorGrid NewGrid(int mapSize = MapSize) => new SectorGrid(mapSize);
+        /// <summary>The game's sector size, from SectorSettings. Restated here rather than read from the asset: a test that follows the setting could not fail when the setting is wrong.</summary>
+        const int SectorSize = 16;
+
+        static SectorGrid NewGrid(int mapSize = MapSize) => new SectorGrid(mapSize, SectorSize);
 
         [Test]
         public void TheCurrentMap_IsTwentyFiveSectorsAcross()
         {
             var grid = NewGrid();
 
-            Assert.AreEqual(12, grid.SectorSizeCells);
-            Assert.AreEqual(25, grid.Columns);
-            Assert.AreEqual(625, grid.Count, "The directive's count for a 300-cell map.");
+            Assert.AreEqual(16, grid.SectorSizeCells, "4x4 sectors tile a 64-cell chunk exactly - 12 fell on no chunk boundary.");
+            Assert.AreEqual(19, grid.Columns, "300 is not a whole number of 16s, so the last strip is partial.");
+            Assert.AreEqual(361, grid.Count);
         }
 
         [Test]
         public void EveryCellOfTheMap_BelongsToExactlyOneSector()
         {
-            var grid = NewGrid(36);
+            var grid = NewGrid(48);
             var seen = new Dictionary<GridCoord, int>();
 
             for (int index = 0; index < grid.Count; index++)
@@ -45,7 +48,7 @@ namespace Game.Tests.EditMode.Grid
                 }
             }
 
-            Assert.AreEqual(36 * 36, seen.Count, "Every cell covered, none twice.");
+            Assert.AreEqual(48 * 48, seen.Count, "Every cell covered, none twice.");
         }
 
         [Test]
@@ -53,7 +56,7 @@ namespace Game.Tests.EditMode.Grid
         {
             var grid = NewGrid();
 
-            foreach (GridCoord cell in new[] { new GridCoord(0, 0), new GridCoord(11, 11), new GridCoord(12, 11), new GridCoord(150, 150), new GridCoord(299, 299) })
+            foreach (GridCoord cell in new[] { new GridCoord(0, 0), new GridCoord(15, 15), new GridCoord(16, 15), new GridCoord(150, 150), new GridCoord(299, 299) })
             {
                 int index = grid.IndexAt(cell);
                 CollectionAssert.Contains(grid.CellsOf(index).ToList(), cell);
@@ -75,9 +78,9 @@ namespace Game.Tests.EditMode.Grid
         {
             var grid = NewGrid();
 
-            Assert.AreEqual(new Vector2(6f, 6f), grid.CenterCells(0));
-            Assert.AreEqual(new Vector2(18f, 6f), grid.CenterCells(1));
-            Assert.AreEqual(new Vector2(6f, 18f), grid.CenterCells(grid.Columns));
+            Assert.AreEqual(new Vector2(8f, 8f), grid.CenterCells(0));
+            Assert.AreEqual(new Vector2(24f, 8f), grid.CenterCells(1));
+            Assert.AreEqual(new Vector2(8f, 24f), grid.CenterCells(grid.Columns));
         }
 
         // ---- The inscribed disc ----
@@ -91,9 +94,9 @@ namespace Game.Tests.EditMode.Grid
             grid.RevealInscribedDisc(0, discovery);
 
             Assert.IsFalse(discovery.IsDiscovered(new GridCoord(0, 0)), "Bottom-left corner.");
-            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(11, 0)), "Bottom-right corner.");
-            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(0, 11)), "Top-left corner.");
-            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(11, 11)), "Top-right corner.");
+            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(15, 0)), "Bottom-right corner.");
+            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(0, 15)), "Top-left corner.");
+            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(15, 15)), "Top-right corner.");
         }
 
         /// <summary>The disc touches the middle of each side - that is what "inscribed" means here, and it is what makes two revealed neighbours leave a fringe rather than meeting.</summary>
@@ -105,10 +108,10 @@ namespace Game.Tests.EditMode.Grid
 
             grid.RevealInscribedDisc(0, discovery);
 
-            Assert.IsTrue(discovery.IsDiscovered(new GridCoord(5, 0)), "Bottom edge, middle.");
-            Assert.IsTrue(discovery.IsDiscovered(new GridCoord(5, 11)), "Top edge, middle.");
-            Assert.IsTrue(discovery.IsDiscovered(new GridCoord(0, 5)), "Left edge, middle.");
-            Assert.IsTrue(discovery.IsDiscovered(new GridCoord(11, 5)), "Right edge, middle.");
+            Assert.IsTrue(discovery.IsDiscovered(new GridCoord(7, 0)), "Bottom edge, middle.");
+            Assert.IsTrue(discovery.IsDiscovered(new GridCoord(7, 15)), "Top edge, middle.");
+            Assert.IsTrue(discovery.IsDiscovered(new GridCoord(0, 7)), "Left edge, middle.");
+            Assert.IsTrue(discovery.IsDiscovered(new GridCoord(15, 7)), "Right edge, middle.");
         }
 
         [Test]
@@ -140,11 +143,11 @@ namespace Game.Tests.EditMode.Grid
             grid.RevealInscribedDisc(0, discovery);
             grid.RevealInscribedDisc(1, discovery);
 
-            // The corners they share, on the seam at x = 11/12.
-            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(11, 0)));
-            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(12, 0)));
-            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(11, 11)));
-            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(12, 11)));
+            // The corners they share, on the seam at x = 15/16.
+            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(15, 0)));
+            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(16, 0)));
+            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(15, 15)));
+            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(16, 15)));
         }
 
         [Test]
@@ -199,13 +202,13 @@ namespace Game.Tests.EditMode.Grid
         [Test]
         public void AMapThatIsNotAWholeNumberOfSectors_KeepsItsEdge()
         {
-            var grid = NewGrid(30); // 2.5 sectors across
+            var grid = NewGrid(40); // 2.5 sectors across
 
             Assert.AreEqual(3, grid.Columns, "Rounded up, so the last strip is not lost.");
 
-            int corner = grid.IndexAt(new GridCoord(29, 29));
+            int corner = grid.IndexAt(new GridCoord(39, 39));
             Assert.AreEqual(8, corner, "The far corner cell still lands in a sector.");
-            Assert.AreEqual(6 * 6, grid.CellsOf(corner).Count(), "The clipped corner sector holds only its real cells.");
+            Assert.AreEqual(8 * 8, grid.CellsOf(corner).Count(), "The clipped corner sector holds only its real cells.");
         }
 
         [Test]

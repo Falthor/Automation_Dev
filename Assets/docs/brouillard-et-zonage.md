@@ -9,13 +9,12 @@
 >
 > | Ce que dit ce carnet | Ce qui le remplace |
 > |---|---|
-> | secteurs de 12 cases, disque inscrit de rayon 6 | secteurs de **16**, disque inscrit de rayon **8**, 4×4 par chunk |
 > | 625 secteurs, vocabulaire de noms de 768 combinaisons | **390 625** secteurs : la bijection ne suffit plus, vocabulaire ou méthode à revoir |
 > | couronne de mission « rayon du Noyau + 30 » | **deux portées** : exploration à 250 et au-delà, minière entre le rayon courant et 250, toutes deux dérivées |
 > | `DiscoveryRuntime` : tableau plein alloué au lancement | stockage **épars par chunk**, créé à la première écriture |
 > | `FogOfWarView` : une texture couvrant toute la carte | texture **qui suit la caméra**, taille indépendante du monde |
 >
-> **Traité depuis :** les rangs de profondeur sont devenus relatifs à la caméra — voir §3.9 plus bas.
+> **Traité depuis :** les rangs de profondeur sont devenus relatifs à la caméra (§3.9), et le découpage est passé aux secteurs de 16 alignés sur des chunks de 64 (§3.10).
 >
 > Restent valables sans réserve : la séparation « le rayon écrit, il ne définit pas », le RLE de
 > sauvegarde, la scission `ValueNoise.hlsl` / `NanoNoise.hlsl`, le `linear: true` sur la texture R8,
@@ -490,6 +489,55 @@ distribuerait des rangs mesurés contre une caméra qui n'existe plus. `GameRunt
 
 Mesuré avant de concevoir : **aucune scène ne portait de rang dans la bande triée** (tous à 0 ou 3),
 donc la bande est entièrement peuplée à l'exécution et le registre à rafraîchir est petit.
+
+### 3.10 Secteurs de 16, et la fin des constantes de découpage
+
+**16 et non 12, pour une seule raison : 4×4 secteurs pavent exactement un chunk de 64.** 12 ne tombait
+sur aucune frontière de chunk. Le disque inscrit passe donc d'un rayon de 6 à 8, et révèle 201 cases
+au lieu de 113.
+
+**`DefaultSectorSizeCells` a disparu, sans remplaçant.** C'était le troisième chemin que la directive
+§4.8 interdit : une valeur dans le code à côté de la même valeur dans un réglage. `SectorGrid` exige
+maintenant sa taille de secteur — pas de défaut du tout, donc un appelant qui oublie de la passer ne
+compile pas, au lieu d'être silencieusement en désaccord avec l'asset. Même chose pour les seuils de
+risque de `SectorCatalog`.
+
+Les valeurs vivent dans **`Assets/Data/World/SectorSettings.asset`** : chunk 64, secteur 16, et les
+trois seuils de risque. L'asset vérifie lui-même que le secteur divise le chunk, et que les seuils
+sont croissants.
+
+#### Le risque se mesure en cases, plus en anneaux de secteurs
+
+C'était le seul changement de **comportement de jeu** du redimensionnement, et il était invisible :
+`RiskOf` comptait des anneaux de secteurs (`ring <= 1 / <= 3 / <= 6`), donc passer de 12 à 16 étirait
+tout le gradient de danger d'un tiers sans qu'aucun test ne puisse le voir.
+
+La correction n'est pas de recalibrer les anneaux mais de **cesser de compter dans une unité de
+circonstance**. Le risque est une propriété du monde ; il se mesure en distance au Noyau, en cases, et
+veut dire la même chose quel que soit le découpage. Un test le verrouille : à distance égale, le
+risque est le même que les secteurs fassent 8 ou 16.
+
+**Les seuils sont des réglages d'équilibrage, pas des dérivées.** Les dériver du rayon maximal d'un
+Noyau les coupleraient à une valeur qui ne dit rien du danger — et qui resterait à définir si
+l'extension de rayon disparaissait. Leurs défauts se lisent comme la géométrie de l'expansion :
+
+| bande | jusqu'à | ce que ça veut dire |
+|---|---|---|
+| Faible | 40 cases | le territoire de départ du joueur |
+| Modéré | 250 | l'anneau minier |
+| Élevé | 330 | aussi loin qu'un Noyau secondaire porte |
+| Critique | au-delà | — |
+
+Sur la carte actuelle de 300, le centre est à 212 cases du coin le plus éloigné : **Élevé et Critique
+sont hors d'atteinte**. C'est attendu — ces défauts visent la carte de 10 000.
+
+#### Un bug que la liste d'impact avait manqué
+
+J'avais annoncé que la dispersion des gisements suivrait seule, puisqu'elle lit `SectorSizeCells`.
+Faux : elle suit la taille du secteur mais pas le **rognage par le bord de carte**. 300 n'est pas un
+multiple de 16, donc les secteurs des deux derniers rangs sont tronqués, et `ContentsOf` dispersait
+des gisements hors carte — `IndexAt` renvoyait -1. Avec 12 le cas n'existait pas, 300/12 tombant
+juste. `ContentsOf` calcule maintenant l'étendue réelle du secteur avant de tirer.
 
 ---
 

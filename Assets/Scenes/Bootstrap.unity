@@ -4748,6 +4748,7 @@ MonoBehaviour:
   buildingShadowSettings: {fileID: 11400000, guid: fa7a3a94c33d1ff4ca87b051641bb079, type: 2}
   itemDatabase: {fileID: 11400000, guid: e293367a8c57e9742b5e998dfa2732a0, type: 2}
   recipeDatabase: {fileID: 11400000, guid: 6e1c6652c14736c4abd9665bd5eee4fd, type: 2}
+  sectorSettings: {fileID: 11400000, guid: 35ccf0ce1e8048249b013fdd367d6d15, type: 2}
   worldGenerationSettings: {fileID: 11400000, guid: 592ff7fb40a07364995fc0c9a5f6d49b, type: 2}
   actionRadiusView: {fileID: 1305087340}
   fogOfWarView: {fileID: 1659034849}

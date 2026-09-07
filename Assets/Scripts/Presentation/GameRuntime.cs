@@ -80,6 +80,12 @@ namespace Game.Presentation
         [SerializeField] ItemDatabase itemDatabase;
         [SerializeField] RecipeDatabase recipeDatabase;
 
+        /// <summary>
+        /// How the map is divided into chunks and sectors, and how dangerous each distance from the
+        /// Core reads. The only place those numbers exist - see SectorSettings.
+        /// </summary>
+        [SerializeField] SectorSettings sectorSettings;
+
         [Header("World generation (Core + ore deposits, spawned once at game start)")]
         [SerializeField] WorldGenerationSettings worldGenerationSettings;
         [SerializeField] ActionRadiusView actionRadiusView;
@@ -283,8 +289,9 @@ namespace Game.Presentation
             // pure function of Terrain.Seed, and SectorMissionRange reads the radius it is handed.
             // Nothing here is restored from the save, and nothing here needs to be - the seed is,
             // and everything else follows from it.
-            Sectors = new SectorGrid(Terrain.Size);
-            SectorCatalog = new SectorCatalog(Sectors, Terrain.Seed, World?.CoreCenterCells ?? Vector2.zero);
+            Sectors = new SectorGrid(Terrain.Size, sectorSettings.SectorSizeCells);
+            SectorCatalog = new SectorCatalog(Sectors, Terrain.Seed, World?.CoreCenterCells ?? Vector2.zero,
+                sectorSettings.LowRiskWithinCells, sectorSettings.ModerateRiskWithinCells, sectorSettings.HighRiskWithinCells);
             MissionRange = new SectorMissionRange();
 
             Selection = new SelectionRuntime();

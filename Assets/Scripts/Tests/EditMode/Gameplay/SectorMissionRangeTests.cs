@@ -22,7 +22,9 @@ namespace Game.Tests.EditMode.Gameplay
 
         static readonly Vector2 CoreCenter = new Vector2(150f, 150f);
 
-        static SectorGrid NewGrid() => new SectorGrid(MapSize);
+        const int SectorSize = 16;
+
+        static SectorGrid NewGrid() => new SectorGrid(MapSize, SectorSize);
 
         static List<int> Destinations(SectorMissionRange range, SectorGrid grid, DiscoveryRuntime discovery, float radius)
         {
@@ -111,7 +113,7 @@ namespace Game.Tests.EditMode.Gameplay
             }
 
             // A sector whose cells straddle the inner boundary but whose centre is inside must be out.
-            int straddling = grid.IndexAt(new GridCoord(150, 168));
+            int straddling = grid.IndexAt(new GridCoord(150, 170));
             float centreDistance = Vector2.Distance(grid.CenterCells(straddling), CoreCenter);
             if (centreDistance <= radius) CollectionAssert.DoesNotContain(destinations, straddling);
         }

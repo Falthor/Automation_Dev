@@ -73,18 +73,27 @@ namespace Game.Gameplay.Sectors
         public SectorGrid Grid { get; }
         public int Seed { get; }
 
-        /// <summary>Where the risk gradient is measured from. The Core's own sector is the safe end.</summary>
-        readonly int _coreColumn;
-        readonly int _coreRow;
+        /// <summary>Where the risk gradient is measured from, in cell space - not the Core's sector, which would put the measurement back in units of the division.</summary>
+        readonly Vector2 _coreCenterCells;
 
-        public SectorCatalog(SectorGrid grid, int seed, Vector2 coreCenterCells)
+        readonly float _lowRiskWithinCells;
+        readonly float _moderateRiskWithinCells;
+        readonly float _highRiskWithinCells;
+
+        /// <summary>
+        /// The risk thresholds are required, and in cells. They come from SectorSettings; there is no
+        /// default here, for the same reason SectorGrid has none for its sector size - a default
+        /// would be a second copy of a setting.
+        /// </summary>
+        public SectorCatalog(SectorGrid grid, int seed, Vector2 coreCenterCells,
+            float lowRiskWithinCells, float moderateRiskWithinCells, float highRiskWithinCells)
         {
             Grid = grid;
             Seed = seed;
-
-            int coreIndex = grid?.IndexAt(new GridCoord(Mathf.FloorToInt(coreCenterCells.x), Mathf.FloorToInt(coreCenterCells.y))) ?? -1;
-            _coreColumn = coreIndex >= 0 ? grid.ColumnOf(coreIndex) : 0;
-            _coreRow = coreIndex >= 0 ? grid.RowOf(coreIndex) : 0;
+            _coreCenterCells = coreCenterCells;
+            _lowRiskWithinCells = lowRiskWithinCells;
+            _moderateRiskWithinCells = moderateRiskWithinCells;
+            _highRiskWithinCells = highRiskWithinCells;
         }
 
         /// <summary>The sector's name. Stable for a given seed and index, and distinct from every other sector's.</summary>
@@ -107,16 +116,30 @@ namespace Game.Gameplay.Sectors
         /// makes - a far mission should read as a bigger bet before they have read a single number.
         /// The seed then nudges individual sectors off the gradient by one band, so two worlds are
         /// not the same map with the same answers.
+        ///
+        /// <b>Measured in cells, not in sectors crossed.</b> It used to count rings of sectors, which
+        /// tied a property of the world to a division of it: changing the sector size from 12 to 16
+        /// stretched the whole danger gradient by a third, silently, with no test able to see it.
+        /// Distance from the Core is what the player actually experiences, and it means the same
+        /// thing whatever the map is cut into.
+        ///
+        /// The thresholds are <b>balance settings, not derived values</b> - they read as the geometry
+        /// of expansion (your own ground, the mining ring, as far as a secondary Core reaches, past
+        /// that), and they are meant to be tuned by playing. Deriving them from the Core's maximum
+        /// radius would couple danger to how far a Core can eventually reach, which says nothing
+        /// about danger and would still need answering if radius extension disappeared.
         /// </summary>
         public SectorRisk RiskOf(int index)
         {
             if (Grid == null || !Grid.ContainsIndex(index)) return SectorRisk.Low;
 
-            int ring = Mathf.Max(
-                Mathf.Abs(Grid.ColumnOf(index) - _coreColumn),
-                Mathf.Abs(Grid.RowOf(index) - _coreRow));
+            float distanceCells = Vector2.Distance(Grid.CenterCells(index), _coreCenterCells);
 
-            int band = ring <= 1 ? 0 : ring <= 3 ? 1 : ring <= 6 ? 2 : 3;
+            int band =
+                distanceCells <= _lowRiskWithinCells ? (int)SectorRisk.Low :
+                distanceCells <= _moderateRiskWithinCells ? (int)SectorRisk.Moderate :
+                distanceCells <= _highRiskWithinCells ? (int)SectorRisk.High :
+                                                        (int)SectorRisk.Critical;
 
             uint jitter = Hash(Seed, index, RiskSalt) % 4;
             if (jitter == 0) band++;
@@ -134,8 +157,16 @@ namespace Game.Gameplay.Sectors
             if (Grid == null || !Grid.ContainsIndex(index)) return new SectorContents(SectorFeature.None, new GridCoord(0, 0), null);
 
             GridCoord origin = Grid.OriginOf(index);
-            int half = Grid.SectorSizeCells / 2;
-            var featureCell = new GridCoord(origin.X + half, origin.Y + half);
+
+            // The sector's real extent, which is not always its full size: 300 is not a whole number
+            // of 16s, so the sectors along two edges of the map are clipped. Scattering across the
+            // nominal square instead would drop contents outside the map entirely - and it would only
+            // show up on a map size that does not divide evenly, which the previous sector size did.
+            int width = Mathf.Min(Grid.SectorSizeCells, Grid.MapSizeCells - origin.X);
+            int height = Mathf.Min(Grid.SectorSizeCells, Grid.MapSizeCells - origin.Y);
+            if (width <= 0 || height <= 0) return new SectorContents(SectorFeature.None, origin, null);
+
+            var featureCell = new GridCoord(origin.X + width / 2, origin.Y + height / 2);
 
             // One in eight sectors is bare. An empty sector has to be possible, or "there is
             // something in every direction" becomes the same as "direction does not matter".
@@ -154,8 +185,8 @@ namespace Game.Gameplay.Sectors
                 // Anywhere in the square, corners included - no attempt to keep them inside the
                 // revealed disc. The ones that fall outside it are the point.
                 uint draw = Hash(Seed, index, DepositSalt + (uint)(i + 1) * 0x9E3779B9u);
-                int x = origin.X + (int)(draw % (uint)Grid.SectorSizeCells);
-                int y = origin.Y + (int)(draw / 65536u % (uint)Grid.SectorSizeCells);
+                int x = origin.X + (int)(draw % (uint)width);
+                int y = origin.Y + (int)(draw / 65536u % (uint)height);
                 deposits[i] = new GridCoord(x, y);
             }
 
