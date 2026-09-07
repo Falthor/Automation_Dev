@@ -580,6 +580,17 @@ ligne du budget (§4.4), pas comme une description du système qui le produit.
 
 ## 7. L'interface générale
 
+> **Cette section ne recoupe pas [`../architecture/GLOBAL_UI.md`](../architecture/GLOBAL_UI.md)**, et
+> les deux répondent à des questions différentes. GLOBAL_UI décrit **ce que le HUD est** — les cartes,
+> leur ancrage, l'expansion au survol, le routage des panneaux. Cette section-ci décrit **quand ses
+> parties apparaissent** au fil de l'introduction, et un composant que GLOBAL_UI ne mentionne nulle
+> part.
+>
+> **Rien de ce qui suit n'est implémenté.** Les cinq cartes de la top bar existent toutes dès la
+> première frame, et il n'y a pas de widget de bridage dans le projet. C'est de l'intention, à sa
+> place dans `design/`. La « révélation progressive » que GLOBAL_UI mentionne est autre chose : le
+> détail d'une carte qui se déplie au survol, pas une carte qui apparaît en cours de partie.
+
 La top bar se révèle **au même rythme que le cerveau se répare** :
 
 | Phase | Contenu |
