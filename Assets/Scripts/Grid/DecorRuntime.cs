@@ -27,11 +27,14 @@ namespace Game.Grid
     /// </summary>
     public sealed class DecorRuntime
     {
-        // Distinct salts so a chunk's count, its items' positions and their kinds are independent
-        // draws rather than several views of one number.
+        // Distinct salts so a chunk's count, its anchors' positions, their kinds and the shape of a
+        // clump are independent draws rather than several views of one number.
         const uint CountSalt = 0x1B873593;
         const uint PlacementSalt = 0xCC9E2D51;
         const uint KindSalt = 0x85EBCA77;
+        const uint ClumpSalt = 0x27D4EB2F;
+        const uint MemberSalt = 0x165667B1;
+        const uint LookSalt = 0x9E3779B1;
 
         /// <summary>Separates one cleared cell from the next in the captured form.</summary>
         const char RemovalSeparator = ',';
@@ -39,8 +42,12 @@ namespace Game.Grid
         readonly int _seed;
         readonly BiomeField _biome;
         readonly float[][] _bandWeightsPerKind;
-        readonly float _itemsPerChunk;
+        readonly DecorClustering[] _clusteringPerKind;
+        readonly float _spotsPerChunk;
         readonly float _bandEdgeExclusion;
+
+        /// <summary>The widest clump any kind can make. What decides how far outside a chunk an anchor may sit and still reach into it - and it is why one ring of neighbours is enough.</summary>
+        readonly float _maxClusterRadius;
 
         /// <summary>Cells the player has cleared. Sparse and small: it holds what a player has actually removed, not a mask of the map.</summary>
         readonly HashSet<int> _removed = new HashSet<int>();
@@ -68,9 +75,13 @@ namespace Game.Grid
         /// <summary>
         /// Built from plain values rather than from the settings asset: Game.Grid must not depend on
         /// Game.Data. GameRuntime unpacks DecorSettings, exactly as it unpacks the terrain settings.
+        ///
+        /// <paramref name="clusteringPerKind"/> may be null or short, in which case the kinds it does
+        /// not cover grow one at a time.
         /// </summary>
         public DecorRuntime(int mapSizeCells, int chunkSizeCells, int seed, BiomeField biome,
-            float[][] bandWeightsPerKind, float itemsPerChunk, float bandEdgeExclusion)
+            float[][] bandWeightsPerKind, float spotsPerChunk, float bandEdgeExclusion,
+            DecorClustering[] clusteringPerKind = null)
         {
             MapSizeCells = Mathf.Max(0, mapSizeCells);
             ChunkSizeCells = Mathf.Max(1, chunkSizeCells);
@@ -79,8 +90,24 @@ namespace Game.Grid
             _seed = seed;
             _biome = biome;
             _bandWeightsPerKind = bandWeightsPerKind ?? System.Array.Empty<float[]>();
-            _itemsPerChunk = Mathf.Max(0f, itemsPerChunk);
+            _spotsPerChunk = Mathf.Max(0f, spotsPerChunk);
             _bandEdgeExclusion = Mathf.Max(0f, bandEdgeExclusion);
+
+            _clusteringPerKind = new DecorClustering[KindCount];
+            for (int k = 0; k < KindCount; k++)
+            {
+                DecorClustering shape = clusteringPerKind != null && k < clusteringPerKind.Length
+                    ? clusteringPerKind[k]
+                    : DecorClustering.Solitary;
+
+                // A clump must not reach past one chunk, or a further ring of neighbours would have
+                // to be derived for every chunk. Nothing wants a clump that wide anyway - the widest
+                // the old whole-map scatter made was five cells.
+                shape = shape.WithRadiusAtMost(ChunkSizeCells);
+                _clusteringPerKind[k] = shape;
+
+                if (shape.Radius > _maxClusterRadius) _maxClusterRadius = shape.Radius;
+            }
         }
 
         /// <summary>
@@ -122,43 +149,134 @@ namespace Game.Grid
             }
         }
 
-        /// <summary>What the seed alone puts in a chunk, before anything that has happened since. Pure in the sense the large-map directive asks for: same seed, same coordinates, same answer, whatever order chunks are asked in and whatever the player has done.</summary>
+        /// <summary>
+        /// What the seed alone puts in a chunk, before anything that has happened since. Pure in the
+        /// sense the large-map directive asks for: same seed, same coordinates, same answer, whatever
+        /// order chunks are asked in and whatever the player has done.
+        ///
+        /// <b>The neighbours' anchors are derived too, and that is not the prohibition it looks
+        /// like.</b> A clump anchored just outside a chunk has members inside it, so a chunk that
+        /// only looked at its own anchors would cut every clump straight along the chunk lines - the
+        /// grid made visible, which is the whole thing this scatter exists to avoid. What is
+        /// forbidden is <i>consulting a neighbour's state</i>: an answer that depends on whether the
+        /// neighbour has been asked yet, or on what it decided to keep. Here the neighbour's anchors
+        /// are re-derived from the same pure function, so the answer still depends on nothing but the
+        /// seed and the coordinates. One ring is enough because no clump is wider than a chunk.
+        /// </summary>
         void DeriveChunk(int chunkX, int chunkY, List<DecorItem> into)
         {
             if (!ContainsChunk(chunkX, chunkY) || KindCount == 0) return;
 
-            int chunkIndex = chunkY * ChunksPerAxis + chunkX;
-            int originX = chunkX * ChunkSizeCells;
-            int originY = chunkY * ChunkSizeCells;
+            int ring = _maxClusterRadius > 0f ? 1 : 0;
+            for (int ny = chunkY - ring; ny <= chunkY + ring; ny++)
+            {
+                for (int nx = chunkX - ring; nx <= chunkX + ring; nx++)
+                {
+                    if (ContainsChunk(nx, ny)) DeriveAnchorsOf(nx, ny, chunkX, chunkY, into);
+                }
+            }
+        }
+
+        /// <summary>
+        /// The clumps anchored in one chunk, keeping only the members that land inside another. The
+        /// two are the same chunk for all but the outer ring, where an anchor's clump spills across
+        /// the boundary.
+        /// </summary>
+        void DeriveAnchorsOf(int anchorChunkX, int anchorChunkY, int intoChunkX, int intoChunkY, List<DecorItem> into)
+        {
+            int anchorChunkIndex = anchorChunkY * ChunksPerAxis + anchorChunkX;
+            int originX = anchorChunkX * ChunkSizeCells;
+            int originY = anchorChunkY * ChunkSizeCells;
+
+            int keepMinX = intoChunkX * ChunkSizeCells;
+            int keepMinY = intoChunkY * ChunkSizeCells;
+            int keepMaxX = keepMinX + ChunkSizeCells - 1;
+            int keepMaxY = keepMinY + ChunkSizeCells - 1;
 
             // The count varies around the configured density rather than being exactly it, so chunks
             // do not all hold the same number - which would read as a grid.
-            uint countDraw = DeterministicHash.Mix(_seed, chunkIndex, CountSalt);
-            int count = Mathf.RoundToInt(_itemsPerChunk * (0.6f + 0.8f * (countDraw % 1000u) / 1000f));
+            uint countDraw = DeterministicHash.Mix(_seed, anchorChunkIndex, CountSalt);
+            int spots = Mathf.RoundToInt(_spotsPerChunk * (0.6f + 0.8f * (countDraw % 1000u) / 1000f));
 
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < spots; i++)
             {
-                uint place = DeterministicHash.Mix(_seed, chunkIndex, PlacementSalt + (uint)i * 0x9E3779B9u);
+                uint place = DeterministicHash.Mix(_seed, anchorChunkIndex, PlacementSalt + (uint)i * 0x9E3779B9u);
 
-                int x = originX + (int)(place % (uint)ChunkSizeCells);
-                int y = originY + (int)(place / 65536u % (uint)ChunkSizeCells);
-                if (x >= MapSizeCells || y >= MapSizeCells) continue;   // the map's edge clips the last chunks
+                int ax = originX + (int)(place % (uint)ChunkSizeCells);
+                int ay = originY + (int)(place / 65536u % (uint)ChunkSizeCells);
+                if (ax >= MapSizeCells || ay >= MapSizeCells) continue;   // the map's edge clips the last chunks
 
-                var cell = new GridCoord(x, y);
-                var world = new Vector2(x + 0.5f, y + 0.5f);
+                // Cheap reject before the biome sample, which is the expensive part: an anchor that
+                // cannot reach the chunk being derived contributes nothing to it. This is what keeps
+                // the extra ring from costing nine times the work - for the eight neighbours only a
+                // thin margin of anchors survives it.
+                if (DistanceToBox(ax, ay, keepMinX, keepMinY, keepMaxX, keepMaxY) > _maxClusterRadius) continue;
+
+                var anchorWorld = new Vector2(ax + 0.5f, ay + 0.5f);
 
                 // Too close to a band boundary is where the CPU port and the shader can disagree.
-                // Growing nothing there costs a few spots and removes the only case where a rock
+                // Growing nothing there costs a few spots and removes the only case where a clump
                 // could take the wrong biome's art.
-                if (_bandEdgeExclusion > 0f && _biome != null && _biome.DistanceToBandEdge(world) < _bandEdgeExclusion) continue;
+                if (_bandEdgeExclusion > 0f && _biome != null && _biome.DistanceToBandEdge(anchorWorld) < _bandEdgeExclusion) continue;
 
-                int band = _biome != null ? _biome.BandAt(world) : 0;
-                int kind = PickKind(band, chunkIndex, i);
+                // Band and kind are decided at the anchor, not per member: a clump is one species
+                // growing in one place, which is what makes it read as a clump rather than as a
+                // denser patch of the same uniform mixture.
+                int band = _biome != null ? _biome.BandAt(anchorWorld) : 0;
+                int kind = PickKind(band, anchorChunkIndex, i);
                 if (kind < 0) continue;
 
-                float scale01 = (place / 4096u % 1000u) / 1000f;
-                into.Add(new DecorItem(cell, kind, band, scale01, place));
+                EmitSpot(anchorChunkIndex, i, ax, ay, kind, band,
+                    keepMinX, keepMinY, keepMaxX, keepMaxY, into);
             }
+        }
+
+        /// <summary>One anchor's worth of decor: a single item, or a clump scattered in a disc around it.</summary>
+        void EmitSpot(int anchorChunkIndex, int anchorIndex, int ax, int ay, int kind, int band,
+            int keepMinX, int keepMinY, int keepMaxX, int keepMaxY, List<DecorItem> into)
+        {
+            DecorClustering shape = _clusteringPerKind[kind];
+
+            uint clumpDraw = DeterministicHash.Mix(_seed, anchorChunkIndex * 397 + anchorIndex, ClumpSalt);
+            bool clumped = shape.Radius > 0f && (clumpDraw % 1000u) / 1000f < shape.Chance;
+
+            int members = clumped
+                ? shape.MinMembers + (int)(clumpDraw / 1000u % (uint)(shape.MaxMembers - shape.MinMembers + 1))
+                : 1;
+
+            for (int m = 0; m < members; m++)
+            {
+                int x = ax, y = ay;
+
+                if (clumped)
+                {
+                    // Injective in (chunk, anchor, member) for any plausible count, so no two members
+                    // anywhere on the map share a draw.
+                    uint spread = DeterministicHash.Mix(_seed, (anchorChunkIndex * 397 + anchorIndex) * 31 + m, MemberSalt);
+
+                    float angle = (spread % 10000u) / 10000f * Mathf.PI * 2f;
+                    float distance = Mathf.Sqrt((spread / 10000u % 10000u) / 10000f) * shape.Radius;
+
+                    x = ax + Mathf.RoundToInt(Mathf.Cos(angle) * distance);
+                    y = ay + Mathf.RoundToInt(Mathf.Sin(angle) * distance);
+                }
+
+                if (x < keepMinX || x > keepMaxX || y < keepMinY || y > keepMaxY) continue;
+                if (x < 0 || y < 0 || x >= MapSizeCells || y >= MapSizeCells) continue;
+
+                uint look = DeterministicHash.Mix(_seed, (anchorChunkIndex * 397 + anchorIndex) * 31 + m, LookSalt);
+                float scale01 = (look % 1000u) / 1000f;
+
+                into.Add(new DecorItem(new GridCoord(x, y), kind, band, scale01, look));
+            }
+        }
+
+        /// <summary>Distance from a cell to a box of cells, zero inside it. What tells an anchor whether its widest possible clump could reach the chunk being derived.</summary>
+        static float DistanceToBox(int x, int y, int minX, int minY, int maxX, int maxY)
+        {
+            int dx = x < minX ? minX - x : (x > maxX ? x - maxX : 0);
+            int dy = y < minY ? minY - y : (y > maxY ? y - maxY : 0);
+            return Mathf.Sqrt(dx * dx + dy * dy);
         }
 
         /// <summary>A weighted draw among the kinds that grow in this band. -1 when none does.</summary>
@@ -293,6 +411,46 @@ namespace Game.Grid
                 _removed.Add(index);
             }
         }
+    }
+
+    /// <summary>
+    /// How one kind of decor clumps: bushes grow in thickets, a lone tree does not.
+    ///
+    /// <b>Why it exists at all.</b> Items placed one per draw give an even scatter, and an even
+    /// scatter reads as regularity just as much as a grid does - it is the same defect the ground
+    /// noise and the sector names were shaped to avoid, in another form. Clumping is what breaks it.
+    ///
+    /// The old whole-map scatter got clumps from a sequential pass: pick an anchor, walk outward,
+    /// place members. That cannot survive a chunked derivation, which has no sequence and no memory.
+    /// The replacement is an anchor that is itself derived - hashed from the chunk and the spot index
+    /// - so a clump is a pure function like everything else, and a chunk can be asked about its own
+    /// clumps without anybody having walked there first.
+    /// </summary>
+    public readonly struct DecorClustering
+    {
+        /// <summary>How often an anchor grows a whole clump rather than a single item, 0 to 1.</summary>
+        public readonly float Chance;
+
+        public readonly int MinMembers;
+        public readonly int MaxMembers;
+
+        /// <summary>How far members scatter from the anchor, in cells. Zero means this kind never clumps, whatever the chance says.</summary>
+        public readonly float Radius;
+
+        public DecorClustering(float chance, int minMembers, int maxMembers, float radius)
+        {
+            Chance = Mathf.Clamp01(chance);
+            MinMembers = Mathf.Max(1, minMembers);
+            MaxMembers = Mathf.Max(MinMembers, maxMembers);
+            Radius = Mathf.Max(0f, radius);
+        }
+
+        /// <summary>One at a time, which is what a kind with no clustering configured gets.</summary>
+        public static DecorClustering Solitary => new DecorClustering(0f, 1, 1, 0f);
+
+        /// <summary>Narrows a clump that would reach past one chunk, so a single ring of neighbouring anchors stays sufficient.</summary>
+        public DecorClustering WithRadiusAtMost(float maxRadius)
+            => Radius <= maxRadius ? this : new DecorClustering(Chance, MinMembers, MaxMembers, maxRadius);
     }
 
     /// <summary>

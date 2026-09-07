@@ -536,8 +536,18 @@ namespace Game.Presentation
                 },
                 (int)groundMaterial.GetFloat("_BiomeTexCount"));
 
+            // Game.Data cannot name Game.Grid's types, so the clumping shapes are assembled here -
+            // the same boundary that makes the band weights arrive as a plain float[][].
+            var clustering = new DecorClustering[decorSettings.Kinds.Length];
+            for (int i = 0; i < clustering.Length; i++)
+            {
+                DecorSettings.Kind kind = decorSettings.Kinds[i];
+                clustering[i] = new DecorClustering(kind.ClusterChance, kind.ClusterSize.x, kind.ClusterSize.y, kind.ClusterRadius);
+            }
+
             Decor = new DecorRuntime(Terrain.Size, sectorSettings.ChunkSizeCells, Terrain.Seed, biome,
-                decorSettings.BandWeightsPerKind(), decorSettings.ItemsPerChunk, decorSettings.BandEdgeExclusion);
+                decorSettings.BandWeightsPerKind(), decorSettings.SpotsPerChunk, decorSettings.BandEdgeExclusion,
+                clustering);
 
             // What the player cleared, from the save. Applied before the view spawns anything, so a
             // cleared rock is never briefly visible on load.

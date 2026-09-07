@@ -28,8 +28,16 @@ namespace Game.Tests.EditMode.Grid
 
         static BiomeField NewBiome() => new BiomeField(Vector2.zero, 40f, 6426f, new[] { 1f, 1f, 0f }, 2);
 
-        static DecorRuntime NewDecor(int mapSize = 640, float itemsPerChunk = 40f, float edgeExclusion = 0f)
-            => new DecorRuntime(mapSize, ChunkSize, Seed, NewBiome(), TwoKinds(), itemsPerChunk, edgeExclusion);
+        static DecorRuntime NewDecor(int mapSize = 640, float spotsPerChunk = 40f, float edgeExclusion = 0f,
+            DecorClustering[] clustering = null)
+            => new DecorRuntime(mapSize, ChunkSize, Seed, NewBiome(), TwoKinds(), spotsPerChunk, edgeExclusion, clustering);
+
+        /// <summary>Kind 0 clumps in a five-cell disc, kind 1 never does - so a test can tell the two apart by shape as well as by band.</summary>
+        static DecorClustering[] ClumpingFirstKind() => new[]
+        {
+            new DecorClustering(1f, 5, 9, 5f),
+            DecorClustering.Solitary
+        };
 
         static List<DecorItem> Chunk(DecorRuntime decor, int cx, int cy)
         {
@@ -198,7 +206,7 @@ namespace Game.Tests.EditMode.Grid
         [Test]
         public void AKindFavouringABand_DominatesIt()
         {
-            DecorRuntime decor = NewDecor(itemsPerChunk: 200f);
+            DecorRuntime decor = NewDecor(spotsPerChunk: 200f);
 
             var kindCountsInBand = new int[2, 2];
             for (int cy = 0; cy < 6; cy++)
@@ -303,6 +311,129 @@ namespace Game.Tests.EditMode.Grid
 
             decor.Remove(items[0].Cell);
             Assert.IsFalse(decor.GrowsAt(items[0].Cell), "a cleared cell still answered that something grows on it");
+        }
+
+        // ---- Clumping ----
+
+        /// <summary>
+        /// The property the whole anchor design exists for, and the one that fails silently.
+        ///
+        /// A clump anchored near a chunk edge has members on the other side of it. A chunk that only
+        /// derived its own anchors would cut every such clump straight along the chunk line - the
+        /// grid drawn on the ground in vegetation, which is exactly the regularity clumping was added
+        /// to break. So the test looks at a <b>band of cells straddling a boundary</b> and asks that
+        /// it be no emptier than the interior on either side.
+        /// </summary>
+        [Test]
+        public void ClumpsAreNotCutAlongChunkLines()
+        {
+            DecorRuntime decor = NewDecor(clustering: ClumpingFirstKind());
+
+            // Every cell of four adjacent chunks, so a cell is counted once and only once.
+            var occupied = new HashSet<int>();
+            for (int cy = 2; cy <= 3; cy++)
+            {
+                for (int cx = 2; cx <= 3; cx++)
+                {
+                    foreach (DecorItem item in Chunk(decor, cx, cy)) occupied.Add(item.Cell.Y * 640 + item.Cell.X);
+                }
+            }
+
+            int boundary = 0, interior = 0;
+            const int Edge = 3 * ChunkSize;   // the line between chunk 2 and chunk 3
+
+            for (int y = 2 * ChunkSize; y < 4 * ChunkSize; y++)
+            {
+                for (int x = 2 * ChunkSize; x < 4 * ChunkSize; x++)
+                {
+                    if (!occupied.Contains(y * 640 + x)) continue;
+
+                    int distance = Mathf.Abs(x - Edge);
+                    if (distance < 4) boundary++;
+                    else if (distance >= 16 && distance < 20) interior++;
+                }
+            }
+
+            Assert.Greater(boundary, 0, "the strip along a chunk boundary grew nothing at all");
+            Assert.Greater(boundary, interior * 0.5f,
+                $"{boundary} items within 4 cells of a chunk line against {interior} in a strip of the same width inland - "
+                + "clumps are being cut at the boundary, which draws the chunk grid on the ground");
+        }
+
+        /// <summary>
+        /// What clumping is actually for, stated as something measurable: a clumping kind's items sit
+        /// close to others of their own kind, a solitary kind's do not. Without this the scatter is
+        /// even, and an even scatter reads as regularity just as a grid does.
+        ///
+        /// The fixture makes kind 0 clump in a five-cell disc and kind 1 never clump, so the
+        /// comparison is between two kinds of the same world rather than against a magic number.
+        /// </summary>
+        [Test]
+        public void AClumpingKind_SitsNearItsOwn_WhereASolitaryOneDoesNot()
+        {
+            DecorRuntime decor = NewDecor(clustering: ClumpingFirstKind());
+            List<DecorItem> items = Chunk(decor, 2, 2);
+
+            int clumpedWithNeighbour = 0, clumpedTotal = 0;
+            int solitaryWithNeighbour = 0, solitaryTotal = 0;
+
+            foreach (DecorItem item in items)
+            {
+                bool hasNeighbour = false;
+                foreach (DecorItem other in items)
+                {
+                    if (other.Kind != item.Kind) continue;
+                    if (other.Cell.X == item.Cell.X && other.Cell.Y == item.Cell.Y) continue;
+
+                    int dx = other.Cell.X - item.Cell.X;
+                    int dy = other.Cell.Y - item.Cell.Y;
+                    if (dx * dx + dy * dy <= 25) { hasNeighbour = true; break; }
+                }
+
+                if (item.Kind == 0) { clumpedTotal++; if (hasNeighbour) clumpedWithNeighbour++; }
+                else { solitaryTotal++; if (hasNeighbour) solitaryWithNeighbour++; }
+            }
+
+            Assert.Greater(clumpedTotal, 0);
+            Assert.Greater(solitaryTotal, 0);
+
+            float clumpedRate = clumpedWithNeighbour / (float)clumpedTotal;
+            float solitaryRate = solitaryWithNeighbour / (float)solitaryTotal;
+
+            Assert.Greater(clumpedRate, 0.8f,
+                $"only {clumpedRate:P0} of the clumping kind has one of its own within five cells - it is not clumping");
+            Assert.Greater(clumpedRate, solitaryRate * 1.5f,
+                $"the clumping kind ({clumpedRate:P0}) is barely more grouped than the solitary one ({solitaryRate:P0})");
+        }
+
+        /// <summary>Clumping must not break the purity the derivation rests on: the extra ring of neighbours is re-derived, never remembered.</summary>
+        [Test]
+        public void ClumpingChangesNothingAboutOrderIndependence()
+        {
+            DecorRuntime forward = NewDecor(clustering: ClumpingFirstKind());
+            DecorRuntime backward = NewDecor(clustering: ClumpingFirstKind());
+
+            var forwardSeen = new List<string>();
+            for (int cy = 1; cy <= 3; cy++)
+                for (int cx = 1; cx <= 3; cx++)
+                    forwardSeen.Add(Describe(Chunk(forward, cx, cy)));
+
+            var backwardSeen = new List<string>();
+            for (int cy = 3; cy >= 1; cy--)
+                for (int cx = 3; cx >= 1; cx--)
+                    backwardSeen.Insert(0, Describe(Chunk(backward, cx, cy)));
+
+            CollectionAssert.AreEqual(forwardSeen, backwardSeen);
+        }
+
+        [Test]
+        public void AClumpingKind_GrowsMoreThanASolitaryOne_ForTheSameSpotCount()
+        {
+            DecorRuntime solitary = NewDecor();
+            DecorRuntime clumping = NewDecor(clustering: ClumpingFirstKind());
+
+            Assert.Greater(Chunk(clumping, 2, 2).Count, Chunk(solitary, 2, 2).Count,
+                "a spot that grows five to nine items cannot produce fewer than one that grows one");
         }
 
         // ---- Ground taken by something the player did not clear ----

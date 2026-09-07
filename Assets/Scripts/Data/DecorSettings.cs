@@ -36,6 +36,17 @@ namespace Game.Data
 
             [SerializeField] Vector2 scaleRange = new Vector2(0.8f, 1.3f);
 
+            [Header("Regroupement")]
+
+            /// <summary>How often a spot of this kind grows a whole clump rather than a single item. Zero means it always grows alone.</summary>
+            [SerializeField, Range(0f, 1f)] float clusterChance;
+
+            /// <summary>How many items a clump holds, drawn between the two. Ignored when the chance or the radius is zero.</summary>
+            [SerializeField] Vector2Int clusterSize = new Vector2Int(3, 6);
+
+            /// <summary>How far members scatter from their anchor, in cells. Kept well under a chunk: a clump that reached past one would force every chunk to derive a wider ring of neighbours.</summary>
+            [SerializeField, Min(0f)] float clusterRadius;
+
             /// <summary>
             /// Multiplied into the sprite. White leaves the art as authored, which is what most kinds
             /// want; the large rocks were muted towards the ground's own tone so they read as part of
@@ -50,15 +61,22 @@ namespace Game.Data
             public float[] BandWeights => bandWeights;
             public Vector2 ScaleRange => scaleRange;
             public Color Tint => tint;
+            public float ClusterChance => clusterChance;
+            public Vector2Int ClusterSize => clusterSize;
+            public float ClusterRadius => clusterRadius;
         }
 
         [Header("Densité")]
 
         /// <summary>
-        /// Average number of decor items in one chunk. At the shipped chunk of 64 cells that is one
-        /// item per <c>4096 / this</c> cells, and it means the same thing on a map of any size.
+        /// Average number of <b>spots</b> in one chunk - not items. A spot is one item for a kind that
+        /// grows alone and a whole clump for one that does not, so the item count is this multiplied
+        /// by the average clump size of whatever grows there.
+        ///
+        /// Per chunk rather than per map, and that is the point: a total cannot follow a change of
+        /// map size, where the same per-chunk figure means the same thing at any size.
         /// </summary>
-        [SerializeField, Min(0f)] float itemsPerChunk = 40f;
+        [SerializeField, Min(0f)] float spotsPerChunk = 28f;
 
         /// <summary>
         /// How close to a ground-band boundary a spot may be and still grow something. The CPU biome
@@ -82,7 +100,7 @@ namespace Game.Data
         [Header("Espèces")]
         [SerializeField] Kind[] kinds = System.Array.Empty<Kind>();
 
-        public float ItemsPerChunk => itemsPerChunk;
+        public float SpotsPerChunk => spotsPerChunk;
         public float BandEdgeExclusion => bandEdgeExclusion;
         public int WindowMarginCells => windowMarginCells;
         public int PoolSize => poolSize;
@@ -99,6 +117,10 @@ namespace Game.Data
             for (int i = 0; i < kinds.Length; i++) weights[i] = kinds[i].BandWeights;
             return weights;
         }
+
+        // The clumping shape is read per kind off Kinds[i] and assembled into Game.Grid's own
+        // DecorClustering by the caller. Game.Data references only Game.Core, so it cannot name that
+        // type - the same boundary that makes BandWeightsPerKind above return a plain float[][].
 
         void OnValidate()
         {

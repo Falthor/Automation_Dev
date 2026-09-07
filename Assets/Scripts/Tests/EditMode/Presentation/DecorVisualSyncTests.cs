@@ -45,7 +45,7 @@ namespace Game.Tests.EditMode.Presentation
             _spawned.Add(settings);
 
             var so = new SerializedObject(settings);
-            so.FindProperty("itemsPerChunk").floatValue = 20f;
+            so.FindProperty("spotsPerChunk").floatValue = 20f;
             so.FindProperty("bandEdgeExclusion").floatValue = 0f;
             so.FindProperty("windowMarginCells").intValue = windowMarginCells;
             so.FindProperty("poolSize").intValue = poolSize;

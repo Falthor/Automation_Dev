@@ -659,7 +659,39 @@ surface sur laquelle il a bâti.
 **L'ordre dans `CreateAndRegister`.** Le décor est dégagé **avant** que le bâtiment prenne la case.
 Rien ne lit l'occupant aujourd'hui, mais un filtre d'occupation ajouté plus tard verrait une case déjà
 prise, conclurait que rien n'y poussait, n'enregistrerait aucun retrait — et le rocher reviendrait au
-rechargement suivant. L'ordre est ce qui empêche ce piège d'exister.
+rechargement suivant, sans qu'aucun test ne bouge et sans que personne ne rattache le symptôme à une
+ligne écrite des mois plus tôt. **Corriger un ordre avant qu'il ne compte est le seul moment où c'est
+gratuit.**
+
+### 3.14 Les bosquets : une ancre dérivée, pas une passe séquentielle
+
+Un objet par tirage donne un semis **uniforme**, et un semis uniforme se lit comme de la régularité
+exactement comme une grille. C'est le même défaut que celui contre lequel le bruit du sol et les noms
+de secteurs ont été façonnés, sous une troisième forme — et c'est précisément ce que le regroupement
+en ancre-plus-disque de l'ancien éparpilleur cassait.
+
+L'ancien tenait ses grappes d'une passe séquentielle : choisir une ancre, marcher autour, poser les
+membres. Une dérivation par chunk n'a ni séquence ni mémoire. **L'ancre devient donc elle-même
+dérivée** — hachée depuis le chunk et l'indice de l'emplacement — et une grappe redevient une fonction
+pure comme tout le reste. Un emplacement vaut un objet pour une espèce solitaire et une grappe entière
+pour les autres ; `spotsPerChunk` compte les emplacements, jamais les objets.
+
+**Le piège que cela crée, et qui n'a rien d'évident.** Une grappe ancrée près d'un bord de chunk a des
+membres de l'autre côté. Un chunk qui ne regarderait que ses propres ancres couperait chaque grappe
+net le long de la ligne de chunk : **la grille dessinée au sol en végétation**, soit exactement la
+régularité que le regroupement venait supprimer. Un chunk dérive donc aussi les ancres de ses huit
+voisins et ne garde que les membres qui tombent chez lui.
+
+Ce n'est pas l'interdit de la directive. Ce qui est interdit, c'est de **consulter l'état d'un
+voisin** — une réponse qui dépendrait de savoir s'il a déjà été interrogé, ou de ce qu'il a décidé de
+garder. Ici les ancres du voisin sont re-dérivées par la même fonction pure : la réponse ne dépend
+toujours que de la graine et des coordonnées, et l'indépendance à l'ordre tient (un test la vérifie
+encore avec le regroupement actif). Un seul anneau suffit parce qu'un rayon de grappe est borné à la
+taille d'un chunk, et une ancre qui ne peut pas atteindre le chunk dérivé est rejetée **avant** son
+échantillon de biome — ce qui empêche l'anneau supplémentaire de coûter neuf fois le travail.
+
+Mesuré en Play : 2 072 objets contre 1 888 pour le semis uniforme, toujours aucun à `sortingOrder` 0.
+À l'écran, des fourrés avec du sol nu entre eux, là où il y avait un mouchetis régulier.
 
 ---
 

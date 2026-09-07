@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a0ac6808510e29241b9baa7a0751d8bb, type: 3}
   m_Name: DecorSettings
   m_EditorClassIdentifier: Game.Data::Game.Data.DecorSettings
-  itemsPerChunk: 120
+  spotsPerChunk: 28
   bandEdgeExclusion: 0.004
   windowMarginCells: 48
   poolSize: 768
@@ -36,6 +36,9 @@ MonoBehaviour:
     - 0
     - 28
     scaleRange: {x: 0.48, y: 0.78}
+    clusterChance: 0
+    clusterSize: {x: 1, y: 1}
+    clusterRadius: 0
     tint: {r: 1, g: 1, b: 1, a: 1}
   - id: flower_warm
     sprites:
@@ -51,6 +54,9 @@ MonoBehaviour:
     - 10
     - 0
     scaleRange: {x: 0.48, y: 0.78}
+    clusterChance: 0.92
+    clusterSize: {x: 3, y: 6}
+    clusterRadius: 1.2
     tint: {r: 1, g: 1, b: 1, a: 1}
   - id: clear_bush
     sprites:
@@ -67,6 +73,9 @@ MonoBehaviour:
     - 16
     - 0
     scaleRange: {x: 0.48, y: 0.78}
+    clusterChance: 0.82
+    clusterSize: {x: 3, y: 10}
+    clusterRadius: 2
     tint: {r: 1, g: 1, b: 1, a: 1}
   - id: bush
     sprites:
@@ -82,6 +91,9 @@ MonoBehaviour:
     - 25
     - 25
     scaleRange: {x: 0.48, y: 0.84}
+    clusterChance: 0.85
+    clusterSize: {x: 6, y: 14}
+    clusterRadius: 4
     tint: {r: 1, g: 1, b: 1, a: 1}
   - id: tree
     sprites:
@@ -99,6 +111,9 @@ MonoBehaviour:
     - 1.6
     - 0
     scaleRange: {x: 0.6, y: 0.9}
+    clusterChance: 0
+    clusterSize: {x: 1, y: 1}
+    clusterRadius: 0
     tint: {r: 1, g: 1, b: 1, a: 1}
   - id: small_rock
     sprites:
@@ -118,6 +133,9 @@ MonoBehaviour:
     - 15
     - 15
     scaleRange: {x: 0.48, y: 0.78}
+    clusterChance: 0.9
+    clusterSize: {x: 2, y: 4}
+    clusterRadius: 1.2
     tint: {r: 1, g: 1, b: 1, a: 1}
   - id: large_rock
     sprites:
@@ -132,6 +150,9 @@ MonoBehaviour:
     - 3
     - 3
     scaleRange: {x: 0.51, y: 0.72}
+    clusterChance: 0
+    clusterSize: {x: 1, y: 1}
+    clusterRadius: 0
     tint: {r: 1, g: 1, b: 1, a: 1}
   - id: big_rock
     sprites:
@@ -149,4 +170,7 @@ MonoBehaviour:
     - 1.6
     - 1.6
     scaleRange: {x: 0.51, y: 0.72}
+    clusterChance: 0
+    clusterSize: {x: 1, y: 1}
+    clusterRadius: 0
     tint: {r: 1, g: 1, b: 1, a: 1}
