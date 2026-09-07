@@ -191,6 +191,13 @@ namespace Game.Presentation
         /// against a window that has since moved. Nothing outside the window is ordered correctly
         /// either, and nothing outside it is visible.
         /// </summary>
+        /// <remarks>
+        /// If a world-Y variant is ever added beside this one, do not call it something symmetric.
+        /// This function replaced a <c>Sorted(worldBottomY, ...)</c> that meant the <b>opposite</b> -
+        /// a bigger number was further away there, nearer here - and the two read the same, so a
+        /// mechanical rename across a test file inverted it silently. Names that differ by one word
+        /// invite exactly that; <c>SortedFromWorldY</c> against <c>SortedFromDepth</c> would not.
+        /// </remarks>
         public static int SortedFromDepth(float depthBelowWindowTop, int subLayer)
         {
             int step = Mathf.Clamp(Mathf.FloorToInt(depthBelowWindowTop * StepsPerWorldUnit), 0, Steps - 1);
