@@ -68,6 +68,13 @@ namespace Game.Data
         /// </summary>
         public bool SectorsTileChunksExactly => sectorSizeCells > 0 && chunkSizeCells % sectorSizeCells == 0;
 
+        /// <summary>
+        /// Warns on an inconsistent setting - but only as a convenience, and it is not the guard.
+        /// Unity runs this when it imports or reloads the asset, <b>not</b> while a value is being
+        /// typed into the Inspector, so an inconsistent value can sit in the project for a whole
+        /// session unseen. SectorSettingsTests is what actually catches it, on every suite run and
+        /// whatever put the value there.
+        /// </summary>
         void OnValidate()
         {
             if (!SectorsTileChunksExactly)
