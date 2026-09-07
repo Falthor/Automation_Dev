@@ -10,7 +10,7 @@ using UnityEngine;
 namespace Game.Gameplay.Missions
 {
     /// <summary>
-    /// The expedition process: probes, missions in flight, and what a mission does when it lands.
+    /// The expedition process: robots, missions in flight, and what a mission does when it lands.
     ///
     /// <b>No interface, on purpose.</b> A mission is launched by a call, advances with the game clock,
     /// resolves and produces a report - all of it testable with no screen. The zoomed-out map and the
@@ -18,7 +18,7 @@ namespace Game.Gameplay.Missions
     ///
     /// <b>Crew is carried at 1 rather than absent.</b> Units do not exist yet, so every mission has one
     /// executant and §5.4's brake on over-committing has nothing to act on. Keeping the parameter costs
-    /// almost nothing now and stops the code organising itself around "a mission has one probe", which
+    /// almost nothing now and stops the code organising itself around "a mission has one robot", which
     /// is what would have to be undone when squads arrive.
     ///
     /// <b>Launching never costs CU</b> (§1). That is what keeps the zero-CU floor an exit rather than
@@ -41,8 +41,8 @@ namespace Game.Gameplay.Missions
         readonly List<MissionRuntime> _inFlight = new List<MissionRuntime>();
         readonly List<MissionRuntime> _reports = new List<MissionRuntime>();
 
-        /// <summary>Charges left on each probe. A probe is an index, not an object: it has no state beyond this.</summary>
-        readonly List<int> _probeCharges = new List<int>();
+        /// <summary>Charges left on each robot. A robot is an index, not an object: it has no state beyond this.</summary>
+        readonly List<int> _robotCharges = new List<int>();
 
         /// <summary>Sectors whose point of interest has been exploited. Finite by §8 - a recovered site is not offered again.</summary>
         readonly HashSet<int> _consumedSites = new HashSet<int>();
@@ -63,10 +63,10 @@ namespace Game.Gameplay.Missions
             _seed = seed;
         }
 
-        /// <summary>Whether the probes have arrived. Once true it never goes back: a probe that has appeared has appeared.</summary>
-        public bool ProbesHaveAppeared { get; private set; }
+        /// <summary>Whether the robots have arrived. Once true it never goes back: a robot that has appeared has appeared.</summary>
+        public bool RobotsHaveAppeared { get; private set; }
 
-        public int ProbeCount => _probeCharges.Count;
+        public int ExplorerRobotCount => _robotCharges.Count;
 
         /// <summary>Missions currently out. Never more than the configured maximum.</summary>
         public IReadOnlyList<MissionRuntime> InFlight => _inFlight;
@@ -76,17 +76,17 @@ namespace Game.Gameplay.Missions
 
         public int ConsumedSiteCount => _consumedSites.Count;
 
-        /// <summary>Charges left on one probe, or 0 for an index that is not a probe.</summary>
-        public int ChargesOf(int probeIndex)
-            => probeIndex >= 0 && probeIndex < _probeCharges.Count ? _probeCharges[probeIndex] : 0;
+        /// <summary>Charges left on one robot, or 0 for an index that is not a robot.</summary>
+        public int ChargesOf(int robotIndex)
+            => robotIndex >= 0 && robotIndex < _robotCharges.Count ? _robotCharges[robotIndex] : 0;
 
-        /// <summary>Total charges left across every probe. What tells a caller the fleet is spent.</summary>
+        /// <summary>Total charges left across every robot. What tells a caller the fleet is spent.</summary>
         public int TotalChargesLeft
         {
             get
             {
                 int total = 0;
-                foreach (int charges in _probeCharges) total += charges;
+                foreach (int charges in _robotCharges) total += charges;
                 return total;
             }
         }
@@ -94,7 +94,7 @@ namespace Game.Gameplay.Missions
         // ---- The clock ----
 
         /// <summary>
-        /// Advances every mission, and brings the probes out when the reserve has fallen far enough.
+        /// Advances every mission, and brings the robots out when the reserve has fallen far enough.
         ///
         /// The reserve and its cap are passed in rather than read: the threshold is a fraction of the
         /// cap, and a test has to be able to move the cap to prove the threshold follows it.
@@ -126,11 +126,11 @@ namespace Game.Gameplay.Missions
 
         void AppearIfReserveHasFallen(float reserve, float reserveCap)
         {
-            if (ProbesHaveAppeared) return;
-            if (reserve > _settings.ProbeThresholdCu(reserveCap)) return;
+            if (RobotsHaveAppeared) return;
+            if (reserve > _settings.RobotThresholdCu(reserveCap)) return;
 
-            ProbesHaveAppeared = true;
-            for (int i = 0; i < _settings.ProbeCount; i++) _probeCharges.Add(_settings.MissionsPerProbe);
+            RobotsHaveAppeared = true;
+            for (int i = 0; i < _settings.ExplorerRobotCount; i++) _robotCharges.Add(_settings.MissionsPerRobot);
         }
 
         // ---- Launching ----
@@ -139,9 +139,9 @@ namespace Game.Gameplay.Missions
         public enum LaunchRefusal
         {
             None,
-            ProbesHaveNotArrived,
+            RobotsHaveNotArrived,
             AllSlotsBusy,
-            NoProbeAvailable,
+            NoRobotAvailable,
             NotASector,
             AlreadyRecovered
         }
@@ -149,9 +149,9 @@ namespace Game.Gameplay.Missions
         /// <summary>Whether a mission could be launched right now, and why not when it cannot.</summary>
         public LaunchRefusal CanLaunch(MissionKind kind, int targetSector)
         {
-            if (!ProbesHaveAppeared) return LaunchRefusal.ProbesHaveNotArrived;
+            if (!RobotsHaveAppeared) return LaunchRefusal.RobotsHaveNotArrived;
             if (_inFlight.Count >= _settings.MaxConcurrentMissions) return LaunchRefusal.AllSlotsBusy;
-            if (FreeProbe() < 0) return LaunchRefusal.NoProbeAvailable;
+            if (FreeRobot() < 0) return LaunchRefusal.NoRobotAvailable;
             if (_grid == null || !_grid.ContainsIndex(targetSector)) return LaunchRefusal.NotASector;
             if (kind == MissionKind.Recuperation && _consumedSites.Contains(targetSector)) return LaunchRefusal.AlreadyRecovered;
 
@@ -162,7 +162,7 @@ namespace Game.Gameplay.Missions
         /// Sends a mission, or answers why it could not go.
         ///
         /// The outcome and the reward are drawn here and carried by the mission - see MissionRuntime's
-        /// summary for why that rather than drawing on arrival. The probe's charge is spent here too:
+        /// summary for why that rather than drawing on arrival. The robot's charge is spent here too:
         /// a launched mission cannot be taken back.
         /// </summary>
         public LaunchRefusal TryLaunch(MissionKind kind, int targetSector, out MissionRuntime mission, int crew = 1)
@@ -172,16 +172,16 @@ namespace Game.Gameplay.Missions
             LaunchRefusal refusal = CanLaunch(kind, targetSector);
             if (refusal != LaunchRefusal.None) return refusal;
 
-            int probe = FreeProbe();
+            int robot = FreeRobot();
             int id = _nextMissionId++;
 
             MissionOutcome outcome = DrawOutcome(kind, targetSector, id);
             float reward = DrawReward(kind, outcome);
 
             mission = new MissionRuntime(id, kind, targetSector, DurationOf(kind, targetSector, crew),
-                outcome, reward, probe, crew);
+                outcome, reward, robot, crew);
 
-            _probeCharges[probe]--;
+            _robotCharges[robot]--;
 
             // Committed at launch, not at landing: the budget a mission was promised must not move
             // because another one landed first.
@@ -191,11 +191,11 @@ namespace Game.Gameplay.Missions
             return LaunchRefusal.None;
         }
 
-        int FreeProbe()
+        int FreeRobot()
         {
-            for (int i = 0; i < _probeCharges.Count; i++)
+            for (int i = 0; i < _robotCharges.Count; i++)
             {
-                if (_probeCharges[i] > 0) return i;
+                if (_robotCharges[i] > 0) return i;
             }
 
             return -1;
@@ -227,7 +227,7 @@ namespace Game.Gameplay.Missions
         // ---- The draw ----
 
         /// <summary>
-        /// <b>With a probe the map never fails</b> (§7.1). Only the harvest can, and only a recovery
+        /// <b>With a robot the map never fails</b> (§7.1). Only the harvest can, and only a recovery
         /// harvests - so a reconnaissance can come back empty but never blind.
         /// </summary>
         MissionOutcome DrawOutcome(MissionKind kind, int targetSector, int missionId)
@@ -301,10 +301,10 @@ namespace Game.Gameplay.Missions
             _grid?.RevealInscribedDisc(mission.TargetSector, _discovery);
         }
 
-        /// <summary>The probe is home. The reward is paid here rather than at resolution, because that is when the report is read.</summary>
+        /// <summary>The robot is home. The reward is paid here rather than at resolution, because that is when the report is read.</summary>
         void Deliver(MissionRuntime mission)
         {
-            // The probe's charge was spent at launch, so there is nothing to return here - a probe
+            // The robot's charge was spent at launch, so there is nothing to return here - a robot
             // that went out has used its charge whatever came of the trip.
             if (mission.RewardCu > 0f) _compute?.Grant(mission.RewardCu);
         }
@@ -321,7 +321,7 @@ namespace Game.Gameplay.Missions
         // ---- Save / Restore (CONTRACTS.md §14) ----
 
         /// <summary>
-        /// Missions in flight with their clock and their drawn outcome, the charges left on each probe,
+        /// Missions in flight with their clock and their drawn outcome, the charges left on each robot,
         /// and the sites already recovered. Everything else is derived.
         /// </summary>
         public JObject CaptureState()
@@ -339,20 +339,20 @@ namespace Game.Gameplay.Missions
                     ["state"] = (int)mission.State,
                     ["outcome"] = (int)mission.Outcome,
                     ["reward"] = mission.RewardCu,
-                    ["probe"] = mission.ProbeIndex,
+                    ["robot"] = mission.RobotIndex,
                     ["crew"] = mission.Crew
                 });
             }
 
             var charges = new JArray();
-            foreach (int charge in _probeCharges) charges.Add(charge);
+            foreach (int charge in _robotCharges) charges.Add(charge);
 
             var consumed = new JArray();
             foreach (int sector in _consumedSites) consumed.Add(sector);
 
             return new JObject
             {
-                ["appeared"] = ProbesHaveAppeared,
+                ["appeared"] = RobotsHaveAppeared,
                 ["nextId"] = _nextMissionId,
                 ["charges"] = charges,
                 ["missions"] = missions,
@@ -363,15 +363,15 @@ namespace Game.Gameplay.Missions
             };
         }
 
-        /// <summary>Tolerant like every other Restore: a null or an absent key restores as a game where the probes have not arrived, rather than throwing.</summary>
+        /// <summary>Tolerant like every other Restore: a null or an absent key restores as a game where the robots have not arrived, rather than throwing.</summary>
         public void RestoreState(JObject state)
         {
             _inFlight.Clear();
             _reports.Clear();
-            _probeCharges.Clear();
+            _robotCharges.Clear();
             _consumedSites.Clear();
 
-            ProbesHaveAppeared = false;
+            RobotsHaveAppeared = false;
             _nextMissionId = 1;
             _paidReconnaissances = 0;
             _paidRecoveries = 0;
@@ -379,7 +379,7 @@ namespace Game.Gameplay.Missions
 
             if (state == null) return;
 
-            ProbesHaveAppeared = state.Value<bool?>("appeared") ?? false;
+            RobotsHaveAppeared = state.Value<bool?>("appeared") ?? false;
             _nextMissionId = state.Value<int?>("nextId") ?? 1;
             _paidReconnaissances = state.Value<int?>("paidReconnaissances") ?? 0;
             _paidRecoveries = state.Value<int?>("paidRecoveries") ?? 0;
@@ -387,7 +387,7 @@ namespace Game.Gameplay.Missions
 
             if (state["charges"] is JArray charges)
             {
-                foreach (JToken charge in charges) _probeCharges.Add(charge.Value<int?>() ?? 0);
+                foreach (JToken charge in charges) _robotCharges.Add(charge.Value<int?>() ?? 0);
             }
 
             if (state["consumed"] is JArray consumed)
@@ -412,7 +412,7 @@ namespace Game.Gameplay.Missions
                         json.Value<float?>("total") ?? 1f,
                         (MissionOutcome)(json.Value<int?>("outcome") ?? 0),
                         json.Value<float?>("reward") ?? 0f,
-                        json.Value<int?>("probe") ?? 0,
+                        json.Value<int?>("robot") ?? 0,
                         json.Value<int?>("crew") ?? 1);
 
                     mission.RestoreProgress(

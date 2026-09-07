@@ -44,7 +44,7 @@ namespace Game.Gameplay.Missions
     /// <summary>Why a mission ended as it did - what §7.4's report is written from. Never a probability, always an event.</summary>
     public enum MissionOutcome
     {
-        /// <summary>Everything asked for. For a reconnaissance with a probe this is the only possible map outcome.</summary>
+        /// <summary>Everything asked for. For a reconnaissance with a robot this is the only possible map outcome.</summary>
         Reussite,
 
         /// <summary>The map came back, the harvest did not. The site is not consumed.</summary>
@@ -88,17 +88,17 @@ namespace Game.Gameplay.Missions
         /// <summary>Drawn at launch, applied at resolution, told at the report.</summary>
         public MissionOutcome Outcome { get; }
 
-        /// <summary>What the report will credit, in CU. Drawn at launch with everything else: it depends on the budget left at that moment, not on the one left when the probe lands.</summary>
+        /// <summary>What the report will credit, in CU. Drawn at launch with everything else: it depends on the budget left at that moment, not on the one left when the robot lands.</summary>
         public float RewardCu { get; }
 
-        /// <summary>Which probe is out on it. Its charge was spent at launch.</summary>
-        public int ProbeIndex { get; }
+        /// <summary>Which robot is out on it. Its charge was spent at launch.</summary>
+        public int RobotIndex { get; }
 
         /// <summary>Kept for the day squads exist. Always 1 today - see the class summary of MissionSystem.</summary>
         public int Crew { get; }
 
         public MissionRuntime(int id, MissionKind kind, int targetSector, float totalSeconds,
-            MissionOutcome outcome, float rewardCu, int probeIndex, int crew)
+            MissionOutcome outcome, float rewardCu, int robotIndex, int crew)
         {
             Id = id;
             Kind = kind;
@@ -106,12 +106,12 @@ namespace Game.Gameplay.Missions
             TotalSeconds = totalSeconds > 0f ? totalSeconds : 1f;
             Outcome = outcome;
             RewardCu = rewardCu;
-            ProbeIndex = probeIndex;
+            RobotIndex = robotIndex;
             Crew = crew < 1 ? 1 : crew;
             State = MissionState.EnRoute;
         }
 
-        /// <summary>Seconds until the probe is home and the report can be read. What the top bar shows, and the only thing visible while En route.</summary>
+        /// <summary>Seconds until the robot is home and the report can be read. What the top bar shows, and the only thing visible while En route.</summary>
         public float RemainingSeconds => TotalSeconds - ElapsedSeconds < 0f ? 0f : TotalSeconds - ElapsedSeconds;
 
         /// <summary>Half way: the outbound leg is done and the data has been transmitted.</summary>

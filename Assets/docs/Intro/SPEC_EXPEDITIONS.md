@@ -16,7 +16,7 @@ voir, et donc la seule source de croissance non industrielle du jeu.
 Pendant l'introduction, elles font aussi office de filet de sécurité en CU. **Ce rôle
 disparaît après l'amorçage du Datacenter** : au-delà, les missions rapportent de la carte,
 des sites, des plans — jamais de la monnaie. Sans cette coupure, deux économies parallèles
-coexistent et le joueur arbitre entre construire une usine et envoyer des sondes.
+coexistent et le joueur arbitre entre construire une usine et envoyer des robots explorateurs.
 
 **Lancer une mission ne coûte jamais de CU.** C'est la condition pour que le plancher à
 zéro CU reste une sortie et non une impasse.
@@ -47,7 +47,7 @@ Conséquence voulue : un rapport peut mentionner ce que la carte ne montre pas e
 l'écart entre ce qu'on voit et ce qu'on devine qui donne envie d'explorer autour.
 
 Le survol d'un secteur non reconnu n'affiche **ni risque ni type de mission** — seulement
-son état. Le survol ne révèle jamais ce qu'une sonde n'a pas rapporté.
+son état. Le survol ne révèle jamais ce qu'un robot explorateur n'a pas rapporté.
 
 Un secteur déjà reconnu ne peut plus faire l'objet d'une reconnaissance. Il peut en
 revanche accueillir des missions ciblant les points d'intérêt qu'il contient.
@@ -56,24 +56,24 @@ revanche accueillir des missions ciblant les points d'intérêt qu'il contient.
 
 ## 3. Les exécutants
 
-### 3.1 Les sondes
+### 3.1 Les robots explorateurs
 
 | Propriété | Valeur |
 |---|---|
-| Apparition | deux sondes, quand la réserve descend sous **25 000 CU** |
-| Coût | offertes, aucun slot de bâtiment, aucun CU à l'usage |
-| Autonomie | **10 missions chacune**, affichée dès la première |
-| Destruction | **jamais** — une sonde s'éteint, batterie vide |
-| Fin de vie | la dernière sonde s'éteint à la découverte du nid |
-| Troisième sonde | débloquée par le nœud ??? de l'introduction |
+| Apparition | deux robots explorateurs, quand la réserve descend sous **25 000 CU** |
+| Coût | offerts, aucun slot de bâtiment, aucun CU à l'usage |
+| Autonomie | **10 missions chacun**, affiché dès la première |
+| Destruction | **jamais** — un robot explorateur s'éteint, batterie vide |
+| Fin de vie | le dernier robot explorateur s'éteint à la découverte du nid |
+| Troisième robot explorateur | débloqué par le nœud ??? de l'introduction |
 
 L'autonomie est comptée en missions et non en temps, ce qui la rend garantissable. Elle
-doit couvrir largement l'introduction : si les sondes s'épuisent avant que le joueur ait de
+doit couvrir largement l'introduction : si les robots explorateurs s'épuisent avant que le joueur ait de
 quoi produire des unités, et qu'il est à court de CU au même moment, il n'a plus aucune
 sortie.
 
 **Le seuil de 25 000 se lit contre le plafond de réserve, qui vaut 70 000**
-(`ComputeSystem.ReserveCap`) et duquel la réserve part : les sondes arrivent donc quand le
+(`ComputeSystem.ReserveCap`) et duquel la réserve part : les robots explorateurs arrivent donc quand le
 joueur a consommé près des deux tiers de sa réserve, assez tard pour l'avoir sentie
 descendre. C'est une valeur d'équilibrage, pas une valeur dérivée — mais elle n'a de sens
 que rapportée à ce plafond, qui est passé de 25 000 à 60 000 puis à 70 000 sans que le seuil
@@ -82,8 +82,8 @@ plus dire ce qu'il voulait dire.
 
 ### 3.2 Les unités
 
-Un type nouveau posé **à côté** de la sonde, jamais une transformation de celle-ci. La
-sonde continue de se comporter exactement comme avant après leur arrivée.
+Un type nouveau posé **à côté** du robot explorateur, jamais une transformation de celui-ci.
+Le robot explorateur continue de se comporter exactement comme avant après leur arrivée.
 
 | Propriété | Règle |
 |---|---|
@@ -118,9 +118,9 @@ les deux cas le nombre ne s'écrit pas, il se calcule.
 | | |
 |---|---|
 | **Objectif** | trouver un gisement exploitable |
-| **Disponibilité** | dès l'apparition des sondes |
+| **Disponibilité** | dès l'apparition des robots explorateurs |
 | **Cible** | un secteur non reconnu entre le rayon courant du Noyau et le seuil |
-| **Exécutants** | sondes, puis unités |
+| **Exécutants** | robots explorateurs, puis unités |
 | **Durée** | 3 min (escouade minimale) |
 | **Risque annoncé** | bas |
 | **Récompense** | le disque du secteur révélé, et le gisement s'il y en a un |
@@ -140,9 +140,9 @@ la grappe, et les gisements ne s'épuisant jamais, seule la demande arrête le j
 | | |
 |---|---|
 | **Objectif** | reconnaître au-delà du seuil |
-| **Disponibilité** | dès l'apparition des sondes |
+| **Disponibilité** | dès l'apparition des robots explorateurs |
 | **Cible** | un secteur non reconnu au-delà du seuil |
-| **Exécutants** | sondes, puis unités |
+| **Exécutants** | robots explorateurs, puis unités |
 | **Durée** | plus longue que la prospection — la distance compte |
 | **Risque annoncé** | croissant avec la distance |
 | **Récompense** | le disque révélé, et ce qu'il contient : site de Noyau secondaire, nid, point d'intérêt |
@@ -161,11 +161,11 @@ troisième. Ce qui suit est ce qu'elles ont en commun, écrit une fois.
 
 | | |
 |---|---|
-| **Disponibilité** | dès l'apparition des sondes, jamais obsolète |
+| **Disponibilité** | dès l'apparition des robots explorateurs, jamais obsolète |
 | **Cible** | un secteur non reconnu — la bande où il tombe décide de la variante |
-| **Exécutants** | sondes, puis unités |
+| **Exécutants** | robots explorateurs, puis unités |
 | **Récompense** | le disque révélé, ce qu'il contient, et **500 CU pendant l'introduction seulement** |
-| **Échec** | la révélation ne peut pas échouer avec une sonde ; avec des unités, une reconnaissance à risque bas peut malgré tout tomber sur un nid |
+| **Échec** | la révélation ne peut pas échouer avec un robot explorateur ; avec des unités, une reconnaissance à risque bas peut malgré tout tomber sur un nid |
 | **Révèle** | le disque inscrit, définitivement — jamais le carré |
 
 C'est la mission d'ouverture et le socle de tout le reste : la Récupération n'existe que
@@ -178,7 +178,7 @@ grâce à elle.
 | **Objectif** | exploiter un point d'intérêt déjà repéré — épave, cache, dépôt |
 | **Disponibilité** | dès qu'une reconnaissance a révélé un point d'intérêt |
 | **Cible** | un point d'intérêt précis, jamais un secteur — quelle que soit la variante de Reconnaissance qui l'a révélé |
-| **Exécutants** | sondes, puis unités |
+| **Exécutants** | robots explorateurs, puis unités |
 | **Durée** | 6 min (escouade minimale) |
 | **Risque annoncé** | moyen |
 | **Récompense** | matériaux, et **1 500 CU pendant l'introduction seulement** |
@@ -260,9 +260,9 @@ s'applique ici sans traitement particulier.
 
 | Type | Risque | Durée | Récompense CU intro | Nœud ??? | Exécutants |
 |---|---|---|---|---|---|
-| Prospection minière | bas | 3 min | 500 | non | sondes puis unités |
-| Exploration lointaine | croissant | à définir | 500 | non | sondes puis unités |
-| Récupération | moyen | 6 min | 1 500 | non | sondes puis unités |
+| Prospection minière | bas | 3 min | 500 | non | robots puis unités |
+| Exploration lointaine | croissant | à définir | 500 | non | robots puis unités |
+| Récupération | moyen | 6 min | 1 500 | non | robots puis unités |
 | Étude de civilisation ancienne | élevé | à définir | — | **oui** | unités |
 | Relevé de menace | moyen | à définir | — | non | unités |
 | Restauration de datacenter | élevé | à définir | — | non | unités |
@@ -296,7 +296,7 @@ mission en calcul et ferait disparaître l'inconnu.
 Une mission ne peut pas être lancée si :
 
 - les deux emplacements de mission simultanée sont occupés ;
-- aucun exécutant n'est disponible — sondes éteintes, unités en réparation ou déjà parties ;
+- aucun exécutant n'est disponible — robots explorateurs éteints, unités en réparation ou déjà parties ;
 - la cible ne correspond à aucun type de mission disponible.
 
 **Deux missions simultanées au maximum.** Le compteur est affiché en permanence sur la top
@@ -342,11 +342,11 @@ qu'au *Rapport*.
 
 ### 7.1 Ce qui peut échouer
 
-| Élément | Avec une sonde | Avec des unités |
+| Élément | Avec un robot explorateur | Avec des unités |
 |---|---|---|
 | Révélation de la carte | **jamais** | possible si l'escouade tombe sur un nid |
 | Récolte | oui | oui |
-| Survie de l'exécutant | **jamais** — la sonde s'use, elle ne meurt pas | oui |
+| Survie de l'exécutant | **jamais** — le robot explorateur s'use, elle ne meurt pas | oui |
 
 ### 7.2 Le risque est une estimation, pas un contrat
 
@@ -413,12 +413,12 @@ n'atteigne ces secteurs (`directive-grande-carte.md` §4.6).
 Trois moments ne dépendent d'aucun tirage. Le hasard porte sur ce qu'on ramène, jamais sur
 ce qu'on révèle.
 
-**1. L'apparition des sondes.** Déclenchée par le passage sous 25 000 CU. Ouvre la carte
+**1. L'apparition des robots explorateurs.** Déclenchée par le passage sous 25 000 CU. Ouvre la carte
 dézoomée et le système de missions.
 
 **2. La découverte du signal anormal.** Un site posé par le générateur, révélé à coup sûr
 par une reconnaissance. Il débloque le nœud ??? de l'introduction, qui donne la
-**troisième sonde** — une récompense choisie exprès pour faire regretter de ne pas avoir
+**troisième robot explorateur** — une récompense choisie exprès pour faire regretter de ne pas avoir
 exploré plus tôt, sans jamais bloquer quoi que ce soit.
 
 **3. La découverte du nid dormant.** Site posé par le générateur à une distance donnée,
@@ -431,7 +431,7 @@ menace existe et avoir le temps de s'y préparer est exactement le plaisir de la
 defense, et ça donne une raison d'exister aux premières recherches d'armement avant que le
 premier ennemi n'arrive.
 
-La dernière sonde s'éteint au même moment : le Noyau perd ses yeux à l'instant précis où
+Le dernier robot explorateur s'éteint au même moment : le Noyau perd ses yeux à l'instant précis où
 il apprend qu'il est menacé.
 
 ---
@@ -444,7 +444,7 @@ Ces points sont ouverts. Ne pas les trancher à l'implémentation sans validatio
 sauver les unités, a été évoqué puis jamais tranché. Il crée une décision intéressante —
 savoir quand renoncer — mais il rogne sur l'inconnu voulu.
 
-**Les sondes peuvent-elles faire de la Récupération**, ou seulement de la Reconnaissance ?
+**Les robots explorateurs peuvent-elles faire de la Récupération**, ou seulement de la Reconnaissance ?
 Recommandation : les deux pendant l'introduction, sinon les 1 500 CU par site sont hors
 d'atteinte tant que les unités n'existent pas.
 

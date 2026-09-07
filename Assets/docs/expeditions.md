@@ -4,7 +4,7 @@ Carnet d'implémentation de [`Intro/SPEC_EXPEDITIONS.md`](Intro/SPEC_EXPEDITIONS
 pour la grande carte. Les décisions prises, les écarts par rapport à la spec et pourquoi. La spec
 reste la référence de conception ; ce document enregistre ce qui a réellement été construit.
 
-Périmètre de la brique 1 : **le processus et les sondes, aucune interface.** La carte dézoomée et
+Périmètre de la brique 1 : **le processus et les robots explorateurs, aucune interface.** La carte dézoomée et
 l'écran de lancement viennent après et ne doivent pas influencer la forme du modèle.
 
 ---
@@ -33,7 +33,7 @@ Verrouillé par `AMissionSavedInFlight_LandsIdentically` : la même mission est 
 monde d'origine et dans un monde restauré depuis une sauvegarde prise à 25 % du trajet, puis les deux
 réserves de CU sont comparées.
 
-## 2. Le seuil des sondes est une fraction, pas un nombre
+## 2. Le seuil des robots explorateurs est une fraction, pas un nombre
 
 Le plafond de réserve est passé de **25 000 à 60 000 puis 70 000**. Le seuil, écrit en absolu, n'a
 pas suivi : un déclencheur d'urgence est devenu un déclencheur d'introduction sans que rien ne le
@@ -41,7 +41,7 @@ signale, deux fois. `MissionSettings` n'expose donc qu'une **fraction du plafond
 est une méthode qui prend le plafond en argument — ce qui rend impossible de stocker un seuil ayant
 cessé d'être d'accord avec la réserve qu'il décrit.
 
-0,357143 du plafond livré de 70 000 fait 25 000. `MovingTheReserveCap_MovesTheProbeThreshold` vérifie
+0,357143 du plafond livré de 70 000 fait 25 000. `MovingTheReserveCap_MovesTheRobotThreshold` vérifie
 que doubler le plafond double le seuil.
 
 ## 3. L'écart assumé : §8 a été écrite pour une carte de 300
@@ -92,15 +92,15 @@ non le carré : les quatre coins restent dans le brouillard, et un secteur ouver
 donc à `SectorDiscovery.Partial` pour toujours — ce n'est pas un état transitoire mais son état de
 repos. Un test le vérifie plutôt que de supposer que l'appel a la bonne forme.
 
-Avec une sonde, la carte ne peut pas échouer (§7.1). `WithAProbe_TheMapNeverFails` envoie vingt
+Avec un robot explorateur, la carte ne peut pas échouer (§7.1). `WithARobot_TheMapNeverFails` envoie vingt
 missions et vérifie qu'aucune ne revient aveugle.
 
 ## 7. Ce qui entre en sauvegarde
 
 `SaveData.Missions`, un `JObject` : les missions en vol avec leur horloge et leur issue déjà tirée,
-les charges restantes de chaque sonde, les sites consommés, les budgets entamés, le minuteur de
+les charges restantes de chaque robot explorateur, les sites consommés, les budgets entamés, le minuteur de
 régénération. Champ additif avec repli par champ — pas de bump de `CurrentVersion`. Une sauvegarde
-antérieure se charge en partie dont les sondes ne sont pas arrivées.
+antérieure se charge en partie dont les robots explorateurs ne sont pas arrivés.
 
 **Les rapports non lus ne sont pas sauvegardés**, délibérément : un rapport non lu est redélivré au
 prochain atterrissage plutôt que perdu.

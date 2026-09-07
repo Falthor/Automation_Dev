@@ -17,7 +17,7 @@ dixième heure. La phase de survie n'est pas un mode économique séparé : c'es
 même règle avec le robinet fermé. Aucune couture, aucun système transitoire.
 
 **Ne jamais changer une règle, seulement en ajouter.** Chaque enrichissement se pose
-à côté de l'existant. Une sonde continue de se comporter comme une sonde quand les
+à côté de l'existant. Un robot explorateur continue de se comporter comme un robot explorateur quand les
 unités de combat arrivent ; les unités sont un type nouveau. Si un élément change de
 comportement en cours de partie, le joueur a le sentiment qu'on a modifié le contrat
 dans son dos.
@@ -31,7 +31,7 @@ n'est affiché. L'information précise existe, mais elle s'achète — par une r
 par une mission dédiée. C'est ce qui distingue le joueur prudent du joueur pressé.
 
 **Déterministe pour la narration, aléatoire pour le butin.** Les temps forts
-(apparition des sondes, signal anormal, découverte du nid) ne dépendent jamais d'un
+(apparition des robots explorateurs, signal anormal, découverte du nid) ne dépendent jamais d'un
 tirage. Le hasard porte sur ce qu'on ramène, jamais sur ce qu'on révèle.
 
 ---
@@ -282,16 +282,16 @@ l'indiquer autrement, sinon l'indicateur devient une frustration au lieu d'un ob
 | 1 | Réserve finie, chaque objet produit en consomme. Le joueur pose extracteurs, fonderies, premières lignes. Les vis sont disponibles d'emblée. | début de partie |
 | 2 | Recherche **Circuit imprimé**. Le joueur monte ses lignes de vis et de PCB. | choix du joueur |
 | 3 | Passage sous **25 000 CU**. | seuil de réserve |
-| 4 | **Introduction du système de missions** : deux sondes apparaissent, la carte dézoomée devient accessible, les secteurs limitrophes sont marqués *non reconnu*. | étape 3 |
+| 4 | **Introduction du système de missions** : deux robots explorateurs apparaissent, la carte dézoomée devient accessible, les secteurs limitrophes sont marqués *non reconnu*. | étape 3 |
 | 5 | **Premières missions.** Reconnaissance à 500 CU, Récupération à 1 500 CU. Le joueur découvre que l'exploration paie. | choix du joueur |
-| 6 | Une expédition découvre un **signal anormal** : le nœud ??? se révèle et donne une **troisième sonde**. | site scénarisé, révélé à coup sûr |
+| 6 | Une expédition découvre un **signal anormal** : le nœud ??? se révèle et donne une **troisième robot explorateur**. | site scénarisé, révélé à coup sûr |
 | 7 | Recherche **Assembleur** (bâtiment + composant mécanique). | choix du joueur |
 | 8 | Recherche **Modules de calcul** (CPU MkI + Memory MK1). | choix du joueur |
 | 9 | Recherche **Datacenter MK1**, puis production de masse et construction. | choix du joueur |
 | 10 | **Amorçage** : 90 s de consommation sans production. | pose du bâtiment |
 | 11 | En interne, **la mission de découverte du nid devient disponible**. Rien n'est annoncé au joueur : le site apparaît simplement parmi les cibles possibles. | fin de l'amorçage |
 | 12 | Le menu de recherche se transforme, **trois noyaux** apparaissent dont un éteint. La Fonderie avancée devient accessible. **Fin de la survie.** | fin de l'amorçage |
-| 13 | **Découverte du nid dormant.** Le troisième noyau s'allume. La dernière sonde s'éteint au même moment. | mission débloquée à l'étape 11 |
+| 13 | **Découverte du nid dormant.** Le troisième noyau s'allume. Le dernier robot explorateur s'éteint au même moment. | mission débloquée à l'étape 11 |
 
 Les recherches **Optimisation de fabrication** et **Extraction renforcée** sont
 optionnelles et peuvent être prises à n'importe quel moment, ou jamais.
@@ -420,7 +420,7 @@ pause en conservant sa progression. La perdre serait une punition insupportable.
 | Datacenter MK1 | 5 000 | 60 CU/s | le bâtiment cible | obligatoire |
 | Optimisation de fabrication | 1 500 | 40 CU/s | −10 % de CU par item produit | optionnelle |
 | Extraction renforcée | 2 000 | 40 CU/s | lève le bridage, débit ×2 | optionnelle |
-| ??? | — | — | troisième sonde | via expédition |
+| ??? | — | — | troisième robot explorateur | via expédition |
 
 Les deux optionnelles sont le seul vrai choix de l'introduction, et elles ne promettent
 pas la même chose : l'Optimisation économise du CU, l'Extraction économise du temps.
@@ -561,39 +561,39 @@ donc la seule source de croissance non industrielle du jeu.
 Pendant l'introduction, elles font aussi office de filet de sécurité en CU. **Ce rôle
 disparaît après l'amorçage** : au-delà, les missions rapportent de la carte, des sites,
 des plans — jamais de la monnaie. Sinon on se retrouve avec deux économies parallèles,
-et le joueur arbitre entre construire une usine et envoyer des sondes.
+et le joueur arbitre entre construire une usine et envoyer des robots explorateurs.
 
 ### 6.2 Déclenchement et coût
 
-Deux sondes apparaissent quand la réserve descend **sous 25 000 CU**. Elles sont
-offertes et ne consomment aucun slot.
+Deux robots explorateurs apparaissent quand la réserve descend **sous 25 000 CU**. Elles sont
+offerts et ne consomment aucun slot.
 
 **Lancer une mission ne coûte jamais de CU.** C'est la condition pour que le plancher à
 zéro reste une sortie et non une impasse.
 
-### 6.3 Les sondes
+### 6.3 Les robots explorateurs
 
-**Autonomie comptée en missions, pas en temps : 10 missions chacune**, affichées dès la
-première. Une sonde qui tombe en panne sans prévenir serait vécue comme une trahison ;
-une sonde qui affiche son compteur installe une urgence honnête et pousse à explorer
+**Autonomie comptée en missions, pas en temps : 10 missions chacun**, affichés dès la
+première. Un robot explorateur qui tombe en panne sans prévenir serait vécue comme une trahison ;
+un robot explorateur qui affiche son compteur installe une urgence honnête et pousse à explorer
 tôt.
 
-Les sondes ne sont **jamais détruites**. Elles s'éteignent, batterie vide.
+Les robots explorateurs ne sont **jamais détruites**. Elles s'éteignent, batterie vide.
 
-Vingt missions avec deux sondes, trente avec la troisième : très largement de quoi
-couvrir l'introduction. **L'extinction de la dernière sonde doit être calée sur la
+Vingt missions avec deux robots explorateurs, trente avec la troisième : très largement de quoi
+couvrir l'introduction. **L'extinction de le dernier robot explorateur doit être calée sur la
 découverte du nid.** Le Noyau perd ses yeux à l'instant précis où il apprend qu'il est
 menacé, et la branche armement s'allume sur un aveuglement plutôt que sur une
 abondance.
 
-**Contrainte de sécurité** : l'autonomie doit dépasser l'introduction. Si les sondes
+**Contrainte de sécurité** : l'autonomie doit dépasser l'introduction. Si les robots explorateurs
 s'épuisent avant que le joueur ait de quoi produire des unités, et qu'il est à court de
 CU au même moment, il n'a plus aucune sortie.
 
 ### 6.4 Les unités
 
-Après les sondes, tout passe par des unités produites. C'est un type nouveau posé à
-côté de la sonde, jamais une transformation de celle-ci.
+Après les robots explorateurs, tout passe par des unités produites. C'est un type nouveau posé à
+côté du robot explorateur, jamais une transformation de celui-ci.
 
 Les unités **peuvent mourir**. Sans cela, le joueur finit avec des centaines d'unités et
 le système perd tout enjeu.
@@ -654,7 +654,7 @@ pointillé, la zone révélée en clair, le brouillard autour.
 
 **Au survol d'un secteur** : une infobulle donne son nom, le risque estimé et les types
 de mission disponibles. Un secteur jamais approché n'affiche ni l'un ni l'autre, juste
-*non reconnu* — le survol ne révèle jamais ce qu'une sonde n'a pas rapporté.
+*non reconnu* — le survol ne révèle jamais ce qu'un robot explorateur n'a pas rapporté.
 
 **À la sélection**, un panneau latéral affiche :
 
@@ -674,8 +674,8 @@ calcul et ferait disparaître l'inconnu.
 
 Tout est tiré en interne.
 
-Pendant l'introduction, avec les sondes, **la révélation de carte ne peut pas échouer** —
-seule la récolte le peut. La sonde revient toujours avec le fragment de carte.
+Pendant l'introduction, avec les robots explorateurs, **la révélation de carte ne peut pas échouer** —
+seule la récolte le peut. Le robot explorateur revient toujours avec le fragment de carte.
 
 Avec les unités, la catastrophe devient possible : même une reconnaissance à risque
 faible peut tomber sur un nid. Le risque annoncé est une **estimation, pas un contrat**.
@@ -711,13 +711,13 @@ montre un chiffre.
 
 Trois moments ne dépendent d'aucun tirage :
 
-1. **L'apparition des sondes** au seuil de 25 000 CU.
+1. **L'apparition des robots explorateurs** au seuil de 25 000 CU.
 2. **La découverte du signal anormal**, qui révèle le nœud ??? et donne la troisième
-   sonde. Récompense choisie exprès pour faire regretter de ne pas avoir exploré plus
+   robot explorateur. Récompense choisie exprès pour faire regretter de ne pas avoir exploré plus
    tôt, sans jamais bloquer quoi que ce soit.
 3. **La découverte du nid dormant**, qui allume la branche armement. Site posé par le
    générateur à une distance donnée, révélé à coup sûr par une mission précise une fois
-   la troisième sonde acquise, et **uniquement après l'amorçage du Datacenter**.
+   la troisième robot explorateur acquise, et **uniquement après l'amorçage du Datacenter**.
 
 Le nid est découvert **dormant**. Le joueur sait qu'il se réveillera sans savoir quand.
 Être attaqué dans la minute qui suit ferait de la découverte une punition ; savoir
@@ -817,6 +817,6 @@ sont **ancrés à des distances imposées**. L'aléatoire ne s'exprime qu'au-del
 5. Menu de recherche linéaire de l'introduction, avec ses cinq états et son panneau de
    détail.
 6. Datacenter MK1, amorçage, baies, curseur de répartition, formule de rendement.
-7. Système d'expéditions : sondes, carte dézoomée, deux types de mission, sites finis.
+7. Système d'expéditions : robots explorateurs, carte dézoomée, deux types de mission, sites finis.
 8. Transformation du menu en réseau radial, trois noyaux, algorithme de placement.
 9. Nid, branche armement, unités, usure, entretien, réparation.

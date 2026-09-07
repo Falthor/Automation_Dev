@@ -14,7 +14,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
     /// The expedition process, with no screen anywhere near it: a mission is launched by a call,
     /// advances with the clock, resolves and reports.
     ///
-    /// Three properties carry the design and each fails quietly. The probe threshold must follow the
+    /// Three properties carry the design and each fails quietly. The robot threshold must follow the
     /// reserve's cap, or it silently stops meaning what it meant - which has already happened twice.
     /// A mission saved in flight must land identically, or a reload rewrites the player's luck. And a
     /// player at zero CU with no production must still have a way up, or a run can be lost with no
@@ -30,8 +30,8 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         static readonly Vector2 CoreCenter = new Vector2(5000f, 5000f);
 
         static MissionSettings NewSettings(
-            int probeCount = 2,
-            int missionsPerProbe = 10,
+            int explorerRobotCount = 2,
+            int missionsPerRobot = 10,
             int maxConcurrent = 2,
             int paidReconnaissances = 8,
             int paidRecoveries = 5,
@@ -41,8 +41,8 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             var settings = ScriptableObject.CreateInstance<MissionSettings>();
 
             var so = new SerializedObject(settings);
-            so.FindProperty("probeCount").intValue = probeCount;
-            so.FindProperty("missionsPerProbe").intValue = missionsPerProbe;
+            so.FindProperty("explorerRobotCount").intValue = explorerRobotCount;
+            so.FindProperty("missionsPerRobot").intValue = missionsPerRobot;
             so.FindProperty("maxConcurrentMissions").intValue = maxConcurrent;
             so.FindProperty("paidReconnaissances").intValue = paidReconnaissances;
             so.FindProperty("paidRecoveries").intValue = paidRecoveries;
@@ -83,8 +83,8 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             return fixture;
         }
 
-        /// <summary>Brings the probes out without caring how the reserve got there.</summary>
-        static void SummonProbes(Fixture fixture)
+        /// <summary>Brings the robots out without caring how the reserve got there.</summary>
+        static void SummonRobots(Fixture fixture)
         {
             fixture.Missions.Tick(0f, 0f, ComputeSystem.ReserveCap);
         }
@@ -101,13 +101,13 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         /// with nothing to signal it. Expressed as a fraction, it moves with the cap.
         /// </summary>
         [Test]
-        public void MovingTheReserveCap_MovesTheProbeThreshold()
+        public void MovingTheReserveCap_MovesTheRobotThreshold()
         {
             MissionSettings settings = NewSettings();
 
-            float atShipped = settings.ProbeThresholdCu(70000f);
-            float atDouble = settings.ProbeThresholdCu(140000f);
-            float atOld = settings.ProbeThresholdCu(25000f);
+            float atShipped = settings.RobotThresholdCu(70000f);
+            float atDouble = settings.RobotThresholdCu(140000f);
+            float atOld = settings.RobotThresholdCu(25000f);
 
             Assert.AreEqual(25000f, atShipped, 1f, "0.357143 of the shipped 70 000 cap is 25 000");
             Assert.AreEqual(atShipped * 2f, atDouble, 1f, "doubling the cap must double the threshold");
@@ -117,32 +117,32 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         }
 
         [Test]
-        public void ProbesArriveWhenTheReserveFallsBelowTheThreshold()
+        public void RobotsArriveWhenTheReserveFallsBelowTheThreshold()
         {
             Fixture fixture = NewFixture();
-            float threshold = fixture.Settings.ProbeThresholdCu(ComputeSystem.ReserveCap);
+            float threshold = fixture.Settings.RobotThresholdCu(ComputeSystem.ReserveCap);
 
             fixture.Missions.Tick(1f, threshold + 1f, ComputeSystem.ReserveCap);
-            Assert.IsFalse(fixture.Missions.ProbesHaveAppeared);
-            Assert.AreEqual(0, fixture.Missions.ProbeCount);
+            Assert.IsFalse(fixture.Missions.RobotsHaveAppeared);
+            Assert.AreEqual(0, fixture.Missions.ExplorerRobotCount);
 
             fixture.Missions.Tick(1f, threshold - 1f, ComputeSystem.ReserveCap);
-            Assert.IsTrue(fixture.Missions.ProbesHaveAppeared);
-            Assert.AreEqual(2, fixture.Missions.ProbeCount);
-            Assert.AreEqual(20, fixture.Missions.TotalChargesLeft, "two probes of ten missions each");
+            Assert.IsTrue(fixture.Missions.RobotsHaveAppeared);
+            Assert.AreEqual(2, fixture.Missions.ExplorerRobotCount);
+            Assert.AreEqual(20, fixture.Missions.TotalChargesLeft, "two robots of ten missions each");
 
             fixture.Destroy();
         }
 
         [Test]
-        public void ProbesArriveOnce_AndDoNotComeBackWhenTheReserveRises()
+        public void RobotsArriveOnce_AndDoNotComeBackWhenTheReserveRises()
         {
             Fixture fixture = NewFixture();
 
-            SummonProbes(fixture);
+            SummonRobots(fixture);
             fixture.Missions.Tick(1f, ComputeSystem.ReserveCap, ComputeSystem.ReserveCap);
 
-            Assert.AreEqual(2, fixture.Missions.ProbeCount);
+            Assert.AreEqual(2, fixture.Missions.ExplorerRobotCount);
 
             fixture.Destroy();
         }
@@ -150,11 +150,11 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         // ---- Launching ----
 
         [Test]
-        public void NothingCanLaunchBeforeTheProbesArrive()
+        public void NothingCanLaunchBeforeTheRobotsArrive()
         {
             Fixture fixture = NewFixture();
 
-            Assert.AreEqual(MissionSystem.LaunchRefusal.ProbesHaveNotArrived,
+            Assert.AreEqual(MissionSystem.LaunchRefusal.RobotsHaveNotArrived,
                 fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture), out _));
 
             fixture.Destroy();
@@ -164,7 +164,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         public void TwoMissionsRunAtOnce_AndAThirdIsRefused()
         {
             Fixture fixture = NewFixture();
-            SummonProbes(fixture);
+            SummonRobots(fixture);
 
             Assert.AreEqual(MissionSystem.LaunchRefusal.None,
                 fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, 0), out _));
@@ -183,7 +183,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         public void LaunchingNeverCostsCu()
         {
             Fixture fixture = NewFixture();
-            SummonProbes(fixture);
+            SummonRobots(fixture);
 
             fixture.Compute.Spend(fixture.Compute.Reserve);   // flat broke
             Assert.AreEqual(0f, fixture.Compute.Reserve, 0.001f);
@@ -198,10 +198,10 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         }
 
         [Test]
-        public void AProbeSpendsOneChargePerMission_AndStopsWhenEmpty()
+        public void ARobotSpendsOneChargePerMission_AndStopsWhenEmpty()
         {
-            Fixture fixture = NewFixture(NewSettings(probeCount: 1, missionsPerProbe: 2, maxConcurrent: 1));
-            SummonProbes(fixture);
+            Fixture fixture = NewFixture(NewSettings(explorerRobotCount: 1, missionsPerRobot: 2, maxConcurrent: 1));
+            SummonRobots(fixture);
 
             for (int i = 0; i < 2; i++)
             {
@@ -211,9 +211,9 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             }
 
             Assert.AreEqual(0, fixture.Missions.TotalChargesLeft);
-            Assert.AreEqual(MissionSystem.LaunchRefusal.NoProbeAvailable,
+            Assert.AreEqual(MissionSystem.LaunchRefusal.NoRobotAvailable,
                 fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, 8), out _),
-                "a probe does not die, it runs out - and a spent one cannot be sent");
+                "a robot does not die, it runs out - and a spent one cannot be sent");
 
             fixture.Destroy();
         }
@@ -224,7 +224,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         public void AMissionWalksTheStatesInOrder()
         {
             Fixture fixture = NewFixture();
-            SummonProbes(fixture);
+            SummonRobots(fixture);
             fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture), out MissionRuntime mission);
 
             Assert.AreEqual(MissionState.EnRoute, mission.State);
@@ -248,7 +248,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         public void WhileEnRoute_OnlyTheTimeRemainingIsKnown()
         {
             Fixture fixture = NewFixture();
-            SummonProbes(fixture);
+            SummonRobots(fixture);
             fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture), out MissionRuntime mission);
 
             float before = mission.RemainingSeconds;
@@ -271,7 +271,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         public void AReconnaissanceRevealsTheInscribedDisc_NotTheSquare()
         {
             Fixture fixture = NewFixture();
-            SummonProbes(fixture);
+            SummonRobots(fixture);
 
             int sector = NearSector(fixture);
             fixture.Missions.TryLaunch(MissionKind.Prospection, sector, out MissionRuntime mission);
@@ -286,12 +286,12 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             fixture.Destroy();
         }
 
-        /// <summary>With a probe the map cannot fail (§7.1). Only a harvest can, and only a recovery harvests.</summary>
+        /// <summary>With a robot the map cannot fail (§7.1). Only a harvest can, and only a recovery harvests.</summary>
         [Test]
-        public void WithAProbe_TheMapNeverFails()
+        public void WithARobot_TheMapNeverFails()
         {
-            Fixture fixture = NewFixture(NewSettings(probeCount: 1, missionsPerProbe: 30, maxConcurrent: 1));
-            SummonProbes(fixture);
+            Fixture fixture = NewFixture(NewSettings(explorerRobotCount: 1, missionsPerRobot: 30, maxConcurrent: 1));
+            SummonRobots(fixture);
 
             for (int i = 0; i < 20; i++)
             {
@@ -300,7 +300,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
                 RunToReport(fixture, mission);
 
                 Assert.AreNotEqual(SectorDiscovery.Unknown, fixture.Grid.DiscoveryOf(sector, fixture.Discovery),
-                    $"mission {i} came back blind, which a probe cannot do");
+                    $"mission {i} came back blind, which a robot cannot do");
             }
 
             fixture.Destroy();
@@ -317,7 +317,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         public void AMissionSavedInFlight_LandsIdentically()
         {
             Fixture original = NewFixture();
-            SummonProbes(original);
+            SummonRobots(original);
 
             int sector = NearSector(original);
             original.Missions.TryLaunch(MissionKind.Recuperation, sector, out MissionRuntime flying);
@@ -355,7 +355,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         public void ChargesAndConsumedSitesSurviveASave()
         {
             Fixture original = NewFixture();
-            SummonProbes(original);
+            SummonRobots(original);
 
             original.Missions.TryLaunch(MissionKind.Prospection, NearSector(original), out MissionRuntime mission);
             RunToReport(original, mission);
@@ -366,7 +366,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             Fixture reloaded = NewFixture();
             reloaded.Missions.RestoreState(saved);
 
-            Assert.IsTrue(reloaded.Missions.ProbesHaveAppeared);
+            Assert.IsTrue(reloaded.Missions.RobotsHaveAppeared);
             Assert.AreEqual(chargesBefore, reloaded.Missions.TotalChargesLeft);
 
             original.Destroy();
@@ -374,13 +374,13 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         }
 
         [Test]
-        public void RestoringNothing_IsAGameWhoseProbesHaveNotArrived()
+        public void RestoringNothing_IsAGameWhoseRobotsHaveNotArrived()
         {
             Fixture fixture = NewFixture();
 
             Assert.DoesNotThrow(() => fixture.Missions.RestoreState(null));
-            Assert.IsFalse(fixture.Missions.ProbesHaveAppeared);
-            Assert.AreEqual(0, fixture.Missions.ProbeCount);
+            Assert.IsFalse(fixture.Missions.RobotsHaveAppeared);
+            Assert.AreEqual(0, fixture.Missions.ExplorerRobotCount);
 
             fixture.Destroy();
         }
@@ -390,9 +390,9 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         [Test]
         public void TheIntroductionsRewardBudgetIsFinite()
         {
-            Fixture fixture = NewFixture(NewSettings(probeCount: 1, missionsPerProbe: 40, maxConcurrent: 1,
+            Fixture fixture = NewFixture(NewSettings(explorerRobotCount: 1, missionsPerRobot: 40, maxConcurrent: 1,
                 paidReconnaissances: 3, regeneratingReward: 0f));
-            SummonProbes(fixture);
+            SummonRobots(fixture);
 
             fixture.Compute.Spend(fixture.Compute.Reserve);
 
@@ -423,9 +423,9 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         [Test]
         public void APlayerAtZeroCu_WithNoProduction_CanClimbBackOut()
         {
-            Fixture fixture = NewFixture(NewSettings(probeCount: 1, missionsPerProbe: 40, maxConcurrent: 1,
+            Fixture fixture = NewFixture(NewSettings(explorerRobotCount: 1, missionsPerRobot: 40, maxConcurrent: 1,
                 paidReconnaissances: 0, paidRecoveries: 0, regeneratingCooldown: 60f));
-            SummonProbes(fixture);
+            SummonRobots(fixture);
 
             fixture.Compute.Spend(fixture.Compute.Reserve);
             Assert.AreEqual(0f, fixture.Compute.Reserve, 0.001f);
@@ -449,8 +449,8 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         [Test]
         public void ARecoveredSite_CannotBeRecoveredTwice()
         {
-            Fixture fixture = NewFixture(NewSettings(probeCount: 1, missionsPerProbe: 10, maxConcurrent: 1));
-            SummonProbes(fixture);
+            Fixture fixture = NewFixture(NewSettings(explorerRobotCount: 1, missionsPerRobot: 10, maxConcurrent: 1));
+            SummonRobots(fixture);
 
             int sector = NearSector(fixture);
 
@@ -477,7 +477,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         public void CrewIsCarriedAtOne()
         {
             Fixture fixture = NewFixture();
-            SummonProbes(fixture);
+            SummonRobots(fixture);
 
             fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture), out MissionRuntime mission);
             Assert.AreEqual(1, mission.Crew);

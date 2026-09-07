@@ -3,32 +3,32 @@ using UnityEngine;
 namespace Game.Data
 {
     /// <summary>
-    /// Everything the expedition system is tuned by: when probes arrive, how long they last, how long
+    /// Everything the expedition system is tuned by: when robots arrive, how long they last, how long
     /// a mission takes and what it pays.
     ///
-    /// <b>Nothing here is derived.</b> The CU threshold that makes probes appear is a fraction, never
-    /// a number of CU - see <see cref="ProbeThresholdFractionOfCap"/>. The threshold in CU is computed
+    /// <b>Nothing here is derived.</b> The CU threshold that makes robots appear is a fraction, never
+    /// a number of CU - see <see cref="RobotThresholdFractionOfCap"/>. The threshold in CU is computed
     /// from it and the reserve's own cap, and is therefore not a field anyone can set.
     /// </summary>
     [CreateAssetMenu(fileName = "MissionSettings", menuName = "Game/World/Mission Settings")]
     public sealed class MissionSettings : ScriptableObject
     {
-        [Header("Sondes")]
+        [Header("Robots explorateurs")]
 
-        [SerializeField, Min(0)] int probeCount = 2;
+        [SerializeField, Min(0)] int explorerRobotCount = 2;
 
-        /// <summary>Missions, not minutes. Counted in missions is what makes the budget guaranteeable: a probe that runs out mid-introduction with the player also out of CU would leave no way forward at all.</summary>
-        [SerializeField, Min(1)] int missionsPerProbe = 10;
+        /// <summary>Missions, not minutes. Counted in missions is what makes the budget guaranteeable: a robot that runs out mid-introduction with the player also out of CU would leave no way forward at all.</summary>
+        [SerializeField, Min(1)] int missionsPerRobot = 10;
 
         /// <summary>
-        /// How far the CU reserve must fall, as a fraction of its own cap, before the probes arrive.
+        /// How far the CU reserve must fall, as a fraction of its own cap, before the robots arrive.
         ///
         /// <b>A fraction and never a number of CU.</b> The absolute figure has already stopped meaning
         /// what it meant twice: the cap went 25 000 → 60 000 → 70 000 while the threshold stayed put,
         /// turning an emergency trigger into an introduction trigger with nothing to signal it. As a
         /// fraction it survives the next move. 0.357143 of the shipped 70 000 cap is 25 000.
         /// </summary>
-        [SerializeField, Range(0f, 1f)] float probeThresholdFractionOfCap = 25000f / 70000f;
+        [SerializeField, Range(0f, 1f)] float robotThresholdFractionOfCap = 25000f / 70000f;
 
         [Header("Missions")]
 
@@ -50,7 +50,7 @@ namespace Game.Data
         /// <summary>
         /// <b>Introduction only.</b> After the Datacenter is bootstrapped, missions pay in map, sites
         /// and plans - never in currency. Two parallel economies would have the player arbitrating
-        /// between building a factory and sending probes.
+        /// between building a factory and sending robots.
         /// </summary>
         [SerializeField, Min(0f)] float reconnaissanceReward = 500f;
 
@@ -84,9 +84,9 @@ namespace Game.Data
         /// <summary>How long before the regenerating payout is available again.</summary>
         [SerializeField, Min(1f)] float regeneratingCooldownSeconds = 600f;
 
-        public int ProbeCount => probeCount;
-        public int MissionsPerProbe => missionsPerProbe;
-        public float ProbeThresholdFractionOfCap => probeThresholdFractionOfCap;
+        public int ExplorerRobotCount => explorerRobotCount;
+        public int MissionsPerRobot => missionsPerRobot;
+        public float RobotThresholdFractionOfCap => robotThresholdFractionOfCap;
         public int MaxConcurrentMissions => maxConcurrentMissions;
         public float ProspectionSeconds => prospectionSeconds;
         public float ExplorationSeconds => explorationSeconds;
@@ -100,11 +100,11 @@ namespace Game.Data
         public float RegeneratingCooldownSeconds => regeneratingCooldownSeconds;
 
         /// <summary>
-        /// The reserve level at which the probes arrive, in CU.
+        /// The reserve level at which the robots arrive, in CU.
         ///
         /// Derived, so it is a method rather than a field: taking the cap as an argument is what makes
         /// it impossible to store a threshold that has stopped agreeing with the reserve it describes.
         /// </summary>
-        public float ProbeThresholdCu(float reserveCap) => reserveCap * probeThresholdFractionOfCap;
+        public float RobotThresholdCu(float reserveCap) => reserveCap * robotThresholdFractionOfCap;
     }
 }
