@@ -22,7 +22,9 @@ Trois dossiers, trois questions. Un document qui ne répond à aucune n'a pas sa
 
 Puis les documents de sous-système, qui font autorité sur leur propre domaine et seulement sur lui :
 [`MAP.md`](architecture/MAP.md) (découpage, découverte, brouillard, secteurs, portées de mission),
-[`TERRAIN.md`](architecture/TERRAIN.md) (terrain, sol, décor), [`GLOBAL_UI.md`](architecture/GLOBAL_UI.md)
+[`TERRAIN.md`](architecture/TERRAIN.md) (terrain, sol, décor),
+[`MATERIALISATION.md`](architecture/MATERIALISATION.md) (l'assemblage nano d'un bâtiment et la
+conversion du sol sous lui), [`GLOBAL_UI.md`](architecture/GLOBAL_UI.md)
 (barre haute, navigation, panneaux — spécification Godot importée, lire son propre en-tête pour savoir
 ce qui est implémenté).
 
