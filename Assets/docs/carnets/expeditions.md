@@ -1,6 +1,6 @@
 # Expéditions — carnet
 
-Carnet d'implémentation de [`Intro/SPEC_EXPEDITIONS.md`](Intro/SPEC_EXPEDITIONS.md), version amendée
+Carnet d'implémentation de [`../design/SPEC_EXPEDITIONS.md`](../design/SPEC_EXPEDITIONS.md), version amendée
 pour la grande carte. Les décisions prises, les écarts par rapport à la spec et pourquoi. La spec
 reste la référence de conception ; ce document enregistre ce qui a réellement été construit.
 

@@ -11,7 +11,8 @@ Entry point for the Unity project's development documentation.
 5. Read a more specific subsystem document when the task concerns a documented subsystem.
 6. For Global UI / HUD work (Top Bar, Bottom Nav, panel routing, Selection), also read `docs/architecture/GLOBAL_UI.md` — an imported Godot reference spec, not a Unity implementation to port mechanically. Its own header states exactly which sections are already implemented in Unity versus future work; treat sections marked "not implemented yet" as intent/rationale only, never as a description of current Unity code.
 7. For terrain work (gameplay terrain type, ground rendering, biome blend, relief lighting), also read `docs/architecture/TERRAIN.md` — a native Unity subsystem document, fully authoritative for current behavior (not an imported reference).
-8. For map work (how the map is divided into chunks and sectors, discovery state, fog of war, sector identity and mission reach), also read `docs/architecture/MAP.md` — a native Unity subsystem document, authoritative for current behavior. It carries its own "what is not built yet" section; `Assets/docs/directive-grande-carte.md` states the intent it is being scaled towards, and is not a description of current code.
+8. For map work (how the map is divided into chunks and sectors, discovery state, fog of war, sector identity and mission reach), also read `docs/architecture/MAP.md` — a native Unity subsystem document, authoritative for current behavior. It carries its own "what is not built yet" section; `docs/design/expansion-territoriale.md` holds the design it is being scaled towards (secondary Cores, mining zones, generation parameters), none of which is implemented.
+9. `docs/README.md` says which folder answers which question: `architecture/` is what is, `design/` is what is wanted, `carnets/` is why it is that way, `archive/` is authoritative for nothing.
 
 ## Mandatory principles
 
