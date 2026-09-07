@@ -184,5 +184,16 @@ wanting somewhere to go wants a few destinations, not four hundred thousand — 
 - **Missions themselves**, which everything above is the prerequisite for.
 - ~~Two mission ranges.~~ **Done** — see §4. The single ring is gone.
 - **Sector content materialisation.** Contents are derived and tested, but nothing turns them into
-  real deposits. Doing so needs a decision first: `WorldGenerator` already places clusters around the
-  Core, and the sectors near it are discovered on the first frame, so the two would overlap.
+  real deposits.
+
+  The rule for the overlap with `WorldGenerator`'s starting clusters is already decided
+  (`directive-grande-carte.md` §4.6): **a sector already carrying placed content keeps it; the
+  derivation only fills sectors that have none.** A rule about the data rather than about geometry,
+  which is what makes it durable — there is no starting perimeter to maintain, and it covers in
+  advance anything else placed by hand, a scripted wreck or a particular nest. The starting area stays
+  hand-composed because the introduction depends on the right resources at the right distance, which a
+  derivation does not guarantee.
+
+  What it carries is an **ordering** constraint, and it is the whole risk: placed content must exist
+  before the derivation reaches those sectors. Reverse the order and the starting area is overwritten.
+  To be made explicit when materialisation is built, not left as a supposed consequence.
