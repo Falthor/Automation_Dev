@@ -85,6 +85,31 @@ autour de « une mission a un exécutant », ce qu'il faudrait défaire à l'arr
 durée en tient déjà compte — une grosse escouade avance au rythme du plus lent — mais l'effet est nul
 tant que l'effectif vaut 1.
 
+## 5bis. Rien ne parvient au Noyau tant que le robot est dehors
+
+**Le Noyau ne peut pas communiquer au-delà de son rayon d'action.** Il y est aveugle et muet — c'est
+la raison d'être des expéditions. Un robot en campagne n'a donc personne à qui transmettre : il
+rapporte ses données.
+
+Cela transforme le « le joueur ne voit rien du déroulement » de §6, qui se lisait comme une règle
+d'interface, en **fait du monde**. Et cela condamne quelque chose que la première version faisait :
+elle révélait le disque à mi-parcours, à l'état *Résolution*, en s'appuyant sur la formule de §7.3
+« le Noyau a reçu les données jusqu'à la dernière transmission ». Une transmission depuis l'extérieur
+du rayon est précisément ce qui n'existe pas.
+
+La carte, le site et les CU arrivent donc **tous à l'amarrage**, quand le robot est de retour dans le
+rayon. `Résolution` subsiste comme état parce que §6 le nomme, mais ne produit plus rien
+d'observable : c'est le moment où le robot atteint sa cible, pas celui où le Noyau l'apprend.
+
+`TheMapDoesNotMoveWhileTheRobotIsStillOut` échantillonne le trajet à dix reprises et exige que ni la
+carte ni la réserve ne bougent avant l'amarrage.
+
+**Une tension restante, à trancher avec les unités.** §7.3 dit qu'une escouade perdue révèle « jusqu'au
+point de rupture » et laisse une cicatrice sur la carte. Sous la règle ci-dessus, une escouade qui ne
+revient pas ne transmet rien, donc ne révèle rien — et la cicatrice n'existe pas non plus. Les deux
+lectures sont défendables (un relais laissé derrière soi, une boîte noire récupérée plus tard), mais
+elles ne se décident pas maintenant : les sondes ne meurent pas, seules les unités le peuvent.
+
 ## 6. La révélation n'est pas réimplémentée
 
 Une mission appelle `SectorGrid.RevealInscribedDisc`, qui possède déjà la forme. Le disque inscrit et

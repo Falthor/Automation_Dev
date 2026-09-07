@@ -285,25 +285,39 @@ namespace Game.Gameplay.Missions
         // ---- Landing ----
 
         /// <summary>
-        /// The moment the data arrives: the inscribed disc is revealed, never the square (§2).
+        /// The robot reaches its target and gathers what it came for. <b>Nothing reaches the Core
+        /// here</b>, and that is the point.
         ///
-        /// The revelation goes through SectorGrid, which already owns that shape - a mission asks for
-        /// it, it does not re-implement it.
+        /// The Core cannot communicate beyond its own action radius - it is blind and mute out there,
+        /// which is the whole reason expeditions exist. A robot in the field therefore has nobody to
+        /// transmit to: it carries the data home. So this state changes nothing the player can see,
+        /// and the map moves only when the robot docks.
+        ///
+        /// It is kept as a state because §6 names it, and because it is the moment the outcome stops
+        /// being revocable - not because anything observable happens.
         /// </summary>
         void Resolve(MissionRuntime mission)
+        {
+        }
+
+        /// <summary>
+        /// The robot is home and back inside the radius, which is the first moment the Core can hear
+        /// it. Everything the mission brought back lands here at once: the map, the site, the CU.
+        ///
+        /// The revelation goes through SectorGrid, which already owns the inscribed-disc shape - a
+        /// mission asks for it, it does not re-implement it.
+        /// </summary>
+        void Deliver(MissionRuntime mission)
         {
             if (mission.Kind == MissionKind.Recuperation)
             {
                 if (mission.Outcome != MissionOutcome.RecolteManquee) _consumedSites.Add(mission.TargetSector);
-                return;
+            }
+            else
+            {
+                _grid?.RevealInscribedDisc(mission.TargetSector, _discovery);
             }
 
-            _grid?.RevealInscribedDisc(mission.TargetSector, _discovery);
-        }
-
-        /// <summary>The robot is home. The reward is paid here rather than at resolution, because that is when the report is read.</summary>
-        void Deliver(MissionRuntime mission)
-        {
             // The robot's charge was spent at launch, so there is nothing to return here - a robot
             // that went out has used its charge whatever came of the trip.
             if (mission.RewardCu > 0f) _compute?.Grant(mission.RewardCu);

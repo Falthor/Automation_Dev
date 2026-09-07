@@ -286,6 +286,47 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             fixture.Destroy();
         }
 
+        /// <summary>
+        /// <b>Nothing reaches the Core while the robot is out.</b> The Core cannot communicate beyond
+        /// its own action radius - it is blind and mute out there, which is why expeditions exist at
+        /// all - so a robot in the field has nobody to transmit to and carries its data home.
+        ///
+        /// This is what makes §6's "the player sees nothing of the progress" a fact of the world
+        /// rather than a rule of the interface, and it is why the map must not move at the halfway
+        /// point. It did, until this test was written.
+        /// </summary>
+        [Test]
+        public void TheMapDoesNotMoveWhileTheRobotIsStillOut()
+        {
+            Fixture fixture = NewFixture();
+            SummonRobots(fixture);
+
+            int sector = NearSector(fixture);
+            fixture.Missions.TryLaunch(MissionKind.Prospection, sector, out MissionRuntime mission);
+
+            float reserveAtLaunch = fixture.Compute.Reserve;
+
+            // Right through resolution and the whole way home, one step short of docking.
+            for (int i = 0; i < 9; i++)
+            {
+                fixture.Missions.Tick(mission.TotalSeconds * 0.1f, 0f, ComputeSystem.ReserveCap);
+
+                Assert.AreEqual(SectorDiscovery.Unknown, fixture.Grid.DiscoveryOf(sector, fixture.Discovery),
+                    $"the map moved at {(i + 1) * 10}% of the trip - the Core cannot hear a robot outside its radius");
+                Assert.AreEqual(reserveAtLaunch, fixture.Compute.Reserve, 0.001f, "and nothing was paid before it docked");
+            }
+
+            Assert.AreNotEqual(MissionState.Rapport, mission.State, "the fixture was supposed to stop short of docking");
+
+            fixture.Missions.Tick(mission.TotalSeconds, 0f, ComputeSystem.ReserveCap);
+
+            Assert.AreEqual(MissionState.Rapport, mission.State);
+            Assert.AreEqual(SectorDiscovery.Partial, fixture.Grid.DiscoveryOf(sector, fixture.Discovery),
+                "everything the robot carried lands at once, when it is back inside the radius");
+
+            fixture.Destroy();
+        }
+
         /// <summary>With a robot the map cannot fail (§7.1). Only a harvest can, and only a recovery harvests.</summary>
         [Test]
         public void WithARobot_TheMapNeverFails()
