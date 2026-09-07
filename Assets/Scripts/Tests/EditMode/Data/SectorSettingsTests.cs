@@ -1,4 +1,6 @@
 using Game.Data;
+using Game.Gameplay.Sectors;
+using Game.Grid;
 using NUnit.Framework;
 using UnityEditor;
 
@@ -74,5 +76,33 @@ namespace Game.Tests.EditMode.Data
             Assert.GreaterOrEqual(settings.LowRiskWithinCells, 40f,
                 "The Core starts with a radius of 40; everything inside it should read as safe.");
         }
+
+        /// <summary>
+        /// Enough names for the map the game actually ships with.
+        ///
+        /// This guard used to live in SectorCatalogTests and read that file's own MapSize constant.
+        /// It measured a fixture, so it stayed green while the shipped map grew to 10 000 cells and
+        /// 80 % of sector names started colliding - a green light on a broken property, which is
+        /// worse than no guard at all because it makes the subject look covered.
+        ///
+        /// It reads both assets now: the map's size from TerrainGenerationSettings, the sector's from
+        /// SectorSettings. A test about the shipped game has to read the shipped game.
+        /// </summary>
+        [Test]
+        public void ThereAreEnoughNamesForEverySectorOfTheShippedMap()
+        {
+            var terrain = AssetDatabase.LoadAssetAtPath<TerrainGenerationSettings>("Assets/Data/Terrain/DefaultTerrain.asset");
+            Assert.IsNotNull(terrain, "the terrain settings asset is missing");
+
+            SectorSettings settings = Load();
+            var grid = new SectorGrid(terrain.Size, settings.SectorSizeCells);
+
+            Assert.GreaterOrEqual(SectorCatalog.NameCombinationCount, grid.Count,
+                $"a {terrain.Size}-cell map holds {grid.Count} sectors, and the vocabulary offers only "
+                + $"{SectorCatalog.NameCombinationCount} names, so they cannot all be distinct. Names have to stop "
+                + "being one-per-sector: a region name shared by a group plus a coordinate suffix, or a "
+                + "composition from several short lists.");
+        }
+
     }
 }

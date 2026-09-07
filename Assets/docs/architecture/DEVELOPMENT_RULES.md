@@ -78,6 +78,7 @@ Improvements discovered outside the requested scope must be reported without sil
 - Use PlayMode tests for Unity integration.
 - Add regression tests for important bugs where practical.
 - Deterministic generators must produce identical results for identical seed and parameters when determinism is part of the contract.
+- A test asserting a property of the **shipped game** must read the shipped artefact — the asset, the scene, the file — never a value recopied into its own fixture. A copied constant stops tracking what it describes the moment the real one changes, and the test then reports green on a broken property, which is worse than no test at all because the subject looks covered.
 - Anything **derived rather than stored** — recomputed at load instead of saved — must not draw randomness from `System.Random` or `string.GetHashCode`. Neither is guaranteed stable across runtime versions, and a change would recompose the world underneath state that *was* saved. Use `Game.Core.DeterministicHash`, and pin it with hard-coded expected values: a test that recomputes its own expectation moves with the change and sees nothing.
 - Do not pursue arbitrary coverage percentages at the expense of useful tests.
 

@@ -98,6 +98,12 @@ namespace Game.Tests.EditMode.Gameplay
 
         // ---- Names ----
 
+        /// <summary>
+        /// Over a fixture grid, not the shipped map: this asserts that the index-to-name mapping is
+        /// injective, which is a property of the arithmetic. Whether the vocabulary is large enough
+        /// for the map the game ships with is a different question, and it is asked in
+        /// SectorSettingsTests against the real assets.
+        /// </summary>
         [Test]
         public void NoTwoSectorsShareAName()
         {
@@ -112,16 +118,10 @@ namespace Game.Tests.EditMode.Gameplay
             }
         }
 
-        /// <summary>
-        /// Uniqueness above holds only while there are at least as many name combinations as
-        /// sectors. This is the test that fails the day the map grows, instead of the map quietly
-        /// growing duplicate names.
-        /// </summary>
-        [Test]
-        public void ThereAreEnoughNamesForEverySectorOfTheCurrentMap()
-        {
-            Assert.GreaterOrEqual(SectorCatalog.NameCombinationCount, new SectorGrid(MapSize, SectorSize).Count);
-        }
+        // The guard for "are there enough names for the map the game actually ships" used to live
+        // here, and it read this file's own MapSize constant. It therefore measured a fixture and
+        // stayed green while the shipped map grew past the vocabulary. It has moved to
+        // SectorSettingsTests, which reads the real assets - see DEVELOPMENT_RULES.md §7.
 
         [Test]
         public void ANameIsNeverEmptyOrABareNumber()
