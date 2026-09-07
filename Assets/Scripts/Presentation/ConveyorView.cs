@@ -72,7 +72,7 @@ namespace Game.Presentation
                 {
                     var flipbook = GetComponent<SpriteFlipbook>();
                     if (flipbook == null) flipbook = gameObject.AddComponent<SpriteFlipbook>();
-                    flipbook.Initialize(definition.AnimationFrames, definition.AnimationFps);
+                    flipbook.Initialize(definition.AnimationFrames, definition.AnimationFps, definition.AnimationIntervalSeconds);
                 }
                 else
                 {

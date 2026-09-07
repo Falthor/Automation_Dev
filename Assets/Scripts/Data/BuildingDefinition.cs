@@ -13,6 +13,7 @@ namespace Game.Data
         [SerializeField] Sprite sprite;
         [SerializeField] Sprite[] animationFrames = System.Array.Empty<Sprite>();
         [SerializeField] float animationFps = 8f;
+        [SerializeField, Min(0f)] float animationIntervalSeconds;
         [SerializeField] RecipeIngredient[] cost = System.Array.Empty<RecipeIngredient>();
 
         public string Id => id;
@@ -31,6 +32,18 @@ namespace Game.Data
 
         /// <summary>Playback speed for AnimationFrames, in frames per second.</summary>
         public float AnimationFps => animationFps;
+
+        /// <summary>
+        /// How often the flipbook plays, in seconds. Zero - the default, and what every building had
+        /// before this existed - loops the frames end to end forever.
+        ///
+        /// A positive value plays the sequence once per interval and rests on the first frame in
+        /// between. That suits an animation that depicts an event rather than a state: the Core's
+        /// hatch opens and shuts, and a hatch doing that without pause reads as a machine stuck
+        /// rather than as a hatch. A pulsing core, a running belt, a furnace: those are states, and
+        /// they keep the continuous loop.
+        /// </summary>
+        public float AnimationIntervalSeconds => animationIntervalSeconds;
 
         /// <summary>
         /// Uniform overscan applied on top of the footprint-fitted size, e.g. so a rotatable

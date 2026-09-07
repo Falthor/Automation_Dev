@@ -14,10 +14,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.StorageDefinition
   id: core_storage
   displayName: Reserve du Noyau
-  footprintSize: {x: 1, y: 1}
+  footprintSize: {x: 2, y: 2}
   placeholderColor: {r: 0.7, g: 0.55, b: 0.3, a: 1}
   unlockResearch: {fileID: 0}
-  sprite: {fileID: 21300000, guid: 8cc3f2c2d0292ce4eb676eb70947d729, type: 3}
+  sprite: {fileID: -6622863259242664493, guid: b4dd38d18259350408095bf291434813, type: 3}
+  animationFrames:
+  - {fileID: -6622863259242664493, guid: b4dd38d18259350408095bf291434813, type: 3}
+  - {fileID: 4138848172959368440, guid: b4dd38d18259350408095bf291434813, type: 3}
+  - {fileID: 5823024787834327110, guid: b4dd38d18259350408095bf291434813, type: 3}
+  - {fileID: -5429809939435209488, guid: b4dd38d18259350408095bf291434813, type: 3}
+  - {fileID: -7409573511083393705, guid: b4dd38d18259350408095bf291434813, type: 3}
+  - {fileID: 2402639969742374697, guid: b4dd38d18259350408095bf291434813, type: 3}
+  - {fileID: 368041112877095050, guid: b4dd38d18259350408095bf291434813, type: 3}
+  - {fileID: -3326688003119052452, guid: b4dd38d18259350408095bf291434813, type: 3}
+  - {fileID: 9209089764030810201, guid: b4dd38d18259350408095bf291434813, type: 3}
+  - {fileID: 7800090583882032772, guid: b4dd38d18259350408095bf291434813, type: 3}
+  - {fileID: -7160256121808793437, guid: b4dd38d18259350408095bf291434813, type: 3}
+  - {fileID: -955268259036638798, guid: b4dd38d18259350408095bf291434813, type: 3}
+  animationFps: 9
+  animationIntervalSeconds: 4
   cost: []
   intakeIntervalSeconds: 1
   slotCountOverride: 6

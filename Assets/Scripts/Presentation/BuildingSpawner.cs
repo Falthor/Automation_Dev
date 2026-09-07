@@ -217,7 +217,7 @@ namespace Game.Presentation
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
-                renderer.gameObject.AddComponent<SpriteFlipbook>().Initialize(definition.AnimationFrames, definition.AnimationFps);
+                renderer.gameObject.AddComponent<SpriteFlipbook>().Initialize(definition.AnimationFrames, definition.AnimationFps, definition.AnimationIntervalSeconds);
             }
 
             AttachShadow(runtime, renderer);
@@ -322,7 +322,7 @@ namespace Game.Presentation
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
-                renderer.gameObject.AddComponent<SpriteFlipbook>().Initialize(definition.AnimationFrames, definition.AnimationFps);
+                renderer.gameObject.AddComponent<SpriteFlipbook>().Initialize(definition.AnimationFrames, definition.AnimationFps, definition.AnimationIntervalSeconds);
             }
 
             AttachShadow(runtime, renderer);

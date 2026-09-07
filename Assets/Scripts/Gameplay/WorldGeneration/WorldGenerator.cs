@@ -118,7 +118,14 @@ namespace Game.Gameplay.WorldGeneration
 
             if (settings.CoreStorageDefinition != null)
             {
-                var storageCell = new GridCoord(CoreOrigin.X + coreDefinition.FootprintSize.x / 2, CoreOrigin.Y - 1);
+                // Centred on the Core's width and flush against its south edge, whatever either
+                // footprint is. The old form assumed a 1x1 chest and put its single cell at half
+                // the Core's width, which stops being the middle the moment the reserve is wider
+                // than one cell.
+                Vector2Int storageFootprint = settings.CoreStorageDefinition.FootprintSize;
+                var storageCell = new GridCoord(
+                    CoreOrigin.X + (coreDefinition.FootprintSize.x - storageFootprint.x) / 2,
+                    CoreOrigin.Y - storageFootprint.y);
                 CoreStorage = new StorageRuntime(settings.CoreStorageDefinition, storageCell, Direction.North);
                 grid.SetOccupantFootprint(storageCell, settings.CoreStorageDefinition.FootprintSize, CoreStorage);
 
