@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Gameplay.Missions;
 using Game.Gameplay.Sectors;
 using Game.Grid;
 using NUnit.Framework;
@@ -94,8 +95,8 @@ namespace Game.Tests.EditMode.Gameplay
             {
                 int index = SectorAtDistance(grid, distance);
 
-                SectorEligibility mining = range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, Radius, index);
-                SectorEligibility exploration = range.EligibilityOf(SectorMissionKind.Exploration, grid, discovery, CoreCenter, Radius, index);
+                SectorEligibility mining = range.EligibilityOf(MissionKind.Prospection, grid, discovery, CoreCenter, Radius, index);
+                SectorEligibility exploration = range.EligibilityOf(MissionKind.ExplorationLointaine, grid, discovery, CoreCenter, Radius, index);
 
                 bool inMining = mining == SectorEligibility.Eligible;
                 bool inExploration = exploration == SectorEligibility.Eligible;
@@ -117,14 +118,14 @@ namespace Game.Tests.EditMode.Gameplay
             int outside = SectorAtDistance(grid, threshold + 24f);
 
             Assert.AreEqual(SectorEligibility.Eligible,
-                range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, 22f, inside));
+                range.EligibilityOf(MissionKind.Prospection, grid, discovery, CoreCenter, 22f, inside));
             Assert.AreEqual(SectorEligibility.TooClose,
-                range.EligibilityOf(SectorMissionKind.Exploration, grid, discovery, CoreCenter, 22f, inside));
+                range.EligibilityOf(MissionKind.ExplorationLointaine, grid, discovery, CoreCenter, 22f, inside));
 
             Assert.AreEqual(SectorEligibility.TooFar,
-                range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, 22f, outside));
+                range.EligibilityOf(MissionKind.Prospection, grid, discovery, CoreCenter, 22f, outside));
             Assert.AreEqual(SectorEligibility.Eligible,
-                range.EligibilityOf(SectorMissionKind.Exploration, grid, discovery, CoreCenter, 22f, outside));
+                range.EligibilityOf(MissionKind.ExplorationLointaine, grid, discovery, CoreCenter, 22f, outside));
         }
 
         // ---- Mining follows the radius; exploration does not ----
@@ -144,11 +145,11 @@ namespace Game.Tests.EditMode.Gameplay
             int near = SectorAtDistance(grid, 40f);
 
             Assert.AreEqual(SectorEligibility.Eligible,
-                range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, 22f, near),
+                range.EligibilityOf(MissionKind.Prospection, grid, discovery, CoreCenter, 22f, near),
                 "40 cells out is beyond a radius of 22");
 
             Assert.AreEqual(SectorEligibility.TooClose,
-                range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, 60f, near),
+                range.EligibilityOf(MissionKind.Prospection, grid, discovery, CoreCenter, 60f, near),
                 "and inside a radius of 60, so it is no longer somewhere a mission needs to go");
         }
 
@@ -162,16 +163,16 @@ namespace Game.Tests.EditMode.Gameplay
             int far = SectorAtDistance(grid, 400f);
 
             Assert.AreEqual(SectorEligibility.Eligible,
-                range.EligibilityOf(SectorMissionKind.Exploration, grid, discovery, CoreCenter, 22f, far));
+                range.EligibilityOf(MissionKind.ExplorationLointaine, grid, discovery, CoreCenter, 22f, far));
             Assert.AreEqual(SectorEligibility.Eligible,
-                range.EligibilityOf(SectorMissionKind.Exploration, grid, discovery, CoreCenter, MaxCoreRadius, far),
+                range.EligibilityOf(MissionKind.ExplorationLointaine, grid, discovery, CoreCenter, MaxCoreRadius, far),
                 "exploration is measured from the threshold, which the current radius has no part in");
         }
 
         [Test]
         public void TheMiningBandRunsFromTheRadiusToTheThreshold()
         {
-            NewRange().BandFor(SectorMissionKind.Mining, 22f, out float inner, out float outer);
+            NewRange().BandFor(MissionKind.Prospection, 22f, out float inner, out float outer);
 
             Assert.AreEqual(22f, inner, 0.001f);
             Assert.AreEqual(NewRange().ExplorationMinimumCells, outer, 0.001f);
@@ -180,7 +181,7 @@ namespace Game.Tests.EditMode.Gameplay
         [Test]
         public void TheExplorationBandHasNoOuterEdge()
         {
-            NewRange().BandFor(SectorMissionKind.Exploration, 22f, out float inner, out float outer);
+            NewRange().BandFor(MissionKind.ExplorationLointaine, 22f, out float inner, out float outer);
 
             Assert.AreEqual(NewRange().ExplorationMinimumCells, inner, 0.001f);
             Assert.IsTrue(float.IsPositiveInfinity(outer),
@@ -198,12 +199,12 @@ namespace Game.Tests.EditMode.Gameplay
 
             int index = SectorAtDistance(grid, 100f);
             Assert.AreEqual(SectorEligibility.Eligible,
-                range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, 22f, index));
+                range.EligibilityOf(MissionKind.Prospection, grid, discovery, CoreCenter, 22f, index));
 
             grid.RevealInscribedDisc(index, discovery);
 
             Assert.AreEqual(SectorEligibility.AlreadyKnown,
-                range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, 22f, index),
+                range.EligibilityOf(MissionKind.Prospection, grid, discovery, CoreCenter, 22f, index),
                 "a mission there would reveal a disc that is already revealed");
         }
 
@@ -213,9 +214,9 @@ namespace Game.Tests.EditMode.Gameplay
             SectorGrid grid = NewGrid();
 
             Assert.AreEqual(SectorEligibility.NotASector,
-                NewRange().EligibilityOf(SectorMissionKind.Mining, grid, NewDiscovery(), CoreCenter, 22f, -1));
+                NewRange().EligibilityOf(MissionKind.Prospection, grid, NewDiscovery(), CoreCenter, 22f, -1));
             Assert.AreEqual(SectorEligibility.NotASector,
-                NewRange().EligibilityOf(SectorMissionKind.Mining, grid, NewDiscovery(), CoreCenter, 22f, 99999999));
+                NewRange().EligibilityOf(MissionKind.Prospection, grid, NewDiscovery(), CoreCenter, 22f, 99999999));
         }
 
         // ---- Enumeration ----
@@ -228,13 +229,13 @@ namespace Game.Tests.EditMode.Gameplay
             SectorMissionRange range = NewRange();
 
             var into = new List<int>();
-            range.Destinations(SectorMissionKind.Mining, grid, discovery, CoreCenter, 22f, into);
+            range.Destinations(MissionKind.Prospection, grid, discovery, CoreCenter, 22f, into);
 
             Assert.Greater(into.Count, 0);
             foreach (int index in into)
             {
                 Assert.AreEqual(SectorEligibility.Eligible,
-                    range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, 22f, index));
+                    range.EligibilityOf(MissionKind.Prospection, grid, discovery, CoreCenter, 22f, index));
             }
         }
 
@@ -250,7 +251,7 @@ namespace Game.Tests.EditMode.Gameplay
             var into = new List<int>();
 
             SectorRangeResult result = NewRange().Destinations(
-                SectorMissionKind.Exploration, grid, NewDiscovery(), CoreCenter, 22f, into, limit: 12);
+                MissionKind.ExplorationLointaine, grid, NewDiscovery(), CoreCenter, 22f, into, limit: 12);
 
             Assert.AreEqual(12, into.Count);
             Assert.AreEqual(12, result.Count);
@@ -271,13 +272,13 @@ namespace Game.Tests.EditMode.Gameplay
             float radius = range.ExplorationMinimumCells - 12f;
 
             var into = new List<int>();
-            range.Destinations(SectorMissionKind.Mining, grid, discovery, CoreCenter, radius, into, limit: 4096);
+            range.Destinations(MissionKind.Prospection, grid, discovery, CoreCenter, radius, into, limit: 4096);
             Assert.Greater(into.Count, 0, "the fixture needs a band with something in it to start with");
 
             foreach (int index in into) grid.RevealInscribedDisc(index, discovery);
 
             SectorRangeResult result = range.Destinations(
-                SectorMissionKind.Mining, grid, discovery, CoreCenter, radius, into, limit: 4096);
+                MissionKind.Prospection, grid, discovery, CoreCenter, radius, into, limit: 4096);
 
             Assert.AreEqual(0, result.Count);
             Assert.IsTrue(result.Exhausted);
@@ -287,7 +288,7 @@ namespace Game.Tests.EditMode.Gameplay
         public void AnEmptyGridIsExhausted()
         {
             SectorRangeResult result = NewRange().Destinations(
-                SectorMissionKind.Mining, null, NewDiscovery(), CoreCenter, 22f, new List<int>());
+                MissionKind.Prospection, null, NewDiscovery(), CoreCenter, 22f, new List<int>());
 
             Assert.AreEqual(0, result.Count);
             Assert.IsTrue(result.Exhausted);
@@ -297,7 +298,7 @@ namespace Game.Tests.EditMode.Gameplay
         public void TheResultReportsTheBandItLookedIn()
         {
             SectorRangeResult result = NewRange().Destinations(
-                SectorMissionKind.Mining, NewGrid(), NewDiscovery(), CoreCenter, 22f, new List<int>());
+                MissionKind.Prospection, NewGrid(), NewDiscovery(), CoreCenter, 22f, new List<int>());
 
             Assert.AreEqual(22f, result.InnerRadiusCells, 0.001f);
             Assert.AreEqual(NewRange().ExplorationMinimumCells, result.OuterRadiusCells, 0.001f);

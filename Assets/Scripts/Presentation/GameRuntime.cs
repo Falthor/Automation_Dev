@@ -318,7 +318,7 @@ namespace Game.Presentation
 
             if (missionSettings != null)
             {
-                Missions = new MissionSystem(missionSettings, Sectors, Discovery, SectorCatalog, Compute, Terrain.Seed);
+                Missions = new MissionSystem(missionSettings, Sectors, Discovery, SectorCatalog, Compute, MissionRange, Terrain.Seed);
                 Missions.RestoreState(loadedSave?.Missions);
             }
 

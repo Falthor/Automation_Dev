@@ -29,6 +29,12 @@ namespace Game.Tests.EditMode.Gameplay.Missions
 
         static readonly Vector2 CoreCenter = new Vector2(5000f, 5000f);
 
+        /// <summary>The Core's current reach, handed to every launch. The mining band starts just outside it.</summary>
+        const float CoreRadius = 22f;
+
+        /// <summary>The shipped ceiling and gap, so the fixture's threshold is the shipped 154 cells.</summary>
+        static SectorMissionRange NewRange() => new SectorMissionRange(32f, 90f);
+
         static MissionSettings NewSettings(
             int explorerRobotCount = 2,
             int missionsPerRobot = 10,
@@ -78,7 +84,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             fixture.Catalog = new SectorCatalog(fixture.Grid, Seed, CoreCenter, 40f, 250f, 330f, 384);
             fixture.Compute = new ComputeSystem();
             fixture.Missions = new MissionSystem(fixture.Settings, fixture.Grid, fixture.Discovery,
-                fixture.Catalog, fixture.Compute, Seed);
+                fixture.Catalog, fixture.Compute, NewRange(), Seed);
 
             return fixture;
         }
@@ -89,9 +95,45 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             fixture.Missions.Tick(0f, 0f, ComputeSystem.ReserveCap);
         }
 
-        /// <summary>A sector inside the mining band, far enough from the Core to be unknown.</summary>
+        /// <summary>
+        /// The nth distinct sector that actually sits in the mining band — between the Core's reach
+        /// and the 154-cell threshold.
+        ///
+        /// It used to be a sector at a growing offset along one axis, which walked straight out of
+        /// the band after a handful of steps. Nothing noticed while the launch path enforced no band;
+        /// wiring it in turned four tests red at once, which is the seam doing its job.
+        /// </summary>
         static int NearSector(Fixture fixture, int offset = 0)
-            => fixture.Grid.IndexAt(312 + 4 + offset, 312);
+        {
+            var range = NewRange();
+            int found = 0;
+
+            // A ring of sector columns and rows around the Core, in a stable order.
+            for (int row = -10; row <= 10; row++)
+            {
+                for (int column = -10; column <= 10; column++)
+                {
+                    int index = fixture.Grid.IndexAt(312 + column, 312 + row);
+                    if (index < 0) continue;
+
+                    float distance = Vector2.Distance(fixture.Grid.CenterCells(index), CoreCenter);
+                    if (distance <= CoreRadius || distance > range.ExplorationMinimumCells) continue;
+
+                    if (found == offset) return index;
+                    found++;
+                }
+            }
+
+            throw new System.InvalidOperationException($"no {offset}th sector in the mining band");
+        }
+
+        /// <summary>A sector in the mining band that a robot has already opened - what a recovery needs.</summary>
+        static int ReconnoitredSector(Fixture fixture, int offset = 0)
+        {
+            int index = NearSector(fixture, offset);
+            fixture.Grid.RevealInscribedDisc(index, fixture.Discovery);
+            return index;
+        }
 
         // ---- The threshold is a fraction ----
 
@@ -155,7 +197,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             Fixture fixture = NewFixture();
 
             Assert.AreEqual(MissionSystem.LaunchRefusal.RobotsHaveNotArrived,
-                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture), out _));
+                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture), CoreRadius, out _));
 
             fixture.Destroy();
         }
@@ -167,12 +209,12 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             SummonRobots(fixture);
 
             Assert.AreEqual(MissionSystem.LaunchRefusal.None,
-                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, 0), out _));
+                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, 0), CoreRadius, out _));
             Assert.AreEqual(MissionSystem.LaunchRefusal.None,
-                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, 2), out _));
+                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, 2), CoreRadius, out _));
 
             Assert.AreEqual(MissionSystem.LaunchRefusal.AllSlotsBusy,
-                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, 4), out _));
+                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, 4), CoreRadius, out _));
 
             Assert.AreEqual(2, fixture.Missions.InFlight.Count);
 
@@ -189,7 +231,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             Assert.AreEqual(0f, fixture.Compute.Reserve, 0.001f);
 
             Assert.AreEqual(MissionSystem.LaunchRefusal.None,
-                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture), out _),
+                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture), CoreRadius, out _),
                 "a player at zero CU must still be able to send a mission - it is the whole exit");
 
             Assert.AreEqual(0f, fixture.Compute.Reserve, 0.001f, "and it must not have cost anything");
@@ -206,14 +248,166 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             for (int i = 0; i < 2; i++)
             {
                 Assert.AreEqual(MissionSystem.LaunchRefusal.None,
-                    fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, i * 2), out MissionRuntime mission));
+                    fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, i * 2), CoreRadius, out MissionRuntime mission));
                 RunToReport(fixture, mission);
             }
 
             Assert.AreEqual(0, fixture.Missions.TotalChargesLeft);
             Assert.AreEqual(MissionSystem.LaunchRefusal.NoRobotAvailable,
-                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, 8), out _),
+                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, 8), CoreRadius, out _),
                 "a robot does not die, it runs out - and a spent one cannot be sent");
+
+            fixture.Destroy();
+        }
+
+        // ---- The seam: the launch path enforces the bands ----
+
+        /// <summary>
+        /// <b>The test this section exists for, and it is not a unit test.</b> `SectorMissionRange`
+        /// was built, tested and documented, and for one brick `MissionSystem` never called it: both
+        /// halves were right and the seam between them did not exist. No test of either half could
+        /// see that - which is why this one starts from `TryLaunch`, the path the game actually uses,
+        /// rather than from the predicate it delegates to.
+        /// </summary>
+        [Test]
+        public void AProspectionBeyondTheThreshold_IsRefused()
+        {
+            Fixture fixture = NewFixture();
+            SummonRobots(fixture);
+
+            // 400 cells out: well past the 154-cell threshold, so this is exploration's ground.
+            int far = fixture.Grid.IndexAt(312 + 25, 312);
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.WrongBand,
+                fixture.Missions.TryLaunch(MissionKind.Prospection, far, CoreRadius, out MissionRuntime refused),
+                "a prospection was allowed across the exploration threshold");
+            Assert.IsNull(refused);
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.None,
+                fixture.Missions.TryLaunch(MissionKind.ExplorationLointaine, far, CoreRadius, out _),
+                "and the same sector is exactly where a far exploration belongs");
+
+            fixture.Destroy();
+        }
+
+        [Test]
+        public void AnExplorationInsideTheThreshold_IsRefused()
+        {
+            Fixture fixture = NewFixture();
+            SummonRobots(fixture);
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.WrongBand,
+                fixture.Missions.TryLaunch(MissionKind.ExplorationLointaine, NearSector(fixture), CoreRadius, out _));
+
+            fixture.Destroy();
+        }
+
+        [Test]
+        public void AProspectionInsideTheCoresReach_IsRefused()
+        {
+            Fixture fixture = NewFixture();
+            SummonRobots(fixture);
+
+            // One sector off centre: inside a radius of 22, so the Core already sees it.
+            int home = fixture.Grid.IndexAt(312, 312);
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.WrongBand,
+                fixture.Missions.TryLaunch(MissionKind.Prospection, home, CoreRadius, out _));
+
+            fixture.Destroy();
+        }
+
+        /// <summary>Extending the Core's reach closes the mining band from the inside, and the launch path has to follow - the radius is passed on every call precisely so it cannot go stale.</summary>
+        [Test]
+        public void ExtendingTheReach_ClosesTheBandOnTheLaunchPathToo()
+        {
+            Fixture fixture = NewFixture();
+            SummonRobots(fixture);
+
+            int near = fixture.Grid.IndexAt(312 + 3, 312);   // ~48 cells out
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.None,
+                fixture.Missions.CanLaunch(MissionKind.Prospection, near, 22f));
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.WrongBand,
+                fixture.Missions.CanLaunch(MissionKind.Prospection, near, 80f),
+                "inside a reach of 80 there is nothing left for a mission to find there");
+
+            fixture.Destroy();
+        }
+
+        [Test]
+        public void AReconnaissanceOfGroundAlreadySeen_IsRefused()
+        {
+            Fixture fixture = NewFixture();
+            SummonRobots(fixture);
+
+            int sector = NearSector(fixture);
+            Assert.AreEqual(MissionSystem.LaunchRefusal.None,
+                fixture.Missions.CanLaunch(MissionKind.Prospection, sector, CoreRadius));
+
+            fixture.Grid.RevealInscribedDisc(sector, fixture.Discovery);
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.AlreadyReconnoitred,
+                fixture.Missions.CanLaunch(MissionKind.Prospection, sector, CoreRadius),
+                "a mission there would reveal a disc that is already revealed");
+
+            fixture.Destroy();
+        }
+
+        /// <summary>A recovery is the mirror of a reconnaissance: it needs ground already opened, and a point of interest in it.</summary>
+        [Test]
+        public void ARecoveryNeedsGroundAlreadyOpened()
+        {
+            Fixture fixture = NewFixture();
+            SummonRobots(fixture);
+
+            int sector = NearSector(fixture);
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.NotYetReconnoitred,
+                fixture.Missions.CanLaunch(MissionKind.Recuperation, sector, CoreRadius),
+                "the player cannot exploit what no robot has reported on");
+
+            fixture.Grid.RevealInscribedDisc(sector, fixture.Discovery);
+
+            Assert.AreNotEqual(MissionSystem.LaunchRefusal.NotYetReconnoitred,
+                fixture.Missions.CanLaunch(MissionKind.Recuperation, sector, CoreRadius));
+
+            fixture.Destroy();
+        }
+
+        /// <summary>A recovery has no band at all, so the range must say so rather than answering with one.</summary>
+        [Test]
+        public void ARecoveryIsNotABandMission()
+        {
+            Fixture fixture = NewFixture();
+
+            Assert.AreEqual(SectorEligibility.NotABandMission,
+                NewRange().EligibilityOf(MissionKind.Recuperation, fixture.Grid, fixture.Discovery,
+                    CoreCenter, CoreRadius, NearSector(fixture)));
+
+            fixture.Destroy();
+        }
+
+        /// <summary>
+        /// No adjacency rule, and this pins that it stays absent. The specification recommended one
+        /// (§10) and the two bands replaced it: constraining a target to touch known ground *as well
+        /// as* sit in the right band would constrain the same thing twice, and turn exploration into a
+        /// concentric crawl - the opposite of what six secondary Core sites at the threshold assume.
+        /// Distance already costs travel time.
+        /// </summary>
+        [Test]
+        public void AFarSectorTouchingNothingKnown_IsStillAValidTarget()
+        {
+            Fixture fixture = NewFixture();
+            SummonRobots(fixture);
+
+            // Right across the map from the Core, touching no revealed ground whatsoever.
+            int elsewhere = fixture.Grid.IndexAt(600, 600);
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.None,
+                fixture.Missions.CanLaunch(MissionKind.ExplorationLointaine, elsewhere, CoreRadius),
+                "adjacency was deliberately not adopted - see SPEC_EXPEDITIONS.md §10");
 
             fixture.Destroy();
         }
@@ -225,7 +419,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         {
             Fixture fixture = NewFixture();
             SummonRobots(fixture);
-            fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture), out MissionRuntime mission);
+            fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture), CoreRadius, out MissionRuntime mission);
 
             Assert.AreEqual(MissionState.EnRoute, mission.State);
 
@@ -249,7 +443,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         {
             Fixture fixture = NewFixture();
             SummonRobots(fixture);
-            fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture), out MissionRuntime mission);
+            fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture), CoreRadius, out MissionRuntime mission);
 
             float before = mission.RemainingSeconds;
             fixture.Missions.Tick(30f, 0f, ComputeSystem.ReserveCap);
@@ -274,7 +468,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             SummonRobots(fixture);
 
             int sector = NearSector(fixture);
-            fixture.Missions.TryLaunch(MissionKind.Prospection, sector, out MissionRuntime mission);
+            fixture.Missions.TryLaunch(MissionKind.Prospection, sector, CoreRadius, out MissionRuntime mission);
 
             Assert.AreEqual(SectorDiscovery.Unknown, fixture.Grid.DiscoveryOf(sector, fixture.Discovery));
 
@@ -302,7 +496,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             SummonRobots(fixture);
 
             int sector = NearSector(fixture);
-            fixture.Missions.TryLaunch(MissionKind.Prospection, sector, out MissionRuntime mission);
+            fixture.Missions.TryLaunch(MissionKind.Prospection, sector, CoreRadius, out MissionRuntime mission);
 
             float reserveAtLaunch = fixture.Compute.Reserve;
 
@@ -337,7 +531,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             for (int i = 0; i < 20; i++)
             {
                 int sector = NearSector(fixture, i * 2);
-                fixture.Missions.TryLaunch(MissionKind.Prospection, sector, out MissionRuntime mission);
+                fixture.Missions.TryLaunch(MissionKind.Prospection, sector, CoreRadius, out MissionRuntime mission);
                 RunToReport(fixture, mission);
 
                 Assert.AreNotEqual(SectorDiscovery.Unknown, fixture.Grid.DiscoveryOf(sector, fixture.Discovery),
@@ -360,8 +554,8 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             Fixture original = NewFixture();
             SummonRobots(original);
 
-            int sector = NearSector(original);
-            original.Missions.TryLaunch(MissionKind.Recuperation, sector, out MissionRuntime flying);
+            int sector = ReconnoitredSector(original);
+            original.Missions.TryLaunch(MissionKind.Recuperation, sector, CoreRadius, out MissionRuntime flying);
 
             original.Missions.Tick(flying.TotalSeconds * 0.25f, 0f, ComputeSystem.ReserveCap);
             JObject saved = original.Missions.CaptureState();
@@ -398,7 +592,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             Fixture original = NewFixture();
             SummonRobots(original);
 
-            original.Missions.TryLaunch(MissionKind.Prospection, NearSector(original), out MissionRuntime mission);
+            original.Missions.TryLaunch(MissionKind.Prospection, NearSector(original), CoreRadius, out MissionRuntime mission);
             RunToReport(original, mission);
 
             int chargesBefore = original.Missions.TotalChargesLeft;
@@ -439,14 +633,14 @@ namespace Game.Tests.EditMode.Gameplay.Missions
 
             for (int i = 0; i < 3; i++)
             {
-                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, i * 2), out MissionRuntime paid);
+                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, i * 2), CoreRadius, out MissionRuntime paid);
                 RunToReport(fixture, paid);
             }
 
             float afterBudget = fixture.Compute.Reserve;
             Assert.AreEqual(3 * 500f, afterBudget, 1f, "three paid reconnaissances at 500 CU");
 
-            fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, 20), out MissionRuntime free);
+            fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, 20), CoreRadius, out MissionRuntime free);
             RunToReport(fixture, free);
 
             Assert.AreEqual(afterBudget, fixture.Compute.Reserve, 0.001f,
@@ -474,7 +668,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             float previous = 0f;
             for (int i = 0; i < 3; i++)
             {
-                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, i * 2), out MissionRuntime mission);
+                fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, i * 2), CoreRadius, out MissionRuntime mission);
                 Assert.IsNotNull(mission, $"launch {i} was refused, so there is no way out at all");
 
                 RunToReport(fixture, mission);
@@ -493,19 +687,19 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             Fixture fixture = NewFixture(NewSettings(explorerRobotCount: 1, missionsPerRobot: 10, maxConcurrent: 1));
             SummonRobots(fixture);
 
-            int sector = NearSector(fixture);
+            int sector = ReconnoitredSector(fixture);
 
             // Repeat until one actually succeeds - a missed harvest does not consume the site.
             for (int attempt = 0; attempt < 6; attempt++)
             {
-                if (fixture.Missions.CanLaunch(MissionKind.Recuperation, sector) != MissionSystem.LaunchRefusal.None) break;
+                if (fixture.Missions.CanLaunch(MissionKind.Recuperation, sector, CoreRadius) != MissionSystem.LaunchRefusal.None) break;
 
-                fixture.Missions.TryLaunch(MissionKind.Recuperation, sector, out MissionRuntime mission);
+                fixture.Missions.TryLaunch(MissionKind.Recuperation, sector, CoreRadius, out MissionRuntime mission);
                 RunToReport(fixture, mission);
             }
 
             Assert.AreEqual(MissionSystem.LaunchRefusal.AlreadyRecovered,
-                fixture.Missions.CanLaunch(MissionKind.Recuperation, sector),
+                fixture.Missions.CanLaunch(MissionKind.Recuperation, sector, CoreRadius),
                 "the gisement is finite: a recovered site is not offered again");
 
             fixture.Destroy();
@@ -520,7 +714,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             Fixture fixture = NewFixture();
             SummonRobots(fixture);
 
-            fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture), out MissionRuntime mission);
+            fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture), CoreRadius, out MissionRuntime mission);
             Assert.AreEqual(1, mission.Crew);
 
             fixture.Destroy();

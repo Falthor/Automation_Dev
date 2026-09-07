@@ -36,6 +36,10 @@ namespace Game.Gameplay.Missions
         readonly DiscoveryRuntime _discovery;
         readonly SectorCatalog _catalog;
         readonly ComputeSystem _compute;
+
+        /// <summary>The two reconnaissance bands. Optional: null enforces no band at all, which is what a headless test uninterested in geometry wants.</summary>
+        readonly SectorMissionRange _range;
+
         readonly int _seed;
 
         readonly List<MissionRuntime> _inFlight = new List<MissionRuntime>();
@@ -53,13 +57,14 @@ namespace Game.Gameplay.Missions
         float _regeneratingCooldownLeft;
 
         public MissionSystem(MissionSettings settings, SectorGrid grid, DiscoveryRuntime discovery,
-            SectorCatalog catalog, ComputeSystem compute, int seed)
+            SectorCatalog catalog, ComputeSystem compute, SectorMissionRange range, int seed)
         {
             _settings = settings;
             _grid = grid;
             _discovery = discovery;
             _catalog = catalog;
             _compute = compute;
+            _range = range;
             _seed = seed;
         }
 
@@ -143,20 +148,73 @@ namespace Game.Gameplay.Missions
             AllSlotsBusy,
             NoRobotAvailable,
             NotASector,
-            AlreadyRecovered
+            AlreadyRecovered,
+
+            /// <summary>The target is in the other reconnaissance's band - inside the Core's reach, or across the exploration threshold.</summary>
+            WrongBand,
+
+            /// <summary>A reconnaissance aimed at ground already seen. It would reveal a disc that is already revealed.</summary>
+            AlreadyReconnoitred,
+
+            /// <summary>A recovery aimed at a sector no robot has reported on. The player cannot exploit what they have not found.</summary>
+            NotYetReconnoitred,
+
+            /// <summary>A recovery aimed at a sector whose derivation put no point of interest in it.</summary>
+            NothingToRecover
         }
 
-        /// <summary>Whether a mission could be launched right now, and why not when it cannot.</summary>
-        public LaunchRefusal CanLaunch(MissionKind kind, int targetSector)
+        /// <summary>
+        /// Whether a mission could be launched right now, and why not when it cannot.
+        ///
+        /// <b>The band is checked here, and that is the whole point of this method.</b>
+        /// `SectorMissionRange` was built, tested and documented, and for one brick nothing called it:
+        /// both sides were right and the seam between them did not exist, so a prospection could be
+        /// aimed at ground already revealed or across the exploration threshold. No unit test could
+        /// see it - each half passed on its own. The test that catches this kind of defect always
+        /// starts from the real entry point, which is this method and not the predicate it calls.
+        ///
+        /// <b>There is no adjacency rule</b>, deliberately: the specification recommended one and the
+        /// two bands replaced it (SPEC_EXPEDITIONS.md §10). Requiring a target to touch known ground
+        /// as well as sit in the right band would constrain the same thing twice and turn exploration
+        /// into a concentric crawl - the opposite of what six secondary Core sites at the threshold
+        /// assume. Distance already costs travel time.
+        ///
+        /// The Core's current radius is passed in rather than remembered, exactly as
+        /// `SectorMissionRange` takes it: a radius held here would be a second copy that goes stale
+        /// the moment research extends the real one.
+        /// </summary>
+        public LaunchRefusal CanLaunch(MissionKind kind, int targetSector, float coreRadiusCells)
         {
             if (!RobotsHaveAppeared) return LaunchRefusal.RobotsHaveNotArrived;
             if (_inFlight.Count >= _settings.MaxConcurrentMissions) return LaunchRefusal.AllSlotsBusy;
             if (FreeRobot() < 0) return LaunchRefusal.NoRobotAvailable;
             if (_grid == null || !_grid.ContainsIndex(targetSector)) return LaunchRefusal.NotASector;
-            if (kind == MissionKind.Recuperation && _consumedSites.Contains(targetSector)) return LaunchRefusal.AlreadyRecovered;
 
-            return LaunchRefusal.None;
+            // A recovery has no band: it exploits a point of interest inside ground a reconnaissance
+            // already opened, so its rules are the mirror of a reconnaissance's.
+            if (kind == MissionKind.Recuperation)
+            {
+                if (_consumedSites.Contains(targetSector)) return LaunchRefusal.AlreadyRecovered;
+                if (_grid.IsWhollyUnknown(targetSector, _discovery)) return LaunchRefusal.NotYetReconnoitred;
+
+                return _catalog != null && _catalog.ContentsOf(targetSector).Feature == SectorFeature.None
+                    ? LaunchRefusal.NothingToRecover
+                    : LaunchRefusal.None;
+            }
+
+            if (_range == null) return LaunchRefusal.None;
+
+            switch (_range.EligibilityOf(kind, _grid, _discovery, CoreCentre, coreRadiusCells, targetSector))
+            {
+                case SectorEligibility.Eligible: return LaunchRefusal.None;
+                case SectorEligibility.TooClose:
+                case SectorEligibility.TooFar: return LaunchRefusal.WrongBand;
+                case SectorEligibility.AlreadyKnown: return LaunchRefusal.AlreadyReconnoitred;
+                default: return LaunchRefusal.NotASector;
+            }
         }
+
+        Vector2 CoreCentre => _catalog?.CoreCenterCells ?? Vector2.zero;
 
         /// <summary>
         /// Sends a mission, or answers why it could not go.
@@ -165,11 +223,12 @@ namespace Game.Gameplay.Missions
         /// summary for why that rather than drawing on arrival. The robot's charge is spent here too:
         /// a launched mission cannot be taken back.
         /// </summary>
-        public LaunchRefusal TryLaunch(MissionKind kind, int targetSector, out MissionRuntime mission, int crew = 1)
+        public LaunchRefusal TryLaunch(MissionKind kind, int targetSector, float coreRadiusCells,
+            out MissionRuntime mission, int crew = 1)
         {
             mission = null;
 
-            LaunchRefusal refusal = CanLaunch(kind, targetSector);
+            LaunchRefusal refusal = CanLaunch(kind, targetSector, coreRadiusCells);
             if (refusal != LaunchRefusal.None) return refusal;
 
             int robot = FreeRobot();

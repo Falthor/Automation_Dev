@@ -1,34 +1,28 @@
 using System.Collections.Generic;
+using Game.Gameplay.Missions;
 using Game.Grid;
 using UnityEngine;
 
 namespace Game.Gameplay.Sectors
 {
-    /// <summary>What a mission is for, which is what decides how far it may be sent.</summary>
-    public enum SectorMissionKind
-    {
-        /// <summary>New deposits, between the Core's current reach and the exploration threshold. The band shrinks as the radius grows, because ground the Core already covers needs no mission.</summary>
-        Mining,
-
-        /// <summary>Secondary Core sites, nests, points of interest - at the exploration threshold and beyond, where a secondary Core could stand without its territory touching the main one's.</summary>
-        Exploration
-    }
-
     /// <summary>Why a sector is or is not a valid destination. Named rather than boolean so the UI can say what is wrong instead of only greying a sector out.</summary>
     public enum SectorEligibility
     {
         Eligible,
 
-        /// <summary>Inside the Core's current radius for a mining mission, or short of the exploration threshold for an exploration one.</summary>
+        /// <summary>Inside the Core's current radius for a prospection, or short of the exploration threshold for a far exploration.</summary>
         TooClose,
 
-        /// <summary>Past the exploration threshold, so it belongs to exploration rather than to mining.</summary>
+        /// <summary>Past the exploration threshold, so it belongs to the other reconnaissance.</summary>
         TooFar,
 
         /// <summary>Already discovered. A mission there would reveal a disc that is already revealed.</summary>
         AlreadyKnown,
 
-        NotASector
+        NotASector,
+
+        /// <summary>Asked of a recovery. A recovery targets a point of interest inside ground already known, so no band applies to it - the caller decides its own rule rather than being given a wrong answer here.</summary>
+        NotABandMission
     }
 
     /// <summary>
@@ -79,9 +73,9 @@ namespace Game.Gameplay.Sectors
         }
 
         /// <summary>The band a kind of mission may be sent into, as (inner, outer] in cells from the Core. The outer edge of exploration is infinite rather than the map's corner, so the band does not change shape with the map.</summary>
-        public void BandFor(SectorMissionKind kind, float coreRadiusCells, out float inner, out float outer)
+        public void BandFor(MissionKind kind, float coreRadiusCells, out float inner, out float outer)
         {
-            if (kind == SectorMissionKind.Mining)
+            if (kind == MissionKind.Prospection)
             {
                 inner = Mathf.Max(0f, coreRadiusCells);
                 outer = ExplorationMinimumCells;
@@ -101,13 +95,14 @@ namespace Game.Gameplay.Sectors
         /// exploration mission on the shipped map.
         /// </summary>
         public SectorEligibility EligibilityOf(
-            SectorMissionKind kind,
+            MissionKind kind,
             SectorGrid grid,
             DiscoveryRuntime discovery,
             Vector2 coreCenterCells,
             float coreRadiusCells,
             int index)
         {
+            if (kind == MissionKind.Recuperation) return SectorEligibility.NotABandMission;
             if (grid == null || !grid.ContainsIndex(index)) return SectorEligibility.NotASector;
 
             BandFor(kind, coreRadiusCells, out float inner, out float outer);
@@ -128,7 +123,7 @@ namespace Game.Gameplay.Sectors
         /// query allocates nothing.
         /// </summary>
         public SectorRangeResult Destinations(
-            SectorMissionKind kind,
+            MissionKind kind,
             SectorGrid grid,
             DiscoveryRuntime discovery,
             Vector2 coreCenterCells,
