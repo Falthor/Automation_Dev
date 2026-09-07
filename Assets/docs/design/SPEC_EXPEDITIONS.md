@@ -67,8 +67,10 @@ revanche accueillir des missions ciblant les points d'intérêt qu'il contient.
 | Fin de vie | le dernier robot explorateur s'éteint à la découverte du nid |
 | Troisième robot explorateur | débloqué par le nœud ??? de l'introduction |
 
-L'autonomie est comptée en missions et non en temps, ce qui la rend garantissable. Elle
-doit couvrir largement l'introduction : si les robots explorateurs s'épuisent avant que le joueur ait de
+L'autonomie est comptée en missions et non en temps, ce qui la rend garantissable — et elle est
+**affichée dès la première mission**, pour la même raison : un robot qui tombe en panne sans prévenir
+serait vécu comme une trahison, un robot qui affiche son compteur installe une urgence honnête et
+pousse à explorer tôt. Elle doit couvrir largement l'introduction : si les robots explorateurs s'épuisent avant que le joueur ait de
 quoi produire des unités, et qu'il est à court de CU au même moment, il n'a plus aucune
 sortie.
 
@@ -422,8 +424,8 @@ par une reconnaissance. Il débloque le nœud ??? de l'introduction, qui donne l
 exploré plus tôt, sans jamais bloquer quoi que ce soit.
 
 **3. La découverte du nid dormant.** Site posé par le générateur à une distance donnée,
-révélé à coup sûr par une mission précise, **et uniquement après l'amorçage du
-Datacenter**. Il allume la branche armement.
+révélé à coup sûr par une mission précise **une fois le troisième robot acquis**, et
+**uniquement après l'amorçage du Datacenter**. Il allume la branche armement.
 
 Le nid est découvert **dormant**. Le joueur sait qu'il se réveillera sans savoir quand.
 Être attaqué dans la minute qui suit ferait de la découverte une punition ; savoir qu'une
