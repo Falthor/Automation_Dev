@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: ConveyorCorner
   m_EditorClassIdentifier: Game.Data::Game.Data.ConveyorDefinition
   id: ConveyorCorner
-  displayName: Conveyor Corner
+  displayName: Convoyeur d'angle
   footprintSize: {x: 1, y: 1}
   placeholderColor: {r: 0.3, g: 0.6, b: 0.9, a: 1}
   unlockResearch: {fileID: 0}

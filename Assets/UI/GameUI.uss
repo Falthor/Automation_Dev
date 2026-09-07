@@ -561,31 +561,37 @@
 }
 
 .production-content {
-    width: 200px;
+    width: 100%;
 }
 
+/* The item being made, in the same shape as every listed item: icon, name, value on the right.
+
+   Set apart from the stock list above it, because it is not part of it. With ore in the building
+   the section showed two identical-looking lines - "Minerai de fer 1" and "Lingot de fer 1" - of
+   which only the first was stock; the second is what a cycle yields, and reading it as a held
+   ingot is the wrong answer to "what is in this machine". The gap groups it with the bar below,
+   whose progress is about it. */
 .production-current-row {
-    flex-direction: row;
-    align-items: center;
-    margin-bottom: 5px;
+    margin-top: 7px;
+    margin-bottom: 6px;
 }
 
 .production-current-icon {
-    width: 32px;
-    height: 32px;
+    width: 20px;
+    height: 20px;
     margin-right: 6px;
     -unity-background-scale-mode: scale-to-fit;
 }
 
 .production-current-amount {
-    color: rgb(85, 221, 245);
-    font-size: 10px;
+    color: rgb(220, 224, 228);
+    font-size: 11px;
 }
 
 .production-current-name {
-    color: rgb(220, 220, 220);
+    color: rgb(220, 224, 228);
     font-size: 11px;
-    -unity-font-style: bold;
+    flex-grow: 1;
 }
 
 .production-progress-track {
@@ -618,6 +624,26 @@
     margin-bottom: 6px;
 }
 
+/* In the production panel the rate is the one value in large type, so the row packs the figure and
+   its unit together on the left instead of pushing them to opposite edges. */
+.production-panel .production-rate-row {
+    justify-content: flex-start;
+    align-items: flex-end;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+/* The DÉBIT block sets its own spacing rather than inheriting the 13px section rhythm twice over.
+   Left alone it collected the gap under the bar, the gap above a section label, and the gap below
+   the row - some 45px of air around two lines of text, which read as three separate things
+   floating rather than as one figure with a name. */
+.production-rate-unit {
+    color: rgb(135, 147, 156);
+    font-size: 12px;
+    margin-left: 4px;
+    margin-bottom: 2px;
+}
+
 .production-rate-caption {
     color: rgb(135, 147, 156);
     font-size: 9px;
@@ -628,6 +654,14 @@
     color: rgb(85, 221, 245);
     font-size: 12px;
     -unity-font-style: bold;
+}
+
+/* 19px, and only here. DÉBIT is the line that answers "is this running well"; every other line
+   answers a narrower question and keeps the compact form. Make them all large and the panel is a
+   list again, with nothing to look at first. */
+.production-panel .production-rate-value {
+    font-size: 19px;
+    -unity-font-style: normal;
 }
 
 /* Core directive: what the Core is asking for, big enough to be the point of the panel rather than
@@ -776,17 +810,9 @@
     -unity-background-scale-mode: scale-to-fit;
 }
 
-.production-state-row {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.production-state-label {
-    font-size: 10px;
-    -unity-font-style: bold;
-}
-
+/* Under the bar, on the left: the countdown while a cycle runs, and what the machine is doing
+   instead when none does. One line, one statement - the panel used to say "waiting for ore" here
+   as a time that was not ticking, and again as a status line at the bottom. */
 .production-time-label {
     color: rgb(160, 168, 175);
     font-size: 9px;
@@ -1542,28 +1568,6 @@
     -unity-font-style: bold;
 }
 
-.state-producing {
-    color: rgb(85, 221, 245);
-}
-
-.state-waiting {
-    color: rgb(232, 168, 61);
-}
-
-.state-blocked {
-    color: rgb(222, 107, 74);
-}
-
-.state-idle {
-    color: rgb(135, 147, 156);
-}
-
-/* Switched off by the player. Yellow rather than the grey of "nothing to do": the building is not
-   idle, someone stopped it, and that is worth noticing when wondering why nothing comes out. */
-.state-paused {
-    color: rgb(255, 216, 102);
-}
-
 /* The pause control, sat against the panel title. Built on the close button's dimensions so the
    header keeps one button size, with a lit state for "this building is currently off". */
 .header-title-group {
@@ -1856,4 +1860,182 @@
 .bottom-nav-map-button:hover {
     color: rgb(85, 221, 245);
     border-color: rgb(85, 221, 245);
+}
+
+/* A building's name is a name, not a section heading. It keeps the title's colour and weight but
+   drops the letter-spacing, which only reads well on the spaced capitals of a label. */
+.title-name {
+    letter-spacing: 0;
+}
+
+/* Spaced capitals mark a section heading, and now nothing else does - so the spacing is the mark
+   rather than mere decoration. Deliberately not folded into .extractor-section-label: the Compute
+   panel reuses that class for value lines ("Reserve: 24 900 CU"), which must not be spaced out. */
+.section-label-spaced {
+    letter-spacing: 1px;
+}
+
+/* ---------------------------------------------------------------------------------------------
+   Panneau de production - refonte de la mise en forme
+
+   Everything here is scoped under .production-panel on purpose. The classes it overrides
+   (.panel, .header-row, .extractor-section-label, .production-ingredient-*) are shared with the
+   Extractor, Storage, Core and Data Center panels, which have not been restyled yet - an
+   unscoped change would silently reshape five panels nobody looked at.
+   --------------------------------------------------------------------------------------------- */
+
+/* Tabular figures. UI Toolkit exposes no OpenType feature properties, so `tnum` is unreachable and
+   a monospaced face is the only way to get columns of digits that do not move. Roboto Mono ships
+   with Unity under Apache 2.0; it is copied into Assets because the Editor's own copy lives in
+   Editor/Data/Resources and would resolve in the Editor and be missing from a build.
+
+   Applied to values only. Proportional digits make 128 wider than 34, so a counter shifts its own
+   left edge every time it changes and the eye has to find it again. */
+.mono-value {
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+/* Square corners and a flush right edge: the panel is part of the screen frame, not a card
+   floating on top of it. */
+/* 320px is the floor, not a taste: the Recettes tab lays three 92px cards with 3px margins either
+   side, which needs 294px of content plus the 22px of padding. Narrower and the grid drops to two
+   columns. */
+.overlay-root-right .production-panel {
+    width: 320px;
+    margin-right: 0;
+    padding: 11px;
+    border-radius: 0;
+    border-right-width: 0;
+}
+
+/* Separators run the full width of the panel, so they read as divisions of it rather than as
+   underlines of the text above them. The negative margins undo the panel's own padding, the
+   padding puts the content back where it was. */
+.production-panel .header-row {
+    margin-left: -11px;
+    margin-right: -11px;
+    padding-left: 11px;
+    padding-right: 11px;
+    padding-bottom: 8px;
+    margin-bottom: 0;
+}
+
+.production-panel .production-tab-bar {
+    margin-left: -11px;
+    margin-right: -11px;
+    padding-left: 11px;
+    padding-right: 11px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgb(48, 59, 66);
+}
+
+/* An underlined tab, not a boxed one: two bordered boxes side by side read as two buttons, and the
+   inactive one competed with the active for the same attention. */
+.production-panel .production-tab-button {
+    height: 26px;
+    background-color: rgba(0, 0, 0, 0);
+    border-radius: 0;
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 2px;
+    border-bottom-color: rgba(0, 0, 0, 0);
+    -unity-font-style: normal;
+    font-size: 11px;
+    margin-bottom: -1px;
+}
+
+.production-panel .production-tab-button-active {
+    background-color: rgba(0, 0, 0, 0);
+    border-bottom-color: rgb(85, 221, 245);
+    color: rgb(85, 221, 245);
+}
+
+.production-panel .header-toggle-button,
+.production-panel .close-button {
+    border-radius: 0;
+}
+
+.production-panel .extractor-progress-track {
+    height: 8px;
+    border-radius: 0;
+    border-width: 0;
+    background-color: rgb(28, 34, 40);
+}
+
+/* --- Spacing, all of it, in one place ---------------------------------------------------------
+   Every vertical gap in the panel is set here rather than beside the rule it overrides. Scattering
+   them cost a whole round: `.production-rate-block .extractor-section-label` sat 1300 lines above
+   `.production-panel .extractor-section-label`, tied with it on specificity, and lost on source
+   order - a correction that was in the file and changed nothing on screen. Two class names deep,
+   grouped and last, is a rule that cannot quietly lose. */
+
+.production-panel .extractor-section-label {
+    margin-top: 8px;
+    margin-bottom: 2px;
+}
+
+.production-panel .production-tab-bar {
+    margin-bottom: 8px;
+}
+
+.production-panel .production-current-row {
+    margin-top: 5px;
+    margin-bottom: 4px;
+}
+
+.production-panel .production-rate-block {
+    margin-top: 4px;
+    margin-bottom: 0;
+}
+
+.production-panel .production-ingredient-row {
+    margin-bottom: 2px;
+}
+
+.production-panel .progress-info-row {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.production-panel .production-consumption-row {
+    margin-bottom: 0;
+}
+
+/* DÉBIT is a caption on its own figure, not another section, so it drops the section rhythm and
+   sits tight against the number below it.
+
+   Three selectors deep on purpose. Written as `.production-rate-block .extractor-section-label` it
+   tied on specificity with the rule directly above and lost on source order alone - the override
+   was in the file, and had no effect at all. */
+.production-panel .production-rate-block .extractor-section-label {
+    margin-top: 0;
+    margin-bottom: -2px;
+}
+
+/* Values line up in a column of their own, so a ratio changing from 0 / 1 to 12 / 1 does not
+   shift the name beside it. */
+.production-panel .production-ingredient-status-ok,
+.production-panel .production-ingredient-status-missing,
+.production-panel .production-current-amount {
+    min-width: 46px;
+    -unity-text-align: middle-right;
+}
+
+/* Power in amber and Compute in green, the colours they already carry in the top bar. They were
+   both cyan here, which made the panel's accent colour mean "a number" rather than anything. */
+.production-consumption-power {
+    color: rgb(239, 159, 39);
+}
+
+.production-consumption-compute {
+    color: rgb(100, 210, 130);
+}
+
+/* Which side of the building a held item is sitting on - a qualifier on the name, not a value, so
+   it is set apart from both instead of being glued to the count as "1  (SORTIE)". */
+.production-ingredient-side {
+    color: rgb(120, 130, 138);
+    font-size: 9px;
+    margin-right: 6px;
 }

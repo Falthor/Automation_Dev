@@ -7,7 +7,7 @@
                 <!-- Title and pause grouped so the button sits against the name rather than being
                      pushed to the middle by the row's space-between. -->
                 <ui:VisualElement class="header-title-group">
-                    <ui:Label name="ProductionTitle" text="FOUNDRY" class="title" />
+                    <ui:Label name="ProductionTitle" text="Fonderie" class="title title-name" />
                     <ui:Button name="ProductionPauseButton" text="II" class="header-toggle-button" />
                     <ui:Button name="ProductionRotateButton" text="⟳" class="header-toggle-button" />
                 </ui:VisualElement>
@@ -15,8 +15,8 @@
             </ui:VisualElement>
 
             <ui:VisualElement class="production-tab-bar">
-                <ui:Button name="ProductionTabRecipes" text="RECETTES" class="production-tab-button" />
-                <ui:Button name="ProductionTabProduction" text="PRODUCTION" class="production-tab-button" />
+                <ui:Button name="ProductionTabRecipes" text="Recettes" class="production-tab-button" />
+                <ui:Button name="ProductionTabProduction" text="Production" class="production-tab-button" />
             </ui:VisualElement>
 
             <ui:VisualElement name="RecipesTab" class="recipes-tab">
@@ -25,17 +25,19 @@
             </ui:VisualElement>
 
             <ui:VisualElement name="ProductionTab" class="production-tab-content hidden">
-                <ui:Label text="STOCK INTERNE" class="extractor-section-label" />
+                <ui:Label text="STOCK INTERNE" class="extractor-section-label section-label-spaced" />
                 <ui:VisualElement name="ProductionStockList" class="production-ingredients-list" />
 
-                <ui:Label name="ProductionEmptyState" text="AUCUNE RECETTE SELECTIONNEE" class="production-empty-state" />
+                <ui:Label name="ProductionEmptyState" text="Aucune recette sélectionnée" class="production-empty-state" />
                 <ui:VisualElement name="ProductionContent" class="production-content hidden">
-                    <ui:VisualElement class="production-current-row">
+                    <!-- What is being made, in the same label-left/value-right shape as every other
+                         line. It used to be a block of its own, with the count stacked over the name;
+                         that made the one item the panel is about look like a different kind of thing
+                         from the items listed under it. -->
+                    <ui:VisualElement class="production-ingredient-row production-current-row">
                         <ui:VisualElement name="ProductionCurrentIcon" class="production-current-icon" />
-                        <ui:VisualElement class="production-current-text">
-                            <ui:Label name="ProductionCurrentAmount" text="&#215;1" class="production-current-amount" />
-                            <ui:Label name="ProductionCurrentName" text="" class="production-current-name" />
-                        </ui:VisualElement>
+                        <ui:Label name="ProductionCurrentName" text="" class="production-current-name" />
+                        <ui:Label name="ProductionCurrentAmount" text="1" class="production-current-amount mono-value" />
                     </ui:VisualElement>
 
                     <ui:VisualElement class="extractor-progress-track production-progress-track">
@@ -43,30 +45,36 @@
                     </ui:VisualElement>
                     <ui:VisualElement class="progress-info-row">
                         <ui:Label name="ProductionTimeLabel" text="" class="production-time-label" />
-                        <ui:Label name="ProductionPercentLabel" text="0 %" class="production-percent-label" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="production-rate-row">
-                        <ui:Label text="PRODUCTION" class="production-rate-caption" />
-                        <ui:Label name="ProductionRateLabel" text="" class="production-rate-value" />
+                        <ui:Label name="ProductionPercentLabel" text="0 %" class="production-percent-label mono-value" />
                     </ui:VisualElement>
 
-                    <ui:Label text="MATIERES PREMIERES" class="extractor-section-label" />
+                    <!-- The one value in large type. It is the only line that answers "is this
+                         running well", and a panel where everything is large answers nothing.
+
+                         Caption and figure are wrapped together so the two of them can sit tight
+                         against each other while keeping the section rhythm around them: a heading
+                         that drifts from its own value stops reading as its label. -->
+                    <ui:VisualElement class="production-rate-block">
+                        <ui:Label text="DÉBIT" class="extractor-section-label section-label-spaced" />
+                        <ui:VisualElement class="production-rate-row">
+                            <ui:Label name="ProductionRateLabel" text="" class="production-rate-value mono-value" />
+                            <ui:Label text="/ min" class="production-rate-unit" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <ui:Label text="MATIÈRES PREMIÈRES" class="extractor-section-label section-label-spaced" />
                     <ui:VisualElement name="ProductionIngredientsList" class="production-ingredients-list" />
 
-                    <ui:Label text="CONSOMMATION" class="extractor-section-label" />
+                    <ui:Label text="CONSOMMATION" class="extractor-section-label section-label-spaced" />
                     <ui:VisualElement class="production-consumption-row">
                         <ui:VisualElement class="production-consumption-pill">
                             <ui:VisualElement name="ProductionPowerIcon" class="production-consumption-icon" />
-                            <ui:Label name="ProductionPowerValue" text="0 kW" class="production-consumption-pill-text" />
+                            <ui:Label name="ProductionPowerValue" text="0 kW" class="production-consumption-pill-text production-consumption-power mono-value" />
                         </ui:VisualElement>
                         <ui:VisualElement class="production-consumption-pill">
                             <ui:VisualElement name="ProductionComputeIcon" class="production-consumption-icon" />
-                            <ui:Label name="ProductionComputeValue" text="0 CU" class="production-consumption-pill-text" />
+                            <ui:Label name="ProductionComputeValue" text="0 CU" class="production-consumption-pill-text production-consumption-compute mono-value" />
                         </ui:VisualElement>
-                    </ui:VisualElement>
-
-                    <ui:VisualElement class="production-state-row">
-                        <ui:Label name="ProductionStateLabel" text="" class="production-state-label" />
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>

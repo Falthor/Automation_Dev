@@ -4,11 +4,11 @@
     <ui:VisualElement name="ExtractorPanelRoot" class="overlay-root overlay-root-right hidden" picking-mode="Ignore">
         <ui:VisualElement class="panel panel-accent" picking-mode="Position">
             <ui:VisualElement class="header-row">
-                <ui:Label name="ExtractorTitle" text="EXTRACTOR" class="title" />
+                <ui:Label name="ExtractorTitle" text="Extractor" class="title title-name" />
                 <ui:Button name="ExtractorCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
             <ui:VisualElement class="extractor-body">
-                <ui:Label text="PRODUCTION" class="extractor-section-label" />
+                <ui:Label text="PRODUCTION" class="extractor-section-label section-label-spaced" />
                 <ui:VisualElement class="extractor-progress-track">
                     <ui:VisualElement name="ExtractorProgressFill" class="extractor-progress-fill" />
                 </ui:VisualElement>
@@ -20,7 +20,7 @@
                     <ui:Label text="EXTRACTION" class="production-rate-caption" />
                     <ui:Label name="ExtractorRateLabel" text="" class="production-rate-value" />
                 </ui:VisualElement>
-                <ui:Label text="INTERNAL STORAGE" class="extractor-section-label" />
+                <ui:Label text="STOCK INTERNE" class="extractor-section-label section-label-spaced" />
                 <ui:VisualElement class="storage-card">
                     <ui:VisualElement name="ExtractorStorageIcon" class="storage-card-icon" />
                     <ui:Label name="ExtractorStorageCount" text="0/20" class="storage-card-count" />

@@ -132,7 +132,7 @@ namespace Game.UI
 
         void RenderPerBox(StorageRuntime storage)
         {
-            _title.text = "STORAGE BOX";
+            _title.text = "Boite Rudimentaire";
             _root.EnableInClassList("overlay-root-right", true);
 
             // Only a specific box can be moved; the aggregate view is every box at once.
@@ -155,7 +155,7 @@ namespace Game.UI
         /// </summary>
         void RenderAggregate()
         {
-            _title.text = "STOCK GLOBAL";
+            _title.text = "Stock global";
             _root.EnableInClassList("overlay-root-right", false);
             _moveButton.EnableInClassList("hidden", true);
 

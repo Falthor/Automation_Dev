@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: AdvancedFoundryDefinition
   m_EditorClassIdentifier: Game.Data::Game.Data.AdvancedFoundryDefinition
   id: fonderie_avancee
-  displayName: Advanced Foundry
+  displayName: Fonderie avancée
   footprintSize: {x: 3, y: 3}
   placeholderColor: {r: 0.7, g: 0.45, b: 0.15, a: 1}
   unlockResearch: {fileID: 11400000, guid: d480d6f5dc814760a79619c05471ba5c, type: 2}

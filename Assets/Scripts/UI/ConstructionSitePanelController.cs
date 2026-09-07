@@ -211,10 +211,10 @@ namespace Game.UI
         static string TitleFor(ConstructionSiteRuntime site)
         {
             BuildingDefinition definition = site.PrimaryDefinition;
-            string name = definition != null ? definition.DisplayName : "CHANTIER";
+            string name = definition != null ? definition.DisplayName : "Chantier";
             return site.Segments.Count > 1
-                ? $"{name.ToUpperInvariant()} ×{site.Segments.Count}"
-                : name.ToUpperInvariant();
+                ? $"{name} ×{site.Segments.Count}"
+                : name;
         }
 
         void Render()

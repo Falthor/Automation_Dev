@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ItemDefinition
   id: Printed_Circuit_Board
   type: 2
-  displayName: Circuit Board
+  displayName: Circuit imprimé
   icon: {fileID: 21300000, guid: fb3cf87f6a5556e449d8190fd13fd133, type: 3}
   fallbackColor: {r: 0.2, g: 0.55, b: 0.3, a: 1}
   cuOutput: 0

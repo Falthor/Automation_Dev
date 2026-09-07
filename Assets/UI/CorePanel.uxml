@@ -4,7 +4,7 @@
     <ui:VisualElement name="CorePanelRoot" class="overlay-root overlay-root-right hidden" picking-mode="Ignore">
         <ui:VisualElement class="panel panel-accent datacenter-panel" picking-mode="Position">
             <ui:VisualElement class="header-row">
-                <ui:Label text="CORE" class="title" />
+                <ui:Label text="Noyau" class="title title-name" />
                 <ui:Button name="CoreCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
             <ui:VisualElement class="inline-icon-row">
@@ -18,10 +18,10 @@
             <!-- The directive the Core is currently asking for. Hidden entirely once there are
                  none left, which is the whole of "plus rien ne s'affiche". -->
             <ui:VisualElement name="CoreDirective" class="core-directive hidden">
-                <ui:Label name="CoreDirectiveTitle" text="DIRECTIVE" class="extractor-section-label" />
+                <ui:Label name="CoreDirectiveTitle" text="DIRECTIVE" class="extractor-section-label section-label-spaced" />
                 <ui:VisualElement name="CoreDirectiveRequirements" class="core-directive-requirements" />
 
-                <ui:Label name="CoreDirectiveRewardTitle" text="RECOMPENSE" class="extractor-section-label" />
+                <ui:Label name="CoreDirectiveRewardTitle" text="RÉCOMPENSE" class="extractor-section-label section-label-spaced" />
                 <ui:VisualElement name="CoreDirectiveRewardItem" class="core-directive-reward">
                     <ui:VisualElement name="CoreDirectiveRewardIcon" class="core-directive-reward-icon" />
                     <ui:Label name="CoreDirectiveRewardName" text="" class="core-directive-reward-name" />

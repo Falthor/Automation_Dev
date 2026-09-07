@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ItemDefinition
   id: Iron_Ingot
   type: 1
-  displayName: Iron Ingot
+  displayName: Lingot de fer
   icon: {fileID: 21300000, guid: 13ecba2541d18d64490d9e66cb955765, type: 3}
   fallbackColor: {r: 0.75, g: 0.75, b: 0.8, a: 1}
   cuOutput: 0

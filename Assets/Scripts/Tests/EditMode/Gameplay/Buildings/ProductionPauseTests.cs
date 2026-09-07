@@ -59,7 +59,6 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             Assert.AreEqual(0f, power.SettledDemand, 0.001f);
             Assert.AreEqual(ProductionState.Paused, factory.GetState());
-            Assert.AreEqual("EN PAUSE", factory.GetStateLabel());
         }
 
         [Test]

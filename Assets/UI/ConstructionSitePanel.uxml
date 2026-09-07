@@ -4,7 +4,7 @@
     <ui:VisualElement name="ConstructionSitePanelRoot" class="overlay-root overlay-root-right hidden" picking-mode="Ignore">
         <ui:VisualElement class="panel panel-accent" picking-mode="Position">
             <ui:VisualElement class="header-row">
-                <ui:Label name="SiteTitle" text="CHANTIER" class="title" />
+                <ui:Label name="SiteTitle" text="Chantier" class="title title-name" />
                 <ui:Button name="SiteCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
             <ui:VisualElement class="extractor-body">
@@ -12,7 +12,7 @@
                     <ui:VisualElement name="SiteServiceRobotIcon" class="site-service-icon" />
                     <ui:Label name="SiteServiceLabel" text="" class="site-service-waiting" />
                 </ui:VisualElement>
-                <ui:Label text="APPROVISIONNEMENT" class="extractor-section-label" />
+                <ui:Label text="APPROVISIONNEMENT" class="extractor-section-label section-label-spaced" />
                 <ui:VisualElement class="extractor-progress-track">
                     <ui:VisualElement name="SiteProgressFill" class="extractor-progress-fill" />
                 </ui:VisualElement>

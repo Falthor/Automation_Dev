@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: FoundryDefinition
   m_EditorClassIdentifier: Game.Data::Game.Data.FoundryDefinition
   id: foundry
-  displayName: Foundry
+  displayName: Fonderie
   footprintSize: {x: 2, y: 2}
   placeholderColor: {r: 0.6, g: 0.4, b: 0.2, a: 1}
   unlockResearch: {fileID: 0}

@@ -88,7 +88,7 @@ namespace Game.UI
         void Render()
         {
             var item = gameRuntime.Items != null ? gameRuntime.Items.Get(_selected.ItemId) : null;
-            _title.text = $"EXTRACTOR - {(item != null ? item.DisplayName : _selected.ItemId)}";
+            _title.text = $"Extractor — {(item != null ? item.DisplayName : _selected.ItemId)}";
 
             float progress = _selected.ProductionProgress;
             _progressFill.style.width = new StyleLength(Length.Percent(progress * 100f));

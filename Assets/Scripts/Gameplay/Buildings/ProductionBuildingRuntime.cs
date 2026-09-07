@@ -183,17 +183,12 @@ namespace Game.Gameplay.Buildings
         /// <summary>Configured Power demand (kW) while Producing - static/definition-derived, for the UI's consumption display.</summary>
         public float GetPowerDemandKw() => _powerDemandKw;
 
+        /// <summary>
+        /// What the machine is doing, as a value. The words for it belong to whoever displays them -
+        /// this used to also hand out French display strings, which put a panel's vocabulary inside
+        /// the simulation and meant a wording change edited Game.Gameplay.
+        /// </summary>
         public ProductionState GetState() => _state;
-
-        public string GetStateLabel() => _state switch
-        {
-            ProductionState.Producing => "PRODUCTION",
-            ProductionState.WaitingResources => "EN ATTENTE DE RESSOURCES",
-            ProductionState.OutputBlocked => "SORTIE PLEINE",
-            ProductionState.WaitingCompute => "COMPUTE INSUFFISANT",
-            ProductionState.Paused => "EN PAUSE",
-            _ => "ARRET"
-        };
 
         /// <summary>
         /// Switched off by the player: no power reported, no Compute spent, no cycle advanced.

@@ -48,7 +48,6 @@ namespace Game.UI
         VisualElement _stockList;
         Label _powerValue;
         Label _computeValue;
-        Label _stateLabel;
         Button _pauseButton;
         Button _rotateButton;
         Label _timeLabel;
@@ -88,7 +87,6 @@ namespace Game.UI
             _computeValue = panelRoot.Q<Label>("ProductionComputeValue");
             if (powerIcon != null) panelRoot.Q<VisualElement>("ProductionPowerIcon").style.backgroundImage = new StyleBackground(powerIcon);
             if (computeIcon != null) panelRoot.Q<VisualElement>("ProductionComputeIcon").style.backgroundImage = new StyleBackground(computeIcon);
-            _stateLabel = panelRoot.Q<Label>("ProductionStateLabel");
             _timeLabel = panelRoot.Q<Label>("ProductionTimeLabel");
             _rateLabel = panelRoot.Q<Label>("ProductionRateLabel");
 
@@ -119,7 +117,7 @@ namespace Game.UI
             _root.EnableInClassList("hidden", _selected == null);
             if (_selected == null) return;
 
-            _title.text = _selected.Definition.DisplayName.ToUpperInvariant();
+            _title.text = _selected.Definition.DisplayName;
             _pendingRecipeId = _selected.GetSelectedRecipe();
             RebuildRecipeCards();
             // A building already producing opens on PRODUCTION; a fresh/idle one opens on
@@ -215,7 +213,7 @@ namespace Game.UI
             divider.AddToClassList("recipe-card-divider");
             card.Add(divider);
 
-            var name = new Label(ResolveItemName(recipeId).ToUpperInvariant());
+            var name = new Label(ResolveItemName(recipeId));
             name.AddToClassList("recipe-card-name");
             card.Add(name);
 
@@ -301,8 +299,8 @@ namespace Game.UI
 
             RecipeDefinition recipe = gameRuntime.Recipes.Get(recipeId);
             _currentIcon.style.backgroundImage = new StyleBackground(ResolveItemIcon(recipeId));
-            _currentAmount.text = $"×{(recipe != null ? recipe.OutputAmount : 1)}";
-            _currentName.text = ResolveItemName(recipeId).ToUpperInvariant();
+            _currentAmount.text = $"{(recipe != null ? recipe.OutputAmount : 1)}";
+            _currentName.text = ResolveItemName(recipeId);
 
             _ingredientsList.Clear();
             IReadOnlyDictionary<string, int> required = _selected.GetRequiredIngredients();
@@ -315,27 +313,48 @@ namespace Game.UI
             _powerValue.text = $"{_selected.GetPowerDemandKw():0} kW";
             _computeValue.text = $"{(recipe != null ? recipe.ComputeCost : 0f):0} CU";
 
+            ProductionState state = _selected.GetState();
             float progress = _selected.GetProgress();
             _progressFill.style.width = new StyleLength(Length.Percent(progress * 100f));
             _percentLabel.text = $"{Mathf.RoundToInt(progress * 100f)} %";
 
-            float remaining = _selected.GetProductionTime() * (1f - progress);
-            _timeLabel.text = $"{remaining:0.0}s restantes";
+            // The bar and its caption must say the same thing. They used to disagree: with no ore in
+            // the building nothing was running, the bar was empty, and the caption still counted down
+            // "6.0s restantes" - a full cycle's time, for a cycle that had not started. A countdown is
+            // only meaningful while something is being counted down, so anything else says what the
+            // machine is doing instead. That is also the panel's only statement of state now.
+            bool producing = state == ProductionState.Producing;
+            _timeLabel.text = producing
+                ? $"{_selected.GetProductionTime() * (1f - progress):0.0}s restantes"
+                : StateCaption(state);
+
+            // Monospaced only while it is a countdown. "5.9" -> "5.8" ten times a second is exactly
+            // the jitter tabular figures exist for; a two-word state is prose and reads better in
+            // the panel's own face.
+            _timeLabel.EnableInClassList("mono-value", producing);
 
             // The recipe's rating, not a measurement of this building: it assumes the ingredients
-            // keep arriving, and says nothing about whether they are. What is actually happening
-            // right now is the state line at the bottom of this same panel.
-            _rateLabel.text = recipe != null ? RateText.PerMinute(recipe.OutputPerMinute) : string.Empty;
-
-            ProductionState state = _selected.GetState();
-            _stateLabel.text = "● " + _selected.GetStateLabel();
-            _stateLabel.RemoveFromClassList("state-producing");
-            _stateLabel.RemoveFromClassList("state-waiting");
-            _stateLabel.RemoveFromClassList("state-blocked");
-            _stateLabel.RemoveFromClassList("state-idle");
-            _stateLabel.RemoveFromClassList("state-paused");
-            _stateLabel.AddToClassList(StateClass(state));
+            // keep arriving, and says nothing about whether they are. Whether they are arriving is
+            // the raw-materials list below.
+            _rateLabel.text = recipe != null ? RateText.PerMinuteValue(recipe.OutputPerMinute) : string.Empty;
         }
+
+        /// <summary>
+        /// What the machine is doing, under the progress bar, when no cycle is running.
+        ///
+        /// Lower case and in the UI layer, both deliberately. Lower case because it sits where a
+        /// countdown sits and reads as the same kind of remark, not as a heading. In the UI layer
+        /// because it is a display string: the runtime used to own these words, which put French
+        /// prose in Game.Gameplay for the sole benefit of one panel.
+        /// </summary>
+        static string StateCaption(ProductionState state) => state switch
+        {
+            ProductionState.WaitingResources => "en attente",
+            ProductionState.OutputBlocked => "sortie pleine",
+            ProductionState.WaitingCompute => "compute insuffisant",
+            ProductionState.Paused => "en pause",
+            _ => "à l'arrêt"
+        };
 
         /// <summary>
         /// Switches the inspected building off and on. Lit while paused, so the button says which
@@ -378,12 +397,12 @@ namespace Game.UI
             foreach (var kvp in _selected.GetInputContents())
             {
                 if (kvp.Value <= 0) continue;
-                _stockList.Add(BuildStockRow(kvp.Key, kvp.Value, "ENTREE"));
+                _stockList.Add(BuildStockRow(kvp.Key, kvp.Value, "entrée"));
             }
             foreach (var kvp in _selected.GetOutputContents())
             {
                 if (kvp.Value <= 0) continue;
-                _stockList.Add(BuildStockRow(kvp.Key, kvp.Value, "SORTIE"));
+                _stockList.Add(BuildStockRow(kvp.Key, kvp.Value, "sortie"));
             }
         }
 
@@ -401,8 +420,13 @@ namespace Game.UI
             name.AddToClassList("production-ingredient-name");
             row.Add(name);
 
-            var status = new Label($"{amount}  ({sideLabel})");
+            var side = new Label(sideLabel);
+            side.AddToClassList("production-ingredient-side");
+            row.Add(side);
+
+            var status = new Label($"{amount}");
             status.AddToClassList("production-ingredient-status-ok");
+            status.AddToClassList("mono-value");
             row.Add(status);
 
             return row;
@@ -431,12 +455,17 @@ namespace Game.UI
             name.AddToClassList("production-ingredient-name");
             row.Add(name);
 
-            var status = new Label($"{have} / {need}  {(ok ? "✓" : "✕")}");
+            // No tick or cross after the ratio. A shortage was written three times on one line - a
+            // red name, a red figure and a red ✕ - and three statements of one fact read as noise
+            // rather than as emphasis. The colour alone carries it.
+            var status = new Label($"{have} / {need}");
             status.AddToClassList(ok ? "production-ingredient-status-ok" : "production-ingredient-status-missing");
+            status.AddToClassList("mono-value");
             row.Add(status);
 
             var demand = new Label(RateText.PerMinute(need * craftsPerMinute));
             demand.AddToClassList("production-ingredient-rate");
+            demand.AddToClassList("mono-value");
             row.Add(demand);
 
             return row;
@@ -454,15 +483,5 @@ namespace Game.UI
             ItemDefinition item = gameRuntime.Items != null ? gameRuntime.Items.Get(itemId) : null;
             return item != null && !string.IsNullOrEmpty(item.DisplayName) ? item.DisplayName : itemId;
         }
-
-        static string StateClass(ProductionState state) => state switch
-        {
-            ProductionState.Producing => "state-producing",
-            ProductionState.WaitingResources => "state-waiting",
-            ProductionState.WaitingCompute => "state-waiting",
-            ProductionState.OutputBlocked => "state-blocked",
-            ProductionState.Paused => "state-paused",
-            _ => "state-idle"
-        };
     }
 }

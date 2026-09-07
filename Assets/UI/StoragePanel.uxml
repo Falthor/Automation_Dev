@@ -7,7 +7,7 @@
                 <!-- Grouped like the production panel's title and pause, so the button sits against
                      the name instead of being pushed to the middle by the row's space-between. -->
                 <ui:VisualElement class="header-title-group">
-                    <ui:Label name="StorageTitle" text="STORAGE" class="title" />
+                    <ui:Label name="StorageTitle" text="Boite Rudimentaire" class="title title-name" />
                     <ui:Button name="StorageMoveButton" text="✥" class="header-toggle-button" />
                 </ui:VisualElement>
                 <ui:Button name="StorageCloseButton" text="&#215;" class="close-button" />

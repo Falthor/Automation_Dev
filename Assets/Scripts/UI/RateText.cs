@@ -17,5 +17,12 @@ namespace Game.UI
         /// property of the recipe.
         /// </summary>
         public static string PerMinute(float rate) => $"{rate:0.#}/min";
+
+        /// <summary>
+        /// The same figure without its unit, for the one place that sets the unit in its own type:
+        /// the production panel's DÉBIT line, where the number is 19px and "/ min" is 12px and grey.
+        /// Rounded identically to <see cref="PerMinute"/>, which is the whole point of it living here.
+        /// </summary>
+        public static string PerMinuteValue(float rate) => $"{rate:0.#}";
     }
 }
