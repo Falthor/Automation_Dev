@@ -5,6 +5,7 @@ using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Directives;
+using Game.Gameplay.Missions;
 using Game.Gameplay.Notifications;
 using Game.Gameplay.Power;
 using Game.Gameplay.Research;
@@ -86,6 +87,9 @@ namespace Game.Presentation
         /// </summary>
         [SerializeField] SectorSettings sectorSettings;
 
+        /// <summary>How the expedition system is tuned. Optional: null means a world without expeditions.</summary>
+        [SerializeField] MissionSettings missionSettings;
+
         /// <summary>What grows on the ground and how thickly. Optional: null means a world with no decor, which is a plain world rather than a broken one.</summary>
         [SerializeField] DecorSettings decorSettings;
 
@@ -132,6 +136,9 @@ namespace Game.Presentation
 
         /// <summary>Which sectors are currently within mission reach. Reads the Core's radius at call time, so extending it moves the ring on its own.</summary>
         public SectorMissionRange MissionRange { get; private set; }
+
+        /// <summary>The expedition process: probes, missions in flight, reports. Null when no mission settings are configured, which is a world without expeditions rather than a broken one.</summary>
+        public MissionSystem Missions { get; private set; }
 
         /// <summary>
         /// The scene's one depth ladder - every sorted-band rank comes from it. There must be
@@ -309,6 +316,12 @@ namespace Game.Presentation
             // follows it on its own rather than being a second figure to keep in step.
             MissionRange = new SectorMissionRange(CoreRuntime.ExtendedActionRadiusCells, sectorSettings.TerritorySpacingCells);
 
+            if (missionSettings != null)
+            {
+                Missions = new MissionSystem(missionSettings, Sectors, Discovery, SectorCatalog, Compute, Terrain.Seed);
+                Missions.RestoreState(loadedSave?.Missions);
+            }
+
             Selection = new SelectionRuntime();
             Selection.GlobalPanelChanged += name =>
             {
@@ -438,6 +451,7 @@ namespace Game.Presentation
                 // Only what the player cleared. What grows re-derives itself from the seed, so
                 // storing it would be storing what the seed already says.
                 DecorRemoved = Decor?.CaptureState(),
+                Missions = Missions?.CaptureState(),
                 ComputeReserve = Compute.Reserve,
                 ResearchActiveId = Research.ActiveResearch != null ? Research.ActiveResearch.Id : null,
                 ResearchProgress = Research.AbsorbedCu,
@@ -697,6 +711,11 @@ namespace Game.Presentation
             // After Research, which is what extends the radius: the widened disc is written the same
             // frame it is granted rather than one frame later.
             RevealDiscoveredByCore();
+
+            // After the Core's disc, so a mission landing this frame reveals on top of an up-to-date
+            // map rather than under it. The reserve and its cap are handed over rather than read,
+            // because the probe threshold is a fraction of the cap - see MissionSettings.
+            Missions?.Tick(Time.deltaTime, Compute.Reserve, ComputeSystem.ReserveCap);
 
             // Scaled deltaTime, like every system above it - which is the whole of how the run
             // clock pauses and resumes. Pause sets Time.timeScale to 0, so this is fed 0 and stops

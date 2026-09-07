@@ -4793,6 +4793,7 @@ MonoBehaviour:
   itemDatabase: {fileID: 11400000, guid: e293367a8c57e9742b5e998dfa2732a0, type: 2}
   recipeDatabase: {fileID: 11400000, guid: 6e1c6652c14736c4abd9665bd5eee4fd, type: 2}
   sectorSettings: {fileID: 11400000, guid: 35ccf0ce1e8048249b013fdd367d6d15, type: 2}
+  missionSettings: {fileID: 11400000, guid: e280420ccc8a4fe4fba222361cae2e75, type: 2}
   decorSettings: {fileID: 11400000, guid: 649c04cc3933e334e9e691e297317a73, type: 2}
   decorVisuals: {fileID: 696337366}
   worldGenerationSettings: {fileID: 11400000, guid: 592ff7fb40a07364995fc0c9a5f6d49b, type: 2}

@@ -98,6 +98,9 @@ namespace Game.Gameplay.Sectors
         /// <summary>Where the risk gradient is measured from, in cell space - not the Core's sector, which would put the measurement back in units of the division.</summary>
         readonly Vector2 _coreCenterCells;
 
+        /// <summary>Where the risk gradient is measured from, in cells. Exposed because a mission's duration is measured from the same point - two distances from the Core would be two things to keep in step.</summary>
+        public Vector2 CoreCenterCells => _coreCenterCells;
+
         readonly float _lowRiskWithinCells;
         readonly float _moderateRiskWithinCells;
         readonly float _highRiskWithinCells;

@@ -72,6 +72,22 @@ namespace Game.Save
         /// </summary>
         public string DecorRemoved;
 
+        /// <summary>
+        /// The expedition system: missions in flight with their clock and their already-drawn outcome,
+        /// the charges left on each probe, and the sites already recovered
+        /// (<c>MissionSystem.CaptureState</c>).
+        ///
+        /// <b>The outcome is stored, not a seed.</b> A mission saved in flight has to come back
+        /// identical - neither redrawn nor lost - and carrying the result is what makes that
+        /// structural: there is nothing left to decide at landing, so nothing a reload can decide
+        /// differently.
+        ///
+        /// Reports waiting to be read are deliberately absent: an unread one is delivered again on the
+        /// next landing rather than lost. No <c>Version</c> bump - an additive field with a per-field
+        /// fallback, which restores as a game whose probes have not yet arrived.
+        /// </summary>
+        public JObject Missions;
+
         public float ComputeReserve;
 
         public string ResearchActiveId;

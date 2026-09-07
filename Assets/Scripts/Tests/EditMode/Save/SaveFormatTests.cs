@@ -34,6 +34,7 @@ namespace Game.Tests.EditMode.Save
             TerrainProportion = 0.5f,
             Discovered = "0:120,1:16,0:120",
             DecorRemoved = "4096,4097,131072",
+            Missions = new JObject { ["nextId"] = 4, ["appeared"] = true },
             ComputeReserve = 12.5f,
             ResearchActiveId = "automation",
             ResearchProgress = 0.75f,
@@ -68,6 +69,7 @@ namespace Game.Tests.EditMode.Save
         {
             "Version", "SavedAtUtc",
             "TerrainSeed", "TerrainSize", "TerrainScale", "TerrainProportion", "Discovered", "DecorRemoved",
+            "Missions",
             "ComputeReserve",
             "ResearchActiveId", "ResearchProgress", "ResearchQueue", "ResearchUnlocked",
             "ConstructionSites", "CoreDirectives",
@@ -155,6 +157,12 @@ namespace Game.Tests.EditMode.Save
             Assert.AreEqual(original.Discovered, restored.Discovered);
             Assert.AreEqual(original.DecorRemoved, restored.DecorRemoved);
 
+            // Asserted through the round trip, not merely present in the fixture: Discovered sat in
+            // this fixture for months without ever being compared, so it could have been lost in
+            // transit with nothing turning red.
+            Assert.AreEqual(4, restored.Missions["nextId"].Value<int>());
+            Assert.IsTrue(restored.Missions["appeared"].Value<bool>());
+
             Assert.AreEqual(original.ComputeReserve, restored.ComputeReserve);
             Assert.AreEqual(original.ResearchActiveId, restored.ResearchActiveId);
             Assert.AreEqual(original.ResearchProgress, restored.ResearchProgress);
@@ -189,6 +197,7 @@ namespace Game.Tests.EditMode.Save
             Assert.IsNull(restored.BuildingCap, "Absent means absent, never 0.");
             Assert.IsNull(restored.PlayTimeSeconds, "A save from before the run clock is not a run that lasted zero seconds.");
             Assert.IsNull(restored.ConstructionSites, "A save from before the robots restores without one.");
+            Assert.IsNull(restored.Missions, "a save from before the expeditions restores as a game whose probes have not arrived.");
             Assert.IsNull(restored.DecorRemoved,
                 "A save from before the decor recorded no clearing, which DecorRuntime.RestoreState reads as a world nobody has cleared anything in.");
         }

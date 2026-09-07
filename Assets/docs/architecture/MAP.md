@@ -181,7 +181,11 @@ wanting somewhere to go wants a few destinations, not four hundred thousand — 
   there is nothing to generate lazily. See `TERRAIN.md` §1.
 - **The zoomed-out map**, its hover and its risk display — the interface over §4, which the directive
   places last.
-- **Missions themselves**, which everything above is the prerequisite for.
+- **Missions themselves** — the process exists (`MissionSystem`, `Game.Gameplay.Missions`): probes,
+  the state machine, the two reconnaissances, launch-time draw surviving a save, and the introduction's
+  finite reward budget. What is missing is everything with a screen — the launch panel, the mission
+  counter on the top bar, the reports — plus units and the four late missions. See
+  [`../expeditions.md`](../expeditions.md).
 - ~~Two mission ranges.~~ **Done** — see §4. The single ring is gone.
 - **Sector content materialisation.** Contents are derived and tested, but nothing turns them into
   real deposits.
