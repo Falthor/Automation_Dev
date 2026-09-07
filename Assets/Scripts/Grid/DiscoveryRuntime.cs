@@ -19,6 +19,12 @@ namespace Game.Grid
     /// disc again and a mission would have nothing left to reveal. Nothing in here knows where the
     /// Core is, which is what keeps that mistake from being possible.
     ///
+    /// <b>Stored per chunk, created on first write.</b> A chunk nobody has ever revealed a cell in
+    /// does not exist, and answering "unknown" for its cells costs nothing - which is what keeps the
+    /// memory proportional to what the player has seen instead of to the size of the map. That is an
+    /// implementation detail and nothing else: every method below behaves exactly as it did over a
+    /// flat array, the captured string is byte-for-byte the same, and no caller can tell.
+    ///
     /// Lives in Game.Grid beside <see cref="TerrainRuntime"/>: it is per-cell world state of exactly
     /// the same shape, read by Presentation and written by Gameplay, so it belongs under both
     /// (PROJECT_ARCHITECTURE.md §7).
@@ -31,7 +37,27 @@ namespace Game.Grid
         /// <summary>Separates a run's state from its length.</summary>
         const char RunFieldSeparator = ':';
 
-        readonly DiscoveryState[] _cells;
+        /// <summary>
+        /// One array per chunk that has ever been written to, and nothing at all for the rest.
+        ///
+        /// A flat array is full the moment it is allocated: 100 MB on a 10 000-cell map, for a map
+        /// that will stay 99 % unknown for the whole run. Chunks make the cost follow what the player
+        /// has actually seen instead of the size of the world.
+        ///
+        /// <b>An absent chunk is unknown, never discovered.</b> That is the one thing that must not
+        /// be got backwards - the opposite default would reveal the entire map at once - and it is
+        /// what every read below falls back to. A test pins it.
+        ///
+        /// This is storage, not contract: nothing outside this class can tell the difference, and the
+        /// captured form is byte-for-byte what the flat array produced.
+        /// </summary>
+        readonly Dictionary<int, DiscoveryState[]> _chunks = new Dictionary<int, DiscoveryState[]>();
+
+        /// <summary>Cells along one side of a chunk. Comes from SectorSettings, passed as a plain int - Game.Grid must not depend on Game.Data (see TerrainRuntime for the same reason).</summary>
+        public int ChunkSizeCells { get; }
+
+        /// <summary>Chunks along one axis, rounded up so a map that is not a whole number of chunks keeps its edge.</summary>
+        readonly int _chunksPerAxis;
 
         public int Size { get; }
 
@@ -45,18 +71,48 @@ namespace Game.Grid
         /// </summary>
         public int Version { get; private set; }
 
-        public DiscoveryRuntime(int size)
+        /// <summary>How many chunks currently hold storage. For tests and reporting - it is the whole point of the sparse form, so it is worth being able to assert.</summary>
+        public int MaterialisedChunkCount => _chunks.Count;
+
+        public DiscoveryRuntime(int size, int chunkSizeCells)
         {
             Size = Mathf.Max(0, size);
+            ChunkSizeCells = Mathf.Max(1, chunkSizeCells);
+            _chunksPerAxis = Mathf.CeilToInt(Size / (float)ChunkSizeCells);
+        }
 
-            // Allocated once, for the life of the run: 90 000 bytes on the current 300-cell map.
-            _cells = new DiscoveryState[Size * Size];
+        /// <summary>The chunk a cell belongs to. Callers must have checked <see cref="Contains"/> first.</summary>
+        int ChunkIndexOf(GridCoord cell) => cell.Y / ChunkSizeCells * _chunksPerAxis + cell.X / ChunkSizeCells;
+
+        /// <summary>Where a cell sits inside its own chunk's array.</summary>
+        int OffsetInChunk(GridCoord cell) => cell.Y % ChunkSizeCells * ChunkSizeCells + cell.X % ChunkSizeCells;
+
+        /// <summary>The chunk's storage, or null when it has never been written to - which reads as wholly unknown.</summary>
+        DiscoveryState[] ExistingChunk(GridCoord cell)
+            => _chunks.TryGetValue(ChunkIndexOf(cell), out DiscoveryState[] chunk) ? chunk : null;
+
+        /// <summary>
+        /// The chunk's storage, allocating it if this is the first write there. Allocation happens
+        /// only on a first write, so it is not a per-frame cost: re-revealing a disc already seen
+        /// allocates nothing.
+        /// </summary>
+        DiscoveryState[] ChunkForWriting(GridCoord cell)
+        {
+            int index = ChunkIndexOf(cell);
+            if (_chunks.TryGetValue(index, out DiscoveryState[] chunk)) return chunk;
+
+            chunk = new DiscoveryState[ChunkSizeCells * ChunkSizeCells];
+            _chunks[index] = chunk;
+            return chunk;
         }
 
         /// <summary>The state of one cell. Out of bounds reads as Unknown - there is nothing out there to have discovered.</summary>
         public DiscoveryState GetState(GridCoord cell)
         {
-            return Contains(cell) ? _cells[cell.Y * Size + cell.X] : DiscoveryState.Unknown;
+            if (!Contains(cell)) return DiscoveryState.Unknown;
+
+            DiscoveryState[] chunk = ExistingChunk(cell);
+            return chunk == null ? DiscoveryState.Unknown : chunk[OffsetInChunk(cell)];
         }
 
         public bool IsDiscovered(GridCoord cell) => GetState(cell) == DiscoveryState.Discovered;
@@ -69,10 +125,11 @@ namespace Game.Grid
         {
             if (!Contains(cell)) return false;
 
-            int index = cell.Y * Size + cell.X;
-            if (_cells[index] == DiscoveryState.Discovered) return false;
+            DiscoveryState[] chunk = ChunkForWriting(cell);
+            int offset = OffsetInChunk(cell);
+            if (chunk[offset] == DiscoveryState.Discovered) return false;
 
-            _cells[index] = DiscoveryState.Discovered;
+            chunk[offset] = DiscoveryState.Discovered;
             Version++;
             return true;
         }
@@ -110,10 +167,12 @@ namespace Game.Grid
                     float dx = x + 0.5f - centerCells.x;
                     if (dx * dx + dySquared > radiusSquared) continue;
 
-                    int index = y * Size + x;
-                    if (_cells[index] == DiscoveryState.Discovered) continue;
+                    var cell = new GridCoord(x, y);
+                    DiscoveryState[] chunk = ChunkForWriting(cell);
+                    int offset = OffsetInChunk(cell);
+                    if (chunk[offset] == DiscoveryState.Discovered) continue;
 
-                    _cells[index] = DiscoveryState.Discovered;
+                    chunk[offset] = DiscoveryState.Discovered;
                     revealed++;
                 }
             }
@@ -132,10 +191,11 @@ namespace Game.Grid
             {
                 if (!Contains(cell)) continue;
 
-                int index = cell.Y * Size + cell.X;
-                if (_cells[index] == DiscoveryState.Discovered) continue;
+                DiscoveryState[] chunk = ChunkForWriting(cell);
+                int offset = OffsetInChunk(cell);
+                if (chunk[offset] == DiscoveryState.Discovered) continue;
 
-                _cells[index] = DiscoveryState.Discovered;
+                chunk[offset] = DiscoveryState.Discovered;
                 revealed++;
             }
 
@@ -147,9 +207,12 @@ namespace Game.Grid
         public int DiscoveredCount()
         {
             int count = 0;
-            for (int i = 0; i < _cells.Length; i++)
+            foreach (DiscoveryState[] chunk in _chunks.Values)
             {
-                if (_cells[i] == DiscoveryState.Discovered) count++;
+                for (int i = 0; i < chunk.Length; i++)
+                {
+                    if (chunk[i] == DiscoveryState.Discovered) count++;
+                }
             }
             return count;
         }
@@ -171,23 +234,59 @@ namespace Game.Grid
         /// </summary>
         public string CaptureState()
         {
-            if (_cells.Length == 0) return string.Empty;
+            if (Size == 0) return string.Empty;
 
             var builder = new StringBuilder();
-            DiscoveryState runState = _cells[0];
-            int runLength = 1;
+            DiscoveryState runState = GetState(new GridCoord(0, 0));
+            int runLength = 0;
 
-            for (int i = 1; i < _cells.Length; i++)
+            for (int y = 0; y < Size; y++)
             {
-                if (_cells[i] == runState)
+                int x = 0;
+                while (x < Size)
                 {
-                    runLength++;
-                    continue;
-                }
+                    var cell = new GridCoord(x, y);
+                    DiscoveryState[] chunk = ExistingChunk(cell);
 
-                AppendRun(builder, runState, runLength);
-                runState = _cells[i];
-                runLength = 1;
+                    // How much of this row the chunk under it covers, clipped to the map.
+                    int spanEnd = Mathf.Min(Size, (x / ChunkSizeCells + 1) * ChunkSizeCells);
+
+                    if (chunk == null)
+                    {
+                        // A whole span of a chunk that does not exist: wholly unknown, and skipped
+                        // without touching memory. This is what keeps capturing a mostly-unknown map
+                        // proportional to what was explored rather than to the map.
+                        int span = spanEnd - x;
+                        if (runState == DiscoveryState.Unknown)
+                        {
+                            runLength += span;
+                        }
+                        else
+                        {
+                            AppendRun(builder, runState, runLength);
+                            runState = DiscoveryState.Unknown;
+                            runLength = span;
+                        }
+
+                        x = spanEnd;
+                        continue;
+                    }
+
+                    int rowBase = y % ChunkSizeCells * ChunkSizeCells;
+                    for (; x < spanEnd; x++)
+                    {
+                        DiscoveryState state = chunk[rowBase + x % ChunkSizeCells];
+                        if (state == runState)
+                        {
+                            runLength++;
+                            continue;
+                        }
+
+                        AppendRun(builder, runState, runLength);
+                        runState = state;
+                        runLength = 1;
+                    }
+                }
             }
 
             AppendRun(builder, runState, runLength);
@@ -211,12 +310,16 @@ namespace Game.Grid
         /// </summary>
         public void RestoreState(string encoded)
         {
-            System.Array.Clear(_cells, 0, _cells.Length);
+            // Dropped rather than zeroed: a restore starts from a map where nothing has been written,
+            // which for the sparse form means no chunks at all.
+            _chunks.Clear();
             Version++;
 
-            if (string.IsNullOrEmpty(encoded)) return;
+            if (string.IsNullOrEmpty(encoded) || Size == 0) return;
 
+            int cellCount = Size * Size;
             int index = 0;
+
             foreach (string run in encoded.Split(RunSeparator))
             {
                 int separator = run.IndexOf(RunFieldSeparator);
@@ -226,14 +329,21 @@ namespace Game.Grid
                 if (!int.TryParse(run.Substring(separator + 1), out int length)) continue;
                 if (length <= 0) continue;
 
-                int end = Mathf.Min(index + length, _cells.Length);
+                int end = Mathf.Min(index + length, cellCount);
+
+                // An Unknown run writes nothing and allocates nothing - it is simply the chunks that
+                // never come into existence. That is the whole saving on a map that is mostly unknown.
                 if (state != (int)DiscoveryState.Unknown)
                 {
-                    for (int i = index; i < end; i++) _cells[i] = (DiscoveryState)state;
+                    for (int i = index; i < end; i++)
+                    {
+                        var cell = new GridCoord(i % Size, i / Size);
+                        ChunkForWriting(cell)[OffsetInChunk(cell)] = (DiscoveryState)state;
+                    }
                 }
 
                 index = end;
-                if (index >= _cells.Length) break;
+                if (index >= cellCount) break;
             }
         }
     }

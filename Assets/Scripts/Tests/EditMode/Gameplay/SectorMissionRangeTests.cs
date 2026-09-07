@@ -1,6 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
-using Game.Core;
 using Game.Gameplay.Sectors;
 using Game.Grid;
 using NUnit.Framework;
@@ -9,185 +7,300 @@ using UnityEngine;
 namespace Game.Tests.EditMode.Gameplay
 {
     /// <summary>
-    /// The mission ring.
+    /// The two mission bands.
     ///
-    /// The directive names one test explicitly and it is the first below: extending the Core's
-    /// radius must move the ring. That is the guarantee that would rot silently - a ring computed
-    /// once from the starting radius works perfectly until the first radius research, and then
-    /// quietly keeps offering the same destinations.
+    /// A mining mission looks for deposits between the Core's current reach and the exploration
+    /// threshold; an exploration mission looks for somewhere a secondary Core could stand, at the
+    /// threshold and beyond. They were a single ring of "current radius + 30" until now, which
+    /// matched neither: it sat wholly inside what is now the mining band and could never reach an
+    /// exploration target at all.
+    ///
+    /// <b>The threshold is derived and that is what these tests are really about.</b> It is two
+    /// maximum Core radii back to back plus the gap wanted between two territories, so the day a Core
+    /// reaches further the threshold follows on its own. A test that asserted 250 as a literal would
+    /// pass while the derivation was replaced by a constant, which is the failure mode worth guarding.
+    ///
+    /// Run on a map large enough for the threshold to be inside it - the property could not even be
+    /// stated on the 300-cell map these tests used to use.
     /// </summary>
     public class SectorMissionRangeTests
     {
-        const int MapSize = 300;
+        const int MapSize = 10000;
+        const int SectorSize = 16;
+        const int ChunkSize = 64;
 
-        static readonly Vector2 CoreCenter = new Vector2(150f, 150f);
+        /// <summary>The shipped ceiling, CoreRuntime.ExtendedActionRadiusCells. Restated so this fails when that moves rather than following it silently.</summary>
+        const float MaxCoreRadius = 32f;
 
-        static SectorGrid NewGrid() => new SectorGrid(MapSize);
+        /// <summary>SectorSettings' own default.</summary>
+        const float TerritorySpacing = 90f;
 
-        static List<int> Destinations(SectorMissionRange range, SectorGrid grid, DiscoveryRuntime discovery, float radius)
+        static readonly Vector2 CoreCenter = new Vector2(5000f, 5000f);
+
+        static SectorGrid NewGrid(int mapSize = MapSize) => new SectorGrid(mapSize, SectorSize);
+
+        static DiscoveryRuntime NewDiscovery(int mapSize = MapSize) => new DiscoveryRuntime(mapSize, ChunkSize);
+
+        static SectorMissionRange NewRange() => new SectorMissionRange(MaxCoreRadius, TerritorySpacing);
+
+        /// <summary>The nearest sector to a given distance from the Core, along the x axis - what a test uses to sit just inside or just outside a band.</summary>
+        static int SectorAtDistance(SectorGrid grid, float distanceCells)
         {
+            int column = Mathf.RoundToInt((CoreCenter.x + distanceCells) / SectorSize);
+            int row = Mathf.RoundToInt(CoreCenter.y / SectorSize);
+            return grid.IndexAt(column, row);
+        }
+
+        // ---- The threshold is derived, not written down ----
+
+        [Test]
+        public void TheThresholdIsTwoMaximumRadiiPlusTheGap()
+        {
+            Assert.AreEqual(2f * MaxCoreRadius + TerritorySpacing, NewRange().ExplorationMinimumCells, 0.001f);
+        }
+
+        /// <summary>
+        /// The directive's own worked example: at a maximum radius of 80 and a gap of 90, the
+        /// threshold is 250. That is where the number in the document comes from, and reproducing it
+        /// from the two inputs is what proves the code derives rather than remembers.
+        ///
+        /// The shipped maximum radius is 32, not 80, so the shipped threshold is 154. The document's
+        /// 250 describes a Core that reaches further than this one yet does.
+        /// </summary>
+        [Test]
+        public void TheDirectivesTwoHundredAndFiftyFallsOutOfTheSameFormula()
+        {
+            Assert.AreEqual(250f, new SectorMissionRange(80f, 90f).ExplorationMinimumCells, 0.001f);
+            Assert.AreEqual(290f, new SectorMissionRange(100f, 90f).ExplorationMinimumCells, 0.001f,
+                "the directive's own follow-up: a maximum radius of 100 must give 290 with nothing else to correct");
+        }
+
+        // ---- The two bands meet, and do not overlap ----
+
+        /// <summary>
+        /// The property that makes the pair a partition rather than two independent settings: every
+        /// sector past the Core's reach belongs to exactly one of the two.
+        /// </summary>
+        [Test]
+        public void EverySectorBeyondTheRadiusBelongsToExactlyOneBand()
+        {
+            SectorGrid grid = NewGrid();
+            DiscoveryRuntime discovery = NewDiscovery();
+            SectorMissionRange range = NewRange();
+
+            const float Radius = 22f;
+
+            for (float distance = 30f; distance < 600f; distance += 7f)
+            {
+                int index = SectorAtDistance(grid, distance);
+
+                SectorEligibility mining = range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, Radius, index);
+                SectorEligibility exploration = range.EligibilityOf(SectorMissionKind.Exploration, grid, discovery, CoreCenter, Radius, index);
+
+                bool inMining = mining == SectorEligibility.Eligible;
+                bool inExploration = exploration == SectorEligibility.Eligible;
+
+                Assert.IsTrue(inMining ^ inExploration,
+                    $"a sector {distance} cells out is {(inMining && inExploration ? "in both bands" : "in neither band")}");
+            }
+        }
+
+        [Test]
+        public void JustInsideTheThresholdIsMining_JustOutsideIsExploration()
+        {
+            SectorGrid grid = NewGrid();
+            DiscoveryRuntime discovery = NewDiscovery();
+            SectorMissionRange range = NewRange();
+
+            float threshold = range.ExplorationMinimumCells;
+            int inside = SectorAtDistance(grid, threshold - 24f);
+            int outside = SectorAtDistance(grid, threshold + 24f);
+
+            Assert.AreEqual(SectorEligibility.Eligible,
+                range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, 22f, inside));
+            Assert.AreEqual(SectorEligibility.TooClose,
+                range.EligibilityOf(SectorMissionKind.Exploration, grid, discovery, CoreCenter, 22f, inside));
+
+            Assert.AreEqual(SectorEligibility.TooFar,
+                range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, 22f, outside));
+            Assert.AreEqual(SectorEligibility.Eligible,
+                range.EligibilityOf(SectorMissionKind.Exploration, grid, discovery, CoreCenter, 22f, outside));
+        }
+
+        // ---- Mining follows the radius; exploration does not ----
+
+        /// <summary>
+        /// The directive's named test, in the shape the two bands give it. A mining band computed once
+        /// from the starting radius keeps offering ground the Core has since swallowed - so extending
+        /// the radius has to close the band from the inside.
+        /// </summary>
+        [Test]
+        public void ExtendingTheRadius_ClosesTheMiningBandFromTheInside()
+        {
+            SectorGrid grid = NewGrid();
+            DiscoveryRuntime discovery = NewDiscovery();
+            SectorMissionRange range = NewRange();
+
+            int near = SectorAtDistance(grid, 40f);
+
+            Assert.AreEqual(SectorEligibility.Eligible,
+                range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, 22f, near),
+                "40 cells out is beyond a radius of 22");
+
+            Assert.AreEqual(SectorEligibility.TooClose,
+                range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, 60f, near),
+                "and inside a radius of 60, so it is no longer somewhere a mission needs to go");
+        }
+
+        [Test]
+        public void ExtendingTheRadius_DoesNotMoveTheExplorationBand()
+        {
+            SectorGrid grid = NewGrid();
+            DiscoveryRuntime discovery = NewDiscovery();
+            SectorMissionRange range = NewRange();
+
+            int far = SectorAtDistance(grid, 400f);
+
+            Assert.AreEqual(SectorEligibility.Eligible,
+                range.EligibilityOf(SectorMissionKind.Exploration, grid, discovery, CoreCenter, 22f, far));
+            Assert.AreEqual(SectorEligibility.Eligible,
+                range.EligibilityOf(SectorMissionKind.Exploration, grid, discovery, CoreCenter, MaxCoreRadius, far),
+                "exploration is measured from the threshold, which the current radius has no part in");
+        }
+
+        [Test]
+        public void TheMiningBandRunsFromTheRadiusToTheThreshold()
+        {
+            NewRange().BandFor(SectorMissionKind.Mining, 22f, out float inner, out float outer);
+
+            Assert.AreEqual(22f, inner, 0.001f);
+            Assert.AreEqual(NewRange().ExplorationMinimumCells, outer, 0.001f);
+        }
+
+        [Test]
+        public void TheExplorationBandHasNoOuterEdge()
+        {
+            NewRange().BandFor(SectorMissionKind.Exploration, 22f, out float inner, out float outer);
+
+            Assert.AreEqual(NewRange().ExplorationMinimumCells, inner, 0.001f);
+            Assert.IsTrue(float.IsPositiveInfinity(outer),
+                "bounding exploration by the map would make the band change shape with the map size");
+        }
+
+        // ---- Discovery ----
+
+        [Test]
+        public void AnAlreadyDiscoveredSector_IsNotADestination()
+        {
+            SectorGrid grid = NewGrid();
+            DiscoveryRuntime discovery = NewDiscovery();
+            SectorMissionRange range = NewRange();
+
+            int index = SectorAtDistance(grid, 100f);
+            Assert.AreEqual(SectorEligibility.Eligible,
+                range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, 22f, index));
+
+            grid.RevealInscribedDisc(index, discovery);
+
+            Assert.AreEqual(SectorEligibility.AlreadyKnown,
+                range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, 22f, index),
+                "a mission there would reveal a disc that is already revealed");
+        }
+
+        [Test]
+        public void AnIndexOffTheMap_IsNotASector()
+        {
+            SectorGrid grid = NewGrid();
+
+            Assert.AreEqual(SectorEligibility.NotASector,
+                NewRange().EligibilityOf(SectorMissionKind.Mining, grid, NewDiscovery(), CoreCenter, 22f, -1));
+            Assert.AreEqual(SectorEligibility.NotASector,
+                NewRange().EligibilityOf(SectorMissionKind.Mining, grid, NewDiscovery(), CoreCenter, 22f, 99999999));
+        }
+
+        // ---- Enumeration ----
+
+        [Test]
+        public void DestinationsAreAllEligible()
+        {
+            SectorGrid grid = NewGrid();
+            DiscoveryRuntime discovery = NewDiscovery();
+            SectorMissionRange range = NewRange();
+
             var into = new List<int>();
-            range.Destinations(grid, discovery, CoreCenter, radius, into);
-            return into;
-        }
+            range.Destinations(SectorMissionKind.Mining, grid, discovery, CoreCenter, 22f, into);
 
-        // ---- The ring follows the radius ----
-
-        [Test]
-        public void ExtendingTheRadius_MovesTheRingOutward()
-        {
-            var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
-            var range = new SectorMissionRange();
-
-            List<int> near = Destinations(range, grid, discovery, 22f);
-            List<int> far = Destinations(range, grid, discovery, 60f);
-
-            CollectionAssert.IsNotEmpty(near);
-            CollectionAssert.IsNotEmpty(far);
-
-            float nearest = far.Min(index => Vector2.Distance(grid.CenterCells(index), CoreCenter));
-            Assert.Greater(nearest, 22f, "Nothing inside the old radius may remain a destination.");
-
-            CollectionAssert.AreNotEquivalent(near, far, "The ring has to be somewhere else, not merely larger.");
-        }
-
-        [Test]
-        public void NothingInsideTheRadius_IsADestination()
-        {
-            var grid = NewGrid();
-            var range = new SectorMissionRange();
-
-            const float radius = 40f;
-            foreach (int index in Destinations(range, grid, new DiscoveryRuntime(MapSize), radius))
+            Assert.Greater(into.Count, 0);
+            foreach (int index in into)
             {
-                Assert.Greater(Vector2.Distance(grid.CenterCells(index), CoreCenter), radius, $"sector {index} is inside the radius");
+                Assert.AreEqual(SectorEligibility.Eligible,
+                    range.EligibilityOf(SectorMissionKind.Mining, grid, discovery, CoreCenter, 22f, index));
             }
         }
 
+        /// <summary>
+        /// The exploration band holds most of a 390 625-sector map. Listing it whole would be both a
+        /// large allocation and useless to a caller that wants somewhere to go, so the walk stops at
+        /// the limit rather than finishing the map.
+        /// </summary>
         [Test]
-        public void NothingBeyondTheRange_IsADestination()
+        public void EnumerationStopsAtTheLimit()
         {
-            var grid = NewGrid();
-            var range = new SectorMissionRange();
-
-            const float radius = 22f;
-            foreach (int index in Destinations(range, grid, new DiscoveryRuntime(MapSize), radius))
-            {
-                Assert.LessOrEqual(
-                    Vector2.Distance(grid.CenterCells(index), CoreCenter),
-                    radius + SectorMissionRange.DefaultRangeBeyondRadiusCells + 0.001f,
-                    $"sector {index} is past the ring");
-            }
-        }
-
-        /// <summary>The 30 cells are a setting, not a constant compiled into a comparison.</summary>
-        [Test]
-        public void TheRangeIsASetting_AndWideningItAddsDestinations()
-        {
-            var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
-
-            var tight = new SectorMissionRange { RangeBeyondRadiusCells = 15f };
-            var loose = new SectorMissionRange { RangeBeyondRadiusCells = 45f };
-
-            Assert.Less(Destinations(tight, grid, discovery, 22f).Count, Destinations(loose, grid, discovery, 22f).Count);
-        }
-
-        /// <summary>Membership is decided on the centre, so a sector straddling the boundary is in or out by one clear rule.</summary>
-        [Test]
-        public void MembershipIsDecidedOnTheCentre_NotOnTheCells()
-        {
-            var grid = NewGrid();
-            var range = new SectorMissionRange { RangeBeyondRadiusCells = 30f };
-            const float radius = 22f;
-
-            List<int> destinations = Destinations(range, grid, new DiscoveryRuntime(MapSize), radius);
-
-            foreach (int index in destinations)
-            {
-                float distance = Vector2.Distance(grid.CenterCells(index), CoreCenter);
-                Assert.IsTrue(distance > radius && distance <= radius + 30f);
-            }
-
-            // A sector whose cells straddle the inner boundary but whose centre is inside must be out.
-            int straddling = grid.IndexAt(new GridCoord(150, 168));
-            float centreDistance = Vector2.Distance(grid.CenterCells(straddling), CoreCenter);
-            if (centreDistance <= radius) CollectionAssert.DoesNotContain(destinations, straddling);
-        }
-
-        // ---- Discovered sectors drop out, and the ring can empty ----
-
-        [Test]
-        public void ASectorAlreadyDiscovered_IsNoLongerADestination()
-        {
-            var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
-            var range = new SectorMissionRange();
-
-            List<int> before = Destinations(range, grid, discovery, 22f);
-            int target = before[0];
-
-            grid.RevealInscribedDisc(target, discovery);
-
-            CollectionAssert.DoesNotContain(Destinations(range, grid, discovery, 22f), target);
-        }
-
-        [Test]
-        public void WhenTheRingEmpties_ItWidensRatherThanGoingSilent()
-        {
-            var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
-            var range = new SectorMissionRange();
-
-            // Empty the ring the player can currently reach.
-            foreach (int index in Destinations(range, grid, discovery, 22f)) grid.RevealInscribedDisc(index, discovery);
-
+            SectorGrid grid = NewGrid();
             var into = new List<int>();
-            SectorRangeResult result = range.Destinations(grid, discovery, CoreCenter, 22f, into);
 
-            Assert.IsTrue(result.Widened, "The ring had to grow.");
+            SectorRangeResult result = NewRange().Destinations(
+                SectorMissionKind.Exploration, grid, NewDiscovery(), CoreCenter, 22f, into, limit: 12);
+
+            Assert.AreEqual(12, into.Count);
+            Assert.AreEqual(12, result.Count);
             Assert.IsFalse(result.Exhausted);
-            Assert.GreaterOrEqual(result.Count, range.MinimumDestinations, "There must still be somewhere to go.");
-            Assert.Greater(result.OuterRadiusCells, 22f + SectorMissionRange.DefaultRangeBeyondRadiusCells);
-            CollectionAssert.IsNotEmpty(into);
         }
 
+        /// <summary>
+        /// The one state a mission system must never reach silently: nowhere left to go. Set up on a
+        /// band narrow enough to empty by hand - a radius just short of the threshold.
+        /// </summary>
         [Test]
-        public void AnUntouchedRing_IsNotReportedAsWidened()
+        public void AnEmptyBandReportsItselfExhausted()
         {
-            var grid = NewGrid();
+            SectorGrid grid = NewGrid();
+            DiscoveryRuntime discovery = NewDiscovery();
+            SectorMissionRange range = NewRange();
+
+            float radius = range.ExplorationMinimumCells - 12f;
+
             var into = new List<int>();
+            range.Destinations(SectorMissionKind.Mining, grid, discovery, CoreCenter, radius, into, limit: 4096);
+            Assert.Greater(into.Count, 0, "the fixture needs a band with something in it to start with");
 
-            SectorRangeResult result = new SectorMissionRange().Destinations(grid, new DiscoveryRuntime(MapSize), CoreCenter, 22f, into);
+            foreach (int index in into) grid.RevealInscribedDisc(index, discovery);
 
-            Assert.IsFalse(result.Widened);
-            Assert.IsFalse(result.Exhausted);
-            Assert.AreEqual(into.Count, result.Count);
-        }
-
-        /// <summary>A fully explored map has to say so, rather than returning an empty list that reads the same as a bug.</summary>
-        [Test]
-        public void AFullyDiscoveredMap_ReportsItselfExhausted()
-        {
-            var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize);
-            for (int index = 0; index < grid.Count; index++) discovery.RevealCells(grid.CellsOf(index));
-
-            SectorRangeResult result = new SectorMissionRange().Destinations(grid, discovery, CoreCenter, 22f, new List<int>());
+            SectorRangeResult result = range.Destinations(
+                SectorMissionKind.Mining, grid, discovery, CoreCenter, radius, into, limit: 4096);
 
             Assert.AreEqual(0, result.Count);
             Assert.IsTrue(result.Exhausted);
         }
 
         [Test]
-        public void ANullGridOrList_IsIgnoredRatherThanThrowing()
+        public void AnEmptyGridIsExhausted()
         {
-            var range = new SectorMissionRange();
+            SectorRangeResult result = NewRange().Destinations(
+                SectorMissionKind.Mining, null, NewDiscovery(), CoreCenter, 22f, new List<int>());
 
-            Assert.DoesNotThrow(() => range.Destinations(null, null, CoreCenter, 22f, null));
-            Assert.DoesNotThrow(() => range.Destinations(NewGrid(), null, CoreCenter, 22f, null));
-            Assert.IsTrue(range.Destinations(null, null, CoreCenter, 22f, null).Exhausted);
+            Assert.AreEqual(0, result.Count);
+            Assert.IsTrue(result.Exhausted);
+        }
+
+        [Test]
+        public void TheResultReportsTheBandItLookedIn()
+        {
+            SectorRangeResult result = NewRange().Destinations(
+                SectorMissionKind.Mining, NewGrid(), NewDiscovery(), CoreCenter, 22f, new List<int>());
+
+            Assert.AreEqual(22f, result.InnerRadiusCells, 0.001f);
+            Assert.AreEqual(NewRange().ExplorationMinimumCells, result.OuterRadiusCells, 0.001f);
         }
     }
 }

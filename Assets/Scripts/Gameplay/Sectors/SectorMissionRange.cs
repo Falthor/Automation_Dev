@@ -4,104 +4,156 @@ using UnityEngine;
 
 namespace Game.Gameplay.Sectors
 {
+    /// <summary>What a mission is for, which is what decides how far it may be sent.</summary>
+    public enum SectorMissionKind
+    {
+        /// <summary>New deposits, between the Core's current reach and the exploration threshold. The band shrinks as the radius grows, because ground the Core already covers needs no mission.</summary>
+        Mining,
+
+        /// <summary>Secondary Core sites, nests, points of interest - at the exploration threshold and beyond, where a secondary Core could stand without its territory touching the main one's.</summary>
+        Exploration
+    }
+
+    /// <summary>Why a sector is or is not a valid destination. Named rather than boolean so the UI can say what is wrong instead of only greying a sector out.</summary>
+    public enum SectorEligibility
+    {
+        Eligible,
+
+        /// <summary>Inside the Core's current radius for a mining mission, or short of the exploration threshold for an exploration one.</summary>
+        TooClose,
+
+        /// <summary>Past the exploration threshold, so it belongs to exploration rather than to mining.</summary>
+        TooFar,
+
+        /// <summary>Already discovered. A mission there would reveal a disc that is already revealed.</summary>
+        AlreadyKnown,
+
+        NotASector
+    }
+
     /// <summary>
-    /// Which sectors a mission may be sent to: the ring just beyond what the Core already reaches.
+    /// Which sectors a mission may be sent to. Two bands, because there are two kinds of mission and
+    /// they want opposite things.
     ///
-    /// <b>Always measured from the current radius</b>, never from an absolute distance. The radius
-    /// is passed in on every call and nothing here remembers it, so extending the Core's reach moves
-    /// the ring outward with no other number to correct - which is what a test pins. The 30 cells
-    /// are a settable property for the same reason, not a constant buried in a comparison.
+    /// <b>Mining runs from the Core's current radius out to the exploration threshold</b>, and it
+    /// narrows as the Core reaches further: ground already covered needs no mission to reach.
     ///
-    /// Membership is tested on the sector's <b>centre</b>, not its cells. A 12-cell sector straddles
-    /// the boundary constantly, and a per-cell rule would make eligibility both fuzzy ("how much of
-    /// it has to be inside?") and expensive.
+    /// <b>Exploration starts at the threshold and has no outer edge</b>, because what it is looking
+    /// for - a site where a secondary Core could stand - only exists out there.
+    ///
+    /// <b>The threshold is derived, never entered.</b> It is what keeps two territories from touching:
+    /// two maximum Core radii back to back, plus the gap wanted between them. Writing the resulting
+    /// number in as a constant is what the directive forbids, and for a concrete reason - the day the
+    /// maximum radius moves, the threshold has to follow with no second figure to correct.
+    ///
+    /// This replaces a single ring of "current radius + 30", which matched neither kind of mission: it
+    /// sat entirely inside what is now the mining band and could never reach an exploration target at
+    /// all. It also had to widen itself when it ran dry; both bands here are hundreds of cells deep or
+    /// unbounded, so that machinery is gone with it.
+    ///
+    /// Membership is tested on the sector's <b>centre</b>, not its cells. A sector straddles a
+    /// boundary constantly, and a per-cell rule would make eligibility both fuzzy ("how much of it has
+    /// to be inside?") and expensive.
     /// </summary>
     public sealed class SectorMissionRange
     {
-        /// <summary>How far past the Core's current radius a destination may lie, in cells.</summary>
-        public const float DefaultRangeBeyondRadiusCells = 30f;
+        /// <summary>The maximum radius one Core will ever reach, in cells. Handed in from its owner (CoreRuntime.ExtendedActionRadiusCells) rather than copied.</summary>
+        public float MaxCoreRadiusCells { get; }
+
+        /// <summary>The empty ground wanted between two Cores' maximum radii. A balance value: how far apart two territories should feel, which no other number can answer.</summary>
+        public float TerritorySpacingCells { get; }
 
         /// <summary>
-        /// Below this many destinations the ring widens. The directive's own risk: once every sector
-        /// in the ring has been visited and the radius has not grown, there is nothing to offer and
-        /// the mission system goes quiet with no explanation. Widening is the parade chosen over
-        /// waiting for the player to research their way out of it.
+        /// Where mining stops and exploration starts: two maximum radii back to back, plus the gap.
+        ///
+        /// A derived value, so it is a property and never a field anyone can set. At the shipped
+        /// maximum radius of 32 and a gap of 90 that is 154 cells; the day a Core reaches 80, it
+        /// becomes 250 on its own.
         /// </summary>
-        public const int DefaultMinimumDestinations = 3;
+        public float ExplorationMinimumCells => 2f * MaxCoreRadiusCells + TerritorySpacingCells;
 
-        public float RangeBeyondRadiusCells { get; set; } = DefaultRangeBeyondRadiusCells;
+        public SectorMissionRange(float maxCoreRadiusCells, float territorySpacingCells)
+        {
+            MaxCoreRadiusCells = Mathf.Max(0f, maxCoreRadiusCells);
+            TerritorySpacingCells = Mathf.Max(0f, territorySpacingCells);
+        }
 
-        public int MinimumDestinations { get; set; } = DefaultMinimumDestinations;
+        /// <summary>The band a kind of mission may be sent into, as (inner, outer] in cells from the Core. The outer edge of exploration is infinite rather than the map's corner, so the band does not change shape with the map.</summary>
+        public void BandFor(SectorMissionKind kind, float coreRadiusCells, out float inner, out float outer)
+        {
+            if (kind == SectorMissionKind.Mining)
+            {
+                inner = Mathf.Max(0f, coreRadiusCells);
+                outer = ExplorationMinimumCells;
+                return;
+            }
+
+            inner = ExplorationMinimumCells;
+            outer = float.PositiveInfinity;
+        }
 
         /// <summary>
-        /// Fills <paramref name="into"/> with every undiscovered sector in the ring, widening it in
-        /// steps until it holds at least <see cref="MinimumDestinations"/> or the map is used up.
+        /// Whether one sector is a valid destination, and why not when it is not.
         ///
-        /// A sector already discovered is not a destination: a mission there would reveal a disc
-        /// that is already revealed. That is also what lets the ring run out, hence the widening.
-        ///
-        /// The caller owns the list, so a repeated query allocates nothing.
+        /// This is the primary operation, not the enumeration below: a mission is launched by
+        /// designating a sector on the map, so the question the game actually asks is about one
+        /// sector. Enumerating every eligible sector would mean four hundred thousand of them for an
+        /// exploration mission on the shipped map.
         /// </summary>
-        public SectorRangeResult Destinations(
+        public SectorEligibility EligibilityOf(
+            SectorMissionKind kind,
             SectorGrid grid,
             DiscoveryRuntime discovery,
             Vector2 coreCenterCells,
             float coreRadiusCells,
-            List<int> into)
+            int index)
         {
-            into?.Clear();
+            if (grid == null || !grid.ContainsIndex(index)) return SectorEligibility.NotASector;
 
-            if (grid == null || grid.Count == 0) return new SectorRangeResult(0, 0f, false, true);
+            BandFor(kind, coreRadiusCells, out float inner, out float outer);
 
-            float step = Mathf.Max(1f, RangeBeyondRadiusCells);
-            float outer = Mathf.Max(0f, coreRadiusCells) + step;
+            float distance = Vector2.Distance(grid.CenterCells(index), coreCenterCells);
+            if (distance <= inner) return SectorEligibility.TooClose;
+            if (distance > outer) return SectorEligibility.TooFar;
 
-            // Past this, every sector centre on the map is inside the ring and widening again would
-            // change nothing - which is what tells the caller the map itself is exhausted, not that
-            // the ring was badly sized.
-            float mapSpan = grid.MapSizeCells;
-            float furthest = Vector2.Distance(coreCenterCells, Vector2.zero);
-            furthest = Mathf.Max(furthest, Vector2.Distance(coreCenterCells, new Vector2(mapSpan, 0f)));
-            furthest = Mathf.Max(furthest, Vector2.Distance(coreCenterCells, new Vector2(0f, mapSpan)));
-            furthest = Mathf.Max(furthest, Vector2.Distance(coreCenterCells, new Vector2(mapSpan, mapSpan)));
-
-            bool widened = false;
-
-            while (true)
-            {
-                int found = Collect(grid, discovery, coreCenterCells, coreRadiusCells, outer, into);
-
-                if (found >= MinimumDestinations) return new SectorRangeResult(found, outer, widened, false);
-                if (outer >= furthest) return new SectorRangeResult(found, outer, widened, true);
-
-                outer += step;
-                widened = true;
-            }
+            return grid.IsWhollyUnknown(index, discovery) ? SectorEligibility.Eligible : SectorEligibility.AlreadyKnown;
         }
 
         /// <summary>
-        /// Sectors whose centre falls in (inner, outer] and that are wholly unknown. Walks only the
-        /// sector rows and columns the outer radius can touch, so the cost follows the ring rather
-        /// than the size of the map.
+        /// Fills <paramref name="into"/> with eligible sectors, up to <paramref name="limit"/>.
+        ///
+        /// <b>Bounded, deliberately.</b> The old ring held a handful of sectors and could be listed
+        /// whole; the exploration band holds most of a 390 625-sector map, and a caller that wants
+        /// "somewhere to go" wants a few, not all of them. The caller owns the list, so a repeated
+        /// query allocates nothing.
         /// </summary>
-        static int Collect(
+        public SectorRangeResult Destinations(
+            SectorMissionKind kind,
             SectorGrid grid,
             DiscoveryRuntime discovery,
             Vector2 coreCenterCells,
-            float inner,
-            float outer,
-            List<int> into)
+            float coreRadiusCells,
+            List<int> into,
+            int limit = 32)
         {
             into?.Clear();
 
+            BandFor(kind, coreRadiusCells, out float inner, out float outer);
+            if (grid == null || grid.Count == 0) return new SectorRangeResult(0, inner, outer, true);
+
             int size = grid.SectorSizeCells;
-            int minColumn = Mathf.Max(0, Mathf.FloorToInt((coreCenterCells.x - outer) / size));
-            int maxColumn = Mathf.Min(grid.Columns - 1, Mathf.CeilToInt((coreCenterCells.x + outer) / size));
-            int minRow = Mathf.Max(0, Mathf.FloorToInt((coreCenterCells.y - outer) / size));
-            int maxRow = Mathf.Min(grid.Columns - 1, Mathf.CeilToInt((coreCenterCells.y + outer) / size));
+
+            // Only the sector rows and columns the band can touch, so a mining query costs the band
+            // rather than the map. An exploration band reaches the whole map, and the limit is what
+            // stops that walk early.
+            float reach = float.IsPositiveInfinity(outer) ? grid.MapSizeCells * 2f : outer;
+            int minColumn = Mathf.Max(0, Mathf.FloorToInt((coreCenterCells.x - reach) / size));
+            int maxColumn = Mathf.Min(grid.Columns - 1, Mathf.CeilToInt((coreCenterCells.x + reach) / size));
+            int minRow = Mathf.Max(0, Mathf.FloorToInt((coreCenterCells.y - reach) / size));
+            int maxRow = Mathf.Min(grid.Columns - 1, Mathf.CeilToInt((coreCenterCells.y + reach) / size));
 
             float innerSquared = inner * inner;
-            float outerSquared = outer * outer;
+            float outerSquared = float.IsPositiveInfinity(outer) ? float.PositiveInfinity : outer * outer;
             int found = 0;
 
             for (int row = minRow; row <= maxRow; row++)
@@ -111,38 +163,39 @@ namespace Game.Gameplay.Sectors
                     int index = grid.IndexAt(column, row);
                     if (index < 0) continue;
 
-                    Vector2 offset = grid.CenterCells(index) - coreCenterCells;
-                    float distanceSquared = offset.sqrMagnitude;
-
+                    float distanceSquared = (grid.CenterCells(index) - coreCenterCells).sqrMagnitude;
                     if (distanceSquared <= innerSquared || distanceSquared > outerSquared) continue;
                     if (!grid.IsWhollyUnknown(index, discovery)) continue;
 
                     into?.Add(index);
                     found++;
+
+                    if (found >= limit) return new SectorRangeResult(found, inner, outer, false);
                 }
             }
 
-            return found;
+            // Nothing found means the band itself has nothing left to offer - every sector in it is
+            // known, or the geometry leaves it empty. Reported rather than left implicit, so the
+            // mission system can say so instead of going quiet.
+            return new SectorRangeResult(found, inner, outer, found == 0);
         }
     }
 
-    /// <summary>
-    /// What a range query actually found. Reported rather than left implicit so the mission system
-    /// can never go silently empty: <see cref="Widened"/> says the ring had to grow past its
-    /// setting, and <see cref="Exhausted"/> says the map itself has no unknown sector left.
-    /// </summary>
+    /// <summary>What a range query found, and the band it looked in.</summary>
     public readonly struct SectorRangeResult
     {
         public readonly int Count;
+        public readonly float InnerRadiusCells;
         public readonly float OuterRadiusCells;
-        public readonly bool Widened;
+
+        /// <summary>No eligible sector in the band at all - every one of them is known, or the band is geometrically empty. The one state a mission system must never reach silently.</summary>
         public readonly bool Exhausted;
 
-        public SectorRangeResult(int count, float outerRadiusCells, bool widened, bool exhausted)
+        public SectorRangeResult(int count, float innerRadiusCells, float outerRadiusCells, bool exhausted)
         {
             Count = count;
+            InnerRadiusCells = innerRadiusCells;
             OuterRadiusCells = outerRadiusCells;
-            Widened = widened;
             Exhausted = exhausted;
         }
     }

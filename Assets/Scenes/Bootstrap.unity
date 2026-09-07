@@ -1855,6 +1855,50 @@ SpriteRenderer:
   m_WasSpriteAssigned: 0
   m_SpriteSortPoint: 0
   m_BlendShapeWeights: []
+--- !u!1 &696337365
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 696337367}
+  - component: {fileID: 696337366}
+  m_Layer: 0
+  m_Name: Decor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &696337366
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 696337365}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 539464901af973542b1811737564e1e2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Presentation::Game.Presentation.DecorVisualSync
+--- !u!4 &696337367
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 696337365}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &753154655
 GameObject:
   m_ObjectHideFlags: 0
@@ -3851,12 +3895,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.FogOfWarView
   fogShader: {fileID: 4800000, guid: f9a7c25d832b3fd44857bed7c4875b4c, type: 3}
-  fogColor: {r: 0.02, g: 0.03, b: 0.05, a: 0.96}
+  fogColor: {r: 0.02, g: 0.03, b: 0.05, a: 1}
   borderSoftness: 0.114
   noiseScale: 3
   noiseWeight: 0.396
   texelsPerCell: 1
-  outsideMarginCells: 400
+  windowCells: 256
 --- !u!4 &1659034850
 Transform:
   m_ObjectHideFlags: 0
@@ -4748,6 +4792,9 @@ MonoBehaviour:
   buildingShadowSettings: {fileID: 11400000, guid: fa7a3a94c33d1ff4ca87b051641bb079, type: 2}
   itemDatabase: {fileID: 11400000, guid: e293367a8c57e9742b5e998dfa2732a0, type: 2}
   recipeDatabase: {fileID: 11400000, guid: 6e1c6652c14736c4abd9665bd5eee4fd, type: 2}
+  sectorSettings: {fileID: 11400000, guid: 35ccf0ce1e8048249b013fdd367d6d15, type: 2}
+  decorSettings: {fileID: 11400000, guid: 649c04cc3933e334e9e691e297317a73, type: 2}
+  decorVisuals: {fileID: 696337366}
   worldGenerationSettings: {fileID: 11400000, guid: 592ff7fb40a07364995fc0c9a5f6d49b, type: 2}
   actionRadiusView: {fileID: 1305087340}
   fogOfWarView: {fileID: 1659034849}
@@ -4960,3 +5007,4 @@ SceneRoots:
   - {fileID: 753154657}
   - {fileID: 1273392653}
   - {fileID: 1348531429}
+  - {fileID: 696337367}

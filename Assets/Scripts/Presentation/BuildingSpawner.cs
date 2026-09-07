@@ -53,6 +53,15 @@ namespace Game.Presentation
         readonly GroundSlabSettings _groundSlabSettings;
         readonly GroundSlabNeighborLinker _groundSlabNeighborLinker;
         readonly BuildingShadowSettings _shadowSettings;
+
+        /// <summary>
+        /// Hands out sorted-band ranks and re-applies them when the depth window follows the camera.
+        /// Never null: an unshared, never-anchored ladder is the fallback, which ranks correctly
+        /// around the origin and is all a headless test needs. Production passes the scene's one
+        /// ladder - two ladders would be two windows, and ranks from one are not comparable with
+        /// ranks from the other.
+        /// </summary>
+        readonly DepthSortLadder _depthSort;
         readonly Dictionary<GridCoord, GameObject> _views = new Dictionary<GridCoord, GameObject>();
 
         /// <summary>
@@ -67,10 +76,11 @@ namespace Game.Presentation
         /// null means buildings cast no drop shadow - the same all-or-nothing convention the Core
         /// already uses in WorldContentSpawner.
         /// </summary>
-        public BuildingSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory, ConveyorDefinition straightConveyorArt = null, ConveyorDefinition cornerConveyorArt = null, GroundSlabSettings groundSlabSettings = null, GroundSlabNeighborLinker groundSlabNeighborLinker = null, BuildingShadowSettings shadowSettings = null)
+        public BuildingSpawner(GridRuntime grid, ProceduralSpriteFactory spriteFactory, ConveyorDefinition straightConveyorArt = null, ConveyorDefinition cornerConveyorArt = null, GroundSlabSettings groundSlabSettings = null, GroundSlabNeighborLinker groundSlabNeighborLinker = null, BuildingShadowSettings shadowSettings = null, DepthSortLadder depthSort = null)
         {
             _grid = grid;
             _spriteFactory = spriteFactory;
+            _depthSort = depthSort ?? new DepthSortLadder(0f);
             _straightConveyorArt = straightConveyorArt;
             _cornerConveyorArt = cornerConveyorArt;
             _groundSlabSettings = groundSlabSettings;
@@ -149,7 +159,8 @@ namespace Game.Presentation
         /// Arrows on placed buildings are permanent world decoration, never a response to a gesture,
         /// so they belong here rather than in the information band with the placement previews.
         /// </summary>
-        int ArrowSortingOrder(GridCoord cell) => SortingBands.Sorted(_grid.CellToWorld(cell).y, SortingBands.SubOverlay);
+        void RankArrow(SpriteRenderer renderer, GridCoord cell)
+            => _depthSort.Register(renderer, _grid.CellToWorld(cell).y, SortingBands.SubOverlay);
 
         /// <summary>
         /// A belt, a Splitter or a Crossroad: transport pieces, which lie flat on whatever ground
@@ -198,7 +209,7 @@ namespace Game.Presentation
             var spriteGo = new GameObject("Sprite");
             spriteGo.transform.SetParent(root.transform, false);
             var renderer = spriteGo.AddComponent<SpriteRenderer>();
-            renderer.sortingOrder = SortingBands.Sorted(BottomEdgeY(runtime), SortingBands.SubSprite);
+            _depthSort.Register(renderer, BottomEdgeY(runtime), SortingBands.SubSprite);
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
@@ -213,7 +224,7 @@ namespace Game.Presentation
 
             if (definition.HasOutputArrow)
             {
-                SpawnDirectionalArrow(root.transform, _grid.CellCenterToWorld(runtime.GetOutputCell()), runtime.ExitDirection, OutputArrowColor, ArrowSortingOrder(runtime.GetOutputCell()), inward: false);
+                SpawnDirectionalArrow(root.transform, _grid.CellCenterToWorld(runtime.GetOutputCell()), runtime.ExitDirection, OutputArrowColor, runtime.GetOutputCell(), inward: false);
             }
 
             // Independent of the output arrow: a building can take deliveries without producing
@@ -223,7 +234,7 @@ namespace Game.Presentation
             {
                 foreach ((GridCoord cell, Direction fromMySide) in runtime.GetInputCells())
                 {
-                    SpawnDirectionalArrow(root.transform, _grid.CellCenterToWorld(cell), fromMySide, InputArrowColor, ArrowSortingOrder(cell), inward: true);
+                    SpawnDirectionalArrow(root.transform, _grid.CellCenterToWorld(cell), fromMySide, InputArrowColor, cell, inward: true);
                 }
             }
 
@@ -356,7 +367,7 @@ namespace Game.Presentation
         /// </summary>
         static bool CastsShadow(BuildingRuntime runtime) => !(runtime is StorageRuntime);
 
-        void SpawnDirectionalArrow(Transform parent, Vector3 worldPosition, Direction direction, Color color, int sortingOrder, bool inward)
+        void SpawnDirectionalArrow(Transform parent, Vector3 worldPosition, Direction direction, Color color, GridCoord rankCell, bool inward)
         {
             var arrowGo = new GameObject(inward ? "InputArrow" : "OutputArrow");
             arrowGo.transform.position = worldPosition;
@@ -366,7 +377,7 @@ namespace Game.Presentation
             arrowGo.transform.SetParent(parent, true);
 
             var arrowRenderer = arrowGo.AddComponent<SpriteRenderer>();
-            arrowRenderer.sortingOrder = sortingOrder;
+            RankArrow(arrowRenderer, rankCell);
             arrowRenderer.sprite = _spriteFactory.CreateArrowSprite(color);
         }
 
@@ -442,6 +453,15 @@ namespace Game.Presentation
         {
             if (_views.TryGetValue(cell, out var go))
             {
+                // Before Destroy, which only takes effect at the end of the frame: the ladder drops
+                // destroyed renderers on its own at the next re-anchoring, but those are ~100 world
+                // units of panning apart, and a session that builds and demolishes a lot would carry
+                // the dead entries until then.
+                foreach (SpriteRenderer renderer in go.GetComponentsInChildren<SpriteRenderer>(true))
+                {
+                    _depthSort.Unregister(renderer);
+                }
+
                 Object.Destroy(go);
                 _views.Remove(cell);
             }

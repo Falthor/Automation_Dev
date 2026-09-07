@@ -156,10 +156,31 @@ Responsibilities include:
 - footprint validation
 - rotation handling
 - terrain gameplay data
+- per-cell discovery state
+- the sector partition (geometry only)
 - ore/deposit registry
 - grid coordinates and cell queries
 
 The grid must not depend on concrete production, transport, UI, or building subclasses merely to perform generic grid operations.
+
+### 7.1 Discovery and sectors
+
+`Game.Grid` also owns what the player has discovered (`DiscoveryRuntime`, one state per cell) and the
+sector partition (`SectorGrid`, pure geometry). Both are per-cell world state of the same shape as
+terrain: written by Gameplay, read by Presentation, so they sit under both.
+
+Three invariants belong at this level; the rest is in [`MAP.md`](MAP.md), which is authoritative for
+the subsystem:
+
+- **Discovery is written, never derived.** The Core's action radius is one writer among others, and a
+  discovered cell stays discovered whatever the radius later does. `DiscoveryRuntime` holds no
+  reference to the Core, so no read path can recompute a distance and undo that.
+- **Sector identity is derived, never stored.** Name, risk and contents are pure functions of the
+  world seed and the sector index. Nothing is materialised for a sector nobody has reached, and
+  nothing about a sector enters the save.
+- **Sizes come from `SectorSettings` and from nowhere else.** `SectorGrid` and `SectorCatalog` take
+  theirs as required constructor arguments with no defaults, so a caller that forgets one fails to
+  compile rather than silently disagreeing with the asset.
 
 ### Grid versus Tilemap
 
@@ -241,7 +262,13 @@ One sorting layer (`Default`); depth is resolved entirely by `sortingOrder`, and
 | Flying | fixed | empty - the robots walk, so they are in the sorted band. Kept for drones, projectiles, aerial effects |
 | Information | fixed | placement previews, their arrows, the hover outline |
 
-**The sort key is the bottom edge, never the centre of the art** (`SortingBands.Sorted(worldBottomY, subLayer)`): the footprint's bottom row for a building, the sprite's bottom for free-standing decor, its own position for a robot. Stated as a world coordinate so grid-aligned buildings and scattered decor go through one function. Within a row, four sub-layers: silhouette, shadow, sprite, overlay. A row's difference always outweighs a sub-layer's.
+**Every order is derived from the one below it**, with no literal but the first and no gap between the bands. Gaps used to leave room for an insertion without renumbering what came after; they buy nothing now that no rank is stored anywhere - not in a scene, not in a save - so renumbering costs nothing and a chain beats a gap. Inserting a layer is one line, and the rest follows.
+
+**The sort key is the bottom edge, never the centre of the art** (`DepthSortLadder.Order(worldBottomY, subLayer)`): the footprint's bottom row for a building, the sprite's bottom for free-standing decor. Stated as a world coordinate so grid-aligned buildings and scattered decor go through one function. Within a row, four sub-layers: silhouette, shadow, sprite, overlay. A row's difference always outweighs a sub-layer's.
+
+**The sorted band is measured against the camera, not against the world.** `sortingOrder` is a `short`, and ranking off absolute world Y needs four values per cell per sub-layer - which fits a small map and silently stops working on a large one, because the rank clamps rather than failing. `DepthSortLadder` therefore ranks against a window that follows the view and re-anchors when the camera approaches its edge, so the band's size follows the zoom-out cap instead of the map: a 300-cell world and a 10 000-cell one cost the same 4 096 orders.
+
+Two consequences. Only what is on screen at the same time is ordered - objects far outside the window collapse onto one rank, which is what the scheme trades for its bounded size. And **a sorted-band rank can never be stored**: it is true only for the window it was measured in. Panning does not re-rank anything, since every rank shifts by the same amount and only their comparison is read; ranks are recomputed on a re-anchoring, roughly once per ~98 world units of vertical travel.
 
 **Why not Unity's Transparency Sort Mode in Custom Axis.** It sorts on each transform's own position, and every building root here stands at its footprint's *centre* (`FootprintCenterToWorld`) - precisely the key the rule forbids, so every asset pivot and every spawn would have to be re-anchored first. It would also replace the belts' cell-parity tie-break at an overscanned seam with Y, and a horizontal run shares one Y - back to an undefined winner. And it cannot be asserted outside a running camera, where a computed order is a pure function with tests.
 
@@ -249,7 +276,7 @@ One sorting layer (`Default`); depth is resolved entirely by `sortingOrder`, and
 
 **Permanent marks stay with the thing they mark.** A placed building's own input/output arrows are world decoration and belong to the sorted band, ranked by the cell each arrow sits on. The information band is for what answers a gesture in progress - a preview hidden behind a building would be a preview that failed at its job.
 
-Baked scene decor (`WildDecorationGenerator`) calls `SortingBands` rather than copying the formula: a rank written into a scene is frozen there and is the one draw order nothing recomputes at load. `SortingBandsTests` reads back every scene and fails on drift.
+Scene decor that rises above its base carries a `DepthSortedDecor` marker instead of a baked rank, and `GameRuntime` puts it on the ladder at startup - a number frozen in a scene would be true only for wherever the camera stood when it was written. `SortingBandsTests` scans every scene and fails if any renderer carries a sorted-band order at all.
 
 ## 11. UI
 

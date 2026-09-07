@@ -104,26 +104,35 @@ namespace Game.Tests.PlayMode
         [Test]
         public void TakesItsOrderFromItsCaster_OneSubLayerUnderIt()
         {
-            int casterOrder = SortingBands.Sorted(12f, SortingBands.SubSprite);
+            int casterOrder = SortingBands.SortedFromDepth(12f, SortingBands.SubSprite);
             DropShadow shadow = NewCaster(NewSettings(), NewSprite(), Vector3.zero, Vector3.one, casterOrder);
             var caster = shadow.GetComponent<SpriteRenderer>();
 
             Assert.AreEqual(caster.sortingLayerID, shadow.ShadowRenderer.sortingLayerID);
-            Assert.AreEqual(SortingBands.Sorted(12f, SortingBands.SubShadow), shadow.ShadowRenderer.sortingOrder,
+            Assert.AreEqual(SortingBands.SortedFromDepth(12f, SortingBands.SubShadow), shadow.ShadowRenderer.sortingOrder,
                 "Same row as its caster, one sub-layer below.");
             Assert.Less(shadow.ShadowRenderer.sortingOrder, caster.sortingOrder,
                 "The shadow must draw under the building casting it.");
         }
 
-        /// <summary>Two casters a row apart: their shadows must be a row apart too, which a single shared order could never express.</summary>
+        /// <summary>
+        /// Two casters a row apart: their shadows must be a row apart too, which a single shared order
+        /// could never express.
+        ///
+        /// Depth, not world Y. The ladder's argument used to be a world coordinate, where a bigger
+        /// number meant further up the screen and therefore further away; it is now a depth below the
+        /// view window's top, where a bigger number means further DOWN the screen and therefore
+        /// nearer. The two read the same and mean the opposite, which is exactly how a mechanical
+        /// rename got this test backwards.
+        /// </summary>
         [Test]
         public void ShadowsOfDifferentRows_KeepTheirCastersOrder()
         {
-            DropShadow near = NewCaster(NewSettings(), NewSprite(), Vector3.zero, Vector3.one, SortingBands.Sorted(4f, SortingBands.SubSprite));
-            DropShadow far = NewCaster(NewSettings(), NewSprite(), Vector3.zero, Vector3.one, SortingBands.Sorted(9f, SortingBands.SubSprite));
+            DropShadow near = NewCaster(NewSettings(), NewSprite(), Vector3.zero, Vector3.one, SortingBands.SortedFromDepth(9f, SortingBands.SubSprite));
+            DropShadow far = NewCaster(NewSettings(), NewSprite(), Vector3.zero, Vector3.one, SortingBands.SortedFromDepth(4f, SortingBands.SubSprite));
 
             Assert.Greater(near.ShadowRenderer.sortingOrder, far.ShadowRenderer.sortingOrder,
-                "The lower building's shadow draws in front of the higher building's.");
+                "The nearer building's shadow draws in front of the further one's.");
         }
 
         [Test]

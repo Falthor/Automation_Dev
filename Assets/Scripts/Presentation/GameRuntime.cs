@@ -80,6 +80,18 @@ namespace Game.Presentation
         [SerializeField] ItemDatabase itemDatabase;
         [SerializeField] RecipeDatabase recipeDatabase;
 
+        /// <summary>
+        /// How the map is divided into chunks and sectors, and how dangerous each distance from the
+        /// Core reads. The only place those numbers exist - see SectorSettings.
+        /// </summary>
+        [SerializeField] SectorSettings sectorSettings;
+
+        /// <summary>What grows on the ground and how thickly. Optional: null means a world with no decor, which is a plain world rather than a broken one.</summary>
+        [SerializeField] DecorSettings decorSettings;
+
+        /// <summary>Draws the decor of the chunks around the camera. Optional, like the settings above.</summary>
+        [SerializeField] DecorVisualSync decorVisuals;
+
         [Header("World generation (Core + ore deposits, spawned once at game start)")]
         [SerializeField] WorldGenerationSettings worldGenerationSettings;
         [SerializeField] ActionRadiusView actionRadiusView;
@@ -109,6 +121,9 @@ namespace Game.Presentation
         /// <summary>What the player has discovered, one state per cell. Written by the Core's radius (RevealDiscoveredByCore) and later by missions; read by the fog renderer, which must never recompute a distance to the Core instead.</summary>
         public DiscoveryRuntime Discovery { get; private set; }
 
+        /// <summary>What grows on the ground, derived per chunk, minus what the player has cleared. Null when no decor settings are configured.</summary>
+        public DecorRuntime Decor { get; private set; }
+
         /// <summary>The map cut into sectors - pure geometry, the unit a mission is aimed at.</summary>
         public SectorGrid Sectors { get; private set; }
 
@@ -117,6 +132,13 @@ namespace Game.Presentation
 
         /// <summary>Which sectors are currently within mission reach. Reads the Core's radius at call time, so extending it moves the ring on its own.</summary>
         public SectorMissionRange MissionRange { get; private set; }
+
+        /// <summary>
+        /// The scene's one depth ladder - every sorted-band rank comes from it. There must be
+        /// exactly one: a rank is only meaningful against the window it was measured in, so ranks
+        /// from two ladders are not comparable.
+        /// </summary>
+        public DepthSortLadder DepthSort { get; private set; }
 
         /// <summary>
         /// Redraws one building's view, given the cell its current view is filed under. Installed by
@@ -216,14 +238,24 @@ namespace Game.Presentation
             Notifications = new NotificationSystem();
             Clock = new PlayClock();
 
+            // Sized from the zoom-out cap, because that is exactly what bounds how much world can be
+            // on screen at once - and therefore how many draw orders the sorted band needs. Found
+            // once here rather than wired in the scene: there is one zoom controller, and a missing
+            // one only means the ladder assumes a zero-height view, which still ranks correctly.
+            var zoom = FindAnyObjectByType<CameraZoomController>();
+            _maxOrthographicSize = zoom != null ? zoom.MaxOrthographicSize : 0f;
+            DepthSort = new DepthSortLadder(_maxOrthographicSize);
+            _depthSortCamera = Camera.main;
+
             SaveData loadedSave = PendingGameStart.LoadedSave;
             PendingGameStart.RequestNewGame(); // consume immediately - never read a second time this session
 
             if (loadedSave != null)
             {
                 Terrain = new TerrainRuntime(loadedSave.TerrainSize, loadedSave.TerrainSeed, loadedSave.TerrainScale, loadedSave.TerrainProportion);
-                Discovery = new DiscoveryRuntime(Terrain.Size);
+                Discovery = new DiscoveryRuntime(Terrain.Size, sectorSettings.ChunkSizeCells);
                 Discovery.RestoreState(loadedSave.Discovered);
+                _pendingDecorRemoved = loadedSave.DecorRemoved;
                 Compute.RestoreReserve(loadedSave.ComputeReserve);
 
                 var restoredQueue = new List<ResearchDefinition>();
@@ -239,7 +271,7 @@ namespace Game.Presentation
             else
             {
                 Terrain = new TerrainRuntime(terrainSettings.Size, terrainSettings.Seed, terrainSettings.TerrainScale, terrainSettings.Proportion);
-                Discovery = new DiscoveryRuntime(Terrain.Size);
+                Discovery = new DiscoveryRuntime(Terrain.Size, sectorSettings.ChunkSizeCells);
 
                 // The player's starting resources live in the Core chest fixture placed by
                 // WorldGenerator.Generate (WorldGenerationSettings.CoreStorageDefinition), one cell
@@ -268,9 +300,14 @@ namespace Game.Presentation
             // pure function of Terrain.Seed, and SectorMissionRange reads the radius it is handed.
             // Nothing here is restored from the save, and nothing here needs to be - the seed is,
             // and everything else follows from it.
-            Sectors = new SectorGrid(Terrain.Size);
-            SectorCatalog = new SectorCatalog(Sectors, Terrain.Seed, World?.CoreCenterCells ?? Vector2.zero);
-            MissionRange = new SectorMissionRange();
+            Sectors = new SectorGrid(Terrain.Size, sectorSettings.SectorSizeCells);
+            SectorCatalog = new SectorCatalog(Sectors, Terrain.Seed, World?.CoreCenterCells ?? Vector2.zero,
+                sectorSettings.LowRiskWithinCells, sectorSettings.ModerateRiskWithinCells, sectorSettings.HighRiskWithinCells,
+                sectorSettings.PreferredRegionSizeCells);
+
+            // The maximum radius comes from the Core, which owns it, so the exploration threshold
+            // follows it on its own rather than being a second figure to keep in step.
+            MissionRange = new SectorMissionRange(CoreRuntime.ExtendedActionRadiusCells, sectorSettings.TerritorySpacingCells);
 
             Selection = new SelectionRuntime();
             Selection.GlobalPanelChanged += name =>
@@ -384,11 +421,23 @@ namespace Game.Presentation
         {
             var data = new SaveData
             {
-                TerrainSeed = terrainSettings.Seed,
-                TerrainSize = terrainSettings.Size,
-                TerrainScale = terrainSettings.TerrainScale,
-                TerrainProportion = terrainSettings.Proportion,
+                // From the RUNNING world, never from the settings asset. Those agree on a fresh
+                // game, but a loaded one runs on the values its save carried - and writing the
+                // asset's back would silently re-stamp the save with whatever the asset says today.
+                //
+                // That was a harmless slip while terrain was a stored array reloaded from the save.
+                // It is not one now that terrain is re-derived from these four numbers: editing the
+                // asset between two sessions would regenerate a different world underneath the
+                // buildings the player had already placed.
+                TerrainSeed = Terrain.Seed,
+                TerrainSize = Terrain.Size,
+                TerrainScale = Terrain.TerrainScale,
+                TerrainProportion = Terrain.Proportion,
                 Discovered = Discovery?.CaptureState(),
+
+                // Only what the player cleared. What grows re-derives itself from the seed, so
+                // storing it would be storing what the seed already says.
+                DecorRemoved = Decor?.CaptureState(),
                 ComputeReserve = Compute.Reserve,
                 ResearchActiveId = Research.ActiveResearch != null ? Research.ActiveResearch.Id : null,
                 ResearchProgress = Research.AbsorbedCu,
@@ -443,20 +492,136 @@ namespace Game.Presentation
             SaveCurrentGame();
         }
 
+        /// <summary>The camera the depth ladder and the fog window both follow. Cached once - Camera.main is a scene search.</summary>
+        Camera _depthSortCamera;
+
+        /// <summary>The zoom-out cap. It is what bounds how much world can be on screen at once, which is what sizes both the depth ladder and the fog's window.</summary>
+        float _maxOrthographicSize;
+
+        /// <summary>
+        /// The cleared-decor list from the save, held between Awake and Start.
+        ///
+        /// DecorRuntime cannot be built in Awake: it needs the ground material's biome parameters,
+        /// and TerrainView only writes those in Start. So the save is read where saves are read, and
+        /// applied where the runtime can exist.
+        /// </summary>
+        string _pendingDecorRemoved;
+
         /// <summary>The radius last written into the discovery state, so a repeat pass costs one comparison. NaN until the first pass, which no real radius equals.</summary>
         float _lastRevealedCoreRadius = float.NaN;
 
         /// <summary>
-        /// The Core's action radius writes into the discovery state - today the only source of
-        /// revelation there is, with missions to come.
+        /// Builds the decor runtime and hands it to its view.
         ///
-        /// It <b>writes</b>, it does not define: nothing ever reads the radius back to decide what is
-        /// visible. A cell the radius once covered stays discovered whatever the radius does
-        /// afterwards, which is the whole difference between this and the disc the fog used to be.
+        /// In Start rather than Awake, and that is not a preference: the biome classification needs
+        /// the ground material's own parameters, and TerrainView writes those in its own Initialize.
+        /// Reading them from the material rather than from the profile asset keeps a single source -
+        /// whatever the shader was actually given is what the decor is placed against.
         ///
-        /// Called from the tick and idempotent: the disc is only walked when the radius has actually
-        /// moved since the last pass, so repeating it every frame allocates nothing and walks nothing.
+        /// Missing settings mean a world with no decor, not a broken one.
         /// </summary>
+        void InitialiseDecor()
+        {
+            if (decorSettings == null || Terrain == null) return;
+
+            Material groundMaterial = terrainView != null ? terrainView.GroundMaterial : null;
+            if (groundMaterial == null) return;
+
+            Vector4 origin = groundMaterial.GetVector("_VariationOrigin");
+            var biome = new BiomeField(
+                new Vector2(origin.x, origin.y),
+                groundMaterial.GetFloat("_BiomeCellSize"),
+                groundMaterial.GetFloat("_BiomeSeed"),
+                new[]
+                {
+                    groundMaterial.GetFloat("_BiomeWeight0"),
+                    groundMaterial.GetFloat("_BiomeWeight1"),
+                    groundMaterial.GetFloat("_BiomeWeight2")
+                },
+                (int)groundMaterial.GetFloat("_BiomeTexCount"));
+
+            // Game.Data cannot name Game.Grid's types, so the clumping shapes are assembled here -
+            // the same boundary that makes the band weights arrive as a plain float[][].
+            var clustering = new DecorClustering[decorSettings.Kinds.Length];
+            for (int i = 0; i < clustering.Length; i++)
+            {
+                DecorSettings.Kind kind = decorSettings.Kinds[i];
+                clustering[i] = new DecorClustering(kind.ClusterChance, kind.ClusterSize.x, kind.ClusterSize.y, kind.ClusterRadius);
+            }
+
+            Decor = new DecorRuntime(Terrain.Size, sectorSettings.ChunkSizeCells, Terrain.Seed, biome,
+                decorSettings.BandWeightsPerKind(), decorSettings.SpotsPerChunk, decorSettings.BandEdgeExclusion,
+                clustering);
+
+            // What the player cleared, from the save. Applied before the view spawns anything, so a
+            // cleared rock is never briefly visible on load.
+            Decor.RestoreState(_pendingDecorRemoved);
+            _pendingDecorRemoved = null;
+
+            // Ore deposits, live rather than stored. The old whole-map scatter excluded their
+            // footprints and this keeps that; putting them in the removal set instead would write
+            // hundreds of cells into every save and leave them bare once the deposit is mined out.
+            Decor.GroundIsTaken = cell => Grid.GetOccupant(cell) is DepositRuntime;
+
+            if (decorVisuals != null)
+            {
+                decorVisuals.Initialize(Decor, Grid, DepthSort, decorSettings, _depthSortCamera, _maxOrthographicSize);
+            }
+
+            // Handed over after the runtime exists: ConstructionService is built in Awake, and the
+            // decor cannot be. Every building created from here on clears its own ground.
+            if (Construction != null)
+            {
+                Construction.Decor = Decor;
+                Construction.DecorCleared = cell => decorVisuals?.ForgetCell(cell);
+            }
+
+            // And everything already standing. Buildings restored from a save were created before
+            // this point, and a save predating the decor lists nothing at all - without this sweep,
+            // an old base would be growing rocks inside its own factories.
+            ClearDecorUnderExistingBuildings();
+        }
+
+        /// <summary>One pass over what is already on the grid, so the decor is consistent with it whatever order the two came into existence.</summary>
+        void ClearDecorUnderExistingBuildings()
+        {
+            if (Decor == null || Construction == null) return;
+
+            if (World?.Core != null) Construction.ClearDecorUnder(World.Core.Definition, World.Core.Cell);
+            if (World?.CoreStorage != null) Construction.ClearDecorUnder(World.CoreStorage.Definition, World.CoreStorage.Cell);
+
+            foreach (BuildingRuntime building in _restoredBuildings)
+            {
+                Construction.ClearDecorUnder(building.Definition, building.Cell);
+            }
+        }
+
+        /// <summary>
+        /// Puts every DepthSortedDecor authored into the scene on the depth ladder. Decor that rises
+        /// above its base carries a marker rather than a baked rank, because a sorted-band rank is
+        /// only true for the depth window it was measured in.
+        ///
+        /// <b>For hand-placed scene objects only.</b> The wild decor is not among them: it is derived
+        /// per chunk and DecorVisualSync registers each sprite as it enters the window, which is what
+        /// removed the bug this sweep was written for - a scatter that ran after Start() and left 527
+        /// rocks at sortingOrder 0, sunk into the ground band.
+        ///
+        /// A scene search, so it belongs to startup and never to a frame. Registering the same
+        /// renderer twice would rank it twice, so the ladder is asked to forget it first.
+        /// </summary>
+        int RegisterSceneDepthSortedDecor()
+        {
+            int registered = 0;
+
+            foreach (DepthSortedDecor decor in FindObjectsByType<DepthSortedDecor>(FindObjectsInactive.Include))
+            {
+                decor.RegisterWith(DepthSort);
+                registered++;
+            }
+
+            return registered;
+        }
+
         /// <summary>
         /// Turns a placed building a quarter turn and redraws it - what the panels' rotate button
         /// calls. Kept here rather than in each panel so the runtime change and the view rebuild can
@@ -486,6 +651,17 @@ namespace Game.Presentation
             Construction.BeginRelocation(building);
         }
 
+        /// <summary>
+        /// The Core's action radius writes into the discovery state - today the only source of
+        /// revelation there is, with missions to come.
+        ///
+        /// It <b>writes</b>, it does not define: nothing ever reads the radius back to decide what is
+        /// visible. A cell the radius once covered stays discovered whatever the radius does
+        /// afterwards, which is the whole difference between this and the disc the fog used to be.
+        ///
+        /// Called from the tick and idempotent: the disc is only walked when the radius has actually
+        /// moved since the last pass, so repeating it every frame allocates nothing and walks nothing.
+        /// </summary>
         void RevealDiscoveredByCore()
         {
             if (Discovery == null || World?.Core == null) return;
@@ -527,6 +703,12 @@ namespace Game.Presentation
             // where it stood, without knowing pause exists. See PlayClock.
             Clock.Advance(Time.deltaTime);
 
+            // Not part of the simulation tick - where the player is looking is not simulation state,
+            // which is why it sits after the clock and reads no deltaTime at all. On almost every
+            // frame this is one subtraction and one comparison; it only re-ranks anything when the
+            // camera has panned out of the ladder's slack, roughly every 98 world units.
+            if (_depthSortCamera != null) DepthSort?.FollowCamera(_depthSortCamera.transform.position.y);
+
             // The cell grid is a construction aid, not permanent decoration: it shows only while
             // a building is armed for placement. Driven from here rather than from the
             // construction input adapter because this object already owns the view's reference
@@ -543,6 +725,9 @@ namespace Game.Presentation
                 terrainView.Initialize(Terrain, Grid);
             }
 
+            RegisterSceneDepthSortedDecor();
+            InitialiseDecor();
+
             GroundSlabSettings = BuildGroundSlabSettings();
             GroundSlabNeighborLinker = new GroundSlabNeighborLinker(Grid);
 
@@ -558,7 +743,7 @@ namespace Game.Presentation
 
             if (World != null)
             {
-                var contentSpawner = new WorldContentSpawner(Grid, new ProceduralSpriteFactory(), GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings);
+                var contentSpawner = new WorldContentSpawner(Grid, new ProceduralSpriteFactory(), GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings, DepthSort);
                 contentSpawner.SpawnCore(World.Core);
                 Transport.Register(World.Core);
 
@@ -567,7 +752,7 @@ namespace Game.Presentation
                 // instead, already registered and viewed like any other placed Storage box.
                 if (World.CoreStorage != null)
                 {
-                    var coreStorageSpawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings);
+                    var coreStorageSpawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings, DepthSort);
                     coreStorageSpawner.SpawnView(World.CoreStorage);
                     Transport.Register(World.CoreStorage);
                 }
@@ -598,7 +783,11 @@ namespace Game.Presentation
                     // research hook here either, unlike actionRadiusView above - extending the
                     // radius reveals cells, and revealed cells are what the fog already reads. A
                     // radius passed to this view is how it used to be a disc with no memory.
-                    fogOfWarView.Initialize(Discovery, Grid);
+                    // The camera and the zoom-out cap, because the fog texture is now a window that
+                    // follows the view rather than a copy of the map - see FogOfWarView. Same two
+                    // inputs the depth ladder is built from, and for the same reason: how much world
+                    // can be on screen at once is what bounds both.
+                    fogOfWarView.Initialize(Discovery, Grid, _depthSortCamera, _maxOrthographicSize);
                 }
 
                 // Start the camera centered on the Core - otherwise its fixed scene position
@@ -619,7 +808,7 @@ namespace Game.Presentation
                 // Passed the same presentation settings as the placement path, which it was not:
                 // a building coming back from a save has to look like the one that was placed, and
                 // this spawner was giving it neither a concrete slab nor a shadow.
-                var spawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings);
+                var spawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings, DepthSort);
                 foreach (BuildingRuntime building in _restoredBuildings)
                 {
                     spawner.SpawnView(building);

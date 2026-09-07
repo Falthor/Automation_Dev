@@ -12,13 +12,16 @@ Shader "Custom/FogOfWar"
         // amount of noise below hides it.
         _FogTex ("Discovery (R8, 1 = discovered)", 2D) = "black" {}
 
-        // World-space rectangle the texture covers: (minX, minY, sizeX, sizeY). The quad is drawn
-        // larger than this so panning off the map stays fogged; the mapping is stated here rather
-        // than implied by the quad's own transform, exactly as Custom/GroundCoverage does with
-        // _ZoneBounds.
-        _MapBounds ("Map bounds (minX, minY, sizeX, sizeY)", Vector) = (0, 0, 1, 1)
+        // World-space rectangle the texture covers: (minX, minY, sizeX, sizeY). This is a WINDOW
+        // that follows the camera, not the map - its size is bounded by the zoom-out cap and has
+        // nothing to do with how big the world is. Written by FogOfWarView on every re-anchoring, and
+        // stated here rather than implied by the quad's own transform, exactly as
+        // Custom/GroundCoverage does with _ZoneBounds.
+        _WindowBounds ("Window bounds (minX, minY, sizeX, sizeY)", Vector) = (0, 0, 1, 1)
 
-        _FogColor ("Fog colour", Color) = (0.02, 0.03, 0.05, 0.96)
+        // Opaque. Anything less lets the camera's own background through wherever no terrain is
+        // drawn - past the edge of the world today, and anywhere ungenerated once terrain is lazy.
+        _FogColor ("Fog colour", Color) = (0.02, 0.03, 0.05, 1)
 
         // Where in the interpolated ramp the fog's edge falls. 0.5 puts it halfway between a
         // discovered cell and its unknown neighbour.
@@ -85,7 +88,7 @@ Shader "Custom/FogOfWar"
             };
 
             sampler2D _FogTex;
-            float4 _MapBounds;
+            float4 _WindowBounds;
             fixed4 _FogColor;
             float _Threshold;
             float _EdgeSoftness;
@@ -128,13 +131,19 @@ Shader "Custom/FogOfWar"
 
             fixed4 frag(v2f i) : SV_Target
             {
-                float2 mapSize = max(_MapBounds.zw, float2(0.0001, 0.0001));
-                float2 uv = (i.worldPos.xy - _MapBounds.xy) / mapSize;
+                float2 windowSize = max(_WindowBounds.zw, float2(0.0001, 0.0001));
+                float2 uv = (i.worldPos.xy - _WindowBounds.xy) / windowSize;
 
-                // Outside the map the sampler clamps to the border texel, which is unknown - so the
-                // fog simply continues past the edge of the world, and panning off the map does not
-                // reveal an unfogged void.
                 float discovered = tex2D(_FogTex, uv).r;
+
+                // Outside the window, forced to undiscovered. Clamping to the border texel was right
+                // while the texture covered the whole map - its edge was always unknown - but a window
+                // that follows the camera has discovered texels on its border, and clamping would
+                // smear them outwards into a wedge of cleared fog. Anything with no state is unknown,
+                // and outside the window there is no state at all. The window always contains the
+                // view, so this only ever affects what is off screen.
+                float inside = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
+                discovered *= inside;
 
                 // Signed distance to the fog's edge: positive where the map is still hidden.
                 float hidden = _Threshold - discovered;

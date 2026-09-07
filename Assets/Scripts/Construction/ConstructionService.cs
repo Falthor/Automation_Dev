@@ -133,6 +133,19 @@ namespace Game.Construction
         /// </summary>
         public BuildingRuntime RelocationTarget { get; private set; }
 
+        /// <summary>
+        /// What grows on the ground, so a building can clear its own footprint.
+        ///
+        /// Set after construction rather than injected: the decor runtime needs the ground material's
+        /// biome parameters, which only exist once TerrainView has initialised, while this service is
+        /// built in Awake. Optional - a headless test wires neither this nor <see cref="DecorCleared"/>
+        /// and simply builds nothing over decor that does not exist.
+        /// </summary>
+        public DecorRuntime Decor { get; set; }
+
+        /// <summary>Told which cell just stopped growing something, so the view can take the object off screen without waiting for its window to move.</summary>
+        public System.Action<GridCoord> DecorCleared { get; set; }
+
         public void SelectBuilding(BuildingDefinition definition)
         {
             RelocationTarget = null;
@@ -401,12 +414,51 @@ namespace Game.Construction
         }
 
         /// <summary>
+        /// Everything a building's existence implies beyond its own runtime - today, that the ground
+        /// it stands on stops growing anything.
+        ///
+        /// <b>Here rather than in the placement path</b>, because a building appears three ways: placed
+        /// by the player, restored from a save, materialised by a builder robot. All three land on
+        /// CreateAndRegisterOccupant, and only this wrapper is on all three routes. Clearing at
+        /// placement time would leave a rock standing inside a restored factory.
+        /// </summary>
+        BuildingRuntime CreateAndRegister(BuildingDefinition definition, GridCoord cell, Direction rotation)
+        {
+            // Before the building takes the cell, not after. What grows is asked of the ground, and
+            // the ground is about to stop being free - a check made afterwards would see an occupied
+            // cell, conclude nothing grew there, and record no removal. The rock would then come back
+            // on the next reload. Nothing reads the occupant today, and this ordering is what keeps
+            // that from becoming a trap the day something does.
+            ClearDecorUnder(definition, cell);
+            return CreateAndRegisterOccupant(definition, cell, rotation);
+        }
+
+        /// <summary>
+        /// Clears whatever grew on a building's footprint.
+        ///
+        /// Public for one caller beyond the chokepoint above: GameRuntime sweeping what was already
+        /// standing when the decor came into existence. Idempotent - re-clearing a cell the save
+        /// already listed changes nothing, which is how a save predating the decor still ends up
+        /// consistent.
+        /// </summary>
+        public void ClearDecorUnder(BuildingDefinition definition, GridCoord origin)
+        {
+            if (Decor == null || definition == null) return;
+
+            foreach (Vector2Int offset in definition.FootprintCells)
+            {
+                var cell = new GridCoord(origin.X + offset.x, origin.Y + offset.y);
+                if (Decor.Remove(cell)) DecorCleared?.Invoke(cell);
+            }
+        }
+
+        /// <summary>
         /// Instantiates the concrete runtime type for a definition and registers it as the
         /// occupant of its footprint in Game.Grid. The one place that maps a BuildingDefinition
         /// to its BuildingRuntime subclass - shared by TryPlace (after cost/placement checks) and
         /// CreateForRestore (after the save/load layer already knows placement was once valid).
         /// </summary>
-        BuildingRuntime CreateAndRegister(BuildingDefinition definition, GridCoord cell, Direction rotation)
+        BuildingRuntime CreateAndRegisterOccupant(BuildingDefinition definition, GridCoord cell, Direction rotation)
         {
             if (definition is ConveyorDefinition conveyorDefinition)
             {

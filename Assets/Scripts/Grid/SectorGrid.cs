@@ -25,14 +25,6 @@ namespace Game.Grid
     /// </summary>
     public sealed class SectorGrid
     {
-        /// <summary>
-        /// 12 cells a side, ~144 cells. The criterion is not geometric but functional: a sector
-        /// should hold exactly one point of interest, so a mission's reward is nameable. Smaller and
-        /// it is often empty; larger and it holds several, which makes the choice of destination
-        /// indifferent.
-        /// </summary>
-        public const int DefaultSectorSizeCells = 12;
-
         public int MapSizeCells { get; }
         public int SectorSizeCells { get; }
 
@@ -44,7 +36,12 @@ namespace Game.Grid
         /// <summary>Half a sector - the radius of the inscribed disc, which touches the middle of each side.</summary>
         public float InscribedRadiusCells => SectorSizeCells * 0.5f;
 
-        public SectorGrid(int mapSizeCells, int sectorSizeCells = DefaultSectorSizeCells)
+        /// <summary>
+        /// The sector size has no default on purpose. It is a setting (SectorSettings), and a default
+        /// here would be a second copy of it - the exact way a value re-freezes in code. Required, so
+        /// a caller that forgets it fails to compile rather than silently disagreeing with the asset.
+        /// </summary>
+        public SectorGrid(int mapSizeCells, int sectorSizeCells)
         {
             MapSizeCells = Mathf.Max(0, mapSizeCells);
             SectorSizeCells = Mathf.Max(1, sectorSizeCells);

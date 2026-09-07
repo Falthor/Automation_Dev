@@ -173,7 +173,7 @@ namespace Game.Tests.EditMode.Presentation
             SpriteRenderer silhouette = fixture.Views.SilhouetteOf(site.Segments[0]);
             Assert.IsNotNull(silhouette, "A placed site is visible immediately, before any material arrives.");
             Assert.AreEqual(0.6f, silhouette.color.a, 0.0001f, "Nothing delivered: the silhouette is at its own full tint, not the faded one.");
-            Assert.AreEqual(SortingBands.Sorted(5f, SortingBands.SubSilhouette), silhouette.sortingOrder,
+            Assert.AreEqual(fixture.Views.DepthSort.Order(5f, SortingBands.SubSilhouette), silhouette.sortingOrder,
                 "The silhouette is ranked at the row it is being built on, under the sprite assembling over it.");
             Assert.AreEqual(0f, fixture.Views.DissolveOf(site.Segments[0]).DisplayedProgress, 0.0001f, "The sprite is entirely clipped away.");
             Assert.AreEqual(0, fixture.Views.AssemblingCount);

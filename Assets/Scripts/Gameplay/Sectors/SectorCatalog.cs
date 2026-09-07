@@ -67,39 +67,137 @@ namespace Game.Gameplay.Sectors
             "des Mâchoires", "des Serres", "des Racines", "des Cendres Froides"
         };
 
-        /// <summary>768. Must stay at or above SectorGrid.Count for names to remain unique - pinned by a test, so growing the map trips it rather than silently duplicating names.</summary>
+        /// <summary>768 region names. No longer one per sector - see <see cref="NameOf"/>.</summary>
         public static int NameCombinationCount => Forms.Length * Complements.Length;
+
+        /// <summary>
+        /// The most regions one axis may hold, so that the grid of regions always fits inside the
+        /// name pool: 27, since 27 x 27 = 729 and 28 x 28 = 784 would overflow 768.
+        ///
+        /// <b>Derived, and that is the whole repair.</b> Names used to be one per sector, guarded by a
+        /// test that the pool was big enough - a tripwire, which duly went off when the map reached
+        /// 10 000 and 390 625 sectors wanted 768 names. A tripwire only tells you the design has run
+        /// out; capping the region count removes the failure instead, because no map size can now
+        /// produce more regions than there are names for.
+        /// </summary>
+        public static int MaxRegionsPerAxis => Mathf.FloorToInt(Mathf.Sqrt(NameCombinationCount));
 
         public SectorGrid Grid { get; }
         public int Seed { get; }
 
-        /// <summary>Where the risk gradient is measured from. The Core's own sector is the safe end.</summary>
-        readonly int _coreColumn;
-        readonly int _coreRow;
+        /// <summary>How many regions tile one axis of the map. At most <see cref="MaxRegionsPerAxis"/>, so two regions can never share a name.</summary>
+        public int RegionsPerAxis { get; }
 
-        public SectorCatalog(SectorGrid grid, int seed, Vector2 coreCenterCells)
+        /// <summary>
+        /// How wide a named region is, in cells. Derived from the map and the region count, never set:
+        /// a settable effective size could be given a value that produces more regions than names.
+        /// The preferred size passed to the constructor is an intent, and this is what came of it.
+        /// </summary>
+        public int RegionSizeCells { get; }
+
+        /// <summary>Where the risk gradient is measured from, in cell space - not the Core's sector, which would put the measurement back in units of the division.</summary>
+        readonly Vector2 _coreCenterCells;
+
+        readonly float _lowRiskWithinCells;
+        readonly float _moderateRiskWithinCells;
+        readonly float _highRiskWithinCells;
+
+        /// <summary>
+        /// The risk thresholds are required, and in cells. They come from SectorSettings; there is no
+        /// default here, for the same reason SectorGrid has none for its sector size - a default
+        /// would be a second copy of a setting.
+        ///
+        /// <paramref name="preferredRegionSizeCells"/> is how wide a named region should be. It is an
+        /// intent rather than the answer: a map large enough that it would need more than
+        /// <see cref="MaxRegionsPerAxis"/> regions gets wider ones instead, because a region without a
+        /// name of its own is worse than a region larger than asked for.
+        /// </summary>
+        public SectorCatalog(SectorGrid grid, int seed, Vector2 coreCenterCells,
+            float lowRiskWithinCells, float moderateRiskWithinCells, float highRiskWithinCells,
+            int preferredRegionSizeCells)
         {
             Grid = grid;
             Seed = seed;
+            _coreCenterCells = coreCenterCells;
+            _lowRiskWithinCells = lowRiskWithinCells;
+            _moderateRiskWithinCells = moderateRiskWithinCells;
+            _highRiskWithinCells = highRiskWithinCells;
 
-            int coreIndex = grid?.IndexAt(new GridCoord(Mathf.FloorToInt(coreCenterCells.x), Mathf.FloorToInt(coreCenterCells.y))) ?? -1;
-            _coreColumn = coreIndex >= 0 ? grid.ColumnOf(coreIndex) : 0;
-            _coreRow = coreIndex >= 0 ? grid.RowOf(coreIndex) : 0;
+            int mapSize = Mathf.Max(1, grid?.MapSizeCells ?? 1);
+            int preferred = Mathf.Max(1, preferredRegionSizeCells);
+
+            RegionsPerAxis = Mathf.Clamp(Mathf.CeilToInt(mapSize / (float)preferred), 1, MaxRegionsPerAxis);
+            RegionSizeCells = Mathf.CeilToInt(mapSize / (float)RegionsPerAxis);
         }
 
-        /// <summary>The sector's name. Stable for a given seed and index, and distinct from every other sector's.</summary>
+        /// <summary>
+        /// The sector's name: the name of the region it belongs to, then its position inside that
+        /// region - "Cratère de Suie H12".
+        ///
+        /// <b>Unique per sector, but not by having a name of its own.</b> One name per sector worked
+        /// on a 300-cell map and could not survive 10 000: 390 625 sectors against 768 combinations
+        /// is 80 % collisions, and five neighbours sharing a name makes designating a mission
+        /// destination impossible. No amount of extra vocabulary fixes that - 390 625 distinct
+        /// generated names would all read alike anyway.
+        ///
+        /// So uniqueness moves off the name and onto the pair. Neighbours now share a region name and
+        /// differ by suffix, which is how places are actually named, and it reads better than the old
+        /// scheme did: a player learns one region rather than fifty unrelated nouns.
+        ///
+        /// <b>Collision is structurally impossible</b>, not merely tested for: the region count is
+        /// capped at <see cref="MaxRegionsPerAxis"/> squared, which is below the pool, and the suffix
+        /// is the sector's own position within its region. Two sectors with the same suffix are in
+        /// different regions, and two regions never share a name.
+        /// </summary>
         public string NameOf(int index)
         {
             if (Grid == null || !Grid.ContainsIndex(index)) return string.Empty;
 
+            GridCoord origin = Grid.OriginOf(index);
+
+            int regionColumn = origin.X / RegionSizeCells;
+            int regionRow = origin.Y / RegionSizeCells;
+            int regionIndex = regionRow * RegionsPerAxis + regionColumn;
+
+            int withinColumn = origin.X % RegionSizeCells / Grid.SectorSizeCells;
+            int withinRow = origin.Y % RegionSizeCells / Grid.SectorSizeCells;
+
+            return RegionNameOf(regionIndex) + " " + ColumnLetters(withinColumn) + (withinRow + 1);
+        }
+
+        /// <summary>
+        /// The region's own name, by the same bijection the sectors used to get: a stride coprime with
+        /// the 768 combinations (768 = 2^8 x 3; 397 is odd and not a multiple of 3), so index -> name
+        /// is injective with no global bookkeeping. Drawing at random would collide constantly.
+        ///
+        /// The seed only rotates the sequence: two worlds name the same region differently, and within
+        /// one world the mapping stays a bijection.
+        /// </summary>
+        public string RegionNameOf(int regionIndex)
+        {
             int total = NameCombinationCount;
 
-            // The seed only rotates the sequence: two worlds name the same sector differently, and
-            // within one world the mapping stays a bijection.
             int rotation = (int)(Hash(Seed, 0, NameSalt) % (uint)total);
-            int combination = (int)(((long)index * NameStride + rotation) % total);
+            int combination = (int)(((long)regionIndex * NameStride + rotation) % total);
 
             return Forms[combination / Complements.Length] + " " + Complements[combination % Complements.Length];
+        }
+
+        /// <summary>
+        /// A, B, ... Z, AA, AB ... - spreadsheet columns. Two letters are only reached on a region
+        /// wider than 26 sectors, which the shipped division does not produce; the general form is
+        /// here so that a larger region does not silently start repeating letters.
+        /// </summary>
+        public static string ColumnLetters(int column)
+        {
+            if (column < 0) return "?";
+
+            string letters = string.Empty;
+            for (int remaining = column; ; remaining = remaining / 26 - 1)
+            {
+                letters = (char)('A' + remaining % 26) + letters;
+                if (remaining < 26) return letters;
+            }
         }
 
         /// <summary>
@@ -107,16 +205,30 @@ namespace Game.Gameplay.Sectors
         /// makes - a far mission should read as a bigger bet before they have read a single number.
         /// The seed then nudges individual sectors off the gradient by one band, so two worlds are
         /// not the same map with the same answers.
+        ///
+        /// <b>Measured in cells, not in sectors crossed.</b> It used to count rings of sectors, which
+        /// tied a property of the world to a division of it: changing the sector size from 12 to 16
+        /// stretched the whole danger gradient by a third, silently, with no test able to see it.
+        /// Distance from the Core is what the player actually experiences, and it means the same
+        /// thing whatever the map is cut into.
+        ///
+        /// The thresholds are <b>balance settings, not derived values</b> - they read as the geometry
+        /// of expansion (your own ground, the mining ring, as far as a secondary Core reaches, past
+        /// that), and they are meant to be tuned by playing. Deriving them from the Core's maximum
+        /// radius would couple danger to how far a Core can eventually reach, which says nothing
+        /// about danger and would still need answering if radius extension disappeared.
         /// </summary>
         public SectorRisk RiskOf(int index)
         {
             if (Grid == null || !Grid.ContainsIndex(index)) return SectorRisk.Low;
 
-            int ring = Mathf.Max(
-                Mathf.Abs(Grid.ColumnOf(index) - _coreColumn),
-                Mathf.Abs(Grid.RowOf(index) - _coreRow));
+            float distanceCells = Vector2.Distance(Grid.CenterCells(index), _coreCenterCells);
 
-            int band = ring <= 1 ? 0 : ring <= 3 ? 1 : ring <= 6 ? 2 : 3;
+            int band =
+                distanceCells <= _lowRiskWithinCells ? (int)SectorRisk.Low :
+                distanceCells <= _moderateRiskWithinCells ? (int)SectorRisk.Moderate :
+                distanceCells <= _highRiskWithinCells ? (int)SectorRisk.High :
+                                                        (int)SectorRisk.Critical;
 
             uint jitter = Hash(Seed, index, RiskSalt) % 4;
             if (jitter == 0) band++;
@@ -134,8 +246,16 @@ namespace Game.Gameplay.Sectors
             if (Grid == null || !Grid.ContainsIndex(index)) return new SectorContents(SectorFeature.None, new GridCoord(0, 0), null);
 
             GridCoord origin = Grid.OriginOf(index);
-            int half = Grid.SectorSizeCells / 2;
-            var featureCell = new GridCoord(origin.X + half, origin.Y + half);
+
+            // The sector's real extent, which is not always its full size: 300 is not a whole number
+            // of 16s, so the sectors along two edges of the map are clipped. Scattering across the
+            // nominal square instead would drop contents outside the map entirely - and it would only
+            // show up on a map size that does not divide evenly, which the previous sector size did.
+            int width = Mathf.Min(Grid.SectorSizeCells, Grid.MapSizeCells - origin.X);
+            int height = Mathf.Min(Grid.SectorSizeCells, Grid.MapSizeCells - origin.Y);
+            if (width <= 0 || height <= 0) return new SectorContents(SectorFeature.None, origin, null);
+
+            var featureCell = new GridCoord(origin.X + width / 2, origin.Y + height / 2);
 
             // One in eight sectors is bare. An empty sector has to be possible, or "there is
             // something in every direction" becomes the same as "direction does not matter".
@@ -154,8 +274,8 @@ namespace Game.Gameplay.Sectors
                 // Anywhere in the square, corners included - no attempt to keep them inside the
                 // revealed disc. The ones that fall outside it are the point.
                 uint draw = Hash(Seed, index, DepositSalt + (uint)(i + 1) * 0x9E3779B9u);
-                int x = origin.X + (int)(draw % (uint)Grid.SectorSizeCells);
-                int y = origin.Y + (int)(draw / 65536u % (uint)Grid.SectorSizeCells);
+                int x = origin.X + (int)(draw % (uint)width);
+                int y = origin.Y + (int)(draw / 65536u % (uint)height);
                 deposits[i] = new GridCoord(x, y);
             }
 
@@ -174,24 +294,14 @@ namespace Game.Gameplay.Sectors
         }
 
         /// <summary>
-        /// An integer mixer written out here rather than borrowed from string.GetHashCode or
-        /// Random - both are free to change between runtimes, and this has to give the same answer
-        /// in a save loaded next year as it did when the save was written.
+        /// The shared runtime-stable mixer (Game.Core). It used to be written out here; it moved when
+        /// the terrain came to need exactly the same guarantee, and moved rather than being copied
+        /// for the reason a hash is always worth sharing - two copies are two things that can drift,
+        /// and a drifting hash silently recomposes a world under buildings that were saved.
+        ///
+        /// The arithmetic is unchanged, and a test with hard-coded names proves it: moving it must
+        /// not have renamed a single sector.
         /// </summary>
-        static uint Hash(int seed, int index, uint salt)
-        {
-            unchecked
-            {
-                uint h = (uint)seed * 2654435761u;
-                h ^= (uint)index * 2246822519u;
-                h ^= salt;
-                h ^= h >> 15;
-                h *= 2246822519u;
-                h ^= h >> 13;
-                h *= 3266489917u;
-                h ^= h >> 16;
-                return h;
-            }
-        }
+        static uint Hash(int seed, int index, uint salt) => DeterministicHash.Mix(seed, index, salt);
     }
 }

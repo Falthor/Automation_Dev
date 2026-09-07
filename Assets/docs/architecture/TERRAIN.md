@@ -1,9 +1,12 @@
 # Terrain
 
-Authoritative subsystem document for terrain: the gameplay-side terrain data owned by `Game.Grid`, and the presentation-side ground rendering owned by `Game.Presentation` (`TerrainView`, `GroundTextureProfile`, `ShadedGroundTiled.shader`, `CloudShadowOverlay.shader`).
+Authoritative subsystem document for terrain: the gameplay-side terrain data owned by `Game.Grid`, the presentation-side ground rendering owned by `Game.Presentation` (`TerrainView`, `GroundTextureProfile`, `ShadedGroundTiled.shader`, `CloudShadowOverlay.shader`), and the wild decor scattered on top of it.
+
+It does **not** cover how the map is divided, discovered or hidden — chunks, sectors, discovery state and fog of war are [`MAP.md`](MAP.md).
 
 ## Related documents
 
+- [`MAP.md`](MAP.md) — the map's division, discovery state, fog of war and sectors. `TerrainRuntime.Seed` is what its sector identities derive from.
 - [`DEVELOPMENT_RULES.md`](DEVELOPMENT_RULES.md) — determinism rule (§ "Deterministic generators must produce identical results for identical seed and parameters when determinism is part of the contract").
 - [`PROJECT_ARCHITECTURE.md`](PROJECT_ARCHITECTURE.md) — §7 Grid (terrain gameplay data ownership), §10 Presentation (the `GroundTextureProfile` preset pattern). This document expands both with implementation detail; where the two disagree, `PROJECT_ARCHITECTURE.md` wins per the source-of-truth order in `CLAUDE.md`.
 
@@ -11,11 +14,17 @@ Authoritative subsystem document for terrain: the gameplay-side terrain data own
 
 ## 1. Gameplay-authoritative terrain (`Game.Grid`)
 
-`TerrainRuntime` (`Assets/Scripts/Grid/TerrainRuntime.cs`) is the sole source of truth for per-cell terrain type. It is generated once, deterministically, from `TerrainGenerationSettings` (`Game.Data`: `size`, `seed`, `terrainScale`, `proportion`):
+`TerrainRuntime` (`Assets/Scripts/Grid/TerrainRuntime.cs`) is the sole source of truth for per-cell terrain type. It is a **pure function of the seed and the coordinate**, computed on demand from `TerrainGenerationSettings` (`Game.Data`: `size`, `seed`, `terrainScale`, `proportion`):
 
 - A 3-octave Perlin fBm (weights 0.6/0.3/0.1 at frequencies ×1/×2.1/×4.3, via `SampleContinuous`) is sampled per cell; a cell is `TerrainType.Top` if the value is below `proportion`, otherwise `TerrainType.Base`. Out-of-bounds cells read as `Base`.
+- **Nothing is stored.** There is no per-cell array: `GetTerrainType` computes its answer each time. A world of any size therefore costs nothing to hold or to construct, which is what lets the map grow. The cost moved from memory to three Perlin samples per query; nothing queries it per frame today, and a cache added later should be filled *from* this function so purity survives the optimisation.
+- Because nothing is stored, the order cells are asked about cannot matter — the determinism the save relies on is structural rather than a discipline to keep. `TerrainRuntimeTests` pins it, including across chunk boundaries, so that a future cache cannot introduce a seam unnoticed.
 - `SampleContinuous` is exposed publicly so Presentation could rebuild a higher-resolution mask derived from the exact same function, if a gameplay-driven visual ever needs one — it is not currently consumed by any renderer.
 - `GetTerrainType` currently has no gameplay consumers (only its own EditMode tests) and does not influence rendering. Its existence is reserved for later gameplay rules (e.g. terrain-dependent placement or movement).
+
+**The seed offsets come from `Game.Core.DeterministicHash`, never from `System.Random`.** `System.Random` has no guarantee of stability across runtime versions, and terrain is re-derived at every load while the buildings standing on it are saved: a Unity upgrade changing its sequence would recompose every existing world underneath bases the player had built. The rule generalises — **nothing derived may use `System.Random` or `string.GetHashCode`**; both are fine only for what is thrown away or saved. `DeterministicHashTests` and `TerrainRuntimeTests` pin the arithmetic with hard-coded expected values, which is the only kind of test that can catch a runtime changing its mind.
+
+**Terrain does not enter the save.** It is re-derived at load from the four numbers the save carries (`TerrainSeed`, `TerrainSize`, `TerrainScale`, `TerrainProportion`), which is why those must be captured from the **running world** rather than from the settings asset — editing the asset between two sessions would otherwise regenerate a different world underneath buildings already placed.
 
 `Game.Grid` owns this data (`PROJECT_ARCHITECTURE.md` §7); do not access `TerrainRuntime` internals from outside approved contracts, and do not let a Tilemap or any visual stand in as the source of truth for terrain type.
 
@@ -69,3 +78,28 @@ To add another base or accent texture: drop the `Texture2D` (and optional normal
 ## 3. Cloud shadow overlay
 
 `Custom/CloudShadowOverlay` (pre-existing, unrelated to the biome work above): an animated moving-noise shadow tint, configured via `TerrainView`'s `showCloudShadows`/`cloudScale`/`cloudSpeed`/`cloudCoverage`/`cloudSoftness`/`cloudShadowOpacity`/`cloudShadowColor`. Purely decorative, no gameplay coupling.
+
+## 4. Wild decor
+
+Rocks, bushes, flowers and dead wood scattered on the ground. No gameplay effect: decor blocks nothing, is never an occupant, and a building placed over it simply clears it.
+
+**Derived per chunk, like the terrain and for the same reason.** `DecorRuntime` (`Assets/Scripts/Grid/DecorRuntime.cs`) answers what one chunk holds as a pure function of the world seed and the chunk's coordinates, via `DeterministicHash` — never `System.Random`. Nothing is placed step by step and there is no sequential state to advance, so a chunk answers the same thing whether it is asked first, last, or twice. Density is expressed **per chunk** (`DecorSettings.spotsPerChunk`), never as a total for the map: a total cannot follow a change of map size.
+
+**Decor grows in clumps, from derived anchors.** A spot is one item for a solitary kind (trees, large rocks) and a whole clump for a clumping one (thickets, flower beds, rock outcrops) — `DecorClustering` carries the chance, the size range and the radius per kind. Items placed one per draw give an *even* scatter, and an even scatter reads as regularity exactly as a grid does; clumping is what breaks it. The anchor is itself hashed from the chunk and the spot index, so a clump is a pure function like everything else — there is no sequential "pick an anchor, walk outward" pass, which a chunked derivation could not host.
+
+Deriving a chunk therefore also derives the anchors of its **eight neighbours**, keeping only the members that land inside. This is not the forbidden kind of neighbour access: what is forbidden is consulting a neighbour's *state* — an answer that depends on whether it has been asked yet, or on what it decided to keep. Here the neighbour's anchors are re-derived from the same pure function, so the answer still depends on nothing but the seed and the coordinates. Without it, every clump straddling a boundary would be cut along the chunk line, drawing the chunk grid on the ground in vegetation; `DecorRuntimeTests.ClumpsAreNotCutAlongChunkLines` is what holds that. One ring suffices because a clump radius is clamped to the chunk size, and an anchor that cannot reach the chunk being derived is rejected before its biome sample — which is what keeps the extra ring from costing nine times the work.
+
+**A window, not a world.** `DecorVisualSync` (`Game.Presentation`) instantiates only the chunks covering the widest possible view plus `windowMarginCells`, and pools the objects it takes away. The chunk grid is the hysteresis — panning inside one chunk costs a comparison. Raised kinds register with `DepthSortLadder` on entering the window and unregister on leaving; flat kinds take `SortingBands.FlatVegetation` and never touch the ladder.
+
+**Two filters, and the difference between them is the whole design:**
+
+- **What the player cleared** is stored, in `SaveData.DecorRemoved` (`CONTRACTS.md` §14). The derivation knows nothing of what happened on the ground, so without this a rock cleared to make room for a building grows back the moment the camera leaves and returns. `ConstructionService.CreateAndRegister` is the single chokepoint that records it — every building passes through it, whether placed, restored from a save, or materialised by a robot, and it clears **before** taking the cell.
+- **What is taken by something the seed already knows** — today an ore deposit — is filtered live through `DecorRuntime.GroundIsTaken` and never stored. Recording a deposit's footprint would write hundreds of cells into every save to say something the seed can answer, and would leave the ground bare once the deposit was mined out.
+
+Nothing is recorded where nothing grows: a footprint is cells, decor is roughly one item per hundred cells, so an unfiltered sweep would put about a hundred useless entries in the save for every rock actually cleared. `DecorRuntime.GrowsAt` memoises the chunk derivations it needs for this — measured, a 200-building base sweeping its own footprint at load costs 3 ms rather than 231.
+
+**Sprite tints are baked, never computed at launch.** A sprite's average colour is a constant of the art, so `Tools/Decor/Bake Sprite Tints` writes one multiplier per sprite into `DecorSettings.Kind.spriteTints` and the running game reads a colour out of an asset — where the old whole-map scatter blitted sixty textures through the GPU on every Play Mode entry to arrive at the same numbers. The multiplier mutes a sprite towards the darker of the ground profile's first two base textures, capped at 1 per channel because a `SpriteRenderer` colour can only darken; a value above 1 clips to white rather than brightening. `DecorTintBakeTests` recomputes and compares against the shipped settings and the profile the shipped scene references, so a change of ground art fails a test instead of quietly leaving the decor mismatched.
+
+Measured on the current art, that cap fires almost everywhere: every rock sprite is darker than the ground in all three channels, so 58 of 61 tints are white and the three that are not are flowers losing 2–11 % of red. The mechanism is therefore doing nothing visible today — it is kept because it is a correct data path at zero runtime cost that starts working on its own if the ground lightens.
+
+The CPU classification of which ground band a spot sits on is `BiomeField` — a float32 port of the ground shader's own base-layer maths, deliberately matching the shader's precision rather than exceeding it (see §2 and the class summary). `DecorSettings.bandEdgeExclusion` grows nothing within a rounding of a band boundary, which is where the port and the GPU can disagree.

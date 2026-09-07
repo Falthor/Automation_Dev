@@ -9,12 +9,10 @@
 >
 > | Ce que dit ce carnet | Ce qui le remplace |
 > |---|---|
-> | secteurs de 12 cases, disque inscrit de rayon 6 | secteurs de **16**, disque inscrit de rayon **8**, 4×4 par chunk |
 > | 625 secteurs, vocabulaire de noms de 768 combinaisons | **390 625** secteurs : la bijection ne suffit plus, vocabulaire ou méthode à revoir |
 > | couronne de mission « rayon du Noyau + 30 » | **deux portées** : exploration à 250 et au-delà, minière entre le rayon courant et 250, toutes deux dérivées |
-> | `DiscoveryRuntime` : tableau plein alloué au lancement | stockage **épars par chunk**, créé à la première écriture |
-> | `FogOfWarView` : une texture couvrant toute la carte | texture **qui suit la caméra**, taille indépendante du monde |
-> | `SortingBands` : rangs de profondeur en Y monde absolu | rangs **relatifs à la caméra** — sinon 160 000 valeurs pour un `short` borné à 32 767 |
+>
+> **Traité depuis :** les rangs de profondeur sont devenus relatifs à la caméra (§3.9), le découpage est passé aux secteurs de 16 alignés sur des chunks de 64 (§3.10), l'état de découverte est devenu épars (§3.11) et la texture du brouillard suit la caméra (§3.12).
 >
 > Restent valables sans réserve : la séparation « le rayon écrit, il ne définit pas », le RLE de
 > sauvegarde, la scission `ValueNoise.hlsl` / `NanoNoise.hlsl`, le `linear: true` sur la texture R8,
@@ -23,6 +21,12 @@
 > Ce qui n'était pas fait le reste : la matérialisation du contenu en gisements réels, et l'étape 4,
 > la carte dézoomée.
 
+
+> **L'état courant du sous-système est décrit dans
+> [`architecture/MAP.md`](architecture/MAP.md)**, qui fait autorité. Ce carnet garde le *pourquoi* :
+> les décisions prises, les écarts par rapport aux spécifications, les pièges rencontrés et les
+> mesures qui ont tranché. Pour savoir ce que fait le code aujourd'hui, lire `MAP.md` ; pour savoir
+> pourquoi il le fait ainsi, lire ici.
 
 Carnet d'implémentation de [`directive-brouillard-et-zonage.md`](directive-brouillard-et-zonage.md).
 Les décisions prises, les écarts par rapport à la spec et pourquoi, et ce qu'il faut savoir pour
@@ -432,7 +436,7 @@ c'est le levier d'équilibrage de la densité de ressources, à ajuster une fois
 Cette stratification remplace la règle « un secteur sur huit est vide » notée en 3.6, qui relevait
 d'un tirage indépendant.
 
-### 3.8 `SortingBands`, corrigé comme la directive le demande
+### 3.8 `SortingBands`, premier passage
 
 Le commentaire affirmait deux choses fausses : « le monde fait 60 cases » et une marge « d'un ordre de
 grandeur ». Vérifié : `Steps` = 2048, `SortedLast` = 8291, `Fog` = **8493** contre 32 767 pour un
@@ -440,6 +444,347 @@ grandeur ». Vérifié : `Steps` = 2048, `SortedLast` = 8291, `Fog` = **8493** c
 contre 300 cases, soit **1,7×**, et il casse en silence : `Sorted()` clampe, donc tout ce qui
 dépasserait la rangée 512 s'écraserait sur un seul ordre et cesserait d'être trié par profondeur. Le
 commentaire dit maintenant ça.
+
+### 3.9 Les rangs deviennent relatifs à la caméra
+
+Le §3.8 ci-dessus a corrigé un commentaire faux et mesuré la vraie marge. La marge n'était pas le
+problème : **le schéma lui-même ne passe pas l'échelle.** 10 000 cases à 4 pas et 4 sous-couches
+demandent 160 000 valeurs pour un `short` borné à 32 767, et l'échec est silencieux — `Sorted()`
+écrête, donc tout ce qui dépasse s'écrase sur un seul rang et cesse d'être trié, sans une seule
+erreur.
+
+**Ce qui rend la parade possible est une contrainte de jeu déjà posée : le dézoom est plafonné**
+(`maxOrthographicSize` = 30, soit 60 cases de haut au maximum). Seuls les objets simultanément
+visibles ont besoin d'être ordonnés entre eux. `DepthSortLadder` classe donc contre une **fenêtre de
+256 cases qui suit la caméra**, et la taille de la bande ne dépend plus de celle du monde : une carte
+de 300 et une carte de 10 000 coûtent les mêmes 4 096 rangs.
+
+**Le panoramique ne reclasse rien.** Tous les rangs se décalent de la même quantité quand la fenêtre
+bouge, donc leur comparaison — la seule chose qu'Unity lit — est inchangée. Les rangs ne sont
+recalculés qu'à un ré-ancrage, soit environ tous les 98 cases de déplacement vertical, pas par frame.
+
+**Le compromis, assumé et testé :** deux objets loin hors de la fenêtre s'écrasent sur le même rang.
+Ils sont hors écran, et c'est précisément ce qu'on échange contre un rang borné à n'importe quelle
+taille de carte.
+
+**Ce que ça interdit désormais : cuire un rang de la bande triée dans une scène.** Un nombre figé
+n'est vrai que pour la fenêtre contre laquelle il a été calculé. Le décor en relief porte donc un
+marqueur `DepthSortedDecor` et `GameRuntime` l'inscrit sur l'échelle au démarrage. Le test qui
+recalculait les rangs cuits pour les comparer a changé de nature : il vérifie maintenant qu'**aucune
+scène ne porte de rang de la bande triée**, ce qui est à la fois plus simple et plus fort.
+
+**Un bug attrapé en vérifiant plutôt qu'en supposant.** Le décor en relief semblait être un chemin
+mort — aucune scène ne contient de rang cuit. Il ne l'est pas : `WildDecorationAutoRegenerate`
+relance le générateur **à chaque entrée en Play**, et il attend que `World` et `Grid` existent, donc
+il tourne *après* `GameRuntime.Start()`. Le balayage d'inscription placé dans `Start()` ne trouvait
+donc rien, et les 527 rochers créés ensuite gardaient `sortingOrder = 0` — la bande sol, derrière
+absolument tout. Le balayage est devenu `GameRuntime.RegisterSceneDepthSortedDecor()`, public, appelé
+aussi à la fin de `RegenerateAll()`.
+
+Vérifié en Play sur la scène réelle, pas seulement en test : 527 marqueurs, **527 dans la bande
+triée, 0 resté au sol**. Autour du Noyau, au-delà d'un pas de quantification : **51 rochers
+correctement devant, 76 correctement derrière, 0 erreur**. Deux objets à moins de 0,25 case l'un de
+l'autre partagent leur rang — c'est la quantification à 4 pas par case, inchangée depuis toujours.
+
+**Une instance, pas un statique mutable.** Le projet tourne avec Domain Reload désactivé
+(`DEVELOPMENT_RULES.md` §5) : une origine de fenêtre en `static` survivrait à la session de jeu et
+distribuerait des rangs mesurés contre une caméra qui n'existe plus. `GameRuntime` possède l'unique
+échelle et la passe aux trois spawners.
+
+Mesuré avant de concevoir : **aucune scène ne portait de rang dans la bande triée** (tous à 0 ou 3),
+donc la bande est entièrement peuplée à l'exécution et le registre à rafraîchir est petit.
+
+### 3.10 Secteurs de 16, et la fin des constantes de découpage
+
+**16 et non 12, pour une seule raison : 4×4 secteurs pavent exactement un chunk de 64.** 12 ne tombait
+sur aucune frontière de chunk. Le disque inscrit passe donc d'un rayon de 6 à 8, et révèle 201 cases
+au lieu de 113.
+
+**`DefaultSectorSizeCells` a disparu, sans remplaçant.** C'était le troisième chemin que la directive
+§4.8 interdit : une valeur dans le code à côté de la même valeur dans un réglage. `SectorGrid` exige
+maintenant sa taille de secteur — pas de défaut du tout, donc un appelant qui oublie de la passer ne
+compile pas, au lieu d'être silencieusement en désaccord avec l'asset. Même chose pour les seuils de
+risque de `SectorCatalog`.
+
+Les valeurs vivent dans **`Assets/Data/World/SectorSettings.asset`** : chunk 64, secteur 16, et les
+trois seuils de risque. L'asset vérifie lui-même que le secteur divise le chunk, et que les seuils
+sont croissants.
+
+#### Le risque se mesure en cases, plus en anneaux de secteurs
+
+C'était le seul changement de **comportement de jeu** du redimensionnement, et il était invisible :
+`RiskOf` comptait des anneaux de secteurs (`ring <= 1 / <= 3 / <= 6`), donc passer de 12 à 16 étirait
+tout le gradient de danger d'un tiers sans qu'aucun test ne puisse le voir.
+
+La correction n'est pas de recalibrer les anneaux mais de **cesser de compter dans une unité de
+circonstance**. Le risque est une propriété du monde ; il se mesure en distance au Noyau, en cases, et
+veut dire la même chose quel que soit le découpage. Un test le verrouille : à distance égale, le
+risque est le même que les secteurs fassent 8 ou 16.
+
+**Les seuils sont des réglages d'équilibrage, pas des dérivées.** Les dériver du rayon maximal d'un
+Noyau les coupleraient à une valeur qui ne dit rien du danger — et qui resterait à définir si
+l'extension de rayon disparaissait. Leurs défauts se lisent comme la géométrie de l'expansion :
+
+| bande | jusqu'à | ce que ça veut dire |
+|---|---|---|
+| Faible | 40 cases | le territoire de départ du joueur |
+| Modéré | 250 | l'anneau minier |
+| Élevé | 330 | aussi loin qu'un Noyau secondaire porte |
+| Critique | au-delà | — |
+
+Sur la carte actuelle de 300, le centre est à 212 cases du coin le plus éloigné : **Élevé et Critique
+sont hors d'atteinte**. C'est attendu — ces défauts visent la carte de 10 000.
+
+#### Un bug que la liste d'impact avait manqué
+
+J'avais annoncé que la dispersion des gisements suivrait seule, puisqu'elle lit `SectorSizeCells`.
+Faux : elle suit la taille du secteur mais pas le **rognage par le bord de carte**. 300 n'est pas un
+multiple de 16, donc les secteurs des deux derniers rangs sont tronqués, et `ContentsOf` dispersait
+des gisements hors carte — `IndexAt` renvoyait -1. Avec 12 le cas n'existait pas, 300/12 tombant
+juste. `ContentsOf` calcule maintenant l'étendue réelle du secteur avant de tirer.
+
+### 3.11 L'état de découverte devient épars
+
+Un octet par case alloué au lancement fait 100 Mo sur une carte de 10 000 — pour une carte qui restera
+inconnue à 99 % pendant toute la partie. `DiscoveryRuntime` stocke maintenant **un tableau par chunk,
+créé à la première écriture**. Un chunk où personne n'a jamais rien révélé n'existe pas, et répondre
+« inconnu » pour ses cases ne coûte rien.
+
+**Le défaut d'un chunk absent est le seul vrai risque, et il est verrouillé par test :** un chunk
+absent vaut **inconnu**, jamais découvert. Alloué à `Discovered`, un seul chunk révélerait 4 096 cases
+d'un coup, et la carte entière dès qu'on la touche.
+
+**Rien n'est visible de l'extérieur.** C'est la contrainte que la directive §3.1 pose, et elle est
+tenue : aucune signature n'a changé sauf le constructeur, qui reçoit la taille de chunk en `int` —
+`Game.Grid` ne doit pas dépendre de `Game.Data`, même raison que `TerrainRuntime`.
+
+**La forme sauvegardée est inchangée**, ce qui compte puisque `CONTRACTS.md` §14 l'épingle. Un test le
+prouve autrement qu'en relisant le code : deux cartes avec les mêmes révélations mais des tailles de
+chunk différentes (64 et 8) produisent **la même chaîne**. La capture saute les chunks absents en bloc
+plutôt que case par case, et la restauration n'en matérialise aucun pour les segments inconnus — c'est
+là que se trouve l'économie sur une carte majoritairement noire.
+
+Mesuré par test : révéler le disque de départ sur une carte de 300 et sur une carte de **10 000**
+matérialise exactement le même nombre de chunks. Le coût suit ce qui a été exploré, plus la taille du
+monde.
+
+Une erreur au passage, dans mon propre test : j'attendais 5 chunks là où 4 étaient justes, ayant placé
+le premier disque dans un chunk que le second touchait déjà.
+
+### 3.12 La texture du brouillard suit la caméra
+
+Une texture d'un texel par case couvrant la carte pèse 16 Mo à 4 000 et dépasse la taille maximale de
+beaucoup de GPU au-delà de 8 192. La parade vient de la même contrainte de jeu que les rangs de tri :
+**le dézoom est plafonné**, donc le joueur ne voit jamais qu'une portion bornée du monde. La texture
+couvre une **fenêtre de 256 cases** qui suit la caméra, et sa taille cesse de dépendre de celle du
+monde.
+
+Mesuré en Play : **256×256, soit 64 Ko**, contre 300×300 auparavant — et ce serait toujours 64 Ko sur
+une carte de 10 000.
+
+**Le ré-ancrage est rare.** Mesuré : 20 cases de panoramique ne bougent rien, 140 cases produisent
+**un seul** ré-ancrage. Le reste du temps c'est une comparaison par frame.
+
+**Un piège que le passage à une fenêtre crée de toutes pièces.** `wrapMode = Clamp` faisait lire
+« inconnu » hors carte parce que le bord de la texture *était* inconnu. Une fenêtre qui bouge a des
+texels découverts sur son bord, et le clamp les étalerait vers l'extérieur en une traînée de
+brouillard dissipé. Le shader force donc `discovered = 0` hors de l'intervalle UV : ce qui n'a pas
+d'état est inconnu, et hors de la fenêtre il n'y a pas d'état du tout. Sans effet à l'écran, la
+fenêtre contenant toujours la vue.
+
+**Ce défaut n'existait pas avant que la fenêtre bouge, et il ne se serait vu qu'en pannant** — jamais
+sur une image fixe, jamais dans un test qui ne déplace pas la caméra. C'est la catégorie de bug que
+seul un essai en mouvement attrape, et c'est la raison pour laquelle le ré-ancrage a été éprouvé sur
+140 cases de panoramique plutôt que sur une capture.
+
+#### Le brouillard devient opaque
+
+La directive §2 exige que « l'extérieur de la carte reste opaque, comme l'intérieur non découvert ».
+Il ne l'était pas : à `alpha = 0,96`, les 4 % qui passaient montraient un peu plus de terrain à
+l'intérieur — ce qui se lisait comme de l'atmosphère — mais **la skybox de la caméra** au-delà du
+bord du monde. Un lavis bleu là où le sol inconnu était brun : la limite de la carte se dessinait
+toute seule pour le joueur.
+
+Mesuré pixel par pixel : à `alpha = 1`, l'extérieur de la carte et l'intérieur non découvert donnent
+exactement `(0.020, 0.031, 0.051)`. À 0,96 ils donnent `(0.075, 0.098, 0.114)` et
+`(0.071, 0.059, 0.063)` — visiblement différents.
+
+**L'alpha à 1 cesse d'être un choix esthétique pour devenir une contrainte fonctionnelle**, et c'est
+la phrase à retenir. Tant que le terrain existait partout, un brouillard légèrement translucide
+laissait deviner un paysage : discutable, inoffensif. Après la génération paresseuse il laissera voir
+**le néant** — il n'y aura pas de terrain dessous à deviner.
+
+Quiconque voudra un jour adoucir le brouillard doit trouver cette raison à côté de la valeur, sinon
+il la baissera en croyant faire un réglage de goût. Elle est donc écrite dans le commentaire du champ
+`fogColor` lui-même, pas seulement ici.
+
+### 3.13 Le décor cesse d'être posé sur toute la carte
+
+Le décor était éparpillé sur le monde entier au démarrage : 2 800 objets à 300, donc **plus d'un
+demi-million à 10 000**. Il existe désormais comme le brouillard — une fenêtre autour de la caméra —
+et se dérive par chunk, fonction pure de la graine et des coordonnées, avec les mêmes trois interdits
+que le terrain et `DeterministicHash` plutôt que `System.Random`. Densité **par chunk**, jamais un
+total : 500 rochers, c'est un semis à 300 et c'est invisible à 10 000.
+
+Mesuré en Play à 10 000 : 16 chunks vivants, **1 888 objets**, 619 sur l'échelle de profondeur,
+**aucun à `sortingOrder` 0**. Ce dernier chiffre est le bug des 527 rochers, disparu par
+construction : plus aucun balayage de démarrage ne court après un générateur, un sprite s'inscrit en
+entrant dans la fenêtre et se désinscrit en sortant.
+
+**Deux filtres, et c'est la différence entre eux qui porte la conception.**
+
+Ce que le joueur a dégagé est **stocké** (`SaveData.DecorRemoved`), parce que la dérivation ignore
+tout de ce qui s'est passé sur le sol. Ce qu'un gisement occupe est filtré **en direct** et n'entre
+jamais dans la sauvegarde : le gisement est l'œuvre de la graine, pas du joueur, et il peut être
+épuisé — auquel cas le sol redevient libre tout seul.
+
+**Le point mesuré qui a retourné une intuition.** L'attention portait sur la *taille* du jeu de
+deltas qu'une vieille sauvegarde produit d'un coup en dégageant sous chaque bâtiment restauré. Elle
+est négligeable : **440 octets** pour une base de 200 bâtiments, 4 Ko pour 2 000. C'est le *temps*
+qui ne l'était pas — **231 ms**, une saccade visible au chargement, croissant avec la base. La cause :
+demander « est-ce que quelque chose pousse ici ? » cellule par cellule dérivait le chunk entier à
+chaque fois. Une mémoïsation des chunks dérivés ramène 231 ms à **3 ms**, et 2 000 bâtiments coûtent
+alors la même chose que 200 — le coût a cessé de croître avec la base.
+
+Ce qui rend la mémoïsation sûre est le partage : seul ce que la graine décide est mémorisé, ce que le
+joueur a dégagé et ce qu'un gisement couvre restent demandés en direct. Un cache de la réponse
+complète aurait été faux dès le premier rocher dégagé.
+
+**Et une correction que la mesure a rendue évidente.** Une emprise se compte en cases, le décor pousse
+à raison d'un objet pour cent cases : enregistrer toute l'emprise mettait une centaine d'entrées
+inutiles dans la sauvegarde pour chaque rocher réellement dégagé — 1 800 cases balayées pour **49**
+vrais dégagements. Le jeu de deltas doit être l'historique de ce que le joueur a enlevé, pas la
+surface sur laquelle il a bâti.
+
+**L'ordre dans `CreateAndRegister`.** Le décor est dégagé **avant** que le bâtiment prenne la case.
+Rien ne lit l'occupant aujourd'hui, mais un filtre d'occupation ajouté plus tard verrait une case déjà
+prise, conclurait que rien n'y poussait, n'enregistrerait aucun retrait — et le rocher reviendrait au
+rechargement suivant, sans qu'aucun test ne bouge et sans que personne ne rattache le symptôme à une
+ligne écrite des mois plus tôt. **Corriger un ordre avant qu'il ne compte est le seul moment où c'est
+gratuit.**
+
+### 3.14 Les bosquets : une ancre dérivée, pas une passe séquentielle
+
+Un objet par tirage donne un semis **uniforme**, et un semis uniforme se lit comme de la régularité
+exactement comme une grille. C'est le même défaut que celui contre lequel le bruit du sol et les noms
+de secteurs ont été façonnés, sous une troisième forme — et c'est précisément ce que le regroupement
+en ancre-plus-disque de l'ancien éparpilleur cassait.
+
+L'ancien tenait ses grappes d'une passe séquentielle : choisir une ancre, marcher autour, poser les
+membres. Une dérivation par chunk n'a ni séquence ni mémoire. **L'ancre devient donc elle-même
+dérivée** — hachée depuis le chunk et l'indice de l'emplacement — et une grappe redevient une fonction
+pure comme tout le reste. Un emplacement vaut un objet pour une espèce solitaire et une grappe entière
+pour les autres ; `spotsPerChunk` compte les emplacements, jamais les objets.
+
+**Le piège que cela crée, et qui n'a rien d'évident.** Une grappe ancrée près d'un bord de chunk a des
+membres de l'autre côté. Un chunk qui ne regarderait que ses propres ancres couperait chaque grappe
+net le long de la ligne de chunk : **la grille dessinée au sol en végétation**, soit exactement la
+régularité que le regroupement venait supprimer. Un chunk dérive donc aussi les ancres de ses huit
+voisins et ne garde que les membres qui tombent chez lui.
+
+Ce n'est pas l'interdit de la directive. Ce qui est interdit, c'est de **consulter l'état d'un
+voisin** — une réponse qui dépendrait de savoir s'il a déjà été interrogé, ou de ce qu'il a décidé de
+garder. Ici les ancres du voisin sont re-dérivées par la même fonction pure : la réponse ne dépend
+toujours que de la graine et des coordonnées, et l'indépendance à l'ordre tient (un test la vérifie
+encore avec le regroupement actif). Un seul anneau suffit parce qu'un rayon de grappe est borné à la
+taille d'un chunk, et une ancre qui ne peut pas atteindre le chunk dérivé est rejetée **avant** son
+échantillon de biome — ce qui empêche l'anneau supplémentaire de coûter neuf fois le travail.
+
+Mesuré en Play : 2 072 objets contre 1 888 pour le semis uniforme, toujours aucun à `sortingOrder` 0.
+À l'écran, des fourrés avec du sol nu entre eux, là où il y avait un mouchetis régulier.
+
+### 3.15 La teinte des rochers : une régression qui n'avait jamais eu lieu
+
+J'avais rapporté comme écart visuel que les grands rochers n'étaient plus « teintés vers le ton du
+sol » comme dans l'ancien éparpilleur. **C'était faux, et la mesure l'a montré au premier bake.**
+
+L'ancienne formule était `min(1, sol / brut)`, plafonnée à 1 parce qu'une couleur de `SpriteRenderer`
+ne peut qu'assombrir — au-delà de 1 elle ne rehausse pas, elle écrête vers le blanc. Or :
+
+| | rouge | vert | bleu |
+|---|---|---|---|
+| ton du sol | 0,431 | 0,343 | 0,259 |
+| `large_rock` (moyenne) | 0,310 | 0,169 | 0,089 |
+
+Tous les rochers sont déjà plus sombres que le sol dans les trois canaux (0/5, 0/10, 0/8 sprites plus
+clairs). Le plafond se déclenchait donc partout : **`RockTint` rendait blanc pour chaque rocher.** Le
+bake le confirme sur l'ensemble — 58 teintes blanches sur 61, les trois exceptions étant des fleurs
+qui perdent de 2 à 11 % de rouge, sous le seuil du perceptible.
+
+**Le mécanisme est conservé quand même**, et la raison est explicite plutôt que par défaut : c'est un
+chemin de donnée correct à coût d'exécution nul, saturé à 1,0 sur l'art d'aujourd'hui, qui se remettra
+à agir tout seul si le sol s'éclaircit. Ce qui est retiré, c'est la lecture de soixante textures au
+démarrage que l'ancien payait à chaque entrée en Play pour retrouver les mêmes nombres.
+
+**L'enseignement n'est pas sur la teinte.** J'avais rapporté un écart en comparant deux morceaux de
+code plutôt qu'en mesurant deux images. Un écart annoncé sans mesure est une dette : celui-ci a fait
+demander une fonctionnalité pour combler un manque qui n'existait pas.
+
+### 3.16 Les noms de secteurs : abandonner l'unicité par le nom seul
+
+390 625 secteurs, 768 combinaisons de vocabulaire, 80 % de collisions. Le test le disait depuis le
+passage à 10 000 et échouait délibérément. Il n'y a pas de sortie par élargissement : cinq voisins
+portant le même nom rendent la désignation d'une destination de mission impossible, et 390 625 noms
+générés distincts se ressembleraient tous de toute façon.
+
+**Un nom devient une région plus une position dedans** — « Cratère de Suie H12 ». L'unicité quitte le
+nom pour le couple. Les voisins partagent leur région et se distinguent par le suffixe, ce qui est la
+façon dont les lieux se nomment réellement, et se lit mieux que l'ancien schéma : le joueur apprend
+une région au lieu de cinquante noms sans rapport.
+
+**Le geste qui compte est le plafond, pas le suffixe.** Le nombre de régions par axe est dérivé et
+plafonné à 27 (27² = 729 tient dans 768, 28² = 784 non), donc **aucune taille de carte ne peut
+produire plus de régions qu'il n'y a de noms**. La collision cesse d'être un défaut à détecter pour
+devenir un état inatteignable.
+
+Le test change alors de nature : il passe de garde-fou à énoncé. Il ne guette plus l'échec, il vérifie
+que la construction est toujours celle qu'elle prétend être — sur des tailles allant jusqu'à 250 000,
+bien au-delà de tout ce qui est prévu. **Un garde-fou qui se déclenche est une conception arrivée au
+bout ;** quand la limite peut être rendue structurellement inatteignable, c'est cela qu'il faut faire.
+Écrit dans `DEVELOPMENT_RULES.md` §7.
+
+`preferredRegionSizeCells` est une **intention**, pas la réponse : une carte assez grande pour dépasser
+le plafond reçoit des régions plus larges. À 10 000, ce sont 27 régions de 371 cases, 24 secteurs de
+côté.
+
+**Une correction en passant.** Mon test « traverse une frontière de région » ne traversait rien :
+`371 / 16 = 23`, dont l'origine à 368 est encore dans la région 0 — la seconde région commence à la
+colonne 24. Le test passait en promettant plus qu'il ne tenait. Il assère maintenant explicitement
+que les deux côtés du joint portent bien deux noms de région différents, avant de compter.
+
+### 3.17 Les deux portées de mission, et un 250 qui n'est pas 250
+
+`SectorMissionRange` calculait une couronne unique de « rayon courant + 30 », qui ne correspondait à
+aucune des deux missions : elle tenait entièrement dans ce qui est aujourd'hui la bande minière et ne
+pouvait atteindre aucune cible d'exploration. Deux bandes la remplacent :
+
+| Mission | Bande |
+|---|---|
+| Minière | rayon courant → seuil d'exploration |
+| Exploration | seuil d'exploration → sans bord extérieur |
+
+Elles **partitionnent** tout ce qui dépasse la portée du Noyau : un secteur appartient à exactement
+l'une des deux, et un test parcourt le joint vers l'extérieur pour le tenir. La bande minière se ferme
+par l'intérieur quand le rayon grandit ; celle d'exploration ne bouge pas.
+
+**Le seuil est dérivé : deux rayons maximaux bout à bout, plus l'espacement voulu entre deux
+territoires.** C'est ce qui empêche le rayon d'un Noyau secondaire de toucher celui du principal.
+
+**Et la mesure contredit la directive.** Celle-ci annonce 250, dérivé d'un rayon maximal de 80. Le
+plafond réellement livré est `CoreRuntime.ExtendedActionRadiusCells = 32`, donc le seuil vaut
+**2 × 32 + 90 = 154**. Écrire 250 en dur aurait justement violé la règle que la directive pose
+elle-même — « dériver plutôt que recopier », pour que le jour où le rayon maximal bouge, la portée
+suive sans autre chiffre à corriger. Le 250 de la directive décrit un Noyau qui va plus loin que
+celui-ci n'atteint encore ; un test reproduit les 250 depuis (80, 90) et les 290 depuis (100, 90),
+ce qui prouve que le code dérive au lieu de se souvenir.
+
+La machinerie d'élargissement de l'ancienne couronne disparaît avec elle : elle existait parce qu'une
+couronne de 30 cases pouvait s'assécher. Les deux bandes font des centaines de cases ou sont
+illimitées.
+
+**Et l'énumération devient bornée.** Lister la bande d'exploration entière, c'est quatre cent mille
+secteurs sur la carte livrée. L'opération première redevient le prédicat — une mission se lance en
+désignant *un* secteur — et l'énumération sert à proposer quelques destinations, pas toutes.
 
 ---
 
