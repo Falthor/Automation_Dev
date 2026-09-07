@@ -16,12 +16,25 @@ namespace Game.Grid
         readonly float _offsetY;
 
         public int Size { get; }
+
+        /// <summary>
+        /// The world's seed, kept rather than only consumed.
+        ///
+        /// It is the one seed that survives a save (SaveData.TerrainSeed), which makes it the only
+        /// honest source for anything that must derive the same result in a loaded game as in the
+        /// one it was saved from - the sectors' names, risk and contents (SectorCatalog) read it for
+        /// exactly that reason. WorldGenerator.ResourceSeed cannot serve: it is not persisted, and
+        /// its own summary says it is meaningless after a restore.
+        /// </summary>
+        public int Seed { get; }
+
         public float TerrainScale { get; }
         public float Proportion { get; }
 
         public TerrainRuntime(int size, int seed, float terrainScale, float proportion)
         {
             Size = size;
+            Seed = seed;
             TerrainScale = terrainScale;
             Proportion = proportion;
 

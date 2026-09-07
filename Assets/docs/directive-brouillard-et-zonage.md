@@ -59,11 +59,13 @@ commence à 1, passe à 2×2 si le bord est trop grossier.
 
 Une zone est l'unité que le joueur désigne pour lancer une mission.
 
-**Génération.** Un partitionnement déterministe à partir de la graine du monde — des points
-d'ancrage dispersés, chaque case appartenant au point le plus proche. Ça donne des régions aux
-formes organiques, reproductibles, sans travail d'auteur. Les zones doivent avoir une taille du même
-ordre que le rayon du Noyau : assez grandes pour qu'une mission soit un vrai gain, assez petites
-pour qu'il y en ait plusieurs à portée.
+**Génération.** Un pavage régulier : la carte est découpée en carrés de 12×12 cases, soit 25×25 =
+625 zones sur une carte de 300. L'index d'une zone, son centre et ses cases se calculent directement
+depuis une coordonnée — rien à parcourir, rien à stocker, ce qui est ce qui rend la génération
+paresseuse plus bas immédiate. La régularité du pavage n'a pas à être camouflée par la forme des
+zones : c'est le disque inscrit, ci-dessous, qui l'empêche d'apparaître à l'écran. Les zones doivent
+avoir une taille du même ordre que le rayon du Noyau : assez grandes pour qu'une mission soit un vrai
+gain, assez petites pour qu'il y en ait plusieurs à portée.
 
 **Taille d'une zone : 12×12 cases**, soit environ 140 cases. Le critère n'est pas géométrique mais
 fonctionnel — une zone doit contenir **un point d'intérêt et un seul**. Les gisements étant groupés
@@ -144,7 +146,7 @@ Chaque étape est vérifiable seule, ne livre pas tout d'un bloc.
    l'état.
 2. **Le rendu** : le quad, la texture, le shader, le bord irrégulier. C'est là que je juge à l'œil.
 3. **Le zonage** : génération déterministe, données, noms. Testable sans interface — une zone
-   révélée doit marquer toutes ses cases et aucune autre.
+   révélée doit marquer exactement les cases de son disque inscrit, et aucune autre.
 4. **La carte dézoomée** : affichage des zones, survol, risque. C'est l'interface, elle vient en
    dernier et seulement une fois les trois précédentes validées.
 
