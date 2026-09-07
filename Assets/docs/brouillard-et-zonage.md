@@ -1,5 +1,29 @@
 # Brouillard de guerre et zonage — carnet
 
+> **AVERTISSEMENT — carnet partiellement périmé depuis la décision de passer la carte à 10 000.**
+>
+> Ce carnet décrit une implémentation dimensionnée pour une carte de 300. La taille cible est
+> désormais **10 000 cases de côté**, avec des **chunks de 64** et des **secteurs de 16**. Six points
+> de ce carnet ne tiennent plus. Ils sont traités dans `directive-grande-carte.md`, qui fait
+> autorité sur tout ce qui touche à l'échelle.
+>
+> | Ce que dit ce carnet | Ce qui le remplace |
+> |---|---|
+> | secteurs de 12 cases, disque inscrit de rayon 6 | secteurs de **16**, disque inscrit de rayon **8**, 4×4 par chunk |
+> | 625 secteurs, vocabulaire de noms de 768 combinaisons | **390 625** secteurs : la bijection ne suffit plus, vocabulaire ou méthode à revoir |
+> | couronne de mission « rayon du Noyau + 30 » | **deux portées** : exploration à 250 et au-delà, minière entre le rayon courant et 250, toutes deux dérivées |
+> | `DiscoveryRuntime` : tableau plein alloué au lancement | stockage **épars par chunk**, créé à la première écriture |
+> | `FogOfWarView` : une texture couvrant toute la carte | texture **qui suit la caméra**, taille indépendante du monde |
+> | `SortingBands` : rangs de profondeur en Y monde absolu | rangs **relatifs à la caméra** — sinon 160 000 valeurs pour un `short` borné à 32 767 |
+>
+> Restent valables sans réserve : la séparation « le rayon écrit, il ne définit pas », le RLE de
+> sauvegarde, la scission `ValueNoise.hlsl` / `NanoNoise.hlsl`, le `linear: true` sur la texture R8,
+> le test d'orientation sur sonde asymétrique, et la décision de ne pas généraliser le shader.
+>
+> Ce qui n'était pas fait le reste : la matérialisation du contenu en gisements réels, et l'étape 4,
+> la carte dézoomée.
+
+
 Carnet d'implémentation de [`directive-brouillard-et-zonage.md`](directive-brouillard-et-zonage.md).
 Les décisions prises, les écarts par rapport à la spec et pourquoi, et ce qu'il faut savoir pour
 reprendre. Le document directeur reste la référence de conception ; celui-ci enregistre ce qui a
@@ -344,8 +368,11 @@ mondes d'avoir la même carte de risque.
 **Contenu** : un point d'intérêt au centre, donc toujours dans le disque révélé — une mission réussie
 montre toujours ce qu'elle a trouvé. Les gisements sont dispersés dans tout le carré, coins compris,
 **sans contrainte de position** : un test vérifie qu'il en tombe hors du disque, parce que c'est l'écart
-entre ce qu'on voit et ce qu'on devine qui donne envie d'explorer autour. Un secteur sur huit est vide,
-sinon « il y a quelque chose partout » revient à « la direction n'a pas d'importance ».
+entre ce qu'on voit et ce qu'on devine qui donne envie d'explorer autour.
+
+Les secteurs vides ne relèvent plus d'un tirage indépendant « un sur huit » : voir 3.7bis, la densité
+est désormais stratifiée par blocs. L'intention reste la même — s'il y a quelque chose partout, la
+direction n'a pas d'importance — mais elle est portée par le nombre de grappes par bloc.
 
 **Couronne** : `SectorMissionRange` reçoit le rayon à chaque appel et n'en garde rien, donc étendre le
 rayon déplace la couronne sans autre chiffre à corriger. Les 30 cases sont une propriété, pas une
@@ -356,22 +383,54 @@ inconnues, la limite extérieure recule d'un cran. `SectorRangeResult` rapporte 
 `Exhausted`, pour que le système de missions ne puisse jamais devenir silencieux sans dire pourquoi —
 une liste vide et une carte entièrement explorée ne se ressemblent pas.
 
-### 3.7 Ce qui n'est pas fait, et pourquoi
+### 3.7 La matérialisation du contenu — décision prise
 
-**La matérialisation du contenu.** La directive dit « le contenu d'une zone est généré à sa
-découverte ». Le contenu est **dérivé** de façon déterministe et testé ; il n'est pas encore
-transformé en `DepositRuntime` réels.
+Le contenu est dérivé de façon déterministe et testé, mais pas encore transformé en `DepositRuntime`
+réels. L'arrêt était volontaire : il fallait trancher le conflit entre les six grappes que
+`WorldGenerator` place autour du Noyau et le contenu dérivé des secteurs proches, découverts dès la
+première frame par le rayon.
 
-C'est un arrêt volontaire, pas un oubli, parce qu'il y a un vrai conflit à trancher : `WorldGenerator`
-place déjà six grappes de gisements autour du Noyau à la génération du monde. Les secteurs proches du
-Noyau sont découverts dès la première frame par le rayon — leur contenu dérivé se superposerait donc à
-des grappes déjà posées. Il faut choisir : soit `WorldGenerator` cesse de placer et la zone de départ
-reçoit son contenu par le même chemin que le reste, soit le contenu à la découverte ne s'applique
-qu'au-delà du périmètre de départ. C'est une décision de conception, et rien ne peut découvrir un
-secteur lointain tant que les missions n'existent pas.
+**La règle retenue n'est pas géométrique mais fondée sur la donnée : un secteur qui porte du contenu
+placé garde ce contenu ; la dérivation ne remplit que les secteurs qui n'en ont aucun.**
 
-`SectorCatalog.ContentsOf` est la couture : elle donne déjà la réponse, il ne manque que qui l'appelle
-et ce qu'il en fait.
+Pas de test de périmètre, pas de rayon de départ à maintenir. La zone de départ reste composée à la
+main, ce qui est nécessaire — l'introduction dépend d'avoir les bonnes ressources à la bonne
+distance, et une dérivation aléatoire ne le garantirait pas. La formulation couvre aussi ce qui
+viendra : une épave scénarisée, un nid particulier ou un secteur d'événement posés n'importe où
+échappent à la dérivation par le seul fait d'exister.
+
+`SectorCatalog.ContentsOf` reste la couture ; il manque qui l'appelle et ce qu'il en fait.
+
+### 3.7bis La densité des gisements dérivés : stratifiée, pas tirée secteur par secteur
+
+Exigence posée : au-delà des six grappes du Noyau, la répartition doit **changer d'une partie à
+l'autre** — une grappe ne tombe pas forcément dans le même secteur — tout en garantissant un
+**nombre minimum de grappes** dans ce que le joueur peut explorer.
+
+Un tirage indépendant par secteur ne le garantit pas. Chaque secteur déciderait seul, et une
+mauvaise série laisserait une région entière stérile : irreproductible, et incorrigible par un
+réglage.
+
+**La parade est la stratification.** Les secteurs sont regroupés par blocs — 3×3 secteurs — et chaque
+bloc contient un nombre fixe de grappes, dont les secteurs porteurs sont tirés depuis la graine du
+bloc. Ce que ça donne :
+
+- densité garantie partout, y compris dans la couronne accessible aux missions, sans aucun comptage
+  global
+- répartition variable avec la graine : d'une partie à l'autre, ce ne sont pas les mêmes secteurs qui
+  portent les grappes
+- dérivation toujours en O(1) et paresseuse : pour connaître un secteur, on calcule son bloc, on
+  dérive quels secteurs y sont porteurs, et on regarde si celui-ci en fait partie. Aucun registre,
+  aucun balayage
+
+**La variété compte autant que la densité.** Un bloc donnant trois grappes de fer et aucun cuivre
+bloquerait le joueur autant qu'un bloc vide. Les types se tirent **sans remise** dans le bloc.
+
+La taille du bloc et le nombre de grappes par bloc sont des **réglages exposés**, pas des constantes :
+c'est le levier d'équilibrage de la densité de ressources, à ajuster une fois l'introduction mesurée.
+
+Cette stratification remplace la règle « un secteur sur huit est vide » notée en 3.6, qui relevait
+d'un tirage indépendant.
 
 ### 3.8 `SortingBands`, corrigé comme la directive le demande
 
