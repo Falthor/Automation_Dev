@@ -99,6 +99,17 @@ into permanent architecture documents.
 
 Architecturally significant decisions should have an ADR when the decision is important enough to constrain future implementation.
 
+**A carnet is working memory, not an archive.** An entry earns its place for exactly as long as its conclusion is nowhere else; once absorbed into a permanent document it becomes a duplicate, and the duplicate ages worse than the original because nobody rereads it when the original changes. **Rereading a carnet at the end of a chantier is part of the chantier.** What survives that reread is what no permanent document can hold:
+
+- false trails, and why they were false;
+- measurements that contradicted an intuition, with their figures;
+- tooling traps;
+- deviations from a spec, with their reason.
+
+What leaves is the description of what the system does today, any decision already stated elsewhere with its reason, and the chronological account of a finished chantier. If an entry's conclusion is *not* elsewhere and deserves to be, move it to the permanent document rather than leaving it in the carnet — that is the point of the exercise, and it is how `MATERIALISATION.md` came to exist.
+
+**A directive has a shorter life still.** It is useful between the decision and the delivery; once the chantier is finished it can only drift from the code, with its title still claiming authority. Retire it, and move what it designed but never built into `design/`.
+
 ## 9. Claude Code
 
 Before implementation:
