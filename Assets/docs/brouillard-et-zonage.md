@@ -581,10 +581,15 @@ une carte de 10 000.
 
 **Un piège que le passage à une fenêtre crée de toutes pièces.** `wrapMode = Clamp` faisait lire
 « inconnu » hors carte parce que le bord de la texture *était* inconnu. Une fenêtre qui bouge a des
-texels découverts sur son bord, et le clamp les étalerait vers l'extérieur en un coin de brouillard
-dissipé. Le shader force donc `discovered = 0` hors de l'intervalle UV : ce qui n'a pas d'état est
-inconnu, et hors de la fenêtre il n'y a pas d'état du tout. Sans effet à l'écran, la fenêtre
-contenant toujours la vue.
+texels découverts sur son bord, et le clamp les étalerait vers l'extérieur en une traînée de
+brouillard dissipé. Le shader force donc `discovered = 0` hors de l'intervalle UV : ce qui n'a pas
+d'état est inconnu, et hors de la fenêtre il n'y a pas d'état du tout. Sans effet à l'écran, la
+fenêtre contenant toujours la vue.
+
+**Ce défaut n'existait pas avant que la fenêtre bouge, et il ne se serait vu qu'en pannant** — jamais
+sur une image fixe, jamais dans un test qui ne déplace pas la caméra. C'est la catégorie de bug que
+seul un essai en mouvement attrape, et c'est la raison pour laquelle le ré-ancrage a été éprouvé sur
+140 cases de panoramique plutôt que sur une capture.
 
 #### Le brouillard devient opaque
 
@@ -598,8 +603,14 @@ Mesuré pixel par pixel : à `alpha = 1`, l'extérieur de la carte et l'intérie
 exactement `(0.020, 0.031, 0.051)`. À 0,96 ils donnent `(0.075, 0.098, 0.114)` et
 `(0.071, 0.059, 0.063)` — visiblement différents.
 
-C'est aussi ce que la directive §4.5 annonce pour la génération paresseuse : un trou dans l'opacité
-ne montrerait alors pas un paysage mais le néant. L'étanchéité cesse d'être une question esthétique.
+**L'alpha à 1 cesse d'être un choix esthétique pour devenir une contrainte fonctionnelle**, et c'est
+la phrase à retenir. Tant que le terrain existait partout, un brouillard légèrement translucide
+laissait deviner un paysage : discutable, inoffensif. Après la génération paresseuse il laissera voir
+**le néant** — il n'y aura pas de terrain dessous à deviner.
+
+Quiconque voudra un jour adoucir le brouillard doit trouver cette raison à côté de la valeur, sinon
+il la baissera en croyant faire un réglage de goût. Elle est donc écrite dans le commentaire du champ
+`fogColor` lui-même, pas seulement ici.
 
 ---
 
