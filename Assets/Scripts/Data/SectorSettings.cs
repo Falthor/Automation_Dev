@@ -34,6 +34,16 @@ namespace Game.Data
         /// </summary>
         [SerializeField, Min(1)] int sectorSizeCells = 16;
 
+        /// <summary>
+        /// How wide a <b>named region</b> should be, in cells. Sectors inside one share a region name
+        /// and differ by a coordinate suffix, so this is really "how much ground carries one name".
+        ///
+        /// An intent, not the answer: a map big enough that this would need more regions than there
+        /// are names gets wider ones instead (SectorCatalog.MaxRegionsPerAxis). At the shipped 10 000
+        /// it is the cap that decides, giving 27 regions of 371 cells across.
+        /// </summary>
+        [SerializeField, Min(1)] int preferredRegionSizeCells = 384;
+
         [Header("Risque, en cases depuis le Noyau")]
 
         /// <summary>
@@ -51,12 +61,27 @@ namespace Game.Data
         /// <summary>As far out as a secondary Core's own territory reaches. Past this, everything is Critical.</summary>
         [SerializeField, Min(0f)] float highRiskWithinCells = 330f;
 
+        [Header("Missions")]
+
+        /// <summary>
+        /// The empty ground wanted between two Cores' maximum radii, in cells.
+        ///
+        /// <b>This is the only figure of the exploration threshold that is a choice.</b> The threshold
+        /// itself - where mining stops and exploration starts - is two maximum Core radii back to back
+        /// plus this gap, and it is derived in SectorMissionRange rather than written down anywhere.
+        /// Entering the resulting distance as a setting would make it a second copy that stops
+        /// agreeing the day a Core's maximum radius moves.
+        /// </summary>
+        [SerializeField, Min(0f)] float territorySpacingCells = 90f;
+
         public int ChunkSizeCells => chunkSizeCells;
         public int SectorSizeCells => sectorSizeCells;
+        public int PreferredRegionSizeCells => preferredRegionSizeCells;
 
         public float LowRiskWithinCells => lowRiskWithinCells;
         public float ModerateRiskWithinCells => moderateRiskWithinCells;
         public float HighRiskWithinCells => highRiskWithinCells;
+        public float TerritorySpacingCells => territorySpacingCells;
 
         /// <summary>How many sectors tile a chunk along one axis. 4 at the defaults.</summary>
         public int SectorsPerChunkAxis => Mathf.Max(1, chunkSizeCells / Mathf.Max(1, sectorSizeCells));

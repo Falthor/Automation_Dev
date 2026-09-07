@@ -720,6 +720,72 @@ démarrage que l'ancien payait à chaque entrée en Play pour retrouver les mêm
 code plutôt qu'en mesurant deux images. Un écart annoncé sans mesure est une dette : celui-ci a fait
 demander une fonctionnalité pour combler un manque qui n'existait pas.
 
+### 3.16 Les noms de secteurs : abandonner l'unicité par le nom seul
+
+390 625 secteurs, 768 combinaisons de vocabulaire, 80 % de collisions. Le test le disait depuis le
+passage à 10 000 et échouait délibérément. Il n'y a pas de sortie par élargissement : cinq voisins
+portant le même nom rendent la désignation d'une destination de mission impossible, et 390 625 noms
+générés distincts se ressembleraient tous de toute façon.
+
+**Un nom devient une région plus une position dedans** — « Cratère de Suie H12 ». L'unicité quitte le
+nom pour le couple. Les voisins partagent leur région et se distinguent par le suffixe, ce qui est la
+façon dont les lieux se nomment réellement, et se lit mieux que l'ancien schéma : le joueur apprend
+une région au lieu de cinquante noms sans rapport.
+
+**Le geste qui compte est le plafond, pas le suffixe.** Le nombre de régions par axe est dérivé et
+plafonné à 27 (27² = 729 tient dans 768, 28² = 784 non), donc **aucune taille de carte ne peut
+produire plus de régions qu'il n'y a de noms**. La collision cesse d'être un défaut à détecter pour
+devenir un état inatteignable.
+
+Le test change alors de nature : il passe de garde-fou à énoncé. Il ne guette plus l'échec, il vérifie
+que la construction est toujours celle qu'elle prétend être — sur des tailles allant jusqu'à 250 000,
+bien au-delà de tout ce qui est prévu. **Un garde-fou qui se déclenche est une conception arrivée au
+bout ;** quand la limite peut être rendue structurellement inatteignable, c'est cela qu'il faut faire.
+Écrit dans `DEVELOPMENT_RULES.md` §7.
+
+`preferredRegionSizeCells` est une **intention**, pas la réponse : une carte assez grande pour dépasser
+le plafond reçoit des régions plus larges. À 10 000, ce sont 27 régions de 371 cases, 24 secteurs de
+côté.
+
+**Une correction en passant.** Mon test « traverse une frontière de région » ne traversait rien :
+`371 / 16 = 23`, dont l'origine à 368 est encore dans la région 0 — la seconde région commence à la
+colonne 24. Le test passait en promettant plus qu'il ne tenait. Il assère maintenant explicitement
+que les deux côtés du joint portent bien deux noms de région différents, avant de compter.
+
+### 3.17 Les deux portées de mission, et un 250 qui n'est pas 250
+
+`SectorMissionRange` calculait une couronne unique de « rayon courant + 30 », qui ne correspondait à
+aucune des deux missions : elle tenait entièrement dans ce qui est aujourd'hui la bande minière et ne
+pouvait atteindre aucune cible d'exploration. Deux bandes la remplacent :
+
+| Mission | Bande |
+|---|---|
+| Minière | rayon courant → seuil d'exploration |
+| Exploration | seuil d'exploration → sans bord extérieur |
+
+Elles **partitionnent** tout ce qui dépasse la portée du Noyau : un secteur appartient à exactement
+l'une des deux, et un test parcourt le joint vers l'extérieur pour le tenir. La bande minière se ferme
+par l'intérieur quand le rayon grandit ; celle d'exploration ne bouge pas.
+
+**Le seuil est dérivé : deux rayons maximaux bout à bout, plus l'espacement voulu entre deux
+territoires.** C'est ce qui empêche le rayon d'un Noyau secondaire de toucher celui du principal.
+
+**Et la mesure contredit la directive.** Celle-ci annonce 250, dérivé d'un rayon maximal de 80. Le
+plafond réellement livré est `CoreRuntime.ExtendedActionRadiusCells = 32`, donc le seuil vaut
+**2 × 32 + 90 = 154**. Écrire 250 en dur aurait justement violé la règle que la directive pose
+elle-même — « dériver plutôt que recopier », pour que le jour où le rayon maximal bouge, la portée
+suive sans autre chiffre à corriger. Le 250 de la directive décrit un Noyau qui va plus loin que
+celui-ci n'atteint encore ; un test reproduit les 250 depuis (80, 90) et les 290 depuis (100, 90),
+ce qui prouve que le code dérive au lieu de se souvenir.
+
+La machinerie d'élargissement de l'ancienne couronne disparaît avec elle : elle existait parce qu'une
+couronne de 30 cases pouvait s'assécher. Les deux bandes font des centaines de cases ou sont
+illimitées.
+
+**Et l'énumération devient bornée.** Lister la bande d'exploration entière, c'est quatre cent mille
+secteurs sur la carte livrée. L'opération première redevient le prédicat — une mission se lance en
+désignant *un* secteur — et l'énumération sert à proposer quelques destinations, pas toutes.
+
 ---
 
 ## 4. Dette de test soldée avant l'étape 1

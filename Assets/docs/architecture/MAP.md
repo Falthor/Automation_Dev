@@ -123,9 +123,21 @@ out: `System.Random` and `string.GetHashCode` are barred from anything derived, 
 guaranteed stable across runtime versions and a change would rename every sector in every existing
 world. Frozen by tests with hard-coded names.
 
-- **Names are unique by construction**, through an injective index-to-vocabulary mapping rather than a
-  draw that would need a registry to check. A test fails when the vocabulary no longer covers the
-  sector count, which is what will happen when the map grows.
+- **A name is a region plus a position in it** — "Cratère de Suie H12". Sectors are not named one by
+  one: 390 625 of them against 768 vocabulary combinations is 80 % collisions, and neighbours sharing
+  a name makes designating a mission destination impossible. Widening the vocabulary is not an
+  answer — 390 625 distinct generated names would all read alike anyway — so uniqueness moved off the
+  name and onto the pair. It also reads better: a player learns one region instead of fifty unrelated
+  nouns.
+
+  **Collision is now structurally impossible rather than tested for.** The region count per axis is
+  derived and capped at `SectorCatalog.MaxRegionsPerAxis` (27, since 27² = 729 fits in 768 and 28²
+  does not), so no map size can produce more regions than there are names; the region name comes from
+  the same injective index-to-vocabulary mapping the sectors used to use, and the suffix is the
+  sector's own position inside its region. `SectorSettings.preferredRegionSizeCells` says how much
+  ground should carry one name — an intent, not the answer: a map large enough to need more regions
+  than the cap allows gets wider ones instead. At the shipped 10 000 that is 27 regions of 371 cells,
+  24 sectors across.
 - **Risk is measured in cells from the Core**, against thresholds that are exposed balance settings on
   `SectorSettings` — not in sectors crossed, which would tie a property of the world to a division of
   it and move the whole gradient whenever the division changed. The defaults read as the geometry of
@@ -135,10 +147,32 @@ world. Frozen by tests with hard-coded names.
   makes exploring around a revealed disc worth doing. The scatter respects the sector's real extent:
   edge sectors are clipped where the map does not divide evenly.
 
-**Mission reach** (`SectorMissionRange`) is given the Core's current radius on every call and
-remembers none of it, so extending the radius moves the ring with no other number to correct. It
-reports whether it had to widen and whether the map is exhausted, so an empty result is never
-indistinguishable from a fault.
+**Mission reach** (`SectorMissionRange`) is two bands, because there are two kinds of mission and they
+want opposite things.
+
+| Mission | Band | What it is looking for |
+|---|---|---|
+| Mining | current Core radius → exploration threshold | new deposits |
+| Exploration | exploration threshold → no outer edge | secondary Core sites, nests, points of interest |
+
+They **partition** everything past the Core's reach: a sector belongs to exactly one, and a test walks
+outward across the seam to hold that. The mining band closes from the inside as the radius grows —
+ground the Core already covers needs no mission to reach — while the exploration band does not move,
+since the current radius has no part in where it starts.
+
+**The threshold is derived and never entered**: two maximum Core radii back to back, plus
+`SectorSettings.territorySpacingCells`, the empty ground wanted between two territories. That is what
+keeps a secondary Core's radius from ever touching the main one's. The gap is the only figure of it
+that is a choice; writing the resulting distance down as a setting would make a second copy that stops
+agreeing the day a Core's maximum radius moves. At the shipped ceiling of 32 cells
+(`CoreRuntime.ExtendedActionRadiusCells`) and a gap of 90, the threshold is **154 cells** — the
+directive's 250 is the same formula at a maximum radius of 80, which no Core reaches yet.
+
+The Core's radius is passed in on every call and nothing here remembers it. A result reports the band
+it looked in and whether that band is exhausted, so an empty answer is never indistinguishable from a
+fault. Enumeration is bounded by a limit: the exploration band holds most of the map, and a caller
+wanting somewhere to go wants a few destinations, not four hundred thousand — the predicate
+`EligibilityOf` is the primary operation, since a mission is launched by designating one sector.
 
 ## 5. What is not built yet
 
@@ -148,8 +182,7 @@ indistinguishable from a fault.
 - **The zoomed-out map**, its hover and its risk display — the interface over §4, which the directive
   places last.
 - **Missions themselves**, which everything above is the prerequisite for.
-- **Two mission ranges.** `SectorMissionRange` still implements one ring; the directive replaces it
-  with an exploration range and a mining range, both derived.
+- ~~Two mission ranges.~~ **Done** — see §4. The single ring is gone.
 - **Sector content materialisation.** Contents are derived and tested, but nothing turns them into
   real deposits. Doing so needs a decision first: `WorldGenerator` already places clusters around the
   Core, and the sectors near it are discovered on the first frame, so the two would overlap.

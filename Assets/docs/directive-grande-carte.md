@@ -255,6 +255,14 @@ Le jour où le rayon maximal passe de 80 à 100, la portée doit suivre à 290 s
 chiffre ne soit à corriger — même exigence que celle déjà posée sur la couronne, qui se calcule
 depuis le rayon courant et n'en garde rien.
 
+> **Réalisé, et le 250 n'en est pas un.** La dérivation est en place (`SectorMissionRange`), et le
+> rayon maximal réellement livré est `CoreRuntime.ExtendedActionRadiusCells = 32`, pas les 80 que ce
+> paragraphe suppose : le seuil vaut donc **154** aujourd'hui, et deviendra 250 le jour où un Noyau
+> atteindra 80. Les 250 écrits partout dans cette section décrivent cet état futur. Ils ne sont pas
+> corrigés ici parce que la géométrie des Noyaux secondaires (§4.7) est bâtie dessus et n'est pas
+> encore implémentée — mais **aucun de ces nombres ne doit être recopié dans du code** : ils sont
+> tous des conséquences du rayon maximal et de l'espacement.
+
 L'anneau minier entre le rayon initial de 40 et 250 couvre environ 191 000 cases, soit 47 blocs, et
 747 secteurs de 16. Il ne se rétrécit presque pas quand le rayon atteint 80 : 43 blocs. La place ne
 manque pas.

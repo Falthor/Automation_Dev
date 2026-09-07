@@ -302,8 +302,12 @@ namespace Game.Presentation
             // and everything else follows from it.
             Sectors = new SectorGrid(Terrain.Size, sectorSettings.SectorSizeCells);
             SectorCatalog = new SectorCatalog(Sectors, Terrain.Seed, World?.CoreCenterCells ?? Vector2.zero,
-                sectorSettings.LowRiskWithinCells, sectorSettings.ModerateRiskWithinCells, sectorSettings.HighRiskWithinCells);
-            MissionRange = new SectorMissionRange();
+                sectorSettings.LowRiskWithinCells, sectorSettings.ModerateRiskWithinCells, sectorSettings.HighRiskWithinCells,
+                sectorSettings.PreferredRegionSizeCells);
+
+            // The maximum radius comes from the Core, which owns it, so the exploration threshold
+            // follows it on its own rather than being a second figure to keep in step.
+            MissionRange = new SectorMissionRange(CoreRuntime.ExtendedActionRadiusCells, sectorSettings.TerritorySpacingCells);
 
             Selection = new SelectionRuntime();
             Selection.GlobalPanelChanged += name =>
@@ -609,7 +613,7 @@ namespace Game.Presentation
         {
             int registered = 0;
 
-            foreach (DepthSortedDecor decor in FindObjectsByType<DepthSortedDecor>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (DepthSortedDecor decor in FindObjectsByType<DepthSortedDecor>(FindObjectsInactive.Include))
             {
                 decor.RegisterWith(DepthSort);
                 registered++;
