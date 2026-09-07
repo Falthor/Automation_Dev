@@ -606,13 +606,18 @@ débit d'absorption, prérequis, effets, palier, angle ou ajustement de position
 révélé ou masqué. Idem pour les recettes, les bâtiments, les types de mission et les
 sites.
 
-**Runtime.** Un `ResearchManager` qui expose des events pour que bâtiments et recettes
-se débloquent en réaction, sans que l'UI soit recâblée à chaque ajout.
+**Runtime.** `Game.Gameplay.Research.ResearchSystem` expose des events pour que bâtiments et recettes
+se débloquent en réaction, sans que l'UI soit recâblée à chaque ajout. Son contrat public est
+`architecture/CONTRACTS.md` §11.
 
-**Rendu du menu neuronal.** uGUI plutôt qu'UI Toolkit : plus de liberté sur les effets
-de tracé et de pulsation. Les synapses via un composant de tracé custom (`VertexHelper`)
-ou des segments `Image` en 9-slice, avec un `Material` dont on anime l'offset de
-texture pour le point lumineux qui circule.
+**Rendu du menu neuronal — en UI Toolkit, pas en uGUI.** Ce paragraphe recommandait l'inverse, pour
+« plus de liberté sur les effets de tracé et de pulsation ». La recommandation contredit
+`architecture/DEVELOPMENT_RULES.md` §6, qui pose UI Toolkit comme technologie primaire — et le besoin
+qui la motivait est déjà résolu dans le projet : `HistoryGraphElement`, `HatchFillElement` et
+`ClockGlyphElement` tracent tous en **Painter2D**, à l'angle et à la taille exacts, sans texture à
+importer ni durée de vie à gérer. Les synapses relèvent du même geste. Une seconde technologie d'UI
+coûterait deux thèmes, deux systèmes d'entrée et deux façons de router un panneau, pour un effet que
+la première sait produire.
 
 **Éditeur.** Un outil custom pour visualiser l'arbre et déplacer les ajustements à la
 souris. Sans lui, à trente nœuds, le placement devient un gouffre de temps.
@@ -624,31 +629,38 @@ sont **ancrés à des distances imposées**. L'aléatoire ne s'exprime qu'au-del
 
 ## 9. Points à trancher
 
+**Tout ce qui touche aux expéditions est dans [`SPEC_EXPEDITIONS.md`](SPEC_EXPEDITIONS.md) §10**, qui
+tient la liste à jour — durées des missions tardives, entretien des unités, taille d'escouade, repli
+en cours de mission, et ce qui a été tranché depuis. Deux listes du même sujet divergent, et c'est
+celle qu'on n'amende pas qui finit par mentir.
+
+Restent ici les points qui n'appartiennent qu'à l'économie de l'introduction :
+
 | Sujet | Question | Recommandation provisoire |
 |---|---|---|
 | Durée de vie des composants | 120 s donne un ratio de rentabilité de 14:1 pour le CPU et 7:1 pour la mémoire | Volontairement large : le facteur limitant doit rester le nombre de baies. À raccourcir si le stock de CPU devient trivial |
-| Durées des missions tardives | Étude, relevé, restauration, éradication | À caler entre 6 et 15 min selon l'enjeu, une fois les deux premières validées |
-| Entretien des unités | Quelle courbe pour le coût croissant par unité ? | À définir avec la branche armement |
 | Second Datacenter | Quand, et avec quel appétit différencié ? | Après les deux extensions de baies, quand l'axe armement existe |
+| Plafond de réserve | Le code livre 70 000, ce chiffrage est bâti sur 60 000 | Voir l'avertissement en §4.4 : trancher demande de jouer, pas de relire |
 
 ---
 
-## 10. Ordre d'implémentation suggéré
+## 10. Ordre d'implémentation
 
-1. **Modification de `CONTRACTS.md` §10.** Le contrat actuel affirme que « CU est une
-   monnaie, pas un flux » et que « rien ne consomme du CU par seconde ». Le modèle de
-   recherche par débit d'absorption contredit directement cette affirmation. C'est une
-   évolution de contrat public au sens de `CONTRACTS.md` §13 : identifier tous les
-   consommateurs, mettre à jour la documentation, adapter les tests, signaler
-   explicitement le changement de comportement.
-2. Refonte de l'économie CU : suppression du RP, de la Data Card et du Laboratoire,
-   suppression de la production de CU du Core, `ReserveCap` porté à la réserve de départ,
-   nouveaux `computeCost`, arrêt des machines à buffer plein, réserve finie.
-3. Nouvelles recettes et coûts de construction, plafond à 40.
-4. Modèle de recherche en processus, prérequis multiples, file d'attente, pause à zéro CU.
-5. Menu de recherche linéaire de l'introduction, avec ses cinq états et son panneau de
-   détail.
-6. Datacenter MK1, amorçage, baies, curseur de répartition, formule de rendement.
-7. Système d'expéditions : robots explorateurs, carte dézoomée, deux types de mission, sites finis.
-8. Transformation du menu en réseau radial, trois noyaux, algorithme de placement.
-9. Nid, branche armement, unités, usure, entretien, réparation.
+| | Étape | État |
+|---|---|---|
+| 1 | Refonte de l'économie CU : suppression du RP, de la Data Card et du Laboratoire, suppression de la production de CU du Core, réserve finie, nouveaux `computeCost`, arrêt des machines à buffer plein | **fait** |
+| 2 | Nouvelles recettes et coûts de construction, plafond de bâtiments | **fait** |
+| 3 | Modèle de recherche en processus, prérequis multiples, file d'attente, pause à zéro CU | **fait** |
+| 4 | Menu de recherche linéaire de l'introduction, ses cinq états et son panneau de détail | **fait** |
+| 5 | Datacenter MK1, amorçage, baies, curseur de répartition, formule de rendement | **fait** |
+| 6 | Système d'expéditions : robots explorateurs, deux types de mission, sites finis | **le processus est fait**, l'interface non |
+| 7 | Carte dézoomée : l'image existe (`SectorMapImage`), l'écran non | **en cours** |
+| 8 | Transformation du menu en réseau radial, trois noyaux, algorithme de placement | à faire |
+| 9 | Nid, branche armement, unités, usure, entretien, réparation | à faire |
+
+L'étape qui ouvrait cette liste — modifier `CONTRACTS.md` §10, parce que le modèle de recherche par
+débit d'absorption contredisait « CU est une monnaie, pas un flux » — est **accomplie** : §10 porte
+maintenant l'exception, nommée, avec ses deux seuls appelants (`SpendUpTo` pour la recherche et
+l'amorçage du Datacenter) et le renvoi à §13. Elle est retirée d'ici plutôt que marquée faite : une
+première ligne qui demande de modifier un contrat déjà modifié se lit comme une consigne, pas comme
+un historique.
