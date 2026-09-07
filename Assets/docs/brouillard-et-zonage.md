@@ -1,25 +1,18 @@
 # Brouillard de guerre et zonage — carnet
 
-> **AVERTISSEMENT — carnet partiellement périmé depuis la décision de passer la carte à 10 000.**
+> **Ce carnet couvre deux chantiers successifs.** Les sections 1 à 3.8 décrivent une implémentation
+> dimensionnée pour une carte de **300** ; les sections 3.9 à 3.17 racontent son passage à **10 000**,
+> avec des chunks de 64 et des secteurs de 16. Lire les premières sans les secondes donne un état
+> périmé.
 >
-> Ce carnet décrit une implémentation dimensionnée pour une carte de 300. La taille cible est
-> désormais **10 000 cases de côté**, avec des **chunks de 64** et des **secteurs de 16**. Six points
-> de ce carnet ne tiennent plus. Ils sont traités dans `directive-grande-carte.md`, qui fait
-> autorité sur tout ce qui touche à l'échelle.
+> Les six points que le passage à l'échelle a cassés ont tous été traités, et chacun dans ce même
+> carnet : les rangs de profondeur relatifs à la caméra (§3.9), les secteurs de 16 alignés sur des
+> chunks de 64 (§3.10), l'état de découverte épars (§3.11), la texture de brouillard qui suit la
+> caméra (§3.12), les noms de secteurs par région (§3.16) et les deux portées de mission dérivées
+> (§3.17).
 >
-> | Ce que dit ce carnet | Ce qui le remplace |
-> |---|---|
-> | 625 secteurs, vocabulaire de noms de 768 combinaisons | **390 625** secteurs : la bijection ne suffit plus, vocabulaire ou méthode à revoir |
-> | couronne de mission « rayon du Noyau + 30 » | **deux portées** : exploration à 250 et au-delà, minière entre le rayon courant et 250, toutes deux dérivées |
->
-> **Traité depuis :** les rangs de profondeur sont devenus relatifs à la caméra (§3.9), le découpage est passé aux secteurs de 16 alignés sur des chunks de 64 (§3.10), l'état de découverte est devenu épars (§3.11) et la texture du brouillard suit la caméra (§3.12).
->
-> Restent valables sans réserve : la séparation « le rayon écrit, il ne définit pas », le RLE de
-> sauvegarde, la scission `ValueNoise.hlsl` / `NanoNoise.hlsl`, le `linear: true` sur la texture R8,
-> le test d'orientation sur sonde asymétrique, et la décision de ne pas généraliser le shader.
->
-> Ce qui n'était pas fait le reste : la matérialisation du contenu en gisements réels, et l'étape 4,
-> la carte dézoomée.
+> Ce qui n'était pas fait le reste : la matérialisation du contenu en gisements réels, et la carte
+> dézoomée — dont la texture existe désormais, mais pas l'écran.
 
 
 > **L'état courant du sous-système est décrit dans

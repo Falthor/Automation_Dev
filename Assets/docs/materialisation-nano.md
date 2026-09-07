@@ -1,10 +1,18 @@
 # Matérialisation nano — carnet
 
-Décisions, écarts et limites. La spécification est `Intro/directive-materialisation-nano.md` ;
-ce document ne la répète pas, il consigne ce qui ne s'y trouve pas.
+Décisions, écarts et limites du chantier de matérialisation nano.
 
 **État : dissolve et couverture au sol faits.** Un bâtiment posé s'assemble à l'écran au rythme de
-ses livraisons, et le sol sous lui se convertit au même rythme. Les particules ne sont pas faites.
+ses livraisons, et le sol sous lui se convertit au même rythme.
+
+**Ce qui reste : les particules de l'essaim** — un `ParticleSystem` suivant le trajet du robot
+constructeur, une bouffée à chaque livraison. Purement décoratif, et la seule des trois étapes de
+livraison qui n'ait pas été faite.
+
+La directive qui ouvrait le chantier a été supprimée une fois les deux premières étapes livrées :
+tout ce qu'elle prescrivait est soit fait et décrit ici, soit résumé dans le paragraphe ci-dessus.
+Une seule fonctionnalité décorative restante ne justifiait pas de garder un document qui présente
+comme à faire ce qui est fait. Git en garde le texte.
 
 ---
 

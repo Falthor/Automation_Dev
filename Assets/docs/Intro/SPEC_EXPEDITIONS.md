@@ -404,7 +404,7 @@ sépare chaque Noyau secondaire du principal, donc au-delà de l'introduction. P
 l'introduction, les sites sont ceux que le générateur pose — et la règle « un secteur qui porte
 du contenu placé garde ce contenu » les protège de la dérivation, sous réserve de la contrainte
 d'ordonnancement qui l'accompagne : le contenu placé doit exister avant que la dérivation
-n'atteigne ces secteurs (`directive-grande-carte.md` §4.6).
+n'atteigne ces secteurs (`architecture/MAP.md` §5).
 
 ---
 

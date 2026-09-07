@@ -13,7 +13,7 @@ shader, this document owns everything that divides, reveals or hides the map.
 - [`PROJECT_ARCHITECTURE.md`](PROJECT_ARCHITECTURE.md) — §7 Grid (who owns per-cell world state), §10.1 Draw order (the fog's band, and the camera-relative depth ladder that solves the same scaling problem for a different system). Where the two disagree, `PROJECT_ARCHITECTURE.md` wins per the source-of-truth order in `CLAUDE.md`.
 - [`CONTRACTS.md`](CONTRACTS.md) — §14 Save/Restore (`SaveData.Discovered`, and why sectors are not saved).
 - [`TERRAIN.md`](TERRAIN.md) — terrain type and ground rendering.
-- `Assets/docs/directive-grande-carte.md` — the directive this subsystem is being scaled towards. Design intent, not a description of current code.
+- [`../design/expansion-territoriale.md`](../design/expansion-territoriale.md) — secondary Cores, mining zones, deposit density and the generation parameters. **Design intent, none of it implemented**; this document describes what is.
 - `Assets/docs/brouillard-et-zonage.md` — the implementation notebook: decisions taken, deviations and why. Reasoning lives there; current state lives here.
 
 ---
@@ -190,9 +190,9 @@ wanting somewhere to go wants a few destinations, not four hundred thousand — 
 - **Sector content materialisation.** Contents are derived and tested, but nothing turns them into
   real deposits.
 
-  The rule for the overlap with `WorldGenerator`'s starting clusters is already decided
-  (`directive-grande-carte.md` §4.6): **a sector already carrying placed content keeps it; the
-  derivation only fills sectors that have none.** A rule about the data rather than about geometry,
+  The rule for the overlap with `WorldGenerator`'s starting clusters is already decided, and this is
+  its home now that the directive stating it has been retired: **a sector already carrying placed
+  content keeps it; the derivation only fills sectors that have none.** A rule about the data rather than about geometry,
   which is what makes it durable — there is no starting perimeter to maintain, and it covers in
   advance anything else placed by hand, a scripted wreck or a particular nest. The starting area stays
   hand-composed because the introduction depends on the right resources at the right distance, which a
