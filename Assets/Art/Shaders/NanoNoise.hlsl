@@ -9,39 +9,12 @@
 // ONE process. Three copies of a noise function are three things that can be tuned apart, and the
 // moment two of them differ the effect reads as several animations that happen to coincide.
 //
-// Custom/FogOfWar also calls NanoFrontJitter, and is NOT part of that process. It is here for the
-// hash and the octaves only - a fourth hand-rolled hash is what produced the banding this file
-// exists to avoid - and it runs at its own scale and weight, some thirty times coarser, because a
-// fog border has to be readable across cells rather than to have sub-cell teeth. Changing the
-// octave weights below therefore moves the fog's border as well as the materialisation's grain;
-// changing either caller's scale or weight does not.
-//
-// Always sampled in WORLD space by every caller, never in UVs: the pattern stays pinned to the
-// terrain, so it survives a sprite sheet frame change and two neighbouring sites share one
-// continuous field instead of restarting the same pattern side by side.
+// This file is the materialisation's own composition and has no business being included by anything
+// else - the octave weights below ARE the effect's identity, and a shader outside the effect
+// including them would be silently tuned by any change to them. The randomness underneath is a
+// different matter: that lives in ValueNoise.hlsl, and anything at all may share it.
 
-// Dave Hoskins' "hash without sine" rather than a hand-rolled one, which showed periodic banding.
-float NanoHash21(float2 p)
-{
-    float3 p3 = frac(float3(p.xyx) * 0.1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return frac((p3.x + p3.y) * p3.z);
-}
-
-float NanoValueNoise(float2 p)
-{
-    float2 i = floor(p);
-    float2 f = frac(p);
-
-    float a = NanoHash21(i);
-    float b = NanoHash21(i + float2(1.0, 0.0));
-    float c = NanoHash21(i + float2(0.0, 1.0));
-    float d = NanoHash21(i + float2(1.0, 1.0));
-
-    float2 u = f * f * (3.0 - 2.0 * f);
-
-    return lerp(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-}
+#include "ValueNoise.hlsl"
 
 // Three octaves, then an analytic stretch. A single octave has one scale of detail: combined with
 // a reveal gradient it can only produce a soft undulation, and raising the weight amplifies those
@@ -50,12 +23,13 @@ float NanoValueNoise(float2 p)
 // The stretch is not cosmetic. A weighted sum of three noises does not span 0-1: it concentrates
 // around 0.5, with a usable range of roughly 0.25 to 0.75, so without the remap a weight would
 // deliver about half the irregularity it claims. Normalizing over the whole image is not available
-// to a fragment shader, hence fixed constants.
+// to a fragment shader, hence fixed constants - which follow from the weights just above them, and
+// have to be revisited with them.
 float NanoFbm(float2 p)
 {
-    float fbm = 0.62 * NanoValueNoise(p)
-              + 0.27 * NanoValueNoise(p * 2.2)
-              + 0.11 * NanoValueNoise(p * 4.5);
+    float fbm = 0.62 * ValueNoise2D(p)
+              + 0.27 * ValueNoise2D(p * 2.2)
+              + 0.11 * ValueNoise2D(p * 4.5);
 
     return saturate((fbm - 0.25) / 0.5);
 }

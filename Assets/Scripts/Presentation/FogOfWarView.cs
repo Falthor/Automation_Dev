@@ -26,11 +26,17 @@ namespace Game.Presentation
 
         [SerializeField] Color fogColor = new Color(0.02f, 0.03f, 0.05f, 0.96f);
 
+        // The three values below were dialled in on screen, against the real map, and these are the
+        // ones that were kept. They are not derived from anything - do not "restore" them to rounder
+        // numbers.
+        //
         /// <summary>How far the fog fades over its own edge, in threshold units (not world units - the old disc's edgeSoftness was, hence the new name).</summary>
-        [SerializeField, Range(0f, 1f)] float borderSoftness = 0.18f;
+        [SerializeField, Range(0f, 1f)] float borderSoftness = 0.114f;
 
-        [SerializeField, Min(0.01f)] float noiseScale = 0.4f;
-        [SerializeField, Range(0f, 1f)] float noiseWeight = 0.35f;
+        /// <summary>Periods per world unit. Far finer than first guessed - see the note in FogOfWar.shader.</summary>
+        [SerializeField, Min(0.01f)] float noiseScale = 3f;
+
+        [SerializeField, Range(0f, 1f)] float noiseWeight = 0.396f;
 
         /// <summary>
         /// Texels per cell along each axis. One is enough for a border broken up by the shader's
@@ -47,6 +53,10 @@ namespace Game.Presentation
         [SerializeField, Min(0f)] float outsideMarginCells = 400f;
 
         DiscoveryRuntime _discovery;
+
+        /// <summary>Kept only so an Inspector edit to texelsPerCell can rebuild the texture without a restart.</summary>
+        GridRuntime _grid;
+
         SpriteRenderer _renderer;
         Material _material;
         Texture2D _texture;
@@ -62,6 +72,7 @@ namespace Game.Presentation
             if (discovery == null || grid == null || discovery.Size <= 0) return;
 
             _discovery = discovery;
+            _grid = grid;
 
             int side = discovery.Size * texelsPerCell;
             float mapWorldSize = discovery.Size * grid.CellSize;
@@ -89,10 +100,7 @@ namespace Game.Presentation
 
             _material.SetTexture("_FogTex", _texture);
             _material.SetVector("_MapBounds", new Vector4(mapMin.x, mapMin.y, mapWorldSize, mapWorldSize));
-            _material.SetColor("_FogColor", fogColor);
-            _material.SetFloat("_EdgeSoftness", borderSoftness);
-            _material.SetFloat("_NoiseScale", noiseScale);
-            _material.SetFloat("_NoiseWeight", noiseWeight);
+            ApplyLook();
 
             // Centred on the map, and larger than it by the margin on every side.
             float quadSize = mapWorldSize + outsideMarginCells * grid.CellSize * 2f;
@@ -101,6 +109,41 @@ namespace Game.Presentation
 
             _uploadedVersion = -1;
             Upload();
+        }
+
+        /// <summary>The four dials that shape the border, pushed to the material. Cheap enough to redo on any edit.</summary>
+        void ApplyLook()
+        {
+            if (_material == null) return;
+
+            _material.SetColor("_FogColor", fogColor);
+            _material.SetFloat("_EdgeSoftness", borderSoftness);
+            _material.SetFloat("_NoiseScale", noiseScale);
+            _material.SetFloat("_NoiseWeight", noiseWeight);
+        }
+
+        /// <summary>
+        /// So the border can be dialled in by hand, in Play mode, against the actual map - which is
+        /// the only place it can honestly be judged. Editor-only: Unity never calls this in a build.
+        ///
+        /// The look is a material push. Changing the resolution instead re-runs Initialize, because
+        /// the texture and its buffer are sized from it; the old texture is released first, or
+        /// dragging that slider leaks one per notch.
+        /// </summary>
+        void OnValidate()
+        {
+            if (_material == null || _discovery == null) return;
+
+            if (_texture != null && _texture.width == _discovery.Size * texelsPerCell)
+            {
+                ApplyLook();
+                return;
+            }
+
+            if (_grid == null) return;
+
+            Destroy(_texture);
+            Initialize(_discovery, _grid);
         }
 
         /// <summary>

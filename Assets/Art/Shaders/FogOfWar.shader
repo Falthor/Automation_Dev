@@ -27,13 +27,20 @@ Shader "Custom/FogOfWar"
         // How far the fog fades out over its own edge, in threshold units - not world units. It is
         // clamped to at least one pixel below, so the boundary never aliases however hard it is
         // tightened.
-        _EdgeSoftness ("Edge softness, in threshold units", Range(0, 1)) = 0.18
+        _EdgeSoftness ("Edge softness, in threshold units", Range(0, 1)) = 0.114
 
-        // The grain of the border. Much coarser than the materialisation's (which runs at ~12
-        // periods per world unit to make sub-cell teeth): here the wobble has to be readable at a
-        // scale of a few cells, or a fog boundary reads as the circle it must not be.
-        _NoiseScale ("Noise scale (periods per world unit)", Float) = 0.4
-        _NoiseWeight ("Noise weight, in threshold units", Range(0, 1)) = 0.35
+        // The grain of the border, in periods per world unit. This was first guessed at 0.4, on the
+        // theory that a fog boundary has to be readable across several cells where the
+        // materialisation makes sub-cell teeth at ~12. Tuning it on screen said otherwise: it landed
+        // at 3, so the border wants detail at roughly a third of a cell after all. What a coarse
+        // setting actually produces is a smooth, slow bulge - which reads as a deformed circle, and
+        // still reads as a circle. Breaking that up takes detail smaller than the eye can follow
+        // around the perimeter.
+        //
+        // The defaults here are only a fallback: FogOfWarView pushes the serialized values over
+        // them at Initialize, and again on any Inspector edit.
+        _NoiseScale ("Noise scale (periods per world unit)", Float) = 3
+        _NoiseWeight ("Noise weight, in threshold units", Range(0, 1)) = 0.396
     }
 
     SubShader
@@ -58,7 +65,13 @@ Shader "Custom/FogOfWar"
             #pragma fragment frag
             #pragma target 3.0     // fwidth, for the one-pixel floor on the edge
             #include "UnityCG.cginc"
-            #include "NanoNoise.hlsl"
+
+            // Only the randomness is shared. The materialisation's own composition lives in
+            // NanoNoise.hlsl and is deliberately NOT included here: this border has nothing to do
+            // with that effect, and borrowing its octaves would mean tuning the dissolve moves the
+            // fog's edge. What must never be reimplemented is the hash - a fourth hand-rolled one is
+            // exactly what produced the banding ValueNoise.hlsl exists to avoid.
+            #include "ValueNoise.hlsl"
 
             struct appdata
             {
@@ -79,6 +92,32 @@ Shader "Custom/FogOfWar"
             float _NoiseScale;
             float _NoiseWeight;
 
+            // The border's own grain. Three octaves because one gives a single scale of detail, and
+            // against a smooth threshold that reads as a slow undulation - a rounder circle, not a
+            // broken one. The stretch that follows is not cosmetic: a weighted sum of three 0-1
+            // noises concentrates around 0.5 with a usable span of about 0.25 to 0.75, so without it
+            // a weight delivers roughly half the irregularity it claims. The constants follow from
+            // the weights right above them and have to be revisited together.
+            //
+            // These numbers currently equal the materialisation's. That is a starting point, not a
+            // constraint - they are the fog's to change, and changing them moves nothing else.
+            float FogBorderFbm(float2 p)
+            {
+                float fbm = 0.62 * ValueNoise2D(p)
+                          + 0.27 * ValueNoise2D(p * 2.2)
+                          + 0.11 * ValueNoise2D(p * 4.5);
+
+                return saturate((fbm - 0.25) / 0.5);
+            }
+
+            // Centred on zero, so _NoiseWeight widens the wobble symmetrically instead of also
+            // pushing the whole border outwards. Subtracted from the signed distance below, which is
+            // the same thing as adding it to the threshold.
+            float FogBorderJitter(float2 worldPos, float noiseScale, float noiseWeight)
+            {
+                return (FogBorderFbm(worldPos * noiseScale) - 0.5) * noiseWeight;
+            }
+
             v2f vert(appdata v)
             {
                 v2f o;
@@ -97,11 +136,9 @@ Shader "Custom/FogOfWar"
                 // reveal an unfogged void.
                 float discovered = tex2D(_FogTex, uv).r;
 
-                // Signed distance to the fog's edge: positive where the map is still hidden. The
-                // jitter is SUBTRACTED, following NanoFrontJitter's own convention - the same thing
-                // as adding it to the threshold.
+                // Signed distance to the fog's edge: positive where the map is still hidden.
                 float hidden = _Threshold - discovered;
-                hidden -= NanoFrontJitter(i.worldPos.xy, _NoiseScale, _NoiseWeight);
+                hidden -= FogBorderJitter(i.worldPos.xy, _NoiseScale, _NoiseWeight);
 
                 // Discovered ground costs nothing: no blending and no overdraw over the part of the
                 // map the player has actually seen, which is the part they are looking at.

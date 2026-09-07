@@ -130,21 +130,54 @@ coordonnées monde, bruiter le seuil, `clip()` — et rien d'autre :
 | ce qui est dessiné | une teinte + un liseré lumineux | une couleur plate |
 | le `clip()` | garde l'**intérieur** du champ | garde l'**extérieur** |
 | découpage | une texture par zone, avec ses bornes | une seule texture globale |
-| grain | ~12 périodes/unité (dents sous la case) | ~0,4 (ondulation sur plusieurs cases) |
+| grain | ~12 périodes/unité (dents sous la case) | ~3 (voir §2.6) |
 
 Les fusionner demanderait un mode, et chaque mode rendrait la moitié des paramètres de l'autre sans
 objet — `_RimWidth`, `_RimBoost`, `_Tint` n'ont aucun sens pour du brouillard, et un `_FogColor`
 n'en a aucun pour une couverture. C'est le cas d'école de l'abstraction sans consommateur réel que
 `DEVELOPMENT_RULES.md` §1 interdit.
 
-**Ce qui est partagé, en revanche : `NanoNoise.hlsl`.** Le hash de Dave Hoskins et les octaves, pas
-la mise au point. Écrire un quatrième hash maison est exactement ce qui avait produit le banding que
-ce fichier existe pour éviter. L'en-tête du fichier a été amendé : il annonçait « le grain de tout
-l'effet de matérialisation », ce qui devenait faux avec un appelant qui n'en fait pas partie.
+**Ce qui est partagé, en revanche : le bruit — mais le primitif seulement.** Première version : le
+brouillard incluait `NanoNoise.hlsl` en entier et appelait `NanoFrontJitter`. Ça marchait, et ça
+créait un couplage qu'il a fallu documenter — régler le dissolve déplaçait la bordure du brouillard.
 
-**Couplage assumé et noté :** modifier les poids d'octaves de `NanoFbm` déplace aussi la bordure du
-brouillard. Modifier l'échelle ou le poids de l'un des appelants, non — ce sont des paramètres par
-appelant.
+Le couplage n'était pas nécessaire. La protection contre le banding, qui est la raison d'être de ce
+fichier, tient **entièrement dans le hash de Dave Hoskins** : un hash maison montrait des bandes
+périodiques, celui-ci non. Les poids d'octaves de `NanoFbm`, eux, ne protègent de rien — ce sont un
+choix de composition, et c'est précisément l'identité visuelle de la matérialisation.
+
+D'où la séparation :
+
+| fichier | contenu | qui l'inclut |
+|---|---|---|
+| `ValueNoise.hlsl` | `Hash21`, `ValueNoise2D` — la source d'aléa | tout le monde |
+| `NanoNoise.hlsl` | `NanoFbm`, `NanoFrontJitter` — 3 octaves à 0,62/0,27/0,11 et leur remap | les trois couches de la matérialisation, et elles seules |
+
+Le brouillard compose ses propres octaves (`FogBorderFbm`, dans son shader). Les constantes y sont
+aujourd'hui les mêmes — c'est un point de départ, pas une contrainte : elles lui appartiennent, et
+les changer ne déplace plus rien d'autre. Aucun changement de rendu au moment de la scission, les
+deux compositions étant arithmétiquement identiques.
+
+`NanoHash21` et `NanoValueNoise` n'avaient aucun appelant hors de leur propre fichier ; renommés
+sans préfixe en passant dans le fichier neutre, ils ne sont plus rattachés à un effet qui ne les
+possède pas.
+
+**Ce que la scission a fait tomber : le hash existait en trois exemplaires.** La compilation a
+échoué sur `redefinition of 'Hash21'` — `BuildingGroundSlab.shader` portait sa propre copie mot pour
+mot alors qu'il incluait déjà `NanoNoise.hlsl`, et `ShadedGroundTiled.shader` une troisième, celle
+d'origine. Les trois sont désormais le même fichier.
+
+C'est la duplication la plus coûteuse possible : une fonction dont la **raison d'être est d'éviter un
+défaut précis** (le banding d'un hash maison). Trois copies, c'est une correction future qui n'en
+corrige qu'une sur trois, et deux shaders qui continuent de bander sans que personne ne comprenne
+pourquoi. Qu'elles compilent et qu'elles relèvent de sous-systèmes documentés séparément n'y change
+rien. Le commentaire le plus complet sur le défaut — le motif en échelle — vivait dans
+`ShadedGroundTiled.shader` : remonté dans `ValueNoise.hlsl` avec la contrainte de petite graine qui
+l'accompagnait, et `TERRAIN.md` §2.4 pointe maintenant vers le fichier partagé.
+
+**Règle qui en sort :** partager la source d'aléa, jamais la composition. Deux effets qui bruitent un
+bord ont en commun le besoin d'un hash bien distribué, pas le nombre d'octaves — c'est ce nombre qui
+donne des dents sous la case à l'un et une ondulation sur plusieurs cases à l'autre.
 
 ### 2.3 Deux pièges repris de la couverture nano plutôt que redécouverts
 
@@ -182,6 +215,42 @@ Ordre de tri : `SortingBands.Fog` existait déjà, au-dessus de la bande d'infor
 `edgeSoftness: 2`, valeur qui n'a aucun sens dans la nouvelle unité et qui aurait rendu le brouillard
 presque transparent si le champ avait gardé son nom. La clé orpheline disparaîtra à la prochaine
 sauvegarde de la scène.
+
+---
+
+### 2.6 Réglages retenus, et l'hypothèse qu'ils ont démentie
+
+Validés à l'écran sur la carte réelle, reportés dans `Bootstrap.unity` **et** dans les défauts de
+`FogOfWarView` — ce ne sont pas des valeurs dérivées, ne pas les « rétablir » à des nombres plus
+ronds :
+
+| réglage | retenu | proposé au départ |
+|---|---|---|
+| `borderSoftness` | 0,114 | 0,18 |
+| `noiseScale` | **3** | 0,4 |
+| `noiseWeight` | 0,396 | 0,35 |
+| `texelsPerCell` | 1 | 1 |
+
+Le raisonnement initial sur l'échelle était faux, et l'écart n'est pas un ajustement : un facteur
+7,5. J'avais posé qu'une frontière de brouillard doit se lire **à travers plusieurs cases**, là où la
+matérialisation fait des dents sous la case à ~12 périodes/unité. Le réglage à la main dit l'inverse :
+3 périodes/unité, soit du détail au tiers de case environ — quatre fois plus grossier que la
+matérialisation, pas trente.
+
+Ce qu'un bruit grossier produit en réalité, c'est un renflement lent et lisse : un cercle déformé,
+qui se lit encore comme un cercle. Casser cette lecture demande du détail plus petit que ce que l'œil
+suit le long du périmètre. À retenir si le rendu est repris : **`noiseWeight` déforme, `noiseScale`
+décide si la déformation ressemble à une côte ou à une ellipse.**
+
+Corollaire pour `texelsPerCell` : il reste à 1 et le grain fin vient du shader, calculé par fragment.
+C'est la même leçon que `materialisation-nano.md` a tirée pour le sol — un grain cuit dans une
+texture à un texel par case ne peut pas représenter 3 périodes par unité, et ressortirait en
+ondulation lente puis en bord droit. Monter `texelsPerCell` affine la marche d'escalier du champ,
+jamais le grain.
+
+Les trois molettes sont réglables **en cours de partie** (`FogOfWarView.OnValidate`) ; `texelsPerCell`
+aussi, il reconstruit la texture. Rappel Unity : ce qui est réglé en Play mode est perdu à l'arrêt,
+d'où *Copy Component* / *Paste Component Values*.
 
 ---
 

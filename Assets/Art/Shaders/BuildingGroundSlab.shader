@@ -129,30 +129,9 @@ Shader "Custom/BuildingGroundSlab"
             float _ReliefAmbient;
             float _ReliefBumpScale;
 
-            // Same validated "hash without sine" + smoothstep value noise as ShadedGroundTiled.shader
-            // (see that file's comment on why a well-tested hash beats a hand-rolled one) - reused
-            // here rather than reinvented, for the sand-encroachment patchiness below.
-            float Hash21(float2 p)
-            {
-                float3 p3 = frac(float3(p.xyx) * 0.1031);
-                p3 += dot(p3, p3.yzx + 33.33);
-                return frac((p3.x + p3.y) * p3.z);
-            }
-
-            float ValueNoise(float2 p)
-            {
-                float2 i = floor(p);
-                float2 f = frac(p);
-
-                float a = Hash21(i);
-                float b = Hash21(i + float2(1.0, 0.0));
-                float c = Hash21(i + float2(0.0, 1.0));
-                float d = Hash21(i + float2(1.0, 1.0));
-
-                float2 u = f * f * (3.0 - 2.0 * f);
-
-                return lerp(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-            }
+            // Hash21 and ValueNoise2D, used below for the sand-encroachment patchiness, come from
+            // ValueNoise.hlsl via the include above. They used to be a verbatim copy sitting right
+            // here; that copy is what the shared file exists to prevent.
 
             fixed4 SampleBase(int idx, float2 uv)
             {
@@ -246,7 +225,7 @@ Shader "Custom/BuildingGroundSlab"
                 // doubles as this noise field's per-instance offset, so different buildings don't
                 // show identical sand patterns.
                 float2 noiseCoord = i.worldPos.xy / max(_SandNoiseScale, 0.0001) + _UVOffset.xy * 3.7;
-                float sandNoise = ValueNoise(noiseCoord);
+                float sandNoise = ValueNoise2D(noiseCoord);
                 float perturbedEdgeDist = edgeDist + (sandNoise - 0.5) * _SandNoiseAmplitude;
                 float sandMask = 1.0 - smoothstep(0.0, max(_SandBandWidth, 0.0001), perturbedEdgeDist);
 
@@ -257,7 +236,7 @@ Shader "Custom/BuildingGroundSlab"
                 float2 groundLocal = i.worldPos.xy - _VariationOrigin.xy;
                 float2 groundTexUV = i.worldPos.xy / max(_TextureWorldSize.xy, 0.0001);
                 float2 baseSeedOffset = float2(_BiomeSeed, -_BiomeSeed * 1.37);
-                float baseField = ValueNoise(groundLocal / max(_BiomeCellSize, 0.0001) + baseSeedOffset);
+                float baseField = ValueNoise2D(groundLocal / max(_BiomeCellSize, 0.0001) + baseSeedOffset);
 
                 int baseCount = max((int)_BiomeTexCount, 1);
                 int baseOther;
