@@ -28,9 +28,12 @@ namespace Game.Tests.EditMode.Gameplay
         const float ModerateRiskWithin = 250f;
         const float HighRiskWithin = 330f;
 
+        /// <summary>Wider than the fixture map, so the whole of it falls in one region - which is what a 300-cell map gets under the shipped settings too.</summary>
+        const int PreferredRegionSize = 384;
+
         static SectorCatalog NewCatalog(int seed = Seed)
             => new SectorCatalog(new SectorGrid(MapSize, SectorSize), seed, CoreCenter,
-                LowRiskWithin, ModerateRiskWithin, HighRiskWithin);
+                LowRiskWithin, ModerateRiskWithin, HighRiskWithin, PreferredRegionSize);
 
         // ---- Determinism ----
 
@@ -199,7 +202,7 @@ namespace Game.Tests.EditMode.Gameplay
         }
 
         static SectorCatalog NewCatalogWith(int sectorSize, float low, float moderate, float high)
-            => new SectorCatalog(new SectorGrid(MapSize, sectorSize), Seed, CoreCenter, low, moderate, high);
+            => new SectorCatalog(new SectorGrid(MapSize, sectorSize), Seed, CoreCenter, low, moderate, high, PreferredRegionSize);
 
         /// <summary>
         /// The real risk, averaged over every sector roughly that far from the Core. Averaged on
@@ -295,26 +298,103 @@ namespace Game.Tests.EditMode.Gameplay
         // ---- Frozen identities ----
 
         /// <summary>
-        /// Hard-coded names and risks, captured before the hash moved into Game.Core and asserted
-        /// after. Two purposes, both of which need literals rather than a recomputed expectation:
-        /// it proves the move renamed nothing, and it catches a runtime whose arithmetic has changed
-        /// underneath a world that is derived rather than saved.
+        /// Hard-coded names and risks. Two purposes, both of which need literals rather than a
+        /// recomputed expectation: they prove a refactor renamed nothing, and they catch a runtime
+        /// whose arithmetic has changed underneath a world that is derived rather than saved.
         ///
         /// <b>If this fails, do not update the strings.</b> Every existing world has just been
         /// renamed; find out what moved.
+        ///
+        /// <b>The names were rewritten once, deliberately</b>, when one name per sector was abandoned:
+        /// 390 625 sectors could not have 768 distinct names, so a sector is now a region name plus
+        /// its position in that region. That was a change of scheme, decided and recorded, not a
+        /// drifting hash - which is the only kind of reason that justifies touching these literals.
+        /// The <b>risks</b> were not touched: that arithmetic did not move, and it did not have to be
+        /// taken on trust, because these same cases still assert the values they always did.
         /// </summary>
-        [TestCase(0, "Balise du Levant", SectorRisk.Moderate)]
-        [TestCase(1, "Brèche de Schiste", SectorRisk.High)]
-        [TestCase(7, "Épave de Sel", SectorRisk.Low)]
-        [TestCase(100, "Vestiges des Sondes", SectorRisk.High)]
-        [TestCase(180, "Relais de Fer", SectorRisk.Low)]
-        [TestCase(360, "Relais de l'Orage", SectorRisk.Moderate)]
+        [TestCase(0, "Balise du Levant A1", SectorRisk.Moderate)]
+        [TestCase(1, "Balise du Levant B1", SectorRisk.High)]
+        [TestCase(7, "Balise du Levant H1", SectorRisk.Low)]
+        [TestCase(100, "Balise du Levant F6", SectorRisk.High)]
+        [TestCase(180, "Balise du Levant J10", SectorRisk.Low)]
+        [TestCase(360, "Balise du Levant S19", SectorRisk.Moderate)]
         public void SectorIdentitiesAreFrozen(int index, string expectedName, SectorRisk expectedRisk)
         {
             SectorCatalog catalog = NewCatalog();
 
             Assert.AreEqual(expectedName, catalog.NameOf(index));
             Assert.AreEqual(expectedRisk, catalog.RiskOf(index));
+        }
+
+        /// <summary>
+        /// The point of the whole rework, stated as the thing that was broken: designating a mission
+        /// destination is impossible when neighbours share a name. On the shipped map, where the old
+        /// scheme collided on four sectors in five.
+        /// </summary>
+        [Test]
+        public void OnTheShippedMap_NeighbouringSectorsHaveDifferentNames()
+        {
+            var grid = new SectorGrid(10000, SectorSize);
+            var catalog = new SectorCatalog(grid, Seed, CoreCenter,
+                LowRiskWithin, ModerateRiskWithin, HighRiskWithin, PreferredRegionSize);
+
+            // The first sector column of the second region - rounded up, not down: a region of 371
+            // cells ends inside sector column 23, whose origin at 368 is still region 0, so the
+            // second region starts at column 24. Taking the floor would have put this whole block
+            // safely inside one region while claiming to straddle a seam.
+            int seam = Mathf.CeilToInt(catalog.RegionSizeCells / (float)grid.SectorSizeCells);
+
+            Assert.AreNotEqual(
+                catalog.NameOf(grid.IndexAt(seam - 1, seam)).Split(' ')[0],
+                catalog.NameOf(grid.IndexAt(seam, seam)).Split(' ')[0],
+                "the fixture is supposed to straddle a region boundary, and these two columns are in the same region");
+
+            var seen = new Dictionary<string, int>();
+
+            for (int row = seam - 4; row <= seam + 4; row++)
+            {
+                for (int column = seam - 4; column <= seam + 4; column++)
+                {
+                    int index = grid.IndexAt(column, row);
+                    Assert.GreaterOrEqual(index, 0);
+
+                    string name = catalog.NameOf(index);
+                    if (seen.TryGetValue(name, out int owner))
+                        Assert.Fail($"\"{name}\" is worn by both sector {owner} and sector {index}, which are neighbours.");
+
+                    seen[name] = index;
+                }
+            }
+        }
+
+        /// <summary>Neighbours share their region name - that is the point of a region, and it is what makes the map readable rather than fifty unrelated nouns.</summary>
+        [Test]
+        public void NeighboursShareTheirRegionName()
+        {
+            var grid = new SectorGrid(10000, SectorSize);
+            var catalog = new SectorCatalog(grid, Seed, CoreCenter,
+                LowRiskWithin, ModerateRiskWithin, HighRiskWithin, PreferredRegionSize);
+
+            int centre = grid.IndexAt(grid.Columns / 2, grid.Columns / 2);
+
+            string here = catalog.NameOf(centre);
+            string next = catalog.NameOf(centre + 1);
+
+            string regionHere = here.Substring(0, here.LastIndexOf(' '));
+            string regionNext = next.Substring(0, next.LastIndexOf(' '));
+
+            Assert.AreEqual(regionHere, regionNext, "two adjacent sectors in mid-region should be in the same region");
+            Assert.AreNotEqual(here, next, "and still be told apart by their suffix");
+        }
+
+        [Test]
+        public void ColumnLettersRunPastZ()
+        {
+            Assert.AreEqual("A", SectorCatalog.ColumnLetters(0));
+            Assert.AreEqual("Z", SectorCatalog.ColumnLetters(25));
+            Assert.AreEqual("AA", SectorCatalog.ColumnLetters(26));
+            Assert.AreEqual("AB", SectorCatalog.ColumnLetters(27));
+            Assert.AreEqual("BA", SectorCatalog.ColumnLetters(52));
         }
 
     }
