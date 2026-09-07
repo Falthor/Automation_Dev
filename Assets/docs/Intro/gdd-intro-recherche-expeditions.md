@@ -281,7 +281,7 @@ l'indiquer autrement, sinon l'indicateur devient une frustration au lieu d'un ob
 |---|---|---|
 | 1 | Réserve finie, chaque objet produit en consomme. Le joueur pose extracteurs, fonderies, premières lignes. Les vis sont disponibles d'emblée. | début de partie |
 | 2 | Recherche **Circuit imprimé**. Le joueur monte ses lignes de vis et de PCB. | choix du joueur |
-| 3 | Passage sous **35 000 CU**. | seuil de réserve |
+| 3 | Passage sous **25 000 CU**. | seuil de réserve |
 | 4 | **Introduction du système de missions** : deux sondes apparaissent, la carte dézoomée devient accessible, les secteurs limitrophes sont marqués *non reconnu*. | étape 3 |
 | 5 | **Premières missions.** Reconnaissance à 500 CU, Récupération à 1 500 CU. Le joueur découvre que l'exploration paie. | choix du joueur |
 | 6 | Une expédition découvre un **signal anormal** : le nœud ??? se révèle et donne une **troisième sonde**. | site scénarisé, révélé à coup sûr |
@@ -565,7 +565,7 @@ et le joueur arbitre entre construire une usine et envoyer des sondes.
 
 ### 6.2 Déclenchement et coût
 
-Deux sondes apparaissent quand la réserve descend **sous 35 000 CU**. Elles sont
+Deux sondes apparaissent quand la réserve descend **sous 25 000 CU**. Elles sont
 offertes et ne consomment aucun slot.
 
 **Lancer une mission ne coûte jamais de CU.** C'est la condition pour que le plancher à
@@ -711,7 +711,7 @@ montre un chiffre.
 
 Trois moments ne dépendent d'aucun tirage :
 
-1. **L'apparition des sondes** au seuil de 35 000 CU.
+1. **L'apparition des sondes** au seuil de 25 000 CU.
 2. **La découverte du signal anormal**, qui révèle le nœud ??? et donne la troisième
    sonde. Récompense choisie exprès pour faire regretter de ne pas avoir exploré plus
    tôt, sans jamais bloquer quoi que ce soit.

@@ -31,10 +31,20 @@ est l'unité de mission : on ne reconnaît pas une case, on reconnaît une zone.
 | Propriété | Règle |
 |---|---|
 | État | non reconnu, reconnu, ou perdu (contact rompu) |
-| Révélation | définitive — un secteur reconnu ne se referme jamais |
-| Contenu | zéro à plusieurs points d'intérêt, révélés avec le secteur |
+| Taille d'un secteur | 16 cases de côté, 4×4 par chunk — aligné sur le découpage du monde |
+| Révélation | le disque inscrit dans le carré du secteur, pas le carré entier — et définitive, un secteur reconnu ne se referme jamais |
+| Contenu | généré à la découverte : point d'intérêt au centre, donc toujours révélé ; gisements dispersés dans le carré, dont certains tombent dans les coins non révélés |
 | Zone de départ | le rayon d'action du Noyau plus une marge, révélée d'emblée |
 | Affichage | sur la carte dézoomée, chaque secteur est soit connu, soit marqué *non reconnu* |
+
+Une mission désigne un secteur mais ne révèle pas son carré : elle révèle le **disque
+inscrit**, celui qui touche le milieu de chaque côté. Les quatre coins restent dans le
+brouillard, et deux secteurs voisins révélés laissent un liseré non découvert entre eux. La
+carte se découvre donc par taches rondes qui se rejoignent, sans jamais laisser voir le
+pavage sous-jacent.
+
+Conséquence voulue : un rapport peut mentionner ce que la carte ne montre pas encore. C'est
+l'écart entre ce qu'on voit et ce qu'on devine qui donne envie d'explorer autour.
 
 Le survol d'un secteur non reconnu n'affiche **ni risque ni type de mission** — seulement
 son état. Le survol ne révèle jamais ce qu'une sonde n'a pas rapporté.
@@ -50,7 +60,7 @@ revanche accueillir des missions ciblant les points d'intérêt qu'il contient.
 
 | Propriété | Valeur |
 |---|---|
-| Apparition | deux sondes, quand la réserve descend sous 35 000 CU |
+| Apparition | deux sondes, quand la réserve descend sous **25 000 CU** |
 | Coût | offertes, aucun slot de bâtiment, aucun CU à l'usage |
 | Autonomie | **10 missions chacune**, affichée dès la première |
 | Destruction | **jamais** — une sonde s'éteint, batterie vide |
@@ -61,6 +71,14 @@ L'autonomie est comptée en missions et non en temps, ce qui la rend garantissab
 doit couvrir largement l'introduction : si les sondes s'épuisent avant que le joueur ait de
 quoi produire des unités, et qu'il est à court de CU au même moment, il n'a plus aucune
 sortie.
+
+**Le seuil de 25 000 se lit contre le plafond de réserve, qui vaut 70 000**
+(`ComputeSystem.ReserveCap`) et duquel la réserve part : les sondes arrivent donc quand le
+joueur a consommé près des deux tiers de sa réserve, assez tard pour l'avoir sentie
+descendre. C'est une valeur d'équilibrage, pas une valeur dérivée — mais elle n'a de sens
+que rapportée à ce plafond, qui est passé de 25 000 à 60 000 puis à 70 000 sans que le seuil
+ne suive. Déplacer l'un sans relire l'autre a déjà produit deux fois un seuil qui ne voulait
+plus dire ce qu'il voulait dire.
 
 ### 3.2 Les unités
 
@@ -84,30 +102,82 @@ Datacenter — entretenir une armée, c'est du calcul en moins pour la recherche
 
 ## 4. Les missions, une par une
 
-### 4.1 Reconnaissance
+**Deux bandes, et c'est la bande qui décide de la variante.** La Reconnaissance existe en deux
+formes, distinguées non par ce qu'elles font mais par l'endroit où se trouve leur cible. Les
+deux bandes partitionnent tout ce qui dépasse le rayon du Noyau : la prospection minière va
+du rayon courant au seuil, l'exploration lointaine au-delà. La bande minière se ferme par
+l'intérieur à mesure que le rayon grandit ; celle d'exploration ne bouge pas.
+
+**Le seuil est dérivé, jamais écrit** : 2 × rayon maximal d'un Noyau + vide minimal entre deux
+territoires. Avec les valeurs livrées — rayon maximal 32, vide 90 — il vaut **154**. La vision
+d'un rayon maximal à 80 le porterait à 250 ; c'est un arbitrage de jeu encore ouvert, mais dans
+les deux cas le nombre ne s'écrit pas, il se calcule.
+
+### 4.1 Prospection minière
 
 | | |
 |---|---|
-| **Objectif** | révéler un secteur non reconnu et les points d'intérêt qu'il contient |
-| **Disponibilité** | dès l'apparition des sondes, jamais obsolète |
-| **Cible** | un secteur non reconnu |
+| **Objectif** | trouver un gisement exploitable |
+| **Disponibilité** | dès l'apparition des sondes |
+| **Cible** | un secteur non reconnu entre le rayon courant du Noyau et le seuil |
 | **Exécutants** | sondes, puis unités |
 | **Durée** | 3 min (escouade minimale) |
 | **Risque annoncé** | bas |
-| **Récompense** | le secteur révélé, ses points d'intérêt, et **500 CU pendant l'introduction seulement** |
+| **Récompense** | le disque du secteur révélé, et le gisement s'il y en a un |
+| **Échec** | la découverte peut être nulle — un secteur prospecté sans rien y trouver reste révélé |
+| **Révèle** | le disque inscrit, définitivement |
+
+Une zone minière ne contient **qu'un seul type de minerai**. Elle a ainsi une identité, et
+choisir sa destination devient une décision plutôt qu'un tirage.
+
+Garantie : au moins une zone minière de chaque type entre chaque Noyau secondaire et le Noyau
+principal. Disponible ne veut pas dire nécessaire — le joueur en exploite autant que sa demande
+l'exige. Le nombre réellement construit dépend du débit d'un avant-poste, donc de la taille de
+la grappe, et les gisements ne s'épuisant jamais, seule la demande arrête le joueur.
+
+### 4.2 Exploration lointaine
+
+| | |
+|---|---|
+| **Objectif** | reconnaître au-delà du seuil |
+| **Disponibilité** | dès l'apparition des sondes |
+| **Cible** | un secteur non reconnu au-delà du seuil |
+| **Exécutants** | sondes, puis unités |
+| **Durée** | plus longue que la prospection — la distance compte |
+| **Risque annoncé** | croissant avec la distance |
+| **Récompense** | le disque révélé, et ce qu'il contient : site de Noyau secondaire, nid, point d'intérêt |
+| **Révèle** | le disque inscrit, définitivement |
+
+C'est cette mission qui trouve les **sites de Noyau secondaire**. Leur géométrie est déjà fixée :
+six sites répartis à 60° sur un cercle de rayon égal au seuil, avec une variation de ±20 cases
+sur le rayon et de ±10 % sur l'angle pour casser la régularité. Un site garanti autonome — au
+moins une grappe de charbon, de fer et de cuivre, dans son **rayon initial** et non dans son
+rayon maximal, sans quoi la garantie serait formelle et inutilisable.
+
+### 4.3 Reconnaissance — ce que les deux variantes partagent
+
+Les deux sections précédentes sont les deux formes de la Reconnaissance ; il n'y en a pas une
+troisième. Ce qui suit est ce qu'elles ont en commun, écrit une fois.
+
+| | |
+|---|---|
+| **Disponibilité** | dès l'apparition des sondes, jamais obsolète |
+| **Cible** | un secteur non reconnu — la bande où il tombe décide de la variante |
+| **Exécutants** | sondes, puis unités |
+| **Récompense** | le disque révélé, ce qu'il contient, et **500 CU pendant l'introduction seulement** |
 | **Échec** | la révélation ne peut pas échouer avec une sonde ; avec des unités, une reconnaissance à risque bas peut malgré tout tomber sur un nid |
-| **Révèle** | le secteur entier, définitivement |
+| **Révèle** | le disque inscrit, définitivement — jamais le carré |
 
 C'est la mission d'ouverture et le socle de tout le reste : la Récupération n'existe que
 grâce à elle.
 
-### 4.2 Récupération
+### 4.4 Récupération
 
 | | |
 |---|---|
 | **Objectif** | exploiter un point d'intérêt déjà repéré — épave, cache, dépôt |
 | **Disponibilité** | dès qu'une reconnaissance a révélé un point d'intérêt |
-| **Cible** | un point d'intérêt précis, jamais un secteur |
+| **Cible** | un point d'intérêt précis, jamais un secteur — quelle que soit la variante de Reconnaissance qui l'a révélé |
 | **Exécutants** | sondes, puis unités |
 | **Durée** | 6 min (escouade minimale) |
 | **Risque annoncé** | moyen |
@@ -118,7 +188,7 @@ grâce à elle.
 C'est la **boucle en deux temps**, imposée par la structure plutôt que par une règle : on
 explore à l'aveugle, puis on choisit en connaissance de cause.
 
-### 4.3 Étude de civilisation ancienne
+### 4.5 Étude de civilisation ancienne
 
 | | |
 |---|---|
@@ -134,7 +204,7 @@ explore à l'aveugle, puis on choisit en connaissance de cause.
 
 Rare, et le joueur doit apprendre à la reconnaître comme l'occasion à ne pas manquer.
 
-### 4.4 Relevé de menace
+### 4.6 Relevé de menace
 
 | | |
 |---|---|
@@ -152,7 +222,7 @@ Rare, et le joueur doit apprendre à la reconnaître comme l'occasion à ne pas 
 directeur : cette précision a coûté une expédition entière. Elle rend viables deux styles
 de jeu — celui qui reconnaît d'abord et celui qui fonce.
 
-### 4.5 Restauration de datacenter abandonné
+### 4.7 Restauration de datacenter abandonné
 
 | | |
 |---|---|
@@ -169,7 +239,7 @@ de jeu — celui qui reconnaît d'abord et celui qui fonce.
 C'est le pont entre le jeu actuel — une base qu'on défend — et ce qu'il vise : une
 conquête de territoire. Toute la progression d'après-introduction peut s'appuyer dessus.
 
-### 4.6 Éradication
+### 4.8 Éradication
 
 | | |
 |---|---|
@@ -186,18 +256,19 @@ conquête de territoire. Toute la progression d'après-introduction peut s'appuy
 Le renforcement des Sentinelles après un assaut manqué est déjà une règle du monde : elle
 s'applique ici sans traitement particulier.
 
-### 4.7 Récapitulatif
+### 4.9 Récapitulatif
 
 | Type | Risque | Durée | Récompense CU intro | Nœud ??? | Exécutants |
 |---|---|---|---|---|---|
-| Reconnaissance | bas | 3 min | 500 | non | sondes puis unités |
+| Prospection minière | bas | 3 min | 500 | non | sondes puis unités |
+| Exploration lointaine | croissant | à définir | 500 | non | sondes puis unités |
 | Récupération | moyen | 6 min | 1 500 | non | sondes puis unités |
 | Étude de civilisation ancienne | élevé | à définir | — | **oui** | unités |
 | Relevé de menace | moyen | à définir | — | non | unités |
 | Restauration de datacenter | élevé | à définir | — | non | unités |
 | Éradication | élevé | à définir | — | non | unités de combat |
 
-**Pendant l'introduction, seuls les deux premiers types existent.**
+**Pendant l'introduction, seules les deux Reconnaissances et la Récupération existent.**
 
 ---
 
@@ -323,6 +394,18 @@ fraction. Le rendement de l'exploration est progressif, jamais tout ou rien.
 **Exception obligatoire** : au moins un site se régénère lentement, très peu rentable, pour
 garantir mathématiquement la sortie du plancher à zéro CU.
 
+**Dans quelle bande tombent ces huit secteurs.** Avec un seuil à 154 et un rayon de départ de
+22, la bande minière est large : les huit y tiennent sans difficulté. L'introduction se joue
+donc entièrement en prospection minière, l'exploration lointaine restant disponible mais sans
+objet tant que rien n'a été posé au-delà du seuil.
+
+**La garantie d'une zone minière de chaque type ne s'applique pas ici.** Elle porte sur ce qui
+sépare chaque Noyau secondaire du principal, donc au-delà de l'introduction. Pendant
+l'introduction, les sites sont ceux que le générateur pose — et la règle « un secteur qui porte
+du contenu placé garde ce contenu » les protège de la dérivation, sous réserve de la contrainte
+d'ordonnancement qui l'accompagne : le contenu placé doit exister avant que la dérivation
+n'atteigne ces secteurs (`directive-grande-carte.md` §4.6).
+
 ---
 
 ## 9. Les temps forts scénarisés
@@ -330,7 +413,7 @@ garantir mathématiquement la sortie du plancher à zéro CU.
 Trois moments ne dépendent d'aucun tirage. Le hasard porte sur ce qu'on ramène, jamais sur
 ce qu'on révèle.
 
-**1. L'apparition des sondes.** Déclenchée par le passage sous 35 000 CU. Ouvre la carte
+**1. L'apparition des sondes.** Déclenchée par le passage sous 25 000 CU. Ouvre la carte
 dézoomée et le système de missions.
 
 **2. La découverte du signal anormal.** Un site posé par le générateur, révélé à coup sûr
@@ -370,12 +453,19 @@ d'atteinte tant que les unités n'existent pas.
 **Où atterrit le butin.** Recommandation : le stock global du joueur, cohérent avec le
 `StartingStock` existant.
 
-**Un secteur lointain met-il plus de temps à atteindre ?** Recommandation : oui, la durée
-combine le type de mission, l'effectif et la distance.
+**Un secteur lointain met-il plus de temps à atteindre ?** **Tranché : oui.** La durée combine
+le type de mission, l'effectif et la distance — et cela devient structurant plutôt que
+cosmétique : c'est ce qui distingue la prospection minière de l'exploration lointaine dans le
+ressenti du joueur, au-delà de leur récompense.
 
 **Peut-on reconnaître n'importe quel secteur, ou seulement ceux adjacents au territoire
-révélé ?** Recommandation : adjacence, ce qui crée une expansion naturelle vers
-l'extérieur au lieu d'un saut arbitraire.
+révélé ?** **Tranché, et autrement que par l'adjacence : c'est la bande qui décide.** La
+prospection minière opère entre le rayon courant et le seuil, l'exploration au-delà. La bande
+minière se ferme par l'intérieur à mesure que le rayon du Noyau grandit ; la bande
+d'exploration ne bouge pas.
+
+Ce découpage rend inutile le mécanisme d'élargissement automatique qui existait quand la portée
+était une couronne étroite : aucune des deux bandes ne peut s'assécher.
 
 **Durées des quatre missions tardives.** À caler entre 6 et 15 minutes selon l'enjeu, une
 fois les deux premières validées en jeu.

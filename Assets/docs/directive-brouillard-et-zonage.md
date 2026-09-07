@@ -163,9 +163,10 @@ Les missions elles-mêmes viennent après, et ne sont pas dans le périmètre de
 
 ## 7. Décisions prises
 
-- **Le déclencheur des missions est fixé : la réserve de CU passant sous 20 000.** La réserve
-  démarre plafonnée à 25 000, donc le seuil se franchit tôt — c'est voulu, il annonce le système
-  bien avant que le manque ne devienne critique. Ça ne change pas ce document, mais ça cadre la
+- **Le déclencheur des missions est fixé : la réserve de CU passant sous 25 000.** La réserve
+  démarre à son plafond, qui vaut **70 000** (`ComputeSystem.ReserveCap`) : les sondes arrivent
+  donc quand près des deux tiers de la réserve ont été consommés, assez tard pour que le joueur
+  l'ait sentie descendre. Ça ne change pas ce document, mais ça cadre la
   suite : au moment où les missions apparaissent, le joueur n'est pas encore en difficulté, il a
   seulement vu sa jauge descendre. Le premier retour de mission doit donc se lire comme du temps
   gagné, pas comme un sauvetage.

@@ -464,7 +464,7 @@ avant-postes contre quarante-sept — c'est cette différence-là qu'on règle.
 | Portée des missions minières | du rayon courant à la portée d'exploration | **dérivée** |
 | Sondes au démarrage | 2 à 3 | |
 | Missions par sonde | 10 | budget de l'introduction |
-| Seuil de CU déclenchant les missions | 20 000 | |
+| Seuil de CU déclenchant les missions | 25 000 | à lire contre `ComputeSystem.ReserveCap` = 70 000, d'où la réserve part |
 
 ### Pourquoi cette liste maintenant
 
