@@ -1,5 +1,29 @@
 # Brouillard de guerre et zonage — carnet
 
+> **AVERTISSEMENT — carnet partiellement périmé depuis la décision de passer la carte à 10 000.**
+>
+> Ce carnet décrit une implémentation dimensionnée pour une carte de 300. La taille cible est
+> désormais **10 000 cases de côté**, avec des **chunks de 64** et des **secteurs de 16**. Six points
+> de ce carnet ne tiennent plus. Ils sont traités dans `directive-grande-carte.md`, qui fait
+> autorité sur tout ce qui touche à l'échelle.
+>
+> | Ce que dit ce carnet | Ce qui le remplace |
+> |---|---|
+> | secteurs de 12 cases, disque inscrit de rayon 6 | secteurs de **16**, disque inscrit de rayon **8**, 4×4 par chunk |
+> | 625 secteurs, vocabulaire de noms de 768 combinaisons | **390 625** secteurs : la bijection ne suffit plus, vocabulaire ou méthode à revoir |
+> | couronne de mission « rayon du Noyau + 30 » | **deux portées** : exploration à 250 et au-delà, minière entre le rayon courant et 250, toutes deux dérivées |
+> | `DiscoveryRuntime` : tableau plein alloué au lancement | stockage **épars par chunk**, créé à la première écriture |
+> | `FogOfWarView` : une texture couvrant toute la carte | texture **qui suit la caméra**, taille indépendante du monde |
+> | `SortingBands` : rangs de profondeur en Y monde absolu | rangs **relatifs à la caméra** — sinon 160 000 valeurs pour un `short` borné à 32 767 |
+>
+> Restent valables sans réserve : la séparation « le rayon écrit, il ne définit pas », le RLE de
+> sauvegarde, la scission `ValueNoise.hlsl` / `NanoNoise.hlsl`, le `linear: true` sur la texture R8,
+> le test d'orientation sur sonde asymétrique, et la décision de ne pas généraliser le shader.
+>
+> Ce qui n'était pas fait le reste : la matérialisation du contenu en gisements réels, et l'étape 4,
+> la carte dézoomée.
+
+
 Carnet d'implémentation de [`directive-brouillard-et-zonage.md`](directive-brouillard-et-zonage.md).
 Les décisions prises, les écarts par rapport à la spec et pourquoi, et ce qu'il faut savoir pour
 reprendre. Le document directeur reste la référence de conception ; celui-ci enregistre ce qui a
@@ -254,7 +278,172 @@ d'où *Copy Component* / *Paste Component Values*.
 
 ---
 
-## 3. Dette de test soldée avant l'étape 1
+## 3. Étape 3 — le zonage
+
+### 3.1 Une contradiction dans la directive, tranchée puis supprimée
+
+La directive mise à jour décrivait deux partitions incompatibles. §4 *Génération* : « des points d'ancrage
+dispersés, chaque case appartenant au point le plus proche… des régions aux formes organiques » — un
+Voronoï. §4 *La zone désigne, le disque révèle*, ajouté plus tard : « le **disque inscrit dans ce
+carré**, celui qui touche le milieu de chaque côté », et « sans jamais laisser voir le **pavage**
+sous-jacent ».
+
+Une cellule de Voronoï n'a ni carré, ni disque inscrit. Trois autres chiffres de la directive ne
+tombent juste que sur une grille régulière : 625 zones (300/12 = 25, 25² = 625 exactement), 12×12, et
+« environ 140 cases ».
+
+**Décision prise avec l'utilisateur : le pavage régulier.** Le disque inscrit est ce qui rend la
+régularité invisible, donc la partition n'a plus besoin d'être organique pour l'être. Et la grille est
+ce qui rend la génération paresseuse immédiate : index, origine, centre et cases sont de l'arithmétique
+sur une coordonnée, sans rien à parcourir ni à stocker. Un Voronoï aurait demandé une requête spatiale
+pour `IndexAt` et un balayage pour connaître les cases d'une zone — exactement ce que la directive
+interdit plus bas.
+
+Le paragraphe Voronoï a été **supprimé** de la directive, pas laissé à côté du nouveau. §5 étape 3
+disait aussi « une zone révélée doit marquer toutes ses cases » : corrigé en « les cases de son disque
+inscrit ».
+
+### 3.2 Secteur, pas zone
+
+`Sector`, comme la directive l'autorise : « zone » est déjà pris par les zones de signal du Noyau et
+des Agents IA. Le mot n'apparaît nulle part dans le nouveau code.
+
+### 3.3 Où vit quoi
+
+| type | assembly | rôle |
+|---|---|---|
+| `SectorGrid`, `SectorDiscovery` | `Game.Grid` | géométrie pure et état dérivé des cases |
+| `SectorCatalog`, `SectorIdentity`, `SectorContents`, `SectorRisk`, `SectorFeature` | `Game.Gameplay` | le sens : nom, risque, contenu |
+| `SectorMissionRange`, `SectorRangeResult` | `Game.Gameplay` | la couronne |
+
+La coupure suit celle de l'étape 1 : `Game.Grid` porte l'état monde par case, `Game.Gameplay` porte
+les règles. `SectorGrid` ne connaît ni graine, ni risque, ni Noyau.
+
+**Rien n'est stocké.** Il n'existe aucune liste de secteurs, aucun dictionnaire, aucun cache : chaque
+réponse est une fonction pure de la graine et de l'index. La génération paresseuse n'est pas un
+mécanisme, c'est une conséquence — les 625 secteurs existent, une partie n'en interroge que quelques
+dizaines.
+
+### 3.4 La graine : celle du terrain, pas celle des ressources
+
+`WorldGenerator.ResourceSeed` était le choix intuitif et c'est le mauvais : **il n'est pas
+sauvegardé**, et sa propre doc dit qu'il est « meaningless after RestoreState ». Une partie rechargée
+aurait renommé tous les secteurs et déplacé tout contenu pas encore matérialisé.
+
+La seule graine que la sauvegarde restaure est `SaveData.TerrainSeed`. `TerrainRuntime` la recevait
+sans la garder ; elle est maintenant exposée (`TerrainRuntime.Seed`), à côté de `Size`, `TerrainScale`
+et `Proportion` qu'il conservait déjà.
+
+**Signalé, pas corrigé :** `GameRuntime.SaveCurrentGame` écrit `TerrainSeed = terrainSettings.Seed`,
+c'est-à-dire la valeur de l'asset et non celle avec laquelle la partie tourne. Sans effet aujourd'hui
+— `TerrainGenerationSettings.Seed` est un champ d'asset fixe, jamais tiré au hasard — mais modifier
+l'asset entre deux sessions réécrirait la graine d'une sauvegarde existante, et changerait donc son
+terrain **et** ses secteurs. À traiter si la graine devient un jour aléatoire par partie.
+
+### 3.5 Les noms : une bijection, pas un tirage
+
+16 formes × 48 compléments = **768 combinaisons**, et l'index se transforme en combinaison par
+`(index × 397 + rotation) mod 768`. 397 est premier avec 768 (= 2⁸ × 3 : 397 est impair et non
+multiple de 3), donc la transformation est **injective** — deux secteurs ne peuvent pas recevoir le
+même nom, sans aucune vérification globale, ce qui aurait ruiné la génération paresseuse. Un tirage
+aléatoire aurait collisionné constamment : 625 tirages dans 768 rendent la répétition quasi certaine.
+La graine ne fait que tourner la séquence, ce qui donne des noms différents d'un monde à l'autre sans
+casser l'injectivité.
+
+Un test vérifie que 768 ≥ nombre de secteurs. **C'est lui qui tombera le jour où la carte grandira**,
+au lieu de laisser apparaître des doublons.
+
+Les compléments sont toujours introduits par une préposition — « de Fer », « des Naufragés » — et
+jamais des adjectifs. C'est une décision de grammaire, pas de style : « Épave » est féminin,
+« Cratère » masculin, et un adjectif tiré au sort produirait « Cratère Rouillée ». Un complément ne
+s'accorde avec rien.
+
+### 3.6 Risque, contenu, couronne
+
+**Risque** : bande croissante avec la distance au secteur du Noyau (anneaux de Chebyshev), puis un
+décalage d'une bande dans un cas sur deux tiré de la graine. Le gradient porte la lecture — une
+mission lointaine doit se lire comme un pari plus gros avant tout chiffre — et le bruit empêche deux
+mondes d'avoir la même carte de risque.
+
+**Contenu** : un point d'intérêt au centre, donc toujours dans le disque révélé — une mission réussie
+montre toujours ce qu'elle a trouvé. Les gisements sont dispersés dans tout le carré, coins compris,
+**sans contrainte de position** : un test vérifie qu'il en tombe hors du disque, parce que c'est l'écart
+entre ce qu'on voit et ce qu'on devine qui donne envie d'explorer autour.
+
+Les secteurs vides ne relèvent plus d'un tirage indépendant « un sur huit » : voir 3.7bis, la densité
+est désormais stratifiée par blocs. L'intention reste la même — s'il y a quelque chose partout, la
+direction n'a pas d'importance — mais elle est portée par le nombre de grappes par bloc.
+
+**Couronne** : `SectorMissionRange` reçoit le rayon à chaque appel et n'en garde rien, donc étendre le
+rayon déplace la couronne sans autre chiffre à corriger. Les 30 cases sont une propriété, pas une
+constante dans une comparaison. L'appartenance se teste sur le **centre** du secteur.
+
+Le vidage de la couronne est traité par élargissement : tant qu'il reste moins de 3 destinations
+inconnues, la limite extérieure recule d'un cran. `SectorRangeResult` rapporte `Widened` et
+`Exhausted`, pour que le système de missions ne puisse jamais devenir silencieux sans dire pourquoi —
+une liste vide et une carte entièrement explorée ne se ressemblent pas.
+
+### 3.7 La matérialisation du contenu — décision prise
+
+Le contenu est dérivé de façon déterministe et testé, mais pas encore transformé en `DepositRuntime`
+réels. L'arrêt était volontaire : il fallait trancher le conflit entre les six grappes que
+`WorldGenerator` place autour du Noyau et le contenu dérivé des secteurs proches, découverts dès la
+première frame par le rayon.
+
+**La règle retenue n'est pas géométrique mais fondée sur la donnée : un secteur qui porte du contenu
+placé garde ce contenu ; la dérivation ne remplit que les secteurs qui n'en ont aucun.**
+
+Pas de test de périmètre, pas de rayon de départ à maintenir. La zone de départ reste composée à la
+main, ce qui est nécessaire — l'introduction dépend d'avoir les bonnes ressources à la bonne
+distance, et une dérivation aléatoire ne le garantirait pas. La formulation couvre aussi ce qui
+viendra : une épave scénarisée, un nid particulier ou un secteur d'événement posés n'importe où
+échappent à la dérivation par le seul fait d'exister.
+
+`SectorCatalog.ContentsOf` reste la couture ; il manque qui l'appelle et ce qu'il en fait.
+
+### 3.7bis La densité des gisements dérivés : stratifiée, pas tirée secteur par secteur
+
+Exigence posée : au-delà des six grappes du Noyau, la répartition doit **changer d'une partie à
+l'autre** — une grappe ne tombe pas forcément dans le même secteur — tout en garantissant un
+**nombre minimum de grappes** dans ce que le joueur peut explorer.
+
+Un tirage indépendant par secteur ne le garantit pas. Chaque secteur déciderait seul, et une
+mauvaise série laisserait une région entière stérile : irreproductible, et incorrigible par un
+réglage.
+
+**La parade est la stratification.** Les secteurs sont regroupés par blocs — 3×3 secteurs — et chaque
+bloc contient un nombre fixe de grappes, dont les secteurs porteurs sont tirés depuis la graine du
+bloc. Ce que ça donne :
+
+- densité garantie partout, y compris dans la couronne accessible aux missions, sans aucun comptage
+  global
+- répartition variable avec la graine : d'une partie à l'autre, ce ne sont pas les mêmes secteurs qui
+  portent les grappes
+- dérivation toujours en O(1) et paresseuse : pour connaître un secteur, on calcule son bloc, on
+  dérive quels secteurs y sont porteurs, et on regarde si celui-ci en fait partie. Aucun registre,
+  aucun balayage
+
+**La variété compte autant que la densité.** Un bloc donnant trois grappes de fer et aucun cuivre
+bloquerait le joueur autant qu'un bloc vide. Les types se tirent **sans remise** dans le bloc.
+
+La taille du bloc et le nombre de grappes par bloc sont des **réglages exposés**, pas des constantes :
+c'est le levier d'équilibrage de la densité de ressources, à ajuster une fois l'introduction mesurée.
+
+Cette stratification remplace la règle « un secteur sur huit est vide » notée en 3.6, qui relevait
+d'un tirage indépendant.
+
+### 3.8 `SortingBands`, corrigé comme la directive le demande
+
+Le commentaire affirmait deux choses fausses : « le monde fait 60 cases » et une marge « d'un ordre de
+grandeur ». Vérifié : `Steps` = 2048, `SortedLast` = 8291, `Fog` = **8493** contre 32 767 pour un
+`short` — 3,9× de marge, le `short` n'est pas le risque. Le vrai plafond est `AddressableRows` = 512
+contre 300 cases, soit **1,7×**, et il casse en silence : `Sorted()` clampe, donc tout ce qui
+dépasserait la rangée 512 s'écraserait sur un seul ordre et cesserait d'être trié par profondeur. Le
+commentaire dit maintenant ça.
+
+---
+
+## 4. Dette de test soldée avant l'étape 1
 
 La suite EditMode était rouge (13 tests) avant que ce chantier commence — elle n'avait pas tourné
 depuis plusieurs lots d'équilibrage. Aucun de ces échecs ne venait du brouillard. Soldé dans un

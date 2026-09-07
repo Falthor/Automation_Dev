@@ -50,6 +50,7 @@ namespace Game.UI
         Label _computeValue;
         Label _stateLabel;
         Button _pauseButton;
+        Button _rotateButton;
         Label _timeLabel;
         Label _rateLabel;
 
@@ -93,6 +94,10 @@ namespace Game.UI
 
             _pauseButton = panelRoot.Q<Button>("ProductionPauseButton");
             _pauseButton.clicked += TogglePaused;
+
+            _rotateButton = panelRoot.Q<Button>("ProductionRotateButton");
+            _rotateButton.tooltip = "Pivoter d'un quart de tour";
+            _rotateButton.clicked += RotateSelected;
 
             panelRoot.Q<Button>("ProductionCloseButton").clicked += Close;
             _tabRecipesButton.clicked += () => SetActiveTab(false);
@@ -342,6 +347,18 @@ namespace Game.UI
             if (_selected == null) return;
             _selected.SetPaused(!_selected.IsPaused);
             RefreshPauseButton();
+        }
+
+        /// <summary>
+        /// Turns the inspected building where it stands, arrows included, instead of making the
+        /// player demolish and rebuild it - which charged the bill twice and lost what it held.
+        /// Nothing is spent and the recipe, the progress and the contents stay put.
+        /// </summary>
+        void RotateSelected()
+        {
+            if (_selected == null) return;
+
+            gameRuntime.RotateBuilding(_selected);
         }
 
         void RefreshPauseButton()

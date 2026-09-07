@@ -9,6 +9,7 @@ using Game.Gameplay.Notifications;
 using Game.Gameplay.Power;
 using Game.Gameplay.Research;
 using Game.Gameplay.Session;
+using Game.Gameplay.Sectors;
 using Game.Gameplay.Selection;
 using Game.Gameplay.Sites;
 using Game.Gameplay.Transport;
@@ -107,6 +108,23 @@ namespace Game.Presentation
 
         /// <summary>What the player has discovered, one state per cell. Written by the Core's radius (RevealDiscoveredByCore) and later by missions; read by the fog renderer, which must never recompute a distance to the Core instead.</summary>
         public DiscoveryRuntime Discovery { get; private set; }
+
+        /// <summary>The map cut into sectors - pure geometry, the unit a mission is aimed at.</summary>
+        public SectorGrid Sectors { get; private set; }
+
+        /// <summary>A sector's name, risk and contents, derived from the world seed on demand. Nothing is materialised for a sector nobody has reached.</summary>
+        public SectorCatalog SectorCatalog { get; private set; }
+
+        /// <summary>Which sectors are currently within mission reach. Reads the Core's radius at call time, so extending it moves the ring on its own.</summary>
+        public SectorMissionRange MissionRange { get; private set; }
+
+        /// <summary>
+        /// Redraws one building's view, given the cell its current view is filed under. Installed by
+        /// ConstructionInputAdapter, which owns the scene's only BuildingSpawner; null in a scene
+        /// without one (a test), where rotating still changes the runtime and simply draws nothing.
+        /// </summary>
+        public System.Action<BuildingRuntime, GridCoord> BuildingViewRebuilder { get; set; }
+
         public ConstructionService Construction { get; private set; }
         public WorldGenerator World { get; private set; }
         public TransportSystem Transport { get; private set; }
@@ -244,6 +262,15 @@ namespace Game.Presentation
             // After both branches: the Core exists whether it was generated or restored, and its
             // radius has a disc to write before the first frame is drawn.
             RevealDiscoveredByCore();
+
+            // Built here rather than in either branch because both need it and neither owns it. All
+            // three are stateless views over the map: SectorGrid is arithmetic, SectorCatalog is a
+            // pure function of Terrain.Seed, and SectorMissionRange reads the radius it is handed.
+            // Nothing here is restored from the save, and nothing here needs to be - the seed is,
+            // and everything else follows from it.
+            Sectors = new SectorGrid(Terrain.Size);
+            SectorCatalog = new SectorCatalog(Sectors, Terrain.Seed, World?.CoreCenterCells ?? Vector2.zero);
+            MissionRange = new SectorMissionRange();
 
             Selection = new SelectionRuntime();
             Selection.GlobalPanelChanged += name =>
@@ -430,6 +457,35 @@ namespace Game.Presentation
         /// Called from the tick and idempotent: the disc is only walked when the radius has actually
         /// moved since the last pass, so repeating it every frame allocates nothing and walks nothing.
         /// </summary>
+        /// <summary>
+        /// Turns a placed building a quarter turn and redraws it - what the panels' rotate button
+        /// calls. Kept here rather than in each panel so the runtime change and the view rebuild can
+        /// never be done one without the other.
+        /// </summary>
+        public bool RotateBuilding(BuildingRuntime building)
+        {
+            if (building == null || Construction == null) return false;
+
+            GridCoord cell = building.Cell;
+            if (!Construction.TryRotateInPlace(cell, out BuildingRuntime rotated)) return false;
+
+            BuildingViewRebuilder?.Invoke(rotated, cell);
+            return true;
+        }
+
+        /// <summary>
+        /// Starts moving a building: the ghost follows the mouse under the ordinary placement rules,
+        /// and the next left click puts it down (ConstructionInputAdapter.RelocateTo). The caller
+        /// closes its own panel - the gesture happens on the map, and which panel is open is the
+        /// UI's business, not this one's.
+        /// </summary>
+        public void BeginBuildingRelocation(BuildingRuntime building)
+        {
+            if (building == null || Construction == null) return;
+
+            Construction.BeginRelocation(building);
+        }
+
         void RevealDiscoveredByCore()
         {
             if (Discovery == null || World?.Core == null) return;

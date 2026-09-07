@@ -85,7 +85,18 @@ namespace Game.Presentation
         /// </summary>
         public const int StepsPerWorldUnit = 4;
 
-        /// <summary>World rows the band can address. The world is 60 cells today (TerrainGenerationSettings.size); this leaves room for one an order of magnitude larger.</summary>
+        /// <summary>
+        /// World rows the band can address. The map is <b>300</b> cells
+        /// (Assets/Data/Terrain/DefaultTerrain.asset - the C# default of 60 on
+        /// TerrainGenerationSettings is never what runs), so the margin here is 1.7x, not the order
+        /// of magnitude this comment used to claim.
+        ///
+        /// That is still enough, and the ceiling is not the one to watch: 512 rows x 4 steps x 4
+        /// sub-layers puts the top of the ladder (Fog) at 8493, well inside a short. What breaks
+        /// first is this constant, and it breaks quietly - Sorted() clamps, so everything past row
+        /// 512 would collapse onto one order and stop sorting by depth. Raise it before growing the
+        /// map, and recheck the short then: at 4 sub-layers the band alone is AddressableRows * 16.
+        /// </summary>
         public const int AddressableRows = 512;
 
         const int Steps = AddressableRows * StepsPerWorldUnit;

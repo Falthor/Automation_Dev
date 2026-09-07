@@ -4,7 +4,12 @@
     <ui:VisualElement name="StoragePanelRoot" class="overlay-root hidden" picking-mode="Ignore">
         <ui:VisualElement class="panel panel-accent" picking-mode="Position">
             <ui:VisualElement class="header-row">
-                <ui:Label name="StorageTitle" text="STORAGE" class="title" />
+                <!-- Grouped like the production panel's title and pause, so the button sits against
+                     the name instead of being pushed to the middle by the row's space-between. -->
+                <ui:VisualElement class="header-title-group">
+                    <ui:Label name="StorageTitle" text="STORAGE" class="title" />
+                    <ui:Button name="StorageMoveButton" text="✥" class="header-toggle-button" />
+                </ui:VisualElement>
                 <ui:Button name="StorageCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
             <ui:VisualElement name="StorageGrid" class="storage-grid" />

@@ -31,6 +31,7 @@ namespace Game.UI
         VisualElement _root;
         VisualElement _grid;
         Label _title;
+        Button _moveButton;
         StorageRuntime _selected;
 
         /// <summary>
@@ -56,6 +57,10 @@ namespace Game.UI
             _grid = panelRoot.Q<VisualElement>("StorageGrid");
             _title = panelRoot.Q<Label>("StorageTitle");
             panelRoot.Q<Button>("StorageCloseButton").clicked += Hide;
+
+            _moveButton = panelRoot.Q<Button>("StorageMoveButton");
+            _moveButton.tooltip = "Déplacer la boîte et son contenu";
+            _moveButton.clicked += MoveSelected;
 
             _root.EnableInClassList("hidden", true);
             gameRuntime.Selection.GlobalPanelChanged += OnGlobalPanelChanged;
@@ -109,10 +114,29 @@ namespace Game.UI
             else RenderAggregate();
         }
 
+        /// <summary>
+        /// Hands the box to the placement gesture: a ghost follows the mouse under the ordinary
+        /// rules, and the next click puts it down. The panel closes because the rest happens on the
+        /// map, and because the box is about to be somewhere else.
+        ///
+        /// Nothing is transferred when it lands - the same StorageRuntime moves, so its contents
+        /// were never anywhere else. See ConstructionService.TryRelocate.
+        /// </summary>
+        void MoveSelected()
+        {
+            if (_selected == null) return;
+
+            gameRuntime.BeginBuildingRelocation(_selected);
+            Hide();
+        }
+
         void RenderPerBox(StorageRuntime storage)
         {
             _title.text = "STORAGE BOX";
             _root.EnableInClassList("overlay-root-right", true);
+
+            // Only a specific box can be moved; the aggregate view is every box at once.
+            _moveButton.EnableInClassList("hidden", false);
 
             var cards = new List<VisualElement>(storage.Slots.Count);
             foreach (InventorySlot slot in storage.Slots)
@@ -133,6 +157,7 @@ namespace Game.UI
         {
             _title.text = "STOCK GLOBAL";
             _root.EnableInClassList("overlay-root-right", false);
+            _moveButton.EnableInClassList("hidden", true);
 
             IReadOnlyDictionary<string, int> totals = gameRuntime.GlobalStock;
 

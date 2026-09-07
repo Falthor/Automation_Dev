@@ -139,6 +139,13 @@ namespace Game.Gameplay.Buildings
             FacingRotation = rotation;
         }
 
+        /// <summary>
+        /// A belt carries its rotation in two places - FacingRotation and Orientation - and setting
+        /// only the first would leave the shape pointing the old way. Routed to SetRotation so the
+        /// generic entry point cannot desynchronise them.
+        /// </summary>
+        public override void SetFacingRotation(Direction rotation) => SetRotation(rotation);
+
         public override bool IsFlowReceiver() => true;
 
         /// <summary>
