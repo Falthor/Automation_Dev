@@ -88,13 +88,13 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             FactoryRuntime factory = NewRunningFactory(out PowerSystem power);
             Step(factory, power);
             Step(factory, power);
-            float progress = factory.GetProductionProgress();
+            float progress = factory.GetProgress();
             Assert.Greater(progress, 0f, "Precondition: a cycle is under way.");
 
             factory.SetPaused(true);
             for (int i = 0; i < 20; i++) Step(factory, power);
 
-            Assert.AreEqual(progress, factory.GetProductionProgress(), 0.001f, "The timer stood still.");
+            Assert.AreEqual(progress, factory.GetProgress(), 0.001f, "The timer stood still.");
         }
 
         /// <summary>A switched-off building comes back switched off: reloading is not a reason to put it back on a network the player took it off.</summary>

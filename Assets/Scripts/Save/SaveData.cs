@@ -39,6 +39,21 @@ namespace Game.Save
         public float TerrainScale;
         public float TerrainProportion;
 
+        /// <summary>
+        /// Which cells the player has discovered, run-length encoded in row-major order by
+        /// <c>Game.Grid.DiscoveryRuntime.CaptureState()</c>.
+        ///
+        /// Player progress, not a rebuildable cache: what has been explored beyond the Core's reach
+        /// cannot be derived from anything else in the file. A plain string rather than a JObject
+        /// because Game.Grid owns the state and has no JSON dependency; run-length rather than one
+        /// entry per cell because the file is written indented and the map is 90 000 cells.
+        ///
+        /// Additive, with a per-field fallback (absent restores as a wholly undiscovered map, which
+        /// the Core's radius immediately writes its own disc back into), so it does not bump
+        /// <see cref="CurrentVersion"/> - see the Core's action radius and BuildingCap before it.
+        /// </summary>
+        public string Discovered;
+
         public float ComputeReserve;
 
         public string ResearchActiveId;

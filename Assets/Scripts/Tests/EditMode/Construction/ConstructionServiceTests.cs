@@ -26,11 +26,25 @@ namespace Game.Tests.EditMode.Construction
         // null is fine here (would throw only if a test actually selected a FoundryDefinition).
         // Since TASK_05_ROBOT_CONSTRUCTEUR.md, placing opens a construction site rather than
         // building instantly, so a ConstructionSiteSystem is now part of the minimal setup.
-        static ConstructionService NewService(GridRuntime grid)
+        static ConstructionService NewService(GridRuntime grid) => NewService(grid, out _);
+
+        static ConstructionService NewService(GridRuntime grid, out ConstructionSiteSystem sites)
         {
             var transport = new TransportSystem(grid);
-            var sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
+            sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
             return new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()), transport, null, sites);
+        }
+
+        /// <summary>
+        /// Runs the queue until everything placed has actually been built.
+        ///
+        /// Costing nothing is not the same as being built: a free segment owes no delivery but still
+        /// has to assemble, and until it has, it is a pending segment its own chantier still holds -
+        /// which TryDemolish refuses to touch.
+        /// </summary>
+        static void BuildEverything(ConstructionSiteSystem sites)
+        {
+            for (int i = 0; i < 200; i++) sites.Tick(0.2f);
         }
 
         /// <summary>The building a site was opened for. Cost-free definitions (used throughout these tests) materialize on the spot, so this is also the finished building.</summary>
@@ -69,12 +83,15 @@ namespace Game.Tests.EditMode.Construction
 
             service.SelectBuilding(NewConveyorDefinition());
             service.TryPlace(cell, Direction.North, out ConstructionSiteRuntime firstSite);
+            // Read now: overtaking removes the pending segment from the site that held it, so by the
+            // time the second placement returns, the first site has none left to ask for.
+            BuildingRuntime first = FirstSegment(firstSite);
 
             service.SelectBuilding(NewConveyorDefinition());
             bool result = service.TryPlace(cell, Direction.East, out ConstructionSiteRuntime secondSite);
 
             Assert.IsTrue(result);
-            Assert.AreNotSame(FirstSegment(firstSite), FirstSegment(secondSite));
+            Assert.AreNotSame(first, FirstSegment(secondSite));
             Assert.AreSame(FirstSegment(secondSite), grid.GetOccupant(cell));
         }
 
@@ -100,10 +117,11 @@ namespace Game.Tests.EditMode.Construction
         public void TryDemolish_OnOccupiedCell_Succeeds()
         {
             var grid = new GridRuntime(1f);
-            var service = NewService(grid);
+            var service = NewService(grid, out ConstructionSiteSystem sites);
             var cell = new GridCoord(0, 0);
             service.SelectBuilding(NewConveyorDefinition());
             service.TryPlace(cell, Direction.North, out _);
+            BuildEverything(sites);
 
             bool result = service.TryDemolish(cell, out BuildingRuntime removed);
 
@@ -263,6 +281,9 @@ namespace Game.Tests.EditMode.Construction
         // --- TASK_04_PLAFOND_RAYON.md: building cap + action radius as runtime state ---
 
         static (ConstructionService service, TransportSystem transport, ResearchSystem research, CoreRuntime core) NewServiceWithCore(int actionRadiusCells)
+            => NewServiceWithCore(actionRadiusCells, out _);
+
+        static (ConstructionService service, TransportSystem transport, ResearchSystem research, CoreRuntime core) NewServiceWithCore(int actionRadiusCells, out ConstructionSiteSystem siteSystem)
         {
             var grid = new GridRuntime(1f);
             var research = new ResearchSystem(new ComputeSystem());
@@ -272,6 +293,7 @@ namespace Game.Tests.EditMode.Construction
             var transport = new TransportSystem(grid);
             transport.Register(core);
             var sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
+            siteSystem = sites;
             var service = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), research, transport, core, sites);
             return (service, transport, research, core);
         }
@@ -361,10 +383,14 @@ namespace Game.Tests.EditMode.Construction
         [Test]
         public void TryDemolish_FreesABuildingSlotImmediately()
         {
-            var (service, transport, _, _) = NewServiceWithCore(1000);
+            var (service, transport, _, _) = NewServiceWithCore(1000, out ConstructionSiteSystem sites);
             var cell = new GridCoord(5, 5);
-            PlaceAndRegister(service, transport, NewFreeStorageDefinition(), cell);
+            PlaceAndRegister(service, transport, NewFreeCountingDefinition(), cell);
             Assert.AreEqual(1, service.OccupiedBuildingSlots);
+
+            // Costing nothing is not being built: until it has assembled it is a pending segment its
+            // chantier still holds, and TryDemolish refuses those.
+            BuildEverything(sites);
 
             Assert.IsTrue(service.TryDemolish(cell, out BuildingRuntime removed));
             transport.Unregister(removed); // mirrors ConstructionInputAdapter's real TryDemolish + Unregister pairing
@@ -373,7 +399,7 @@ namespace Game.Tests.EditMode.Construction
         }
 
         [Test]
-        public void MemoryAllocation_Completed_RaisesBuildingCapTo50()
+        public void MemoryAllocation_Completed_RaisesBuildingCapTo52()
         {
             var (service, _, research, _) = NewServiceWithCore(1000);
             Assert.AreEqual(30, service.BuildingCap, "A run starts at 30 slots.");
@@ -383,7 +409,7 @@ namespace Game.Tests.EditMode.Construction
             research.Tick(60f);
 
             Assert.IsTrue(research.IsUnlocked("memory_allocation"));
-            Assert.AreEqual(50, service.BuildingCap);
+            Assert.AreEqual(52, service.BuildingCap);
         }
 
         [Test]
@@ -426,9 +452,9 @@ namespace Game.Tests.EditMode.Construction
         {
             var (service, _, _, _) = NewServiceWithCore(1000);
 
-            service.RestoreBuildingCap(50);
+            service.RestoreBuildingCap(52);
 
-            Assert.AreEqual(50, service.BuildingCap);
+            Assert.AreEqual(52, service.BuildingCap);
         }
 
         [Test]

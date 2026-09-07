@@ -32,12 +32,14 @@ namespace Game.Tests.EditMode.Save
             TerrainSize = 256,
             TerrainScale = 0.25f,
             TerrainProportion = 0.5f,
+            Discovered = "0:120,1:16,0:120",
             ComputeReserve = 12.5f,
             ResearchActiveId = "automation",
             ResearchProgress = 0.75f,
             ResearchQueue = new List<string> { "a", "b" },
             ResearchUnlocked = new List<string> { "c" },
             ConstructionSites = new JObject { ["nextId"] = 7 },
+            CoreDirectives = new JObject { ["index"] = 1 },
             CoreDefinitionId = "core",
             CoreCellX = 3,
             CoreCellY = -4,
@@ -64,10 +66,10 @@ namespace Game.Tests.EditMode.Save
         static readonly string[] ExpectedRootKeys =
         {
             "Version", "SavedAtUtc",
-            "TerrainSeed", "TerrainSize", "TerrainScale", "TerrainProportion",
+            "TerrainSeed", "TerrainSize", "TerrainScale", "TerrainProportion", "Discovered",
             "ComputeReserve",
             "ResearchActiveId", "ResearchProgress", "ResearchQueue", "ResearchUnlocked",
-            "ConstructionSites",
+            "ConstructionSites", "CoreDirectives",
             "CoreDefinitionId", "CoreCellX", "CoreCellY", "CoreState",
             "BuildingCap", "PlayTimeSeconds",
             "Deposits", "Buildings"

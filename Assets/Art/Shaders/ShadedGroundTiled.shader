@@ -57,6 +57,11 @@ Shader "Custom/ShadedGroundTiled"
             #pragma fragment frag
             #include "UnityCG.cginc"
 
+            // Hash21 and ValueNoise2D - the two biome fields below are built on them. Shared rather
+            // than held here: this file is where the "hash without sine" was first chosen, and two
+            // other shaders had since copied it verbatim, which is three places to fix a hash bug in.
+            #include "ValueNoise.hlsl"
+
             struct appdata
             {
                 float4 vertex : POSITION;
@@ -108,32 +113,6 @@ Shader "Custom/ShadedGroundTiled"
             float _AccentEdgeSoftness;
 
             float _BiomeSeed;
-
-            // Value noise: hash + smoothstep interpolation. Hash21 is Dave Hoskins' well-tested
-            // "hash without sine" (not a hand-rolled one) - a cheaper hand-rolled version tried
-            // earlier showed clear periodic banding artifacts (looked like a regular ladder/grid
-            // pattern) at some frequency/position combinations instead of true randomness.
-            float Hash21(float2 p)
-            {
-                float3 p3 = frac(float3(p.xyx) * 0.1031);
-                p3 += dot(p3, p3.yzx + 33.33);
-                return frac((p3.x + p3.y) * p3.z);
-            }
-
-            float ValueNoise(float2 p)
-            {
-                float2 i = floor(p);
-                float2 f = frac(p);
-
-                float a = Hash21(i);
-                float b = Hash21(i + float2(1.0, 0.0));
-                float c = Hash21(i + float2(0.0, 1.0));
-                float d = Hash21(i + float2(1.0, 1.0));
-
-                float2 u = f * f * (3.0 - 2.0 * f);
-
-                return lerp(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-            }
 
             fixed4 SampleBase(int idx, float2 uv)
             {
@@ -243,7 +222,7 @@ Shader "Custom/ShadedGroundTiled"
                 // only looked bad because it was tried at a much bigger scale where the transition
                 // band itself became a visible shape.
                 float2 baseSeedOffset = float2(_BiomeSeed, -_BiomeSeed * 1.37);
-                float baseField = ValueNoise(local / max(_BiomeCellSize, 0.0001) + baseSeedOffset);
+                float baseField = ValueNoise2D(local / max(_BiomeCellSize, 0.0001) + baseSeedOffset);
 
                 int baseCount = max((int)_BiomeTexCount, 1);
                 int baseOther;
@@ -272,7 +251,7 @@ Shader "Custom/ShadedGroundTiled"
                 if (accentCount > 0)
                 {
                     float2 accentSeedOffset = float2(_BiomeSeed * 1.91 + 500.0, -_BiomeSeed * 0.63 - 500.0);
-                    float accentField = ValueNoise(local / max(_AccentCellSize, 0.0001) + accentSeedOffset);
+                    float accentField = ValueNoise2D(local / max(_AccentCellSize, 0.0001) + accentSeedOffset);
 
                     float threshold = 1.0 - _AccentShare;
                     float edgeDist = accentField - threshold;

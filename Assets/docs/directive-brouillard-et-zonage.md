@@ -17,8 +17,9 @@ Deux manques distincts, à traiter dans cet ordre : l'état de découverte, puis
 
 ## 2. L'état de découverte
 
-**Autoritatif par case, pas par zone.** La carte fait 60×60, soit 3 600 cases : le coût mémoire est
-négligeable et la révélation peut prendre n'importe quelle forme. Une révélation par zone se
+**Autoritatif par case, pas par zone.** La carte fait 300×300, soit 90 000 cases : un octet par case
+tient dans 90 Ko, le coût mémoire reste négligeable et la révélation peut prendre n'importe quelle
+forme. Une révélation par zone se
 contente d'écrire l'état des cases de cette zone — l'inverse n'est pas vrai, un état par zone
 interdirait toute forme libre.
 
@@ -70,6 +71,28 @@ par quatre, une zone qui abrite une grappe, une épave ou un nid est une récomp
 le joueur peut dire ce qu'il a gagné. Plus petite, elle risque d'être vide et la mission déçoit ;
 plus grande, elle en contient plusieurs et le choix de destination devient indifférent.
 
+**La zone désigne, le disque révèle.** Une mission cible une zone, mais ne révèle pas son carré :
+elle révèle le **disque inscrit** dans ce carré, celui qui touche le milieu de chaque côté. Les
+quatre coins restent dans le brouillard. Deux zones voisines révélées laissent donc un liseré non
+découvert entre elles, comblé seulement en explorant autour — la carte se découvre par taches
+rondes qui se rejoignent, sans jamais laisser voir le pavage sous-jacent.
+
+**Le contenu d'une zone est généré à sa découverte**, pas à la génération du monde. Le point
+d'intérêt est placé **au centre de la zone**, donc toujours dans le disque : une mission réussie
+montre toujours ce qu'elle a trouvé. Les gisements sont dispersés **dans la zone** sans contrainte
+de position : certains tombent dans le disque et apparaissent, d'autres restent dans les coins. Le
+joueur voit qu'il y a quelque chose là et qu'il n'a pas tout vu.
+
+Cette génération à la découverte règle aussi le fait que le monde n'est peuplé qu'à proximité du
+Noyau : il n'y a rien à pré-générer sur une carte que le joueur ne visitera peut-être jamais.
+
+La génération doit être déterministe : même graine, même zone, même contenu, quel que soit l'ordre
+de découverte. Verrouillé par un test.
+
+**Point resté ouvert :** le rapport de mission mentionne-t-il ce qui se trouve dans les coins non
+révélés ? Si oui, l'écart entre le texte et la carte invite à explorer autour ; si non, le joueur
+ignore leur existence. À trancher quand le système de missions sera écrit, pas maintenant.
+
 **Portée des missions.** Une zone n'est une destination possible que si elle se trouve dans une
 couronne : au-delà du rayon d'action du Noyau, et jusqu'à **30 cases au-delà de ce rayon**.
 
@@ -89,16 +112,17 @@ possibles, à choisir : élargir la couronne quand elle ne contient plus de zone
 garantir un minimum de destinations disponibles en repoussant la limite extérieure jusqu'à
 l'atteindre. Dans tous les cas, ne laisse pas le cas se produire en silence.
 
-**Génération paresseuse.** Sur une carte de 256×256, un découpage en 12×12 produit plus de quatre
-cents zones. N'en matérialise pas la liste complète au démarrage : l'identité d'une zone — nom,
+**Génération paresseuse.** Sur une carte de 300×300, un découpage en 12×12 produit six cent
+vingt-cinq zones. N'en matérialise pas la liste complète au démarrage : l'identité d'une zone — nom,
 risque, contenu — se dérive à la demande, de façon déterministe depuis la graine et l'index de la
 zone. Rien n'est calculé pour les zones que le joueur ne verra jamais.
 
-**Écart à vérifier avant de coder.** L'analyse des sorting orders a été faite en supposant un monde
-de 60×60, en lisant `TerrainGenerationSettings.size = 60`, alors que la carte fait 256. Soit les
-deux valeurs décrivent des choses différentes, soit l'une est périmée. Ça touche le budget de rangs
-calculés — 256 cases à 4 pas par case et un stride de 4 font environ 4 000 valeurs, ce qui tient
-largement dans un `short`, mais autant vérifier laquelle des deux fait foi.
+**La taille du monde est 300.** Deux endroits affirment le contraire et sont à corriger :
+`SortingBands.AddressableRows`, dont le commentaire dit « le monde fait 60 cases », et toute
+analyse qui s'appuierait sur `TerrainGenerationSettings.size = 60`. Ça touche le budget de rangs
+calculés : 300 cases à 4 pas par case et un stride de 4 font environ 4 800 valeurs, ce qui tient
+dans un `short` mais avec une marge bien plus courte que celle annoncée. À revérifier avant le
+renumérotage des sorting orders.
 
 **Données d'une zone :** un identifiant, un nom, son ensemble de cases, son centre, un niveau de
 risque, et son état de découverte dérivé de celui de ses cases.

@@ -104,6 +104,9 @@ namespace Game.Presentation
 
         public GridRuntime Grid { get; private set; }
         public TerrainRuntime Terrain { get; private set; }
+
+        /// <summary>What the player has discovered, one state per cell. Written by the Core's radius (RevealDiscoveredByCore) and later by missions; read by the fog renderer, which must never recompute a distance to the Core instead.</summary>
+        public DiscoveryRuntime Discovery { get; private set; }
         public ConstructionService Construction { get; private set; }
         public WorldGenerator World { get; private set; }
         public TransportSystem Transport { get; private set; }
@@ -201,6 +204,8 @@ namespace Game.Presentation
             if (loadedSave != null)
             {
                 Terrain = new TerrainRuntime(loadedSave.TerrainSize, loadedSave.TerrainSeed, loadedSave.TerrainScale, loadedSave.TerrainProportion);
+                Discovery = new DiscoveryRuntime(Terrain.Size);
+                Discovery.RestoreState(loadedSave.Discovered);
                 Compute.RestoreReserve(loadedSave.ComputeReserve);
 
                 var restoredQueue = new List<ResearchDefinition>();
@@ -216,6 +221,7 @@ namespace Game.Presentation
             else
             {
                 Terrain = new TerrainRuntime(terrainSettings.Size, terrainSettings.Seed, terrainSettings.TerrainScale, terrainSettings.Proportion);
+                Discovery = new DiscoveryRuntime(Terrain.Size);
 
                 // The player's starting resources live in the Core chest fixture placed by
                 // WorldGenerator.Generate (WorldGenerationSettings.CoreStorageDefinition), one cell
@@ -234,6 +240,10 @@ namespace Game.Presentation
                 CoreDirectives = new CoreDirectiveSystem(coreDirectiveDatabase, ConstructionSites, Research);
                 Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core, ConstructionSites);
             }
+
+            // After both branches: the Core exists whether it was generated or restored, and its
+            // radius has a disc to write before the first frame is drawn.
+            RevealDiscoveredByCore();
 
             Selection = new SelectionRuntime();
             Selection.GlobalPanelChanged += name =>
@@ -351,6 +361,7 @@ namespace Game.Presentation
                 TerrainSize = terrainSettings.Size,
                 TerrainScale = terrainSettings.TerrainScale,
                 TerrainProportion = terrainSettings.Proportion,
+                Discovered = Discovery?.CaptureState(),
                 ComputeReserve = Compute.Reserve,
                 ResearchActiveId = Research.ActiveResearch != null ? Research.ActiveResearch.Id : null,
                 ResearchProgress = Research.AbsorbedCu,
@@ -405,6 +416,31 @@ namespace Game.Presentation
             SaveCurrentGame();
         }
 
+        /// <summary>The radius last written into the discovery state, so a repeat pass costs one comparison. NaN until the first pass, which no real radius equals.</summary>
+        float _lastRevealedCoreRadius = float.NaN;
+
+        /// <summary>
+        /// The Core's action radius writes into the discovery state - today the only source of
+        /// revelation there is, with missions to come.
+        ///
+        /// It <b>writes</b>, it does not define: nothing ever reads the radius back to decide what is
+        /// visible. A cell the radius once covered stays discovered whatever the radius does
+        /// afterwards, which is the whole difference between this and the disc the fog used to be.
+        ///
+        /// Called from the tick and idempotent: the disc is only walked when the radius has actually
+        /// moved since the last pass, so repeating it every frame allocates nothing and walks nothing.
+        /// </summary>
+        void RevealDiscoveredByCore()
+        {
+            if (Discovery == null || World?.Core == null) return;
+
+            float radius = World.ActionRadiusCells;
+            if (radius.Equals(_lastRevealedCoreRadius)) return;
+
+            _lastRevealedCoreRadius = radius;
+            Discovery.RevealDisc(World.CoreCenterCells, radius);
+        }
+
         void Update()
         {
             // Settle last frame's Power reports before this frame's buildings report new ones -
@@ -425,6 +461,10 @@ namespace Game.Presentation
             Notifications?.Tick(Time.deltaTime);
 
             Research.Tick(Time.deltaTime);
+
+            // After Research, which is what extends the radius: the widened disc is written the same
+            // frame it is granted rather than one frame later.
+            RevealDiscoveredByCore();
 
             // Scaled deltaTime, like every system above it - which is the whole of how the run
             // clock pauses and resumes. Pause sets Time.timeScale to 0, so this is fed 0 and stops
@@ -497,14 +537,12 @@ namespace Game.Presentation
 
                 if (fogOfWarView != null)
                 {
-                    // Exactly the constructible radius, the same value ActionRadiusView draws: the
-                    // fog ends where the Core's reach ends, and what the player can see is what the
-                    // player can build on. The invitation ore clusters WorldGenerator places just
-                    // outside it therefore stay hidden until extended_bandwidth reaches them - they
-                    // are a reward for extending, not a preview of one. Refreshed on every research
-                    // completion for the same reason as actionRadiusView above.
-                    fogOfWarView.Initialize(coreCenter, World.ActionRadiusCells * Grid.CellSize);
-                    Research.ResearchCompleted += _ => fogOfWarView.Initialize(coreCenter, World.ActionRadiusCells * Grid.CellSize);
+                    // Neither the Core nor the radius: the fog draws the discovery state, and the
+                    // radius only writes into it (RevealDiscoveredByCore). There is deliberately no
+                    // research hook here either, unlike actionRadiusView above - extending the
+                    // radius reveals cells, and revealed cells are what the fog already reads. A
+                    // radius passed to this view is how it used to be a disc with no memory.
+                    fogOfWarView.Initialize(Discovery, Grid);
                 }
 
                 // Start the camera centered on the Core - otherwise its fixed scene position
