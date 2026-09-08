@@ -232,6 +232,24 @@ namespace Game.Tests.EditMode.Gameplay.Directives
             Assert.IsTrue(fixture.Directives.IsResearchMenuUnlocked);
         }
 
+        /// <summary>
+        /// The development bypass opens the menu and touches nothing else. What is being pinned is the
+        /// "nothing else": a shortcut that nudged the directive index would silently hand the player a
+        /// directive's reward and skip its ask, and the run would no longer be the run being debugged.
+        /// </summary>
+        [Test]
+        public void ForcingTheResearchMenu_OpensIt_WithoutCompletingTheDirectiveThatGrantsIt()
+        {
+            Fixture fixture = NewFixture(wire: 5, plate: 5, out _, unlocksResearchMenu: true);
+            CoreDirectiveDefinition asked = fixture.Directives.Current;
+
+            fixture.Directives.ResearchMenuForcedOpen = true;
+
+            Assert.IsTrue(fixture.Directives.IsResearchMenuUnlocked);
+            Assert.AreSame(asked, fixture.Directives.Current, "The Core still asks for the same directive.");
+            Assert.AreEqual(1, fixture.Directives.CurrentNumber, "and it is still the first one.");
+        }
+
         /// <summary>A directive that grants no menu never opens one, however many of them complete.</summary>
         [Test]
         public void ADirectiveThatDoesNotGrantTheMenu_LeavesItClosed()

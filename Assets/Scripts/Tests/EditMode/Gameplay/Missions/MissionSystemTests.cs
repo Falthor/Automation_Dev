@@ -176,6 +176,33 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             fixture.Destroy();
         }
 
+        /// <summary>
+        /// The development bypass: robots on a full reserve, which the threshold alone would never do.
+        /// It hands over the same fleet the trigger does - a debug shortcut that produced a different
+        /// fleet would be testing something the game never runs.
+        ///
+        /// Idempotent, because it is applied once per Awake over a state that may already have them.
+        /// </summary>
+        [Test]
+        public void MakeRobotsAppear_BringsThemOutOnAFullReserve_AndTwiceChangesNothing()
+        {
+            Fixture fixture = NewFixture();
+
+            fixture.Missions.Tick(1f, ComputeSystem.ReserveCap, ComputeSystem.ReserveCap);
+            Assert.IsFalse(fixture.Missions.RobotsHaveAppeared, "Precondition: a full reserve keeps them away.");
+
+            fixture.Missions.MakeRobotsAppear();
+
+            Assert.IsTrue(fixture.Missions.RobotsHaveAppeared);
+            Assert.AreEqual(2, fixture.Missions.ExplorerRobotCount);
+            Assert.AreEqual(20, fixture.Missions.TotalChargesLeft, "the same fleet the threshold hands over");
+
+            fixture.Missions.MakeRobotsAppear();
+            Assert.AreEqual(2, fixture.Missions.ExplorerRobotCount, "asking twice must not double the fleet");
+
+            fixture.Destroy();
+        }
+
         [Test]
         public void RobotsArriveOnce_AndDoNotComeBackWhenTheReserveRises()
         {

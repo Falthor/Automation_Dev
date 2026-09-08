@@ -147,6 +147,22 @@ namespace Game.Gameplay.Missions
             if (RobotsHaveAppeared) return;
             if (reserve > _settings.RobotThresholdCu(reserveCap)) return;
 
+            Appear();
+        }
+
+        /// <summary>
+        /// Brings the robots out now, whatever the reserve holds - the one bypass of the §9 trigger,
+        /// and it exists for development: an introduction that has to be played through before the
+        /// map opens is a tax on every test of what the map does.
+        ///
+        /// Idempotent, and it only ever adds: a run that has already earned its fleet is untouched.
+        /// </summary>
+        public void MakeRobotsAppear() => Appear();
+
+        void Appear()
+        {
+            if (RobotsHaveAppeared || _settings == null) return;
+
             RobotsHaveAppeared = true;
             for (int i = 0; i < _settings.ExplorerRobotCount; i++) _robotCharges.Add(_settings.MissionsPerRobot);
         }

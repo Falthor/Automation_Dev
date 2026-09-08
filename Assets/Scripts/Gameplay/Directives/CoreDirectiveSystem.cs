@@ -61,6 +61,8 @@ namespace Game.Gameplay.Directives
         {
             get
             {
+                if (ResearchMenuForcedOpen) return true;
+
                 for (int i = 0; i < _index && i < _directives.Count; i++)
                 {
                     if (_directives[i] != null && _directives[i].UnlocksResearchMenu) return true;
@@ -68,6 +70,15 @@ namespace Game.Gameplay.Directives
                 return false;
             }
         }
+
+        /// <summary>
+        /// Hands the Research menu over without the directive that grants it. Development only.
+        ///
+        /// It moves what is visible and nothing else: no directive is marked done, the first one is
+        /// still asked for and still grants what it grants. That is why it is a flag beside the
+        /// derivation rather than a nudge to <c>_index</c>, which would silently skip a directive.
+        /// </summary>
+        public bool ResearchMenuForcedOpen { get; set; }
 
         /// <summary>How much of one requirement has physically reached the Core, once validated. Zero before that: nothing has been carried yet.</summary>
         public int DeliveredOf(string itemId)

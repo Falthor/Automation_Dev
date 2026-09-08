@@ -119,6 +119,22 @@ namespace Game.Presentation
         [Header("Core directives - what the Core asks the player for, in order")]
         [SerializeField] CoreDirectiveDatabase coreDirectiveDatabase;
 
+        [Header("Débogage")]
+
+        /// <summary>
+        /// Hands over everything the introduction normally hands over slowly: the explorer robots,
+        /// and with them the map and the Research menu. On while the expedition brick is being built
+        /// - reaching the map today means draining 70 000 CU down to 25 000 first, which is minutes
+        /// of waiting before any test of the map can even begin.
+        ///
+        /// One switch rather than one per unlock, because they are one thing: the state a run is in
+        /// once its opening is over. Uncheck it to play the opening as a player meets it.
+        ///
+        /// It only ever opens. A run that has already earned these keeps them either way, and no
+        /// directive is marked done - the Core still asks for its first delivery.
+        /// </summary>
+        [SerializeField] bool startWithEverythingUnlocked = true;
+
         public GridRuntime Grid { get; private set; }
         public TerrainRuntime Terrain { get; private set; }
 
@@ -367,6 +383,14 @@ namespace Game.Presentation
                     });
                 }
                 Missions.RestoreState(loadedSave?.Missions);
+            }
+
+            // Last, so it applies to the restored state rather than being overwritten by it: a save
+            // written before the switch was on still opens, and a save written after loses nothing.
+            if (startWithEverythingUnlocked)
+            {
+                Missions?.MakeRobotsAppear();
+                if (CoreDirectives != null) CoreDirectives.ResearchMenuForcedOpen = true;
             }
 
             Selection = new SelectionRuntime();
