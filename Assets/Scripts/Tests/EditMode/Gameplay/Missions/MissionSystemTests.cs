@@ -1282,6 +1282,36 @@ namespace Game.Tests.EditMode.Gameplay.Missions
 
         /// <summary>Runs the clock until a mission has landed and its report is ready.</summary>
         /// <summary>
+        /// <b>The discovery must not put out a highlight that was never lit.</b> It is a launch like any
+        /// other, but it goes out before the zone has been surveyed - so spending the highlight
+        /// unconditionally would mean the player never sees one at all. The next launch does spend it.
+        /// </summary>
+        [Test]
+        public void TheDiscovery_DoesNotSpendTheHighlight_ButTheLaunchAfterItDoes()
+        {
+            Fixture fixture = NewFixture(withZones: true);
+            SummonRobots(fixture);
+            fixture.Zones.Choose(0, fixture.Discovery);
+
+            int entry = fixture.Zones.EntrySectorOf(0);
+            Assert.AreEqual(MissionSystem.LaunchRefusal.None,
+                fixture.Missions.TryLaunch(MissionKind.Decouverte, entry, CoreRadius, out MissionRuntime discovery));
+
+            RunToReport(fixture, discovery);
+
+            Assert.IsNotNull(fixture.Zones.HighlightedSite,
+                "the discovery is what lights it - it must not have spent it on the way out");
+
+            int target = UnknownSector(fixture, 0);
+            Assert.AreEqual(MissionSystem.LaunchRefusal.None,
+                fixture.Missions.TryLaunch(MissionKind.Prospection, target, CoreRadius, out _));
+
+            Assert.IsNull(fixture.Zones.HighlightedSite, "the next launch puts it out, whatever it was aimed at");
+
+            fixture.Destroy();
+        }
+
+        /// <summary>
         /// <b>Two minutes, whichever direction is picked, and distance adds nothing.</b> A discovery only
         /// ever goes to an entry sector, and the six sit at the same distance by construction - so the
         /// travel term every other kind carries would contribute nothing but the spread that rounding a

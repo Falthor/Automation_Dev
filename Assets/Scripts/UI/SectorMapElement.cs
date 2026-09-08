@@ -158,7 +158,7 @@ namespace Game.UI
         /// mission, not a thing with a size on the ground, and one that shrank with the zoom would vanish
         /// at exactly the scale where the player is choosing between several.
         /// </summary>
-        const float SiteRadiusPixels = 8f;
+        const float SiteRadiusPixels = 11f;
 
         public event Action<int> HoveredSectorChanged;
 
@@ -177,6 +177,9 @@ namespace Game.UI
 
         /// <summary>The zone aimed at while none has been chosen, or -1. What the side pane offers its first mission for.</summary>
         public int SelectedZone { get; private set; } = -1;
+
+        /// <summary>Whether a direction has been clicked. Until then the pane follows the pointer; afterwards only another click moves it - see OnPointerMove.</summary>
+        bool _zoneFixed;
 
         public event Action<int> SelectedZoneChanged;
 
@@ -380,11 +383,12 @@ namespace Game.UI
                 int zone = ZoneResolver(CellAt(evt.localPosition));
                 SetHoveredZone(zone);
 
-                // <b>Hovering aims, and the aim survives the pointer leaving.</b> What the pane shows
-                // about a direction carries the button that acts on it, so reaching for that button
-                // must not blank the thing it acts on - and a wedge that emptied on the way to its own
-                // "Explorer" would be unusable. Leaving a wedge keeps the last one read.
-                if (zone >= 0) SetSelectedZone(zone);
+                // <b>Hovering reads, clicking fixes.</b> Until a direction has been clicked the pane
+                // follows the pointer, which is how the six are compared; after that it stays on the
+                // one that was picked, and passing over another says nothing about it. The aim also
+                // survives the pointer leaving the map, because the pane carries the button that acts
+                // on it and reaching for that button must not blank what it acts on.
+                if (zone >= 0 && !_zoneFixed) SetSelectedZone(zone);
             }
             else
             {
@@ -414,12 +418,16 @@ namespace Game.UI
 
             if (!wasClick) return;
 
-            // While no zone has been chosen, a click aims at the whole wedge. The view is not moved:
-            // the player is picking a direction, and jumping the camera under the click they just made
-            // would answer a question they did not ask.
+            // While no zone has been chosen, a click aims at the whole wedge - and fixes it there. The
+            // view is not moved: the player is picking a direction, and jumping the camera under the
+            // click they just made would answer a question they did not ask.
             if (AimsAtZones)
             {
-                SetSelectedZone(ZoneResolver(CellAt(evt.localPosition)));
+                int zone = ZoneResolver(CellAt(evt.localPosition));
+                if (zone < 0) return;
+
+                _zoneFixed = true;
+                SetSelectedZone(zone);
                 return;
             }
 
@@ -684,7 +692,11 @@ namespace Game.UI
         }
 
         /// <summary>Drops the aim on both slots, for the panel to call when it opens on a new session of looking.</summary>
-        public void ClearZoneSelection() => SetSelectedZone(-1);
+        public void ClearZoneSelection()
+        {
+            _zoneFixed = false;
+            SetSelectedZone(-1);
+        }
 
         // ---- Geometry ----
 

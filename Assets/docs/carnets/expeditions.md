@@ -512,3 +512,36 @@ cartographie resterait à zéro la moitié du voyage puis sauterait — ce qui s
 reprendrait ce que la partie avait déjà et redemanderait une exploration déjà faite. Absente, la zone
 choisie compte comme reconnue. C'est la seule exception au défaut tolérant habituel, et elle est écrite
 dans `CONTRACTS.md` §16 pour qu'elle ne passe pas pour un oubli.
+
+---
+
+## 11. Le panneau parlait de secteurs, la carte montrait des sites
+
+Sept remarques d'une même séance, et six sortent de la même racine : **le découpage en secteurs avait
+disparu de l'écran, mais pas du panneau.** Un clic sur un rond vert de récupération répondait par une
+prospection et une étude de terrain — les missions que le *carré* sous la marque acceptait, pas celle du
+site. Et le titre du panneau nommait ce carré : « Secteur non reconnu », ou pire, « Sillon de basalte
+J10 » quand il était connu.
+
+**Un nom de secteur n'est jamais une information pour le joueur.** Il désigne une case de 16 sur
+laquelle il n'a pas cliqué, dont il ne peut rien faire, et qui ne correspond à aucun objet du jeu. Le
+retirer du survol ne suffisait pas : il fallait le retirer de la cible. Ce que le pointeur trouve est un
+site ; le site porte son type ; le type porte sa mission. La chaîne est directe et il n'y a plus de carré
+dedans.
+
+**La règle générale, écrite ici parce qu'elle a coûté trois passes :** une unité interne qui reste dans
+le vocabulaire de l'interface finit par répondre à la place de l'unité que le joueur manipule.
+
+## 12. Une découverte qui ne découvrait rien
+
+La mission de découverte rapportait la liste des sites et les posait **dans le noir** : les ronds
+apparaissaient sur du sol jamais révélé, et la zone restait visuellement intacte. La seule mission dont
+le but est de montrer ce qu'il y a dehors ne montrait rien.
+
+**Elle ouvre maintenant le sol autour de chaque site qu'elle rapporte** — un disque par site, du rayon
+qu'ouvre déjà l'arrivée d'une mission, donc aucun chiffre nouveau.
+
+**Pas la zone entière, et c'est un couplage à connaître :** la cartographie est mesurée en surface, et
+le déverrouillage des cinq autres directions lit cette cartographie. Ouvrir tout le coin d'un coup
+porterait la zone à 100 %, ce qui rouvrirait les cinq autres à la première mission — le verrou ne
+tiendrait plus une minute. Les taches laissent entre elles ce que le reste de la partie a à faire.

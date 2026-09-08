@@ -691,6 +691,56 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         }
 
         /// <summary>
+        /// <b>The game shows once, and only once there is something to show.</b> A highlight before the
+        /// zone has been surveyed would point at a site the player has not been told about; one that
+        /// stayed lit after a launch would be a rail rather than a suggestion.
+        /// </summary>
+        [Test]
+        public void TheHighlight_IsARecovery_AndOnlyAfterTheZoneHasBeenSurveyed()
+        {
+            Fixture fixture = NewFixture();
+            fixture.Zones.Choose(4, fixture.Discovery);
+
+            Assert.IsNull(fixture.Zones.HighlightedSite, "nothing is put forward before a robot has been");
+
+            fixture.Zones.MarkSurveyed(4);
+
+            ExpeditionZoneSite highlighted = fixture.Zones.HighlightedSite;
+            Assert.IsNotNull(highlighted, "the report is what lights it");
+            Assert.AreEqual(ExpeditionSiteKind.Recuperation, highlighted.Kind);
+            Assert.IsFalse(highlighted.IsConsumed);
+
+            fixture.Destroy();
+        }
+
+        /// <summary>
+        /// It goes out at the launch that follows it, never comes back, and the fact travels: a reload
+        /// that lit it again would be a tutorial restarting itself every time the game is opened.
+        /// </summary>
+        [Test]
+        public void TheHighlight_GoesOutForGood_AndTheFactSurvivesAReload()
+        {
+            Fixture original = NewFixture();
+            original.Zones.Choose(4, original.Discovery);
+            original.Zones.MarkSurveyed(4);
+            Assert.IsNotNull(original.Zones.HighlightedSite, "precondition: one is showing");
+
+            original.Zones.SpendHighlight();
+            Assert.IsNull(original.Zones.HighlightedSite, "it goes out at the launch, not at the completion");
+
+            JObject captured = original.Zones.CaptureState();
+
+            Fixture reloaded = NewFixture();
+            reloaded.Zones.RestoreState(captured);
+
+            Assert.IsTrue(reloaded.Zones.IsSurveyed(4), "precondition: the reload kept the survey");
+            Assert.IsNull(reloaded.Zones.HighlightedSite, "and it stays out");
+
+            original.Destroy();
+            reloaded.Destroy();
+        }
+
+        /// <summary>
         /// Which zones have been visited survives a reload. Without it, a run that had already been told
         /// what its zone holds would come back to an empty map and have to send a second discovery into
         /// ground it has already opened.

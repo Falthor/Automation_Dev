@@ -578,6 +578,10 @@ public void RestoreState(JObject state)
 
   **Appended to the enum, never inserted.** A mission in flight saves its kind as `(int)Kind`, so inserting a member would turn every saved mission into another kind.
 
+  **A discovery opens the ground around each site it reports** — one disc per site, at `SectorGrid.InscribedRadiusCells`, from `MissionSystem`'s delivery. Patches, not the wedge: opening the whole zone would finish its cartography on the first mission and lift the lock on the other five with it.
+
+- **`HighlightedSite` is derived, `SpendHighlight` is the only state.** The chosen zone's first standing recovery, once the zone is surveyed and while the highlight has not been spent. `TryLaunch` spends it after a successful launch, and `SpendHighlight` only bites while one is actually showing — the discovery is a launch too, and it lands before the survey, so an unconditional spend would put out a highlight that had never been lit. Saved as `highlightSpent`; absent restores as not yet spent, since a run from before the key was never shown one.
+
 - **`IsSurveyed` is what a zone's content is shown through.** Choosing a direction derives its content; it does not reveal it. The first mission to report from a zone marks it surveyed (`MissionSystem` delivery, any kind), and only then does the screen draw its sites. Per zone, so moving on to another one starts that one unsurveyed and coming back never un-knows a visited one.
 - **`WouldChoose` exists so the screen can say what the click is about to cost** before it is made. A lock met as the unannounced side effect of pressing a button would be the worst way to learn the rule.
 - **`EntrySectorOf` is what a first mission is aimed at**: on the zone's own bearing, one sector past the inner edge. The six zones are one wedge turned six times, so their entry sectors sit at the same distance and a mission to any of them takes the same time - which is what lets the first screen claim that what it shows is true and identical everywhere.

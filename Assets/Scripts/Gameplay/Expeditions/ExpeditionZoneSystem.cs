@@ -57,6 +57,9 @@ namespace Game.Gameplay.Expeditions
         /// <summary>Which zones a robot has reported from - see <see cref="IsSurveyed"/>.</summary>
         readonly bool[] _surveyed;
 
+        /// <summary>Whether the game has already put a site forward once - see <see cref="HighlightedSite"/>. Once spent it never lights again, in this zone or any other.</summary>
+        bool _highlightSpent;
+
         /// <summary>The discovery version the counts above were measured at, and -1 for never.</summary>
         int _measuredAtDiscoveryVersion = -1;
 
@@ -238,6 +241,50 @@ namespace Game.Gameplay.Expeditions
             if (zoneIndex < 0 || zoneIndex >= _surveyed.Length) return;
 
             _surveyed[zoneIndex] = true;
+        }
+
+        /// <summary>
+        /// The one site the game puts forward, or null.
+        ///
+        /// <b>The game shows once.</b> After the first report the map opens with one recovery site set
+        /// apart from the others, so a player who has just been handed a list of marks has somewhere to
+        /// start. It stays a choice: a point put forward is not a quest marker, and passing it over
+        /// costs nothing and needs no refusing.
+        ///
+        /// <b>It goes out at the first launch, not at the completion</b>, and never comes back - for
+        /// either reason it would stop being a suggestion: kept until the site is exploited it becomes a
+        /// rail, offered again in the next zone it becomes a tutorial that never ends.
+        ///
+        /// Derived rather than stored: the first recovery still standing in the chosen zone. Only
+        /// whether it has been spent is state, which is the one thing that cannot be recomputed.
+        /// </summary>
+        public ExpeditionZoneSite HighlightedSite
+        {
+            get
+            {
+                if (_highlightSpent || ChosenZone < 0 || !IsSurveyed(ChosenZone)) return null;
+
+                foreach (ExpeditionZoneSite site in SitesOf(ChosenZone))
+                {
+                    if (site.Kind != ExpeditionSiteKind.Recuperation) continue;
+                    if (!site.IsRevealed || site.IsConsumed) continue;
+
+                    return site;
+                }
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Puts the highlight out for good, at the launch that follows it.
+        ///
+        /// <b>Spent only while one is actually showing.</b> The discovery is a launch too, and it goes
+        /// out before the zone has been surveyed - so an unconditional spend would put out a highlight
+        /// that had never been lit, and the player would never see it at all.
+        /// </summary>
+        public void SpendHighlight()
+        {
+            if (HighlightedSite != null) _highlightSpent = true;
         }
 
         /// <summary>
@@ -686,7 +733,8 @@ namespace Game.Gameplay.Expeditions
                 ["chosen"] = ChosenZone,
                 ["inner"] = InnerRadiusCells,
                 ["sites"] = sites,
-                ["surveyed"] = surveyed
+                ["surveyed"] = surveyed,
+                ["highlightSpent"] = _highlightSpent
             };
         }
 
@@ -706,6 +754,7 @@ namespace Game.Gameplay.Expeditions
             ChosenZone = -1;
             System.Array.Clear(_sites, 0, _sites.Length);
             System.Array.Clear(_surveyed, 0, _surveyed.Length);
+            _highlightSpent = false;
             _layoutVersion++;
 
             if (state == null) return;
@@ -715,6 +764,10 @@ namespace Game.Gameplay.Expeditions
 
             float? inner = state.Value<float?>("inner");
             if (inner.HasValue) InnerRadiusCells = Mathf.Max(0f, inner.Value);
+
+            // Absent restores as not yet spent, which is the ordinary tolerant default: a save from
+            // before the highlight comes from a run that was never shown one, so it is owed the once.
+            _highlightSpent = state.Value<bool?>("highlightSpent") ?? false;
 
             // <b>An absent key restores the chosen zone as surveyed, not as unvisited.</b> The usual
             // tolerant default - "nothing has happened yet" - would be wrong here in the one way that

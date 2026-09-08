@@ -240,6 +240,13 @@ been visited, and it is refused (`LaunchRefusal.ZoneAlreadySurveyed`) once its z
 | duration | `MissionSettings.DiscoverySeconds`, **flat** — two minutes in all six directions |
 | reward | the introduction's reconnaissance budget, like every reconnaissance |
 | target | the zone's entry sector, which is what the choice screen aims it at |
+| what it opens | the ground around **each site it reports**, one disc per site at `SectorGrid.InscribedRadiusCells` |
+
+**A discovery opens ground, and that was a defect before it did.** It came back with a list of sites and
+dropped their marks into the dark: the zone still read as untouched, and the one mission whose purpose is
+to show what is out there showed nothing. Each site is now reported with the ground it stands on —
+patches, not the wedge. Opening the whole zone here would finish its cartography on the first mission,
+and with it lift the lock on the other five.
 
 **The flat duration is the point, not a shortcut.** A discovery only ever goes to an entry sector, and
 the six are one wedge turned six times — so the travel term every other kind carries would add nothing
@@ -377,6 +384,23 @@ what a base looks like from above is its shape and its transport network, not it
 which took a zone's boundary away exactly when the player zoomed in to work inside it — and everything
 outside that boundary is refused. Zoomed in they simply leave the screen, which is how a boundary that
 is far away should behave.
+
+**The game puts one site forward, once.** After the first report the chosen zone's first standing
+recovery is drawn as `MapSiteState.Highlighted` — a wider ring and the one label shown without hovering.
+It goes out **at the launch that follows it**, whatever that launch was aimed at, and never lights again
+in any zone: kept until the site is exploited it would be a rail, offered again in the next zone it would
+be a tutorial that never ends. Derived from the zone's own list; only "already spent" is state, and it
+travels in the save.
+
+**The pointer finds sites, and the panel talks about nothing else.** A sector is never named, hovered or
+described — not when it is unknown, and not when it is known either: naming a square the player never
+pointed at and cannot act on ("Sillon de basalte J10") describes the division rather than the place. A
+selected site shows its own kind, its own state and **its own mission**; the pane used to list every
+mission the sector under the mark admitted, so clicking a recovery offered a prospection.
+
+**Hovering reads a direction, clicking fixes it.** Before a zone is chosen the pane follows the pointer
+across the six, which is how they are compared; a click stops that, and from then on only another click
+moves it.
 
 **Nothing on this map is square.** The sector division is how a mission is aimed, never something the
 player points at: a hover, a selection and a mission's target are rings around a mark, and what the

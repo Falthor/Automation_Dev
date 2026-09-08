@@ -68,6 +68,9 @@ namespace Game.UI
         /// <summary>Reused for the same reason. A zone holds a dozen or so sites, and they are refilled every frame.</summary>
         readonly List<MapSiteMarker> _siteMarkers = new List<MapSiteMarker>();
 
+        /// <summary>The sites behind the marks, in the same order. What turns a clicked mark back into the thing it stands for.</summary>
+        readonly List<ExpeditionZoneSite> _siteSources = new List<ExpeditionZoneSite>();
+
         /// <summary>The base's cells, and how many buildings they came from. Refilled only when that count moves - see RenderBuildings.</summary>
         readonly List<MapBuildingCell> _buildingCells = new List<MapBuildingCell>();
         int _buildingCount = -1;
@@ -422,12 +425,15 @@ namespace Game.UI
         void RenderSites()
         {
             _siteMarkers.Clear();
+            _siteSources.Clear();
 
             // <b>Nothing until a robot has reported.</b> A zone's content is derived the moment it is
             // chosen, but the player has not been told any of it - the discovery is what comes back with
             // the list, and marks appearing before it would make that mission pointless.
             if (Zones != null && Zones.ChosenZone >= 0 && Zones.IsSurveyed(Zones.ChosenZone))
             {
+                ExpeditionZoneSite highlighted = Zones.HighlightedSite;
+
                 foreach (ExpeditionZoneSite site in Zones.SitesOf(Zones.ChosenZone))
                 {
                     if (!site.IsRevealed) continue;
@@ -435,11 +441,16 @@ namespace Game.UI
                     MapSiteState state =
                         site.IsConsumed ? MapSiteState.Done :
                         NeedsUnits(site.Kind) ? MapSiteState.Locked :
-                                                MapSiteState.Available;
+                        site == highlighted ? MapSiteState.Highlighted :
+                                              MapSiteState.Available;
 
                     _siteMarkers.Add(new MapSiteMarker(
                         new Vector2(site.Cell.X + 0.5f, site.Cell.Y + 0.5f),
                         state, TintOf(site.Kind), LabelOf(site.Kind)));
+
+                    // Filled in step with the marks, so mark i and site i are the same thing - which is
+                    // what lets a click on a mark answer with that site's own mission.
+                    _siteSources.Add(site);
                 }
             }
 
@@ -691,9 +702,13 @@ namespace Game.UI
                 return;
             }
 
-            int sector = _map.SelectedSector;
+            // <b>The target is a site, and the pane says nothing about anything else.</b> It used to
+            // describe the sector under the mark - "Secteur non reconnu", a name, a risk - which named
+            // a square the player never pointed at, and then offered every mission that square happened
+            // to admit: clicking a recovery answered with a prospection and a field study.
+            ExpeditionZoneSite site = SelectedSite();
 
-            if (sector < 0)
+            if (site == null)
             {
                 _targetName.text = "Aucune cible";
                 _targetState.text = "Cliquez un site sur la carte.";
@@ -701,20 +716,67 @@ namespace Game.UI
                 return;
             }
 
-            bool unknown = gameRuntime.Sectors.IsWhollyUnknown(sector, gameRuntime.Discovery);
+            _targetName.text = LabelOf(site.Kind);
+            _targetState.text = SiteState(site);
 
-            // Same rule as the hover, and for the same reason: what a robot has not reported is not
-            // the Core's to know. A target can be aimed at without being described.
-            _targetName.text = unknown ? "Secteur non reconnu" : gameRuntime.SectorCatalog.NameOf(sector);
-            _targetState.text = unknown
-                ? "Aucun robot n'y est allé."
-                : $"Risque estimé : {RiskLabel(gameRuntime.SectorCatalog.RiskOf(sector))}";
+            RenderSiteMission(site);
+        }
 
-            // In words as well as on the map: the amber outline says where, this says how long.
-            string underway = MissionUnderwayTo(sector);
-            if (underway != null) _targetState.text += "\n" + underway;
+        /// <summary>The site the map is aimed at, or null. Read from the panel's own list, which is what filled the marks - so the index can never mean one thing here and another there.</summary>
+        ExpeditionZoneSite SelectedSite()
+        {
+            int index = _map.SelectedSite;
+            if (index < 0 || index >= _siteSources.Count) return null;
 
-            RenderMissions(sector);
+            return _siteSources[index];
+        }
+
+        /// <summary>What this site is, in one line: what it has given, what it waits for, or what is already on its way to it.</summary>
+        string SiteState(ExpeditionZoneSite site)
+        {
+            if (site.IsConsumed) return "Déjà exploité.";
+            if (NeedsUnits(site.Kind)) return "Nécessite des unités.";
+
+            int sector = gameRuntime.Sectors.IndexAt(site.Cell);
+            return MissionUnderwayTo(sector)
+                ?? $"Risque estimé : {RiskLabel(gameRuntime.SectorCatalog.RiskOf(sector))}";
+        }
+
+        /// <summary>
+        /// The one mission this site is for.
+        ///
+        /// <b>A site carries its own kind.</b> The pane used to list every mission the sector under the
+        /// mark admitted, so clicking a recovery offered a prospection and a field study - two missions
+        /// that have nothing to do with the thing that was clicked.
+        /// </summary>
+        void RenderSiteMission(ExpeditionZoneSite site)
+        {
+            int sector = gameRuntime.Sectors.IndexAt(site.Cell);
+            MissionKind kind = MissionKindOf(site.Kind);
+
+            MissionSystem.LaunchRefusal refusal =
+                gameRuntime.Missions.CanLaunch(kind, sector, gameRuntime.World.ActionRadiusCells);
+
+            // Same guard as before, and for the same reason: a row rebuilt every frame is a button that
+            // cannot be clicked.
+            string text = $"{sector}|{(int)kind}|{(int)refusal}";
+            if (text == _missionsText) return;
+
+            _missionsText = text;
+            _missionList.Clear();
+            _missionList.Add(BuildMissionRow(kind, sector, refusal));
+        }
+
+        /// <summary>Which mission a site is for. Written out rather than cast between two enums that are free to diverge.</summary>
+        static MissionKind MissionKindOf(ExpeditionSiteKind kind)
+        {
+            switch (kind)
+            {
+                case ExpeditionSiteKind.Prospection: return MissionKind.Prospection;
+                case ExpeditionSiteKind.ExplorationLointaine: return MissionKind.ExplorationLointaine;
+                case ExpeditionSiteKind.EtudeDeTerrain: return MissionKind.EtudeDeTerrain;
+                default: return MissionKind.Recuperation;
+            }
         }
 
         /// <summary>The one mission the first screen offers. A kind of its own: one per zone, no band, and what it brings back is the zone's list of sites.</summary>
@@ -1031,29 +1093,14 @@ namespace Game.UI
 
         // ---- Hover ----
 
-        void OnHoveredSectorChanged(int sector)
-        {
-            if (sector < 0)
-            {
-                ShowNothingHovered();
-                return;
-            }
-
-            SectorGrid grid = gameRuntime.Sectors;
-
-            // The one rule this panel exists to hold. Everything below the check is information a robot
-            // brought back; above it there is nothing to say - and <b>saying "non reconnu" is still
-            // saying something</b>. The map is mostly unknown ground, so a footer that announced it
-            // followed the pointer everywhere repeating that the dark is dark. Silence carries it.
-            if (grid.IsWhollyUnknown(sector, gameRuntime.Discovery))
-            {
-                ShowNothingHovered();
-                return;
-            }
-
-            _hoverName.text = gameRuntime.SectorCatalog.NameOf(sector);
-            _hoverDetail.text = $"Risque estimé : {RiskLabel(gameRuntime.SectorCatalog.RiskOf(sector))}";
-        }
+        /// <summary>
+        /// <b>A sector is never described under the pointer.</b> Not when it is unknown - the map is
+        /// mostly unknown, and a footer repeating that the dark is dark followed the pointer everywhere
+        /// - and not when it is known either: "Sillon de basalte J10" names a square the player never
+        /// pointed at and cannot act on. What the pointer finds on this map is a site; the sector
+        /// division is how a mission is aimed, and it stays out of sight.
+        /// </summary>
+        void OnHoveredSectorChanged(int sector) => ShowNothingHovered();
 
         /// <summary>
         /// Nothing under the pointer. The footer's own hint line says what the map does, so this says

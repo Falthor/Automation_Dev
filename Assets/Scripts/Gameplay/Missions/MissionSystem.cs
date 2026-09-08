@@ -316,6 +316,12 @@ namespace Game.Gameplay.Missions
             // must not cost the player their five other directions.
             _zones?.ChooseByLaunch(targetSector, _discovery);
 
+            // <b>The game shows once.</b> A site put forward goes out at the launch that follows it,
+            // whichever site that launch was aimed at - kept until the highlighted one is exploited it
+            // would be a rail rather than a suggestion. Here rather than in the panel: it is a fact
+            // about the run, and a screen that has not been opened must not be what decides it.
+            _zones?.SpendHighlight();
+
             int robot = FreeRobot();
             int id = _nextMissionId++;
 
@@ -489,6 +495,32 @@ namespace Game.Gameplay.Missions
         /// The revelation goes through SectorGrid, which already owns the inscribed-disc shape - a
         /// mission asks for it, it does not re-implement it.
         /// </summary>
+        /// <summary>
+        /// The ground around each site the discovery reported, opened with it.
+        ///
+        /// <b>A discovery that changed nothing on the map was the defect.</b> It came back with a list of
+        /// sites and dropped their marks into the dark: the zone still read as untouched, and the one
+        /// mission whose whole purpose is to show what is out there showed nothing. Each site is now
+        /// reported with the ground it stands on.
+        ///
+        /// <b>Patches, not the zone.</b> The radius is the one a mission's arrival already opens
+        /// (<c>SectorGrid.InscribedRadiusCells</c>) rather than a figure of its own, and what stays dark
+        /// between them is what the rest of the run is for - opening the whole wedge here would finish
+        /// the zone's cartography on its first mission, and with it lift the lock on the other five.
+        /// </summary>
+        void OpenTheSitesFound(int zone)
+        {
+            if (_zones == null || _discovery == null || _grid == null || zone < 0) return;
+
+            foreach (ExpeditionZoneSite site in _zones.SitesOf(zone))
+            {
+                if (!site.IsRevealed) continue;
+
+                _discovery.RevealDisc(
+                    new Vector2(site.Cell.X + 0.5f, site.Cell.Y + 0.5f), _grid.InscribedRadiusCells);
+            }
+        }
+
         void Deliver(MissionRuntime mission)
         {
             // Every mission travelled, whatever it went for, so every mission leaves a trail. A robot
@@ -499,7 +531,10 @@ namespace Game.Gameplay.Missions
             // where the run will happen; what is in it is what the first mission goes to find out, and
             // it comes back with the whole list rather than with the corner it stood in. Any kind counts
             // - a robot that has been is a robot that has seen.
-            _zones?.MarkSurveyed(_zones.ZoneOfSector(mission.TargetSector));
+            int reportedZone = _zones != null ? _zones.ZoneOfSector(mission.TargetSector) : -1;
+            _zones?.MarkSurveyed(reportedZone);
+
+            if (mission.Kind == MissionKind.Decouverte) OpenTheSitesFound(reportedZone);
 
             if (mission.Kind == MissionKind.Recuperation)
             {
