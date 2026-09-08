@@ -153,11 +153,30 @@ namespace Game.Gameplay.Expeditions
         /// <summary>Which zone the player is working, or -1 while the six are still on offer.</summary>
         public int ChosenZone { get; private set; } = -1;
 
-        /// <summary>Whether a zone may still be chosen. Every zone before a choice; only the chosen one after it.</summary>
-        public bool IsAvailable(int zoneIndex)
+        /// <summary>
+        /// Whether the zone being worked has been mapped far enough to open the other five again.
+        ///
+        /// <b>The lock is a wait, not a forfeit.</b> The design asks that the current zone be mapped
+        /// before moving on, and the first screen promises the others back at the end of this one -
+        /// so it lifts on cartography rather than never. Measured in surface like everything else here.
+        /// </summary>
+        public bool ChosenZoneIsMapped(DiscoveryRuntime discovery)
+        {
+            if (ChosenZone < 0 || _settings == null) return false;
+
+            return CartographyOf(ChosenZone, discovery).Ratio >= _settings.ZoneReleaseRatio;
+        }
+
+        /// <summary>
+        /// Whether a zone may still be chosen: every zone before a choice, only the chosen one while it
+        /// is being worked, and every zone again once it has been mapped.
+        /// </summary>
+        public bool IsAvailable(int zoneIndex, DiscoveryRuntime discovery)
         {
             if (zoneIndex < 0 || zoneIndex >= ZoneCount) return false;
-            return ChosenZone < 0 || ChosenZone == zoneIndex;
+            if (ChosenZone < 0 || ChosenZone == zoneIndex) return true;
+
+            return ChosenZoneIsMapped(discovery);
         }
 
         /// <summary>
@@ -166,10 +185,16 @@ namespace Game.Gameplay.Expeditions
         /// During the introduction the zones are equivalent, so this is a choice of heading and nothing
         /// else - what it buys is that everything afterwards has one place to happen.
         /// </summary>
-        public ZoneChoiceRefusal Choose(int zoneIndex)
+        public ZoneChoiceRefusal Choose(int zoneIndex, DiscoveryRuntime discovery)
         {
             if (zoneIndex < 0 || zoneIndex >= ZoneCount) return ZoneChoiceRefusal.NotAZone;
-            if (ChosenZone >= 0 && ChosenZone != zoneIndex) return ZoneChoiceRefusal.AlreadyChosen;
+
+            // Moving to another zone is allowed once the current one has been mapped - the lock is a
+            // wait, not a forfeit.
+            if (ChosenZone >= 0 && ChosenZone != zoneIndex && !ChosenZoneIsMapped(discovery))
+            {
+                return ZoneChoiceRefusal.AlreadyChosen;
+            }
 
             bool changed = ChosenZone != zoneIndex;
             ChosenZone = zoneIndex;
@@ -220,8 +245,26 @@ namespace Game.Gameplay.Expeditions
             // nothing to tell the six apart. See WouldChoose.
             if (ChosenZone < 0) return ExpeditionZoneRefusal.None;
 
-            return zone == ChosenZone ? ExpeditionZoneRefusal.None : ExpeditionZoneRefusal.OutsideChosenZone;
+            if (zone == ChosenZone) return ExpeditionZoneRefusal.None;
+
+            // Once the chosen zone is mapped the others open again, and aiming into one of them chooses
+            // it exactly as the first launch did. Nothing here is permanent.
+            return ChosenZoneIsMapped(_releaseDiscovery)
+                ? ExpeditionZoneRefusal.None
+                : ExpeditionZoneRefusal.OutsideChosenZone;
         }
+
+        /// <summary>
+        /// The discovery the release condition is read against.
+        ///
+        /// Held rather than passed to <see cref="MayTarget"/>, which is called from a launch path that
+        /// has no reason to know about cartography - and set once by the owner, so there is one answer
+        /// to "is the current zone finished" rather than one per caller.
+        /// </summary>
+        DiscoveryRuntime _releaseDiscovery;
+
+        /// <summary>Hands the system the discovery its release condition reads. Called once by GameRuntime, beside the constructor.</summary>
+        public void UseDiscovery(DiscoveryRuntime discovery) => _releaseDiscovery = discovery;
 
         /// <summary>
         /// Whether launching at this sector would commit the choice - true only while none has been made
@@ -231,7 +274,13 @@ namespace Game.Gameplay.Expeditions
         /// is irreversible, and a lock arrived at as the side effect of an unannounced launch would be
         /// the worst way to meet it.
         /// </summary>
-        public bool WouldChoose(int sectorIndex) => ChosenZone < 0 && ZoneOfSector(sectorIndex) >= 0;
+        public bool WouldChoose(int sectorIndex)
+        {
+            int zone = ZoneOfSector(sectorIndex);
+            if (zone < 0) return false;
+
+            return ChosenZone < 0 || (zone != ChosenZone && ChosenZoneIsMapped(_releaseDiscovery));
+        }
 
         /// <summary>
         /// Commits the choice the launch at this sector implies. Does nothing once a zone is chosen, and
@@ -240,11 +289,11 @@ namespace Game.Gameplay.Expeditions
         /// Called by <c>MissionSystem.TryLaunch</c> after the launch is known to succeed - a refused
         /// launch must not lock five zones.
         /// </summary>
-        public void ChooseByLaunch(int sectorIndex)
+        public void ChooseByLaunch(int sectorIndex, DiscoveryRuntime discovery)
         {
             if (!WouldChoose(sectorIndex)) return;
 
-            Choose(ZoneOfSector(sectorIndex));
+            Choose(ZoneOfSector(sectorIndex), discovery);
         }
 
         /// <summary>

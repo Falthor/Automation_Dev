@@ -393,6 +393,9 @@ namespace Game.Presentation
             {
                 ExpeditionZones = new ExpeditionZoneSystem(expeditionZoneSettings, Sectors, MissionRange,
                     World?.CoreCenterCells ?? Vector2.zero, World?.ActionRadiusCells ?? 0, Terrain.Seed);
+                // The release condition reads cartography, so the system needs the discovery it measures
+                // against - handed over once here rather than threaded through the launch path.
+                ExpeditionZones.UseDiscovery(Discovery);
                 ExpeditionZones.RestoreState(loadedSave?.ExpeditionZones);
             }
 

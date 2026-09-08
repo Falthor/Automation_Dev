@@ -235,7 +235,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
 
             for (int zone = 0; zone < fixture.Zones.ZoneCount; zone++)
             {
-                Assert.AreEqual(zone == 2, fixture.Zones.IsAvailable(zone), $"zone {zone}");
+                Assert.AreEqual(zone == 2, fixture.Zones.IsAvailable(zone, fixture.Discovery), $"zone {zone}");
             }
 
             fixture.Destroy();
@@ -277,11 +277,11 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             int inside = SectorInZone(fixture, 0);
             int outside = SectorInZone(fixture, 3);
 
-            Assert.AreEqual(ZoneChoiceRefusal.None, fixture.Zones.Choose(0));
-            Assert.IsTrue(fixture.Zones.IsAvailable(0));
+            Assert.AreEqual(ZoneChoiceRefusal.None, fixture.Zones.Choose(0, fixture.Discovery));
+            Assert.IsTrue(fixture.Zones.IsAvailable(0, fixture.Discovery));
             for (int zone = 1; zone < fixture.Zones.ZoneCount; zone++)
             {
-                Assert.IsFalse(fixture.Zones.IsAvailable(zone), $"zone {zone} must be locked");
+                Assert.IsFalse(fixture.Zones.IsAvailable(zone, fixture.Discovery), $"zone {zone} must be locked");
             }
 
             Assert.AreEqual(MissionSystem.LaunchRefusal.OutsideChosenZone,
@@ -302,7 +302,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         {
             Fixture fixture = NewFixture(withZones: true);
             SummonRobots(fixture);
-            fixture.Zones.Choose(0);
+            fixture.Zones.Choose(0, fixture.Discovery);
 
             int outside = SectorInZone(fixture, 3);
             fixture.Grid.RevealInscribedDisc(outside, fixture.Discovery);
@@ -367,7 +367,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         {
             Fixture fixture = NewFixture(withZones: true);
             SummonRobots(fixture);
-            fixture.Zones.Choose(0);
+            fixture.Zones.Choose(0, fixture.Discovery);
 
             MissionRuntime study = LaunchStudyUntilItDrawsAFind(fixture, wantsFind: true);
             Assert.IsTrue(study.RevealsHiddenSite);
@@ -391,7 +391,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         {
             Fixture fixture = NewFixture(withZones: true);
             SummonRobots(fixture);
-            fixture.Zones.Choose(0);
+            fixture.Zones.Choose(0, fixture.Discovery);
 
             MissionRuntime study = LaunchStudyUntilItDrawsAFind(fixture, wantsFind: false);
             Assert.IsFalse(study.RevealsHiddenSite);
@@ -417,7 +417,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         {
             Fixture fixture = NewFixture(withZones: true);
             SummonRobots(fixture);
-            fixture.Zones.Choose(0);
+            fixture.Zones.Choose(0, fixture.Discovery);
 
             while (fixture.Zones.RevealNextHiddenSite(0) != null) { }
             Assert.AreEqual(0, fixture.Zones.HiddenSitesLeft(0), "precondition: emptied");
@@ -436,7 +436,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         {
             Fixture fixture = NewFixture(withZones: true);
             SummonRobots(fixture);
-            fixture.Zones.Choose(0);
+            fixture.Zones.Choose(0, fixture.Discovery);
 
             MissionRuntime study = LaunchStudyUntilItDrawsAFind(fixture, wantsFind: true);
             JObject captured = fixture.Missions.CaptureState();

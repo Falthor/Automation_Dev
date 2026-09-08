@@ -297,7 +297,7 @@ namespace Game.Gameplay.Missions
             // <b>The launch is what chooses the zone, and it locks the other five.</b> Committed here
             // rather than in CanLaunch, and only once the launch is known to succeed: a refused mission
             // must not cost the player their five other directions.
-            _zones?.ChooseByLaunch(targetSector);
+            _zones?.ChooseByLaunch(targetSector, _discovery);
 
             int robot = FreeRobot();
             int id = _nextMissionId++;

@@ -127,6 +127,22 @@ namespace Game.UI
         /// <summary>The one label shown without hovering, for the site put forward. Painter2D draws no text, so it is a child element parked over the mark.</summary>
         readonly Label _highlightLabel = new Label();
 
+        /// <summary>The site under the pointer, or -1. An index into the list the panel handed over.</summary>
+        public int HoveredSite { get; private set; } = -1;
+
+        /// <summary>The site aimed at, or -1. Survives the pointer leaving: it is a decision, not a glance.</summary>
+        public int SelectedSite { get; private set; } = -1;
+
+        public event Action<int> SelectedSiteChanged;
+
+        /// <summary>
+        /// How near the pointer has to be to a site's mark, in pixels, to be pointing at it.
+        ///
+        /// A little wider than the mark itself: the marks are small at every scale the map reaches, and
+        /// a target that has to be hit exactly is a target the player fights.
+        /// </summary>
+        const float SitePickRadiusPixels = 13f;
+
         public event Action<int> HoveredSectorChanged;
 
         public event Action<int> SelectedSectorChanged;
@@ -342,8 +358,15 @@ namespace Game.UI
 
         void OnPointerMove(PointerMoveEvent evt)
         {
-            if (AimsAtZones) SetHoveredZone(ZoneResolver(CellAt(evt.localPosition)));
-            else SetHovered(SectorIndexAt(evt.localPosition));
+            if (AimsAtZones)
+            {
+                SetHoveredZone(ZoneResolver(CellAt(evt.localPosition)));
+            }
+            else
+            {
+                SetHoveredSite(SiteAt(evt.localPosition));
+                SetHovered(SectorIndexAt(evt.localPosition));
+            }
 
             if (!_dragging) return;
 
@@ -385,7 +408,14 @@ namespace Game.UI
                 return;
             }
 
-            SetSelected(SectorIndexAt(evt.localPosition));
+            // A site, or nothing. There is no square to select: the sector division is how a mission is
+            // aimed, never something the player points at.
+            int site = SiteAt(evt.localPosition);
+            if (site >= 0)
+            {
+                SetSelectedSite(site);
+                SetSelected(SectorIndexAt(evt.localPosition));
+            }
         }
 
         /// <summary>Aims at a sector, or at nothing when the click fell off the map. Clicking the sector already aimed at leaves it aimed at - only the panel's own close clears it.</summary>
@@ -535,6 +565,49 @@ namespace Game.UI
             HoveredSectorChanged?.Invoke(sector);
         }
 
+        /// <summary>
+        /// The site whose mark is nearest the pointer and within reach of it, or -1.
+        ///
+        /// Nearest rather than first, so two marks close together resolve to the one actually being
+        /// pointed at. A done site is skipped: it is not clickable, and letting it take the pick would
+        /// shadow a live one behind it.
+        /// </summary>
+        int SiteAt(Vector2 localPoint)
+        {
+            int nearest = -1;
+            float nearestDistance = SitePickRadiusPixels * SitePickRadiusPixels;
+
+            for (int i = 0; i < _sites.Count; i++)
+            {
+                if (_sites[i].State == MapSiteState.Done) continue;
+
+                float distance = (PointAt(_sites[i].CellPosition) - localPoint).sqrMagnitude;
+                if (distance > nearestDistance) continue;
+
+                nearestDistance = distance;
+                nearest = i;
+            }
+
+            return nearest;
+        }
+
+        void SetHoveredSite(int site)
+        {
+            if (site == HoveredSite) return;
+
+            HoveredSite = site;
+            _overlay.MarkDirtyRepaint();
+        }
+
+        void SetSelectedSite(int site)
+        {
+            if (site == SelectedSite) return;
+
+            SelectedSite = site;
+            _overlay.MarkDirtyRepaint();
+            SelectedSiteChanged?.Invoke(site);
+        }
+
         void SetHoveredZone(int zone)
         {
             if (zone == HoveredZone) return;
@@ -671,8 +744,6 @@ namespace Game.UI
             DrawZoneSeparators(painter);
             DrawMissionTargets(painter);
             DrawSites(painter);
-            DrawHoveredSector(painter);
-            DrawSelectedSector(painter);
             DrawRadius(painter);
             DrawCore(painter);
         }
@@ -695,15 +766,19 @@ namespace Game.UI
             {
                 if (sector < 0 || sector >= _sizeSectors * _sizeSectors) continue;
 
-                painter.strokeColor = MissionColour;
-                painter.lineWidth = 2f;
-                StrokeSector(painter, sector);
-
                 int column = sector % _sizeSectors;
                 int row = sector / _sizeSectors;
                 Vector2 centre = PointAt(new Vector2(
                     (column + 0.5f) * _sectorSizeCells,
                     (row + 0.5f) * _sectorSizeCells));
+
+                // A ring and a dot rather than the sector's square. Nothing on this map is square: the
+                // division is how a mission is aimed, not something the player should ever have to see.
+                painter.strokeColor = MissionColour;
+                painter.lineWidth = 2f;
+                painter.BeginPath();
+                painter.Arc(centre, 11f, 0f, 360f);
+                painter.Stroke();
 
                 painter.fillColor = MissionColour;
                 painter.BeginPath();
@@ -865,43 +940,26 @@ namespace Game.UI
                         painter.Stroke();
                         break;
                 }
+
+                // The glance and the decision, both as rings around the mark - never as a square. The
+                // selection is thicker and in the panel's accent, the hover thin and white.
+                if (i == SelectedSite)
+                {
+                    painter.strokeColor = SelectionColour;
+                    painter.lineWidth = 2.5f;
+                    painter.BeginPath();
+                    painter.Arc(point, 12f, 0f, 360f);
+                    painter.Stroke();
+                }
+                else if (i == HoveredSite)
+                {
+                    painter.strokeColor = HoverColour;
+                    painter.lineWidth = 1.5f;
+                    painter.BeginPath();
+                    painter.Arc(point, 10f, 0f, 360f);
+                    painter.Stroke();
+                }
             }
-        }
-
-        void DrawSelectedSector(Painter2D painter)
-        {
-            if (SelectedSector < 0) return;
-
-            painter.strokeColor = SelectionColour;
-            painter.lineWidth = 2.5f;
-            StrokeSector(painter, SelectedSector);
-        }
-
-        void DrawHoveredSector(Painter2D painter)
-        {
-            if (HoveredSector < 0 || HoveredSector == SelectedSector) return;
-
-            painter.strokeColor = HoverColour;
-            painter.lineWidth = 1.5f;
-            StrokeSector(painter, HoveredSector);
-        }
-
-        /// <summary>One sector's outline. Shared by the hover and the selection so the two are the same rectangle, differing only in colour and weight.</summary>
-        void StrokeSector(Painter2D painter, int sector)
-        {
-            int column = sector % _sizeSectors;
-            int row = sector / _sizeSectors;
-
-            Vector2 topLeft = PointAt(new Vector2(column * _sectorSizeCells, (row + 1) * _sectorSizeCells));
-            float side = PixelsPerSector;
-
-            painter.BeginPath();
-            painter.MoveTo(topLeft);
-            painter.LineTo(topLeft + new Vector2(side, 0f));
-            painter.LineTo(topLeft + new Vector2(side, side));
-            painter.LineTo(topLeft + new Vector2(0f, side));
-            painter.ClosePath();
-            painter.Stroke();
         }
 
         /// <summary>The Core's reach, dashed - a boundary the player owns rather than a wall.</summary>

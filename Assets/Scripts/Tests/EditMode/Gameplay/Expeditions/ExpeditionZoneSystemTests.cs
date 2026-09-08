@@ -386,7 +386,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         public void Cartography_NeverRecedes_AsGroundIsOpened()
         {
             Fixture fixture = NewFixture();
-            fixture.Zones.Choose(0);
+            fixture.Zones.Choose(0, fixture.Discovery);
 
             float previous = fixture.Zones.CartographyOf(0, fixture.Discovery).Ratio;
             Assert.AreEqual(0f, previous, 0.0000001f, "nothing is open yet");
@@ -511,7 +511,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
             for (int chosen = 0; chosen < 6; chosen++)
             {
                 Fixture fixture = NewFixture(NewSettings(composeFirstZone: true));
-                Assert.AreEqual(ZoneChoiceRefusal.None, fixture.Zones.Choose(chosen));
+                Assert.AreEqual(ZoneChoiceRefusal.None, fixture.Zones.Choose(chosen, fixture.Discovery));
 
                 Assert.IsTrue(fixture.Zones.IsComposed(chosen));
                 AssertComposed(fixture.Zones, chosen);
@@ -525,7 +525,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         public void TheFiveUnchosenZones_KeepTheirDerivedContent()
         {
             Fixture fixture = NewFixture(NewSettings(composeFirstZone: true));
-            fixture.Zones.Choose(2);
+            fixture.Zones.Choose(2, fixture.Discovery);
 
             for (int zone = 0; zone < 6; zone++)
             {
@@ -559,7 +559,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
                     "precondition: before the choice every zone is derived");
             }
 
-            fixture.Zones.Choose(5);
+            fixture.Zones.Choose(5, fixture.Discovery);
 
             AssertComposed(fixture.Zones, 5);
 
@@ -588,7 +588,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
             Fixture fixture = NewFixture(NewSettings(composeFirstZone: true,
                 firstProspections: 0, firstFarExplorations: 1, firstRecoveries: 5,
                 firstStudies: 0, firstHidden: 1));
-            fixture.Zones.Choose(0);
+            fixture.Zones.Choose(0, fixture.Discovery);
 
             Assert.AreEqual(0, VisibleCount(fixture.Zones, 0, ExpeditionSiteKind.Prospection));
             Assert.AreEqual(1, VisibleCount(fixture.Zones, 0, ExpeditionSiteKind.ExplorationLointaine));
@@ -604,7 +604,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         public void WithTheCompositionOff_TheChosenZoneDerivesLikeTheRest()
         {
             Fixture fixture = NewFixture(NewSettings(composeFirstZone: false));
-            fixture.Zones.Choose(0);
+            fixture.Zones.Choose(0, fixture.Discovery);
 
             Assert.IsFalse(fixture.Zones.IsComposed(0));
             Assert.AreEqual(3, VisibleCount(fixture.Zones, 0, ExpeditionSiteKind.Prospection));
@@ -624,7 +624,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         public void TheComposedZone_ComesBackIdenticalAfterAReload()
         {
             Fixture original = NewFixture(NewSettings(composeFirstZone: true));
-            original.Zones.Choose(4);
+            original.Zones.Choose(4, original.Discovery);
             AssertComposed(original.Zones, 4);
 
             JObject captured = original.Zones.CaptureState();
@@ -665,7 +665,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         public void TheChoice_TheInnerEdgeAndTheSitesTouched_SurviveARoundTrip()
         {
             Fixture original = NewFixture();
-            original.Zones.Choose(4);
+            original.Zones.Choose(4, original.Discovery);
             ExpeditionZoneSite found = original.Zones.RevealNextHiddenSite(4);
             Assert.IsTrue(original.Zones.Consume(4, 0));
 
@@ -699,7 +699,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         public void RestoringIntoAWiderCore_KeepsTheZonesTheRunWasMapping()
         {
             Fixture original = NewFixture();
-            original.Zones.Choose(1);
+            original.Zones.Choose(1, original.Discovery);
             JObject captured = original.Zones.CaptureState();
 
             var settings = NewSettings();
@@ -721,12 +721,12 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         public void RestoringNothing_LeavesTheSixZonesOnOffer()
         {
             Fixture fixture = NewFixture();
-            fixture.Zones.Choose(2);
+            fixture.Zones.Choose(2, fixture.Discovery);
 
             fixture.Zones.RestoreState(null);
 
             Assert.AreEqual(-1, fixture.Zones.ChosenZone);
-            for (int zone = 0; zone < 6; zone++) Assert.IsTrue(fixture.Zones.IsAvailable(zone));
+            for (int zone = 0; zone < 6; zone++) Assert.IsTrue(fixture.Zones.IsAvailable(zone, fixture.Discovery));
 
             fixture.Destroy();
         }
@@ -737,10 +737,10 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         {
             Fixture fixture = NewFixture();
 
-            Assert.AreEqual(ZoneChoiceRefusal.None, fixture.Zones.Choose(3));
-            Assert.AreEqual(ZoneChoiceRefusal.AlreadyChosen, fixture.Zones.Choose(4));
-            Assert.AreEqual(ZoneChoiceRefusal.None, fixture.Zones.Choose(3), "asking again for what is already chosen changes nothing");
-            Assert.AreEqual(ZoneChoiceRefusal.NotAZone, fixture.Zones.Choose(9));
+            Assert.AreEqual(ZoneChoiceRefusal.None, fixture.Zones.Choose(3, fixture.Discovery));
+            Assert.AreEqual(ZoneChoiceRefusal.AlreadyChosen, fixture.Zones.Choose(4, fixture.Discovery));
+            Assert.AreEqual(ZoneChoiceRefusal.None, fixture.Zones.Choose(3, fixture.Discovery), "asking again for what is already chosen changes nothing");
+            Assert.AreEqual(ZoneChoiceRefusal.NotAZone, fixture.Zones.Choose(9, fixture.Discovery));
             Assert.AreEqual(3, fixture.Zones.ChosenZone);
 
             fixture.Destroy();

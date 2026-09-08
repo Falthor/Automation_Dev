@@ -97,6 +97,7 @@ namespace Game.UI
             _map.SelectedSectorChanged += _ => RenderTarget();
             _map.ZoneFramingRequested += FrameZoneAt;
             _map.SelectedZoneChanged += _ => RenderTarget();
+            _map.SelectedSiteChanged += _ => RenderTarget();
 
             // The partition stays in the zone system; the element only asks.
             _map.ZoneResolver = cell => Zones != null ? Zones.ZoneAt(cell) : -1;

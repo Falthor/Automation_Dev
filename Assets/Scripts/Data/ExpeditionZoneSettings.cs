@@ -88,6 +88,16 @@ namespace Game.Data
         /// </summary>
         [SerializeField] bool composeFirstChosenZone = true;
 
+        /// <summary>
+        /// How much of the chosen zone has to be mapped before the other five open again.
+        ///
+        /// <b>The lock is not permanent.</b> The design says the current zone must be mapped before
+        /// moving to the next, and the first screen promises the others back "jusqu'à la fin de
+        /// celle-ci" - a wait, not a forfeit. One is the plain reading of "mapped"; the introduction is
+        /// not expected to reach it, which is why the five stay shut for the whole of it.
+        /// </summary>
+        [SerializeField, Range(0f, 1f)] float zoneReleaseRatio = 1f;
+
         /// <summary>One, and deliberately: mining has no real content yet, so a zone full of it would open on a promise the game does not keep.</summary>
         [SerializeField, Min(0)] int firstZoneProspections = 1;
 
@@ -124,6 +134,7 @@ namespace Game.Data
         public int HiddenSitesMax => hiddenSitesMax;
 
         public bool ComposeFirstChosenZone => composeFirstChosenZone;
+        public float ZoneReleaseRatio => zoneReleaseRatio;
         public int FirstZoneProspections => firstZoneProspections;
         public int FirstZoneFieldStudies => firstZoneFieldStudies;
         public int FirstZoneFarExplorations => firstZoneFarExplorations;
