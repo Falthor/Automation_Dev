@@ -32,6 +32,17 @@ namespace Game.Gameplay.Missions
         const uint OutcomeSalt = 0x7FEB352D;
         const uint FindingSalt = 0x846CA68B;
 
+        /// <summary>Which way a path bows. Mixed with the <b>target sector</b> and nothing else - see <see cref="RevealTrail"/>.</summary>
+        const uint TrailSalt = 0x9E3779B7;
+
+        /// <summary>
+        /// The trail's width against the arrival disc's: a third of it. <b>Derived, so it is a constant
+        /// here rather than a setting beside the disc</b> - two independent numbers would stop agreeing.
+        /// The disc's width is twice its radius, so a third of that is two thirds of the radius, and the
+        /// band's own radius is a third of the disc's.
+        /// </summary>
+        const float TrailRadiusFractionOfDiscRadius = 1f / 3f;
+
         readonly MissionSettings _settings;
         readonly SectorGrid _grid;
         readonly DiscoveryRuntime _discovery;
@@ -453,6 +464,10 @@ namespace Game.Gameplay.Missions
         /// </summary>
         void Deliver(MissionRuntime mission)
         {
+            // Every mission travelled, whatever it went for, so every mission leaves a trail. A robot
+            // that crossed the map without seeing anything on the way would be incoherent.
+            RevealTrail(mission.TargetSector);
+
             if (mission.Kind == MissionKind.Recuperation)
             {
                 if (mission.Outcome != MissionOutcome.RecolteManquee) _consumedSites.Add(mission.TargetSector);
@@ -476,6 +491,63 @@ namespace Game.Gameplay.Missions
             // The robot's charge was spent at launch, so there is nothing to return here - a robot
             // that went out has used its charge whatever came of the trip.
             if (mission.RewardCu > 0f) _compute?.Grant(mission.RewardCu);
+        }
+
+        /// <summary>
+        /// The band a robot opened between the Core and its target.
+        ///
+        /// <b>The trail is discovery, not a drawing.</b> It writes the ground the robot saw on the way,
+        /// so the map's terrain draws it with everything else - there is no trail layer to render and
+        /// nothing to store. What survives a save is what survives for every other revelation: the
+        /// discovered cells.
+        ///
+        /// <b>It starts at the Core, always.</b> That is where a robot leaves from and returns to, and
+        /// it is why the trails converge into a star rather than scattering.
+        ///
+        /// <b>Derived from the seed and the target sector, and from nothing else.</b> Two missions to
+        /// the same place therefore follow the same path - which is more credible, and has the effect
+        /// the design wants: going back somewhere reveals almost nothing new, so a fresh direction is
+        /// worth more than a return. The mission's own index is deliberately absent; including it would
+        /// destroy exactly that property.
+        ///
+        /// Written by asking <see cref="DiscoveryRuntime.RevealDisc"/> in steps along the curve rather
+        /// than by writing a band shape: the disc already exists, and a mission asks for a shape rather
+        /// than reimplementing one.
+        /// </summary>
+        void RevealTrail(int targetSector)
+        {
+            if (_grid == null || _discovery == null || !_grid.ContainsIndex(targetSector)) return;
+
+            Vector2 from = CoreCentre;
+            Vector2 to = _grid.CenterCells(targetSector);
+
+            Vector2 straight = to - from;
+            float distance = straight.magnitude;
+            if (distance <= 0.001f) return;
+
+            float bandRadius = _grid.InscribedRadiusCells * TrailRadiusFractionOfDiscRadius;
+            if (bandRadius <= 0f) return;
+
+            // A quadratic Bézier: one control point, pushed sideways by a fraction of the distance.
+            var perpendicular = new Vector2(-straight.y, straight.x) / distance;
+            float bend = (float)(DeterministicHash.Unit(_seed, targetSector, TrailSalt) * 2.0 - 1.0)
+                * distance * (_settings != null ? _settings.TrailBendFractionOfDistance : 0.1f);
+            Vector2 control = (from + to) * 0.5f + perpendicular * bend;
+
+            // A step of one band radius, so consecutive discs overlap and the trail is continuous
+            // rather than a row of beads.
+            int steps = Mathf.Max(1, Mathf.CeilToInt(distance / bandRadius));
+            for (int i = 0; i <= steps; i++)
+            {
+                float t = i / (float)steps;
+                float inverse = 1f - t;
+
+                Vector2 point = inverse * inverse * from
+                    + 2f * inverse * t * control
+                    + t * t * to;
+
+                _discovery.RevealDisc(point, bandRadius);
+            }
         }
 
         /// <summary>Marks a report read and drops it. Reports are not saved: an unread one is delivered again at load, which is better than losing it.</summary>

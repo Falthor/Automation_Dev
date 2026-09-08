@@ -352,14 +352,19 @@ d'accord. Le robot passe vite en chemin et s'attarde à destination ; la carte r
 que tous les autres bords du jeu sont bruités. La déviation reste **modeste** — de l'ordre du
 dixième de la distance — au-delà elle se lit comme une erreur de calcul plutôt qu'un contournement.
 
-**Le chemin est dérivé, pas tiré à l'exécution** : depuis la graine du monde, l'index du secteur
-cible et celui de la mission. Deux conséquences voulues :
+**Le chemin est dérivé, pas tiré à l'exécution** : depuis la graine du monde et l'index du secteur
+cible, **et rien d'autre**. Deux conséquences voulues :
 
 - une mission rechargée produit exactement le même chemin ;
 - **deux missions vers la même cible suivent le même chemin.** C'est plus crédible — les robots
   empruntent une route qu'ils connaissent — et ça a un effet de jeu heureux : la seconde mission vers
   un secteur ne révèle presque rien de nouveau en chemin, donc explorer une direction neuve est plus
   intéressant que revenir au même endroit.
+
+> **Ce paragraphe listait aussi l'index de la mission parmi les entrées.** C'était une précaution mal
+> placée, cherchant la reproductibilité : elle détruisait la propriété énoncée juste au-dessus, puisque
+> deux missions vers la même cible auraient alors divergé. La graine et la cible suffisent à la
+> reproductibilité. Tranché à la livraison, dans le sens de la conséquence.
 
 **Tout est révélé au retour du robot**, jamais progressivement. C'est cohérent avec la règle que rien
 ne parvient au Noyau tant que le robot est dehors, et ça évite d'avoir à sauvegarder une trace

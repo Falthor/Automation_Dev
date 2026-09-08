@@ -26,7 +26,7 @@
                     </ui:VisualElement>
                     <ui:Label name="SectorMapProgress" text="" class="sector-map-figure mono-value" />
 
-                    <ui:Label text="SITES CONNUS" class="extractor-section-label section-label-spaced" />
+                    <ui:Label name="SectorMapCountsTitle" text="SITES CONNUS" class="extractor-section-label section-label-spaced" />
                     <ui:VisualElement name="SectorMapSiteCounts" class="sector-map-counts" />
 
                     <ui:Label text="MISSIONS" class="extractor-section-label section-label-spaced" />

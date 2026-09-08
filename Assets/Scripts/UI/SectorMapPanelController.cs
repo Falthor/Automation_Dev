@@ -42,6 +42,7 @@ namespace Game.UI
         VisualElement _progressFill;
         Label _progress;
         VisualElement _siteCounts;
+        Label _countsTitle;
 
         bool _bound;
 
@@ -89,6 +90,7 @@ namespace Game.UI
             _progressFill = panelRoot.Q<VisualElement>("SectorMapProgressFill");
             _progress = panelRoot.Q<Label>("SectorMapProgress");
             _siteCounts = panelRoot.Q<VisualElement>("SectorMapSiteCounts");
+            _countsTitle = panelRoot.Q<Label>("SectorMapCountsTitle");
 
             _map = new SectorMapElement();
             _map.HoveredSectorChanged += OnHoveredSectorChanged;
@@ -417,7 +419,68 @@ namespace Game.UI
             _progressFill.style.width = new StyleLength(Length.Percent(mapped.Ratio * 100f));
             _progress.text = $"{mapped.Ratio * 100f:0.0} %".Replace('.', ',');
 
-            RenderSiteCounts(zone);
+            // The whole ring and one zone are different questions. Up there the player is choosing a
+            // direction, so what matters is how much is left to do at all; inside a zone they are
+            // choosing a target, so what matters is what kind of thing is left and where.
+            bool wholeRing = _map.ShowsWholeRing;
+            _countsTitle.text = wholeRing ? "MISSIONS DE LA ZONE" : "SITES CONNUS";
+
+            if (wholeRing) RenderMissionStates(zone);
+            else RenderSiteCounts(zone);
+        }
+
+        /// <summary>
+        /// At the whole-ring scale: how many missions are launchable, how many are done, and how many
+        /// need units - the third on its own line and never in the first, since a count that mixed them
+        /// would promise something the whole introduction cannot deliver.
+        /// </summary>
+        void RenderMissionStates(int zone)
+        {
+            int available = 0;
+            int done = 0;
+            int locked = 0;
+
+            foreach (ExpeditionZoneSite site in Zones.SitesOf(zone))
+            {
+                if (!site.IsRevealed) continue;
+
+                if (site.IsConsumed) done++;
+                else if (NeedsUnits(site.Kind)) locked++;
+                else available++;
+            }
+
+            string text = $"states;{available};{done};{locked}";
+            if (text == _countsText) return;
+
+            _countsText = text;
+            _siteCounts.Clear();
+
+            _siteCounts.Add(BuildStateRow("Disponibles", available, new Color(0.333f, 0.867f, 0.961f, 1f), false));
+            _siteCounts.Add(BuildStateRow("Faites", done, new Color(0.42f, 0.45f, 0.5f, 1f), false));
+            _siteCounts.Add(BuildStateRow("Nécessitent des unités", locked, new Color(0.45f, 0.48f, 0.53f, 0.75f), true));
+        }
+
+        VisualElement BuildStateRow(string label, int count, Color tint, bool muted)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("sector-map-count-row");
+            if (muted) row.AddToClassList("sector-map-count-locked");
+
+            var dot = new VisualElement();
+            dot.AddToClassList("sector-map-count-dot");
+            dot.style.backgroundColor = tint;
+            row.Add(dot);
+
+            var name = new Label(label);
+            name.AddToClassList("sector-map-count-name");
+            row.Add(name);
+
+            var value = new Label(count.ToString());
+            value.AddToClassList("sector-map-count-value");
+            value.AddToClassList("mono-value");
+            row.Add(value);
+
+            return row;
         }
 
         /// <summary>

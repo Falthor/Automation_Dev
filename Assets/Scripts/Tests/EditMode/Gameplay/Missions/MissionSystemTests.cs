@@ -1,3 +1,4 @@
+using Game.Core;
 using Game.Data;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Expeditions;
@@ -146,6 +147,37 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             }
 
             throw new System.InvalidOperationException($"no {offset}th sector in the mining band");
+        }
+
+        /// <summary>
+        /// The first mining-band sector that is still wholly unknown, optionally inside one zone.
+        ///
+        /// <b>A moving set, and that is the point.</b> A mission's trail opens the ground it crossed, so
+        /// sectors stop being reconnaissance targets as the map fills in - a fixed offset walks into
+        /// ground a previous trip already opened and is refused. Anything launching repeatedly has to
+        /// ask again rather than count.
+        /// </summary>
+        static int UnknownSector(Fixture fixture, int zone = -1)
+        {
+            var range = NewRange();
+
+            for (int row = -12; row <= 12; row++)
+            {
+                for (int column = -12; column <= 12; column++)
+                {
+                    int index = fixture.Grid.IndexAt(312 + column, 312 + row);
+                    if (index < 0) continue;
+
+                    float distance = Vector2.Distance(fixture.Grid.CenterCells(index), CoreCenter);
+                    if (distance <= CoreRadius || distance > range.ExplorationMinimumCells) continue;
+                    if (!fixture.Grid.IsWhollyUnknown(index, fixture.Discovery)) continue;
+                    if (zone >= 0 && fixture.Zones.ZoneOfSector(index) != zone) continue;
+
+                    return index;
+                }
+            }
+
+            throw new System.InvalidOperationException("no wholly unknown sector left in the mining band");
         }
 
         /// <summary>The nth sector of the mining band that falls in a given expedition zone, in a stable order.</summary>
@@ -392,10 +424,11 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         {
             for (int attempt = 0; attempt < 20; attempt++)
             {
-                // A fresh sector each time: the previous one has been revealed by the study that just
-                // ran home, and a reconnaissance aimed at known ground is refused.
+                // A fresh sector each time, asked for rather than counted: the study that just ran home
+                // opened its target *and the ground it crossed*, so which sectors are still virgin is a
+                // set that moves under the test.
                 MissionSystem.LaunchRefusal refusal = fixture.Missions.TryLaunch(
-                    MissionKind.EtudeDeTerrain, SectorInZone(fixture, 0, attempt), CoreRadius, out MissionRuntime mission);
+                    MissionKind.EtudeDeTerrain, UnknownSector(fixture, 0), CoreRadius, out MissionRuntime mission);
 
                 if (refusal != MissionSystem.LaunchRefusal.None) throw new System.InvalidOperationException($"refused: {refusal}");
                 if (mission.RevealsHiddenSite == wantsFind) return mission;
@@ -407,6 +440,167 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             }
 
             throw new System.InvalidOperationException($"no field study drew RevealsHiddenSite={wantsFind} in 20 tries");
+        }
+
+        // ---- The trail ----
+
+        /// <summary>
+        /// <b>The trail is discovery, so there is nothing to draw and nothing to store.</b> The ground
+        /// between the Core and the target is opened when the robot docks, and the map's terrain shows
+        /// it with everything else - which is what turns a set of floating discs into a star.
+        /// </summary>
+        [Test]
+        public void AMissionThatDocks_OpensTheGroundBetweenTheCoreAndItsTarget()
+        {
+            Fixture fixture = NewFixture();
+            SummonRobots(fixture);
+
+            int target = NearSector(fixture, 6);
+            Vector2 targetCentre = fixture.Grid.CenterCells(target);
+            var midway = new GridCoord(
+                Mathf.RoundToInt((CoreCenter.x + targetCentre.x) * 0.5f),
+                Mathf.RoundToInt((CoreCenter.y + targetCentre.y) * 0.5f));
+
+            Assert.IsFalse(fixture.Discovery.IsDiscovered(midway), "precondition: the way there is unknown");
+
+            fixture.Missions.TryLaunch(MissionKind.Prospection, target, CoreRadius, out MissionRuntime mission);
+            RunToReport(fixture, mission);
+
+            // The band bends, so the exact midpoint may sit just off it - what matters is that the
+            // ground around the halfway mark opened.
+            Assert.IsTrue(DiscoveredNear(fixture, midway, 20),
+                "nothing was opened halfway - a robot crossed the map without seeing any of it");
+
+            fixture.Destroy();
+        }
+
+        /// <summary>
+        /// Two missions to the same place follow the same path, which is what makes going back reveal
+        /// almost nothing and a fresh direction worth more. Measured on what the second actually opened,
+        /// because that is the property - not on the path, which nothing exposes.
+        /// </summary>
+        [Test]
+        public void ASecondMissionToTheSameTarget_OpensAlmostNothingOnTheWay()
+        {
+            Fixture fixture = NewFixture();
+            SummonRobots(fixture);
+
+            int target = NearSector(fixture, 6);
+
+            fixture.Missions.TryLaunch(MissionKind.Prospection, target, CoreRadius, out MissionRuntime first);
+            RunToReport(fixture, first);
+            int afterFirst = fixture.Discovery.DiscoveredCount();
+
+            // A recovery, so the target being known already is not a refusal - and it travels the same
+            // road.
+            fixture.Missions.TryLaunch(MissionKind.Recuperation, target, CoreRadius, out MissionRuntime second);
+            RunToReport(fixture, second);
+
+            Assert.AreEqual(afterFirst, fixture.Discovery.DiscoveredCount(),
+                "the second trip opened new ground - the two are not following one road");
+
+            fixture.Destroy();
+        }
+
+        /// <summary>
+        /// The path comes from the seed and the target and from nothing else, so a world rebuilt from
+        /// the same seed opens exactly the same ground. Pinned on the count, since the path itself is
+        /// deliberately not exposed.
+        /// </summary>
+        [Test]
+        public void TheTrail_IsTheSameInTwoWorldsOfTheSameSeed()
+        {
+            Fixture first = NewFixture();
+            Fixture second = NewFixture();
+            SummonRobots(first);
+            SummonRobots(second);
+
+            int target = NearSector(first, 4);
+
+            first.Missions.TryLaunch(MissionKind.Prospection, target, CoreRadius, out MissionRuntime a);
+            RunToReport(first, a);
+
+            second.Missions.TryLaunch(MissionKind.Prospection, target, CoreRadius, out MissionRuntime b);
+            RunToReport(second, b);
+
+            Assert.AreEqual(first.Discovery.DiscoveredCount(), second.Discovery.DiscoveredCount(),
+                "the same seed and the same target must open the same ground");
+
+            first.Destroy();
+            second.Destroy();
+        }
+
+        /// <summary>
+        /// The band is a third of the arrival disc's width, derived from it rather than written beside
+        /// it. Measured across the trail near the Core, where the disc is not there to widen it.
+        /// </summary>
+        [Test]
+        public void TheTrail_IsNarrowerThanTheDiscItLeadsTo()
+        {
+            Fixture fixture = NewFixture();
+            SummonRobots(fixture);
+
+            int target = NearSector(fixture, 6);
+            fixture.Missions.TryLaunch(MissionKind.Prospection, target, CoreRadius, out MissionRuntime mission);
+            RunToReport(fixture, mission);
+
+            int trailWidth = WidthAcross(fixture, Mathf.RoundToInt(CoreCenter.y));
+            int discWidth = WidthAcross(fixture, Mathf.RoundToInt(fixture.Grid.CenterCells(target).y));
+
+            Assert.Greater(trailWidth, 0, "the trail has to exist to be measured");
+            Assert.Less(trailWidth, discWidth, "the trail must be narrower than the disc it leads to");
+
+            fixture.Destroy();
+        }
+
+        /// <summary>Nothing is opened while the robot is still out - the trail lands with everything else, at the docking.</summary>
+        [Test]
+        public void TheTrail_IsNotOpenedUntilTheRobotIsHome()
+        {
+            Fixture fixture = NewFixture();
+            SummonRobots(fixture);
+
+            int target = NearSector(fixture, 6);
+            int before = fixture.Discovery.DiscoveredCount();
+
+            fixture.Missions.TryLaunch(MissionKind.Prospection, target, CoreRadius, out MissionRuntime mission);
+            fixture.Missions.Tick(mission.TotalSeconds * 0.4f, 0f, ComputeSystem.ReserveCap);
+
+            Assert.AreNotEqual(MissionState.Rapport, mission.State, "precondition: still out");
+            Assert.AreEqual(before, fixture.Discovery.DiscoveredCount(), "the Core cannot hear a robot in the field");
+
+            RunToReport(fixture, mission);
+            Assert.Greater(fixture.Discovery.DiscoveredCount(), before, "and it all lands at the docking");
+
+            fixture.Destroy();
+        }
+
+        /// <summary>Whether any cell within a radius of this one is discovered - the trail bends, so an exact point is the wrong question.</summary>
+        static bool DiscoveredNear(Fixture fixture, GridCoord cell, int radius)
+        {
+            for (int y = -radius; y <= radius; y++)
+            {
+                for (int x = -radius; x <= radius; x++)
+                {
+                    if (fixture.Discovery.IsDiscovered(new GridCoord(cell.X + x, cell.Y + y))) return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>How many cells of one row are discovered. The trail runs east from the Core here, so a row across it measures its width.</summary>
+        static int WidthAcross(Fixture fixture, int row)
+        {
+            int widest = 0;
+            int run = 0;
+
+            for (int x = (int)CoreCenter.x; x < (int)CoreCenter.x + 200; x++)
+            {
+                if (fixture.Discovery.IsDiscovered(new GridCoord(x, row))) run++;
+                else { widest = Mathf.Max(widest, run); run = 0; }
+            }
+
+            return Mathf.Max(widest, run);
         }
 
         /// <summary>A sector in the mining band that a robot has already opened - what a recovery needs.</summary>
@@ -839,7 +1033,9 @@ namespace Game.Tests.EditMode.Gameplay.Missions
 
             for (int i = 0; i < 20; i++)
             {
-                int sector = NearSector(fixture, i * 2);
+                // Asked for each time rather than stepped through: every trip's trail opens the ground
+                // it crossed, so a fixed offset walks into a sector a previous one already revealed.
+                int sector = UnknownSector(fixture);
                 fixture.Missions.TryLaunch(MissionKind.Prospection, sector, CoreRadius, out MissionRuntime mission);
                 RunToReport(fixture, mission);
 

@@ -69,6 +69,17 @@ namespace Game.Data
         /// <summary>How often a field study turns up one of the zone's hidden sites. Drawn at launch and carried by the mission, so a reload cannot re-roll it.</summary>
         [SerializeField, Range(0f, 1f)] float fieldStudyHiddenSiteChance = 1f / 3f;
 
+        /// <summary>
+        /// How far a robot's path bows away from the straight line, as a fraction of the distance it
+        /// covers.
+        ///
+        /// A perfectly straight trail would read as a drawn line on a map where every other edge is
+        /// noisy; much more than this reads as a miscalculation rather than a detour. A taste value, so
+        /// it lives here - unlike the band's own width, which is derived from the arrival disc and
+        /// must not be settable beside it.
+        /// </summary>
+        [SerializeField, Range(0f, 0.5f)] float trailBendFractionOfDistance = 0.1f;
+
         /// <summary>Extra seconds per cell of distance from the Core. What makes a far target actually feel far, and the only thing separating the two reconnaissances beyond their reward.</summary>
         [SerializeField, Min(0f)] float secondsPerDistanceCell = 0.5f;
 
@@ -128,6 +139,7 @@ namespace Game.Data
         public float FieldStudySeconds => fieldStudySeconds;
         public float FieldStudyReward => fieldStudyReward;
         public float FieldStudyHiddenSiteChance => fieldStudyHiddenSiteChance;
+        public float TrailBendFractionOfDistance => trailBendFractionOfDistance;
         public float SecondsPerDistanceCell => secondsPerDistanceCell;
         public float ReconnaissanceReward => reconnaissanceReward;
         public float RecoveryReward => recoveryReward;

@@ -371,9 +371,33 @@ Le bon découpage était celui utilisé partout ailleurs : le chunk, créé à l
 comme l'état de découverte. Mesuré en jeu : **4 tuiles, 64 Ko**, pour le disque du Noyau à cheval sur
 quatre chunks.
 
-**Une couche de l'empilement n'a aucune source.** Les traces de trajet demandent le chemin d'une mission
-rentrée ; rien ne le dérive ni ne le stocke, et §8 de la directive des zones décrit une dérivation qui
-n'est pas implémentée. Ce n'est pas un rendu qui manque, c'est la donnée.
+### La trace de trajet : il n'y avait pas de couche à dessiner
+
+**J'ai signalé « aucune source » alors que le problème était l'inverse.** §8 dit que le trajet
+**révèle** une bande. C'est de la découverte : les tuiles de terrain la dessinent déjà, il n'y a pas de
+couche de rendu, rien à stocker, rien de plus en sauvegarde. Le travail se réduisait à révéler la bande
+en plus du disque à l'amarrage.
+
+Le point qui manquait était l'origine, et c'était le Noyau — ce qui explique aussi la forme : les traces
+convergent en étoile parce qu'elles partent toutes du même endroit.
+
+**Une contradiction dans §8, tranchée.** Elle listait l'index de mission parmi les entrées de la
+dérivation, puis énonçait que deux missions vers la même cible suivent le même chemin. Les deux ne
+peuvent pas tenir. La graine et la cible suffisent à la reproductibilité ; l'index la détruisait sans
+rien apporter. §8 est corrigée pour que la contradiction ne survive pas à sa résolution.
+
+**Et `RevealDisc` en pas le long de la courbe plutôt qu'une forme de bande** — la règle de §6 : une
+mission demande la forme, elle ne la réimplémente pas.
+
+**Une conséquence que la couture a fait apparaître, et que seuls les tests ont vue.** Une reconnaissance
+ne vise que du vierge ; une trace ouvre du sol en chemin. Quatre tests sont passés au rouge parce qu'ils
+comptaient sur un ensemble de cibles figé — dont un qui prenait des secteurs à offset croissant et
+tombait sur du sol qu'un trajet précédent avait ouvert.
+
+**Mesuré** : une mission vers une cible à 144 cases ouvre 909 cases et retire **huit** secteurs des 288
+visables. C'est le « revenir ne révèle presque rien » vu de l'autre côté. Ce n'est pas un défaut, mais
+c'est un coût que rien n'annonçait, et il se paie surtout près du Noyau, que **toutes** les traces
+traversent.
 
 ### Le test du pochoir est faible, et voici par où le renforcer
 

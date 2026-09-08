@@ -302,6 +302,28 @@ a site now, and sites are drawn on top. See [`../carnets/expeditions.md`](../car
 **No sector grid is drawn over it.** Nobody counts squares on a strategic map, and the blocks the lines
 used to explain are gone with the per-sector image.
 
+**Trip trails are discovery, not a drawing.** A docking mission opens a band along the path it took, so
+the terrain above draws it with everything else — there is no trail layer, nothing to store, and nothing
+extra to save. `MissionSystem.RevealTrail` asks `DiscoveryRuntime.RevealDisc` in steps along the curve
+rather than writing a band shape: the disc already exists, and a mission asks for a shape rather than
+reimplementing one.
+
+- **Every trail starts at the Core**, which is where a robot leaves from and returns to, and why they
+  converge into a star rather than scattering.
+- **The band is a third of the arrival disc's width**, derived from it. Two independent numbers would
+  stop agreeing.
+- **The path comes from the world seed and the target sector, and from nothing else.** Two missions to
+  the same place therefore follow one road, so going back reveals almost nothing and a fresh direction
+  is worth more. Its curve bows by `MissionSettings.TrailBendFractionOfDistance` — a taste value, unlike
+  the width.
+- **It lands at the docking, with everything else.** Nothing reaches the Core while a robot is out.
+
+**A consequence to know: a trail spends sectors.** A reconnaissance may only be aimed at a wholly
+unknown sector, and a trail crosses ground on its way. Measured on the shipped settings, one mission to
+a target 144 cells out opened 909 cells and took **eight** sectors out of the 288 reachable ones. That
+is the design's "returning reveals almost nothing" seen from the other side, and it is stated here
+rather than discovered later.
+
 Rebuilding is guarded on `DiscoveryRuntime.Version` and then per chunk on its own stamp, so a still
 frame costs one integer comparison and a revelation repaints the one chunk it landed in. The element
 holds one child per tile, reused across pans and zooms, so moving the view allocates nothing.
@@ -316,10 +338,7 @@ holds one child per tile, reused across pans and zooms, so moving the view alloc
   states, and a side panel that changes with the scale. **The zone-choice screen comes before all of
   it**: until one exists, nothing launches at all except through `ExpeditionZoneSystem.Choose` from a
   script (§5).
-- **Mission trip traces.** The layer stack wants a band drawn along the path a returning robot took,
-  a third the width of the disc it opened. Nothing derives or stores a path: no mission carries one, and
-  the design that describes it (curved, derived from the seed, the target and the mission index) is not
-  implemented. The layer has no source, not merely no renderer.
+- ~~Mission trip traces.~~ **Done, and there was never a layer to draw.** See §6.
 - ~~The field study.~~ **Done** — `MissionKind.Reconnaissance`, three sites per zone, in the mining
   band like a prospection. See §5.
 - ~~A third explorer robot.~~ **Not missing — gone.** It came from the abnormal signal, which has been
