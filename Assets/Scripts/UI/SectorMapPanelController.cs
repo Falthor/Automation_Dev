@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Gameplay.Expeditions;
 using Game.Gameplay.Missions;
 using Game.Gameplay.Sectors;
 using Game.Grid;
@@ -36,15 +37,32 @@ namespace Game.UI
         VisualElement _missionList;
         Label _fleet;
 
+        VisualElement _crumbs;
+        Label _zoneName;
+        VisualElement _progressFill;
+        Label _progress;
+        VisualElement _siteCounts;
+
         bool _bound;
 
         /// <summary>Reused each frame rather than allocated: this is rebuilt every Update and holds at most MaxConcurrentMissions entries.</summary>
         readonly List<int> _missionTargets = new List<int>();
 
+        /// <summary>Reused for the same reason. A zone holds a dozen or so sites, and they are refilled every frame.</summary>
+        readonly List<MapSiteMarker> _siteMarkers = new List<MapSiteMarker>();
+
+        /// <summary>What the breadcrumb and the counts last said. Rebuilding a row per frame would allocate; comparing a string does not.</summary>
+        string _crumbText;
+        string _countsText;
+
+        /// <summary>Which zone the view is framed on, or -1 at the whole-world scale. The breadcrumb's middle segment.</summary>
+        int _framedZone = -1;
+
         /// <summary>Every kind, always in this order, so the same mission is always in the same place in the list.</summary>
         static readonly MissionKind[] Kinds =
         {
             MissionKind.Prospection,
+            MissionKind.EtudeDeTerrain,
             MissionKind.ExplorationLointaine,
             MissionKind.Recuperation
         };
@@ -66,9 +84,16 @@ namespace Game.UI
             _missionList = panelRoot.Q<VisualElement>("SectorMapMissionList");
             _fleet = panelRoot.Q<Label>("SectorMapFleet");
 
+            _crumbs = panelRoot.Q<VisualElement>("SectorMapCrumbs");
+            _zoneName = panelRoot.Q<Label>("SectorMapZoneName");
+            _progressFill = panelRoot.Q<VisualElement>("SectorMapProgressFill");
+            _progress = panelRoot.Q<Label>("SectorMapProgress");
+            _siteCounts = panelRoot.Q<VisualElement>("SectorMapSiteCounts");
+
             _map = new SectorMapElement();
             _map.HoveredSectorChanged += OnHoveredSectorChanged;
             _map.SelectedSectorChanged += _ => RenderTarget();
+            _map.ZoneFramingRequested += FrameZoneAt;
             panelRoot.Q<VisualElement>("SectorMapViewport").Add(_map);
 
             _root.EnableInClassList("hidden", true);
@@ -98,7 +123,9 @@ namespace Game.UI
             // is dropped with it: a target chosen last time is a decision that has since gone stale.
             if (visible && Bind())
             {
-                _map.CentreOnCore();
+                // Opens on the whole ring: the first thing to see is where one may go, not where one
+                // already is. The Core's own ground is one click away on the breadcrumb.
+                FrameWorld();
                 _map.ClearSelection();
                 RenderTarget();
             }
@@ -150,7 +177,316 @@ namespace Game.UI
             }
             _map.SetMissionTargets(_missionTargets);
 
+            RenderZoneRing();
+            RenderSites();
+            RenderCrumbs();
+            RenderCartography();
             RenderTarget();
+        }
+
+        // ---- The three scales ----
+
+        ExpeditionZoneSystem Zones => gameRuntime.ExpeditionZones;
+
+        Vector2 CoreCentre => gameRuntime.World.CoreCenterCells;
+
+        /// <summary>
+        /// The whole ring: the Core, its radius, the six zones. About twice the exploration threshold,
+        /// which is where the zones stop meaning anything - a view of the entire world would be a speck
+        /// in the middle of nothing.
+        /// </summary>
+        void FrameWorld()
+        {
+            _framedZone = -1;
+            float reach = gameRuntime.MissionRange != null ? gameRuntime.MissionRange.ExplorationMinimumCells : 200f;
+            _map.FrameCells(CoreCentre, reach * 2f);
+        }
+
+        /// <summary>The Core's own ground, at a scale the game camera cannot reach. Its radius is exactly what has to fit.</summary>
+        void FrameCoreGround()
+        {
+            _framedZone = -1;
+            float radius = Zones != null ? Zones.InnerRadiusCells : gameRuntime.World.ActionRadiusCells;
+            _map.FrameCells(CoreCentre, Mathf.Max(1f, radius));
+        }
+
+        /// <summary>
+        /// One zone. Framed on the middle of its own wedge, with a radius that fits whichever of its two
+        /// extents is the larger - a 60° slice is wider across its arc than it is deep, and framing on
+        /// the depth alone would cut both its sides off.
+        /// </summary>
+        void FrameZone(int zone)
+        {
+            if (Zones == null || zone < 0 || zone >= Zones.ZoneCount) return;
+
+            _framedZone = zone;
+
+            ExpeditionZone bounds = Zones.ZoneOf(zone);
+            float midRadius = (bounds.InnerRadiusCells + bounds.OuterRadiusCells) * 0.5f;
+            float radians = bounds.CentreDegrees * Mathf.Deg2Rad;
+
+            var centre = CoreCentre + new Vector2(Mathf.Cos(radians), Mathf.Sin(radians)) * midRadius;
+            float halfDepth = (bounds.OuterRadiusCells - bounds.InnerRadiusCells) * 0.5f;
+            float halfArc = midRadius * Mathf.Sin(bounds.HalfAngleDegrees * Mathf.Deg2Rad);
+
+            _map.FrameCells(centre, Mathf.Max(halfDepth, halfArc));
+        }
+
+        /// <summary>A click at the whole-world scale: the zone it landed in becomes the frame. Off the ring, it takes the player back to their own ground.</summary>
+        void FrameZoneAt(Vector2 cellPosition)
+        {
+            int zone = Zones != null ? Zones.ZoneAt(cellPosition) : -1;
+
+            if (zone >= 0) FrameZone(zone);
+            else FrameCoreGround();
+        }
+
+        // ---- The breadcrumb ----
+
+        /// <summary>
+        /// `Monde › Zone nord-est › Cratère de Suie`. The earlier segments reframe; the last is where one
+        /// is, so it leads nowhere.
+        ///
+        /// Rebuilt only when the text actually changes - a row of buttons per frame would allocate for
+        /// nothing, and this is asked every frame.
+        /// </summary>
+        void RenderCrumbs()
+        {
+            string zoneSegment = _framedZone >= 0 ? ZoneName(_framedZone) : null;
+            string placeSegment = PlaceName();
+            string text = $"{zoneSegment}|{placeSegment}";
+            if (text == _crumbText) return;
+
+            _crumbText = text;
+            _crumbs.Clear();
+
+            bool leafIsPlace = placeSegment != null;
+            AddCrumb("Monde", inert: _framedZone < 0 && !leafIsPlace, FrameWorld);
+
+            if (zoneSegment != null)
+            {
+                AddSeparator();
+                AddCrumb(zoneSegment, inert: !leafIsPlace, () => FrameZone(_framedZone));
+            }
+
+            if (leafIsPlace)
+            {
+                AddSeparator();
+                AddCrumb(placeSegment, inert: true, null);
+            }
+        }
+
+        void AddCrumb(string text, bool inert, System.Action reframe)
+        {
+            if (inert || reframe == null)
+            {
+                var label = new Label(text);
+                label.AddToClassList("sector-map-crumb-current");
+                _crumbs.Add(label);
+                return;
+            }
+
+            var button = new Button(() => reframe()) { text = text };
+            button.AddToClassList("sector-map-crumb");
+            _crumbs.Add(button);
+        }
+
+        void AddSeparator()
+        {
+            var separator = new Label("›");
+            separator.AddToClassList("sector-map-crumb-separator");
+            _crumbs.Add(separator);
+        }
+
+        /// <summary>The aimed sector's name, or nothing. Only a reconnoitred sector has one to give.</summary>
+        string PlaceName()
+        {
+            int sector = _map.SelectedSector;
+            if (sector < 0 || gameRuntime.SectorCatalog == null) return null;
+            if (gameRuntime.Sectors.IsWhollyUnknown(sector, gameRuntime.Discovery)) return null;
+
+            return gameRuntime.SectorCatalog.NameOf(sector);
+        }
+
+        /// <summary>
+        /// A zone's name is its bearing - "Zone nord-est". Taken from the eight-point compass rather
+        /// than from a list of six, so changing the zone count renames them instead of running out.
+        /// </summary>
+        static readonly string[] CompassPoints =
+        {
+            "est", "nord-est", "nord", "nord-ouest", "ouest", "sud-ouest", "sud", "sud-est"
+        };
+
+        string ZoneName(int zone)
+        {
+            if (Zones == null || zone < 0 || zone >= Zones.ZoneCount) return string.Empty;
+
+            float degrees = Mathf.Repeat(Zones.ZoneOf(zone).CentreDegrees, 360f);
+            int point = Mathf.RoundToInt(degrees / 45f) % CompassPoints.Length;
+            return "Zone " + CompassPoints[point];
+        }
+
+        // ---- The layers the zones own ----
+
+        void RenderZoneRing()
+        {
+            if (Zones == null) return;
+
+            _map.SetZoneRing(Zones.InnerRadiusCells, Zones.OuterRadiusCells, Zones.ZoneCount, Zones.ChosenZone);
+        }
+
+        /// <summary>The colour of each kind of site. Here rather than in the element, beside the label it goes with, so a kind is named and coloured in one place.</summary>
+        static Color TintOf(ExpeditionSiteKind kind)
+        {
+            switch (kind)
+            {
+                case ExpeditionSiteKind.Prospection: return new Color(0.937f, 0.624f, 0.153f, 1f);
+                case ExpeditionSiteKind.EtudeDeTerrain: return new Color(0.333f, 0.867f, 0.961f, 1f);
+                case ExpeditionSiteKind.ExplorationLointaine: return new Color(0.62f, 0.50f, 0.83f, 1f);
+                case ExpeditionSiteKind.Recuperation: return new Color(0.44f, 0.78f, 0.51f, 1f);
+                default: return new Color(0.55f, 0.58f, 0.62f, 1f);
+            }
+        }
+
+        static string LabelOf(ExpeditionSiteKind kind)
+        {
+            switch (kind)
+            {
+                case ExpeditionSiteKind.Prospection: return "Prospection";
+                case ExpeditionSiteKind.EtudeDeTerrain: return "Étude de terrain";
+                case ExpeditionSiteKind.ExplorationLointaine: return "Exploration lointaine";
+                case ExpeditionSiteKind.Recuperation: return "Récupération";
+                default: return "Étude de civilisation";
+            }
+        }
+
+        /// <summary>A site needing units. It is placed and shown from the start, locked - a mission that promises reads better than one that appears from nowhere.</summary>
+        static bool NeedsUnits(ExpeditionSiteKind kind) => kind == ExpeditionSiteKind.EtudeCivilisation;
+
+        /// <summary>
+        /// The zone's sites, in the terms the map draws them in. Only the chosen zone's: the other five
+        /// have no terrain shown and nothing to offer, and drawing their sites would invite a click that
+        /// is refused.
+        /// </summary>
+        void RenderSites()
+        {
+            _siteMarkers.Clear();
+
+            if (Zones != null && Zones.ChosenZone >= 0)
+            {
+                foreach (ExpeditionZoneSite site in Zones.SitesOf(Zones.ChosenZone))
+                {
+                    if (!site.IsRevealed) continue;
+
+                    MapSiteState state =
+                        site.IsConsumed ? MapSiteState.Done :
+                        NeedsUnits(site.Kind) ? MapSiteState.Locked :
+                                                MapSiteState.Available;
+
+                    _siteMarkers.Add(new MapSiteMarker(
+                        new Vector2(site.Cell.X + 0.5f, site.Cell.Y + 0.5f),
+                        state, TintOf(site.Kind), LabelOf(site.Kind)));
+                }
+            }
+
+            _map.SetSites(_siteMarkers);
+        }
+
+        /// <summary>
+        /// How far the zone has been mapped, and what it still holds.
+        ///
+        /// <b>In surface, never in sites.</b> A field study adds sites, so a bar over a site count would
+        /// go backwards the moment the player found something - see ExpeditionZoneSystem.CartographyOf.
+        /// The counts beside it are a different statement: how much of what kind is left.
+        /// </summary>
+        void RenderCartography()
+        {
+            if (Zones == null || Zones.ChosenZone < 0)
+            {
+                _zoneName.text = "Aucune zone choisie";
+                _progress.text = "—";
+                _progressFill.style.width = new StyleLength(Length.Percent(0f));
+                if (_countsText != null) { _siteCounts.Clear(); _countsText = null; }
+                return;
+            }
+
+            int zone = Zones.ChosenZone;
+            _zoneName.text = ZoneName(zone);
+
+            ExpeditionZoneCartography mapped = Zones.CartographyOf(zone, gameRuntime.Discovery);
+            _progressFill.style.width = new StyleLength(Length.Percent(mapped.Ratio * 100f));
+            _progress.text = $"{mapped.Ratio * 100f:0.0} %".Replace('.', ',');
+
+            RenderSiteCounts(zone);
+        }
+
+        /// <summary>
+        /// The count by kind, which is what makes a zone legible without hovering every point.
+        ///
+        /// <b>What needs units is a line of its own and never joins the others.</b> A count that
+        /// included it would say a mission is available when it cannot be launched for the whole of the
+        /// introduction.
+        /// </summary>
+        void RenderSiteCounts(int zone)
+        {
+            var tally = new int[SiteKinds.Length];
+            var done = new int[SiteKinds.Length];
+
+            foreach (ExpeditionZoneSite site in Zones.SitesOf(zone))
+            {
+                if (!site.IsRevealed) continue;
+
+                int slot = System.Array.IndexOf(SiteKinds, site.Kind);
+                if (slot < 0) continue;
+
+                if (site.IsConsumed) done[slot]++;
+                else tally[slot]++;
+            }
+
+            var text = new System.Text.StringBuilder();
+            for (int i = 0; i < SiteKinds.Length; i++) text.Append(tally[i]).Append('/').Append(done[i]).Append(';');
+            if (text.ToString() == _countsText) return;
+
+            _countsText = text.ToString();
+            _siteCounts.Clear();
+
+            for (int i = 0; i < SiteKinds.Length; i++)
+            {
+                if (tally[i] == 0 && done[i] == 0) continue;
+                _siteCounts.Add(BuildCountRow(SiteKinds[i], tally[i], done[i]));
+            }
+        }
+
+        static readonly ExpeditionSiteKind[] SiteKinds =
+        {
+            ExpeditionSiteKind.Prospection,
+            ExpeditionSiteKind.EtudeDeTerrain,
+            ExpeditionSiteKind.ExplorationLointaine,
+            ExpeditionSiteKind.Recuperation,
+            ExpeditionSiteKind.EtudeCivilisation
+        };
+
+        VisualElement BuildCountRow(ExpeditionSiteKind kind, int left, int done)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("sector-map-count-row");
+            if (NeedsUnits(kind)) row.AddToClassList("sector-map-count-locked");
+
+            var dot = new VisualElement();
+            dot.AddToClassList("sector-map-count-dot");
+            dot.style.backgroundColor = NeedsUnits(kind) ? new Color(0.45f, 0.48f, 0.53f, 0.75f) : TintOf(kind);
+            row.Add(dot);
+
+            var name = new Label(NeedsUnits(kind) ? LabelOf(kind) + " · unités" : LabelOf(kind));
+            name.AddToClassList("sector-map-count-name");
+            row.Add(name);
+
+            var value = new Label(done > 0 ? $"{left} · {done} faits" : left.ToString());
+            value.AddToClassList("sector-map-count-value");
+            value.AddToClassList("mono-value");
+            row.Add(value);
+
+            return row;
         }
 
         // ---- The aimed sector, and what may be sent to it ----
@@ -283,6 +619,7 @@ namespace Game.UI
             switch (kind)
             {
                 case MissionKind.Prospection: return "Prospection";
+                case MissionKind.EtudeDeTerrain: return "Étude de terrain";
                 case MissionKind.ExplorationLointaine: return "Exploration lointaine";
                 default: return "Récupération";
             }

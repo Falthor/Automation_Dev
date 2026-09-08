@@ -2171,3 +2171,118 @@
     font-size: 11px;
     margin-right: 8px;
 }
+
+/* --- The map screen: breadcrumb, cartography, sites ---
+   Right angles, full-width separators, small caps for section labels only, and every number in the
+   tabular monospace the building panels already use. */
+
+.sector-map-crumbs {
+    flex-direction: row;
+    align-items: center;
+    padding-bottom: 7px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgb(38, 45, 54);
+}
+
+.sector-map-crumb {
+    color: rgb(138, 152, 160);
+    font-size: 11px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.sector-map-crumb:hover {
+    color: rgb(85, 221, 245);
+}
+
+/* Where one is, so inert - it leads nowhere and must not look like it does. */
+.sector-map-crumb-current {
+    color: rgb(222, 232, 238);
+    font-size: 11px;
+    margin: 0;
+}
+
+.sector-map-crumb-separator {
+    color: rgb(78, 88, 96);
+    font-size: 11px;
+    margin: 0 6px;
+}
+
+.sector-map-zone-name {
+    color: rgb(222, 232, 238);
+    font-size: 13px;
+    -unity-font-style: bold;
+    margin-top: 3px;
+}
+
+.sector-map-progress-track {
+    height: 4px;
+    background-color: rgb(28, 34, 41);
+    margin-top: 6px;
+}
+
+.sector-map-progress-fill {
+    height: 4px;
+    background-color: rgb(85, 221, 245);
+    width: 0;
+}
+
+.sector-map-figure {
+    color: rgb(138, 152, 160);
+    font-size: 11px;
+    margin-top: 4px;
+}
+
+.sector-map-counts {
+    flex-direction: column;
+    margin-top: 2px;
+}
+
+.sector-map-count-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 3px;
+}
+
+.sector-map-count-dot {
+    width: 6px;
+    height: 6px;
+    margin-right: 7px;
+}
+
+.sector-map-count-name {
+    color: rgb(200, 205, 210);
+    font-size: 11px;
+    flex-grow: 1;
+}
+
+.sector-map-count-value {
+    color: rgb(222, 232, 238);
+    font-size: 11px;
+}
+
+/* Missions needing units are a line of their own and never enter "available" - a counter that
+   included them would be lying about what can be launched. */
+.sector-map-count-locked .sector-map-count-name,
+.sector-map-count-locked .sector-map-count-value {
+    color: rgb(120, 130, 138);
+}
+
+/* The one label shown without hovering, over the site put forward. */
+.sector-map-site-label {
+    color: rgb(222, 232, 238);
+    font-size: 10px;
+    background-color: rgba(11, 14, 18, 0.85);
+    padding: 2px 5px;
+}
+
+.sector-map-hint {
+    color: rgb(100, 110, 118);
+    font-size: 10px;
+    margin-top: 5px;
+    padding-top: 6px;
+    border-top-width: 1px;
+    border-top-color: rgb(38, 45, 54);
+}
