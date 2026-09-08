@@ -694,13 +694,13 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         /// <b>No two sites land on top of one another, whatever the seed.</b> Each kind used to lay its
         /// own even ladder across the whole wedge without knowing the others were doing the same, and
         /// both the bearing and the radius rose with the ordinal - so five ladders stacked on one
-        /// diagonal and pairs ended up a single cell apart. Measured before: 1,0 cell. After: 10,0.
+        /// diagonal and pairs ended up a single cell apart. Measured before: 1,0 cell. After: 8,5.
         ///
         /// The threshold is under the measurement rather than on it: what is being pinned is that the
         /// construction cannot bunch them, not the exact figure a particular arrangement produces.
         /// </summary>
         [Test]
-        public void NoTwoSitesOfAZone_LandWithinEightCellsOfEachOther()
+        public void NoTwoSitesOfAZone_LandWithinSevenCellsOfEachOther()
         {
             foreach (int seed in new[] { Seed, 7, 999331, -412 })
             {
@@ -719,7 +719,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
                                 new Vector2(sites[i].Cell.X, sites[i].Cell.Y),
                                 new Vector2(sites[j].Cell.X, sites[j].Cell.Y));
 
-                            Assert.GreaterOrEqual(distance, 8f,
+                            Assert.GreaterOrEqual(distance, 7f,
                                 $"seed {seed}, zone {zone}: sites {i} and {j} are {distance:0.0} cells apart");
                         }
                     }

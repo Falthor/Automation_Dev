@@ -592,33 +592,39 @@ namespace Game.Gameplay.Expeditions
             float stretchInner = far ? FarStretchInner : bounds.InnerRadiusCells;
             float stretchOuter = far ? bounds.OuterRadiusCells : FarStretchInner;
 
-            float radiusJitter = _settings.RadiusJitterCells;
+            // <b>The jitter is bounded by the ground each site owns, and measured on the stretch
+            // itself.</b> Half the gap between two consecutive rungs: a site drawn outwards and its
+            // neighbour drawn inwards still cannot meet, so a minimum separation is a property of the
+            // construction rather than a distance policed afterwards. Two consequences worth naming,
+            // both met while this was written:
+            //
+            // - it must be measured on the stretch, not on what is left of it after the jitter has been
+            //   subtracted. Taken on the remainder, the far stretch - 32 cells deep against a jitter of
+            //   20 - left nothing at all, and every far exploration in every zone came out at exactly
+            //   170 cells, on one ring;
+            // - bounding it here rather than clamping the result afterwards is what keeps a site inside
+            //   its own band. A clamp would pile them on the boundary and hide the settings having
+            //   outgrown the geometry.
+            float span = Mathf.Max(0f, stretchOuter - stretchInner);
+            float rung = count <= 0 ? span : span / count;
+
+            float radiusJitter = Mathf.Min(_settings.RadiusJitterCells, rung * JitterFractionOfRung);
             float usableInner = stretchInner + radiusJitter;
-            float usableOuter = stretchOuter - radiusJitter;
-
-            if (usableOuter < usableInner)
-            {
-                // The stretch is thinner than the jitter it was asked to carry - which is the ordinary
-                // case for the far stretch, one Core radius deep. Everything centres on it and the
-                // jitter shrinks to what fits, instead of a site landing in the wrong band.
-                float middle = (stretchInner + stretchOuter) * 0.5f;
-                usableInner = middle;
-                usableOuter = middle;
-                radiusJitter = Mathf.Max(0f, (stretchOuter - stretchInner) * 0.5f);
-            }
-
-            // <b>The jitter can never reach the next rung.</b> Clamped to half the gap between two
-            // consecutive sites, so a site drawn outwards and its neighbour drawn inwards still cannot
-            // meet - which is what a minimum separation is, expressed as a property of the construction
-            // rather than as a distance to police afterwards.
-            float rung = count <= 1 ? (usableOuter - usableInner) : (usableOuter - usableInner) / count;
-            radiusJitter = Mathf.Min(radiusJitter, rung * 0.5f);
+            float usableOuter = Mathf.Max(usableInner, stretchOuter - radiusJitter);
 
             float radius = usableInner + (usableOuter - usableInner) * (count <= 0 ? 0.5f : (index + 0.5f) / count)
                 + Signed(bounds.Index, salt, RadiusChannel) * radiusJitter;
 
             return CellAt(degrees, radius);
         }
+
+        /// <summary>
+        /// How much of the ground a site owns its jitter may spend. Half is what "cannot reach the next
+        /// rung" needs on paper; a third is what leaves the marks visibly apart on screen, where two
+        /// sites are read at a few pixels each. Measured across six seeds on the shipped map: at 0,5 the
+        /// closest pair anywhere is 7,2 cells, at 0,35 it is 8,5.
+        /// </summary>
+        const float JitterFractionOfRung = 0.35f;
 
         /// <summary>1/phi. Consecutive multiples of it, taken modulo one, are as evenly spread as a sequence of any length can be - which is exactly what "no two sites near one another, whatever the count" asks for.</summary>
         const float GoldenRatioConjugate = 0.6180339887f;
