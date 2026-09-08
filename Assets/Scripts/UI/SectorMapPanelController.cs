@@ -403,21 +403,37 @@ namespace Game.UI
         /// </summary>
         void RenderCartography()
         {
-            if (Zones == null || Zones.ChosenZone < 0)
+            // The zone being *framed* when none has been chosen yet, so the pane describes what the
+            // player is looking at. Saying "aucune zone choisie" while the breadcrumb read "Zone est"
+            // put the same word on two different things one line apart.
+            int zone = Zones == null ? -1 : Zones.ChosenZone >= 0 ? Zones.ChosenZone : _framedZone;
+
+            if (zone < 0)
             {
-                _zoneName.text = "Aucune zone choisie";
-                _progress.text = "—";
+                _zoneName.text = "—";
+                _progress.text = "Aucune zone cadrée";
                 _progressFill.style.width = new StyleLength(Length.Percent(0f));
                 if (_countsText != null) { _siteCounts.Clear(); _countsText = null; }
                 return;
             }
 
-            int zone = Zones.ChosenZone;
-            _zoneName.text = ZoneName(zone);
+            // Chosen and framed are two states, and only one of them locks the other five. Said once,
+            // here, rather than left for the player to infer from a refusal further down.
+            _zoneName.text = Zones.ChosenZone == zone ? ZoneName(zone) : ZoneName(zone) + " · non choisie";
 
             ExpeditionZoneCartography mapped = Zones.CartographyOf(zone, gameRuntime.Discovery);
             _progressFill.style.width = new StyleLength(Length.Percent(mapped.Ratio * 100f));
             _progress.text = $"{mapped.Ratio * 100f:0.0} %".Replace('.', ',');
+
+            // <b>An unchosen zone gives no counts.</b> The six are equivalent until a robot has been,
+            // and a tally would say which direction is richest - the one thing the design refuses to
+            // answer before the choice is made.
+            if (Zones.ChosenZone != zone)
+            {
+                if (_countsText != null) { _siteCounts.Clear(); _countsText = null; }
+                _countsTitle.text = "SITES CONNUS";
+                return;
+            }
 
             // The whole ring and one zone are different questions. Up there the player is choosing a
             // direction, so what matters is how much is left to do at all; inside a zone they are
@@ -751,10 +767,14 @@ namespace Game.UI
             _hoverDetail.text = $"Risque estimé : {RiskLabel(gameRuntime.SectorCatalog.RiskOf(sector))}";
         }
 
+        /// <summary>
+        /// Nothing under the pointer. The footer's own hint line says what the map does, so this says
+        /// nothing at all rather than repeating it - the two were printed one above the other.
+        /// </summary>
         void ShowNothingHovered()
         {
             _hoverName.text = string.Empty;
-            _hoverDetail.text = "Molette pour zoomer, glisser pour déplacer.";
+            _hoverDetail.text = string.Empty;
         }
 
         /// <summary>Qualitative, and always qualified as an estimate — §5.2 forbids ever showing a number.</summary>

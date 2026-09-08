@@ -399,6 +399,19 @@ visables. C'est le « revenir ne révèle presque rien » vu de l'autre côté. 
 c'est un coût que rien n'annonçait, et il se paie surtout près du Noyau, que **toutes** les traces
 traversent.
 
+**Et ce que ça produit vaut mieux que ce que ça coûte.** La zone se ferme **depuis l'intérieur**, comme
+la bande minière se ferme quand le rayon grandit : le joueur ne perd pas des destinations au hasard, il
+perd les plus proches, donc chaque mission repousse mécaniquement la suivante vers le lointain. Une
+exploration qui s'éloigne à mesure qu'on explore est une progression naturelle, et elle donne un sens à
+la durée qui croît avec la distance.
+
+**Personne ne l'a décidé** : c'est la rencontre de deux règles écrites séparément — la trace révèle en
+chemin, une reconnaissance ne vise que du vierge. Ça se juge en jouant, pas sur le papier.
+
+**Le levier, si ça gêne, est la règle « vierge » de `SectorMissionRange`, pas la trace.** Une cible
+partiellement découverte a encore du terrain à révéler et pourrait rester visable. Noté ici plutôt que
+tranché : la mesure viendra de l'introduction jouée.
+
 ### Le test du pochoir est faible, et voici par où le renforcer
 
 Écrit **avant** d'avoir la mesure, délibérément : plus tard, cette note deviendrait la justification
