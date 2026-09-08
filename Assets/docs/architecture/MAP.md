@@ -174,7 +174,78 @@ fault. Enumeration is bounded by a limit: the exploration band holds most of the
 wanting somewhere to go wants a few destinations, not four hundred thousand — the predicate
 `EligibilityOf` is the primary operation, since a mission is launched by designating one sector.
 
-## 5. What is not built yet
+## 5. Expedition zones
+
+An **expedition zone** is the wedge of ground a run chooses and maps. `ExpeditionZoneSystem`
+(`Game.Gameplay.Expeditions`), owned by `GameRuntime`, built before `MissionSystem` because the launch
+path is gated on it.
+
+**Three divisions cohabit and the vocabulary keeps them apart.** A *sector* (§4) is the square a
+mission is aimed at. A *signal zone* is the territory a Core or an AI agent holds. An *expedition
+zone* is this. The bare word "zone" is still reserved for the second; the qualified name is used
+everywhere in code, and there is no type, field or local called `Zone`.
+
+**Six angular slices, and the count is the only figure entered.** `ExpeditionZoneSettings`
+(`Assets/Data/World/ExpeditionZoneSettings.asset`) holds the count, the jitters (±20 cells, ±10 % of a
+slice) and every site count. The slice angle is `360 / count` and is a property, never a field: an
+angle entered beside a count is a second figure that stops agreeing, and six 90° slices do not cover a
+circle.
+
+**Radial bounds.**
+
+| | |
+|---|---|
+| inner | the Core's action radius **at the moment the zones were laid out** |
+| outer | the exploration threshold plus one maximum Core radius — **186 cells** at the shipped 154 and 32 |
+
+The outer edge is what makes a zone finite, and therefore mappable to the end at all: an unbounded 60°
+wedge runs to the corner of the world and never finishes. It is derived, read off
+`SectorMissionRange.ExplorationMinimumCells` rather than recomputed — two copies of
+"2 × max radius + territory gap" are two things that stop agreeing the day a Core reaches further.
+
+**The inner edge is frozen at layout and travels in the save**, which is a deliberate reading of the
+design's "current radius". Live, it would shrink the zone under the player as research widens the Core:
+sites near the inner edge would fall out of their own zone, and — measurably — cartography would go
+*backwards*, because dropping ground that is fully discovered from both halves of a ratio lowers it.
+See [`../carnets/expeditions.md`](../carnets/expeditions.md).
+
+**Membership is one division, not one test per zone.** `ZoneAt` folds a bearing into `[0, 360)` and
+divides by the slice, so the circle is partitioned by construction — no seam can be claimed twice or by
+nobody, whatever the count. `ZoneOfSector` measures on the sector's **centre**, the same rule the
+mission bands use.
+
+**The choice locks the rest.** All six are available until one is chosen; afterwards only that one is.
+`MissionSystem.CanLaunch` applies it, ahead of every kind's own rules, so a recovery is as refused
+outside the zone as a reconnaissance — `LaunchRefusal.NoZoneChosen` and `OutsideChosenZone`. **Nothing
+launches before a zone is chosen.**
+
+**Content is derived and deterministic**, like a sector's: pure functions of the world seed and the
+zone index through `Game.Core.DeterministicHash`, never `System.Random`. Three prospections, two far
+reconnaissances, 2–3 recoveries, 1–2 civilisation studies, and a finite hidden stock of 3–4. A site's
+identity is derived; only what the player did to it (revealed, consumed) enters the save.
+
+- **A site is placed where its own kind of mission may go.** Far reconnaissances sit past the
+  exploration threshold, which is the only band a far reconnaissance may be sent into; everything else
+  sits short of it, where a prospection may be sent. A site its own mission cannot reach would be a
+  quest nobody can accept.
+- **The jitter can never throw a site out of its zone or its band**: the even ladder is laid across the
+  span *minus* the jitter on both sides, so what is drawn lands back inside. Structural rather than
+  clamped — a clamp would pile sites on a boundary and hide the settings having outgrown the geometry.
+- **Exactly one of the two far reconnaissances carries the secondary Core site**, drawn between them, so
+  some runs find it on the first and some on the second. The other carries the trace that puts the
+  zone's civilisation study on the map: it must not be empty, or half the players discover that one of
+  their two quests held nothing.
+- **The hidden stock is finite by construction** — a fixed-length part of a derived list, not a draw
+  repeated on demand. Once spent, a field study finds only ground.
+
+**Cartography is measured in surface, never in sites.** A field study *adds* sites, so a bar over a
+site count would go backwards the moment the player found something. Over a fixed set of cells with a
+discovery that only ever adds, monotonic is a property of the construction rather than one to police.
+`CartographyOf` walks the bounding box of the outer disc once for all zones — so the six can never
+disagree about the partition — and caches against `DiscoveryRuntime.Version`, which already exists to
+answer "has anything actually changed". It allocates nothing.
+
+## 6. What is not built yet
 
 - ~~Lazy terrain generation.~~ **Done, and differently than planned.** Terrain is no longer
   materialised at all: `GetTerrainType` computes its answer from the seed and the coordinate, so

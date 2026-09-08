@@ -5,6 +5,7 @@ using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Directives;
+using Game.Gameplay.Expeditions;
 using Game.Gameplay.Missions;
 using Game.Gameplay.Notifications;
 using Game.Gameplay.Power;
@@ -90,6 +91,13 @@ namespace Game.Presentation
         /// <summary>How the expedition system is tuned. Optional: null means a world without expeditions.</summary>
         [SerializeField] MissionSettings missionSettings;
 
+        /// <summary>
+        /// How the ground around the Core is cut into expedition zones, and what one holds. Optional:
+        /// null means a world where a mission may be aimed anywhere its band allows, which is what the
+        /// game did before the zones existed.
+        /// </summary>
+        [SerializeField] ExpeditionZoneSettings expeditionZoneSettings;
+
         /// <summary>What grows on the ground and how thickly. Optional: null means a world with no decor, which is a plain world rather than a broken one.</summary>
         [SerializeField] DecorSettings decorSettings;
 
@@ -152,6 +160,13 @@ namespace Game.Presentation
 
         /// <summary>Which sectors are currently within mission reach. Reads the Core's radius at call time, so extending it moves the ring on its own.</summary>
         public SectorMissionRange MissionRange { get; private set; }
+
+        /// <summary>
+        /// The six expedition zones, their derived content, and which one the player is working. Null
+        /// when no zone settings are configured, which is a world where a mission may go anywhere its
+        /// band allows.
+        /// </summary>
+        public ExpeditionZoneSystem ExpeditionZones { get; private set; }
 
         /// <summary>The expedition process: probes, missions in flight, reports. Null when no mission settings are configured, which is a world without expeditions rather than a broken one.</summary>
         public MissionSystem Missions { get; private set; }
@@ -371,9 +386,20 @@ namespace Game.Presentation
             SectorMap = new SectorMapImage(Sectors, Discovery);
             _explorerPark = new ExplorerRobotParkView(Grid, missionSettings, DepthSort);
 
+            // Before the missions, which are gated on it. The inner edge is read off the Core once, here,
+            // and then travels in the save: the zones are cut against the ground the Core already owned
+            // when they were laid out, and re-cutting them later would move a run's map underneath it.
+            if (expeditionZoneSettings != null)
+            {
+                ExpeditionZones = new ExpeditionZoneSystem(expeditionZoneSettings, Sectors, MissionRange,
+                    World?.CoreCenterCells ?? Vector2.zero, World?.ActionRadiusCells ?? 0, Terrain.Seed);
+                ExpeditionZones.RestoreState(loadedSave?.ExpeditionZones);
+            }
+
             if (missionSettings != null)
             {
-                Missions = new MissionSystem(missionSettings, Sectors, Discovery, SectorCatalog, Compute, MissionRange, Terrain.Seed);
+                Missions = new MissionSystem(missionSettings, Sectors, Discovery, SectorCatalog, Compute,
+                    MissionRange, ExpeditionZones, Terrain.Seed);
 
                 // Set after construction because it needs the ore definitions world generation owns.
                 // Placed content wins over the derivation, and World has already run - which is the
@@ -528,6 +554,7 @@ namespace Game.Presentation
                 // storing it would be storing what the seed already says.
                 DecorRemoved = Decor?.CaptureState(),
                 Missions = Missions?.CaptureState(),
+                ExpeditionZones = ExpeditionZones?.CaptureState(),
                 ComputeReserve = Compute.Reserve,
                 ResearchActiveId = Research.ActiveResearch != null ? Research.ActiveResearch.Id : null,
                 ResearchProgress = Research.AbsorbedCu,

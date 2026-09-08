@@ -298,6 +298,11 @@ namespace Game.UI
                 case MissionSystem.LaunchRefusal.NotYetReconnoitred: return "à reconnaître d'abord";
                 case MissionSystem.LaunchRefusal.NothingToRecover: return "rien à récupérer";
                 case MissionSystem.LaunchRefusal.AlreadyRecovered: return "déjà récupéré";
+
+                // Not an interface for the zones - that is its own chantier. These two only keep this
+                // switch from answering "impossible" to a refusal that has a reason worth reading.
+                case MissionSystem.LaunchRefusal.NoZoneChosen: return "aucune zone choisie";
+                case MissionSystem.LaunchRefusal.OutsideChosenZone: return "hors de la zone choisie";
                 default: return "impossible";
             }
         }

@@ -527,3 +527,39 @@ A dispatched robot's claim moves out of the site's reservations and into its own
 **Demolition and its overflow.** The building disappears immediately; its construction cost becomes a repatriation job a robot carries back - Core chest first, then any Storage with room for the whole cargo. If no container anywhere can take it, the robot keeps the cargo, a notification names the cause and the parade, and after 20 seconds **the cargo is destroyed**. This loss is a deliberate, documented simplification, punitive and silent by design: it is the anti-deadlock that keeps a permanently loaded robot from making construction impossible (and the reason there are two robots - one can still build a Storage while the other is stuck). It is a decision, not an oversight: the day it should change, the alternatives are dropping the cargo on the ground or refusing the demolition outright.
 
 **Notifications.** `NotificationSystem` (`Game.Gameplay.Notifications`) is a generic queue - severity, message, display duration, optional countdown - read by a left-edge banner. A blocked robot and a chantier missing materials are its first two callers, not its purpose; it never blocks interaction and no gameplay decision ever reads it.
+
+## 16. Expedition zones
+
+Implemented by `ExpeditionZoneSystem` (`Game.Gameplay.Expeditions`), owned by `GameRuntime` and built **before** `MissionSystem`, which is gated on it. Tuned by `ExpeditionZoneSettings` (`Game.Data`, `Assets/Data/World/ExpeditionZoneSettings.asset`). See [`MAP.md`](MAP.md) §5 for the subsystem's own description.
+
+```csharp
+public int ZoneCount { get; }
+public float SliceDegrees { get; }          // 360 / count, derived
+public float InnerRadiusCells { get; }      // frozen at layout, restored from the save
+public float OuterRadiusCells { get; }      // threshold + one max Core radius, derived
+public ExpeditionZone ZoneOf(int index)
+public int ZoneAt(Vector2 cellPosition)     // -1 for ground no zone covers
+public int ZoneOfSector(int sectorIndex)
+
+public int ChosenZone { get; }              // -1 while the six are on offer
+public bool IsAvailable(int zoneIndex)
+public ZoneChoiceRefusal Choose(int zoneIndex)
+public ExpeditionZoneRefusal MayTarget(int sectorIndex)
+
+public IReadOnlyList<ExpeditionZoneSite> SitesOf(int zoneIndex)
+public int HiddenSitesLeft(int zoneIndex)
+public ExpeditionZoneSite RevealNextHiddenSite(int zoneIndex)   // null once the stock is spent
+public bool Consume(int zoneIndex, int indexInZone)
+public ExpeditionZoneCartography CartographyOf(int zoneIndex, DiscoveryRuntime discovery)
+
+public JObject CaptureState()
+public void RestoreState(JObject state)
+```
+
+**Nothing derived is settable.** The slice angle comes off the count; the outer edge comes off `SectorMissionRange.ExplorationMinimumCells` plus its `MaxCoreRadiusCells`. Both are properties, never fields: entering either beside the figure it is derived from makes a second copy able to contradict it.
+
+**The choice is applied on the real launch path.** `MissionSystem.CanLaunch` calls `MayTarget` **before** any kind's own rules, and adds two refusals - `LaunchRefusal.NoZoneChosen` and `LaunchRefusal.OutsideChosenZone`. It is a required constructor argument of `MissionSystem` (nullable in value, not omissible in code) so that no caller can quietly ship a game where the rule exists and is never asked. **Nothing launches at all before a zone is chosen**, which is the design's own rule and not a defect to route around.
+
+**Cartography is surface, never sites** (`ExpeditionZoneCartography` is `DiscoveredCells` / `TotalCells`). Field studies add sites, so a site count would go backwards; over a fixed cell set with append-only discovery, monotonic is structural. Measured on demand in one walk for all zones and cached against `DiscoveryRuntime.Version`; allocates nothing.
+
+**Save:** `SaveData.ExpeditionZones` (a `JObject`) round-trips the chosen zone, the frozen inner radius, and only the sites whose state has moved off what the derivation gives. Everything else - bounds, sites, their positions and findings - is a pure function of `SaveData.TerrainSeed` and re-derives at load, exactly like a sector's identity (§14). No `Version` bump: an additive field with a per-field fallback, restoring as a run with the six zones still on offer.

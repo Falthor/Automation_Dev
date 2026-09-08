@@ -193,3 +193,55 @@ pourtant présent sur le disque.
 `Unity_RunCommand` compile son propre extrait, pas le projet : son `isCompilationSuccessful` ne dit
 rien de l'état des assemblies du jeu. **Seule la console le dit.** Le vert d'une suite qui n'a pas
 recompilé ne vaut rien, et c'est la deuxième fois que ce piège se referme.
+
+## 9. Les zones d'expédition — ce que le mot « zone » a coûté, et ce que la surface a révélé
+
+**Le mot.** `MAP.md` interdit déjà « zone » tout court : il désigne les territoires de signal du Noyau
+et des Agents IA. Trois découpages cohabitent maintenant — le secteur qu'une mission vise, la zone de
+signal, et la tranche qu'une partie explore. Le type s'appelle donc `ExpeditionZone`, jamais `Zone`,
+et il n'existe nulle part de champ ni de variable locale nommée `zone` seule dans ce sens. Inventer un
+mot neuf (« sextant » a été envisagé) aurait été pire : il aurait figé « six » dans un nom alors que le
+nombre de zones est un réglage.
+
+**La mesure qui contredit l'intuition, et qui a décidé de la borne intérieure.** La directive dit
+qu'une zone commence au rayon d'action **courant**. Lu littéralement à chaque instant, cela fait
+reculer la cartographie : quand la recherche élargit le Noyau, les cellules qui sortent de la zone sont
+celles qui la touchent, donc les plus certainement découvertes. Retirer `k` cellules toutes découvertes
+des deux membres donne `(D−k)/(T−k) ≤ D/T` dès que `D ≤ T` — la barre descend en récompense d'un
+progrès. Et les sites placés près du bord intérieur sortiraient de leur propre zone.
+
+La borne intérieure est donc **figée à la pose des zones** et voyage dans la sauvegarde. C'est un écart
+assumé de lecture, pas une correction : les zones sont posées une fois, et « le rayon courant » décrit
+cette pose. `RestoringIntoAWiderCore_KeepsTheZonesTheRunWasMapping` l'épingle.
+
+C'est aussi le **second** piège de la même famille que celui que la directive nomme. Elle prévient
+contre un décompte de sites qui recule quand une étude de terrain en ajoute ; celui-ci recule sans que
+personne n'ajoute rien. Sur un ensemble de cellules fixe et une découverte qui n'enlève jamais rien,
+la monotonie cesse d'être une propriété à surveiller.
+
+**L'exploration lointaine qui ne porte pas le Noyau secondaire porte la trace de civilisation** — donc
+le site d'étude de civilisation de la zone. Choisi parmi les trois options de §2 parce que c'est la
+seule qui ne crée aucun contenu nouveau : le site existe déjà dans la zone, l'exploration est
+simplement ce qui le met sur la carte. Les deux reconnaissances rapportent alors la même *sorte* de
+chose sans rapporter la même chose, ce dont « non redondant » a réellement besoin.
+
+**Un site est placé là où sa propre mission a le droit d'aller.** Les explorations lointaines au-delà
+du seuil, tout le reste en deçà — c'est-à-dire exactement les deux bandes de `SectorMissionRange`. La
+cohérence n'est pas décorative : elle rend impossible une quête que le système de lancement refuserait.
+
+**La gigue ne peut pas sortir un site de sa zone**, parce que l'échelle régulière est posée sur
+l'ouverture *moins* la gigue des deux côtés. Un clamp après coup aurait empilé les sites sur une
+frontière et masqué le fait que les réglages avaient dépassé la géométrie.
+
+**Un défaut trouvé en l'écrivant, et qu'aucun test de déterminisme n'aurait vu.** La gigue tirait sur
+`(graine, canal, sel)` sans l'index de la zone : les six zones recevaient la même gigue pour le même
+type et le même rang, donc étaient six rotations exactes l'une de l'autre. Chaque zone paraissait
+variée vue de l'intérieur, et le monde était un pochoir vu d'en haut. `TheSixZones_AreNotRotationsOfOneAnother`
+existe pour ça — le déterminisme et la variété sont deux propriétés distinctes, et tester la première
+ne dit rien de la seconde.
+
+**Rien ne se lance avant qu'une zone soit choisie**, et c'est la règle du document, pas un effet de
+bord. `MissionSystem.CanLaunch` appelle `MayTarget` avant les règles propres à chaque type, donc une
+récupération est refusée hors zone comme une reconnaissance — vérifié séparément, parce qu'un garde
+placé dans la branche d'un type passerait le test général en manquant celui-là. Conséquence à
+connaître tant que l'écran de carte n'existe pas : le choix se fait par script.

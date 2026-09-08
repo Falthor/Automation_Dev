@@ -35,6 +35,7 @@ namespace Game.Tests.EditMode.Save
             Discovered = "0:120,1:16,0:120",
             DecorRemoved = "4096,4097,131072",
             Missions = new JObject { ["nextId"] = 4, ["appeared"] = true },
+            ExpeditionZones = new JObject { ["chosen"] = 2, ["inner"] = 22f },
             ComputeReserve = 12.5f,
             ResearchActiveId = "automation",
             ResearchProgress = 0.75f,
@@ -69,7 +70,7 @@ namespace Game.Tests.EditMode.Save
         {
             "Version", "SavedAtUtc",
             "TerrainSeed", "TerrainSize", "TerrainScale", "TerrainProportion", "Discovered", "DecorRemoved",
-            "Missions",
+            "Missions", "ExpeditionZones",
             "ComputeReserve",
             "ResearchActiveId", "ResearchProgress", "ResearchQueue", "ResearchUnlocked",
             "ConstructionSites", "CoreDirectives",
@@ -163,6 +164,13 @@ namespace Game.Tests.EditMode.Save
             Assert.AreEqual(4, restored.Missions["nextId"].Value<int>());
             Assert.IsTrue(restored.Missions["appeared"].Value<bool>());
 
+            // The zone choice and the radius the six were cut against. Asserted through the round trip
+            // for the same reason as the line above: sitting in the fixture proves only that the fixture
+            // has a value, and a key lost in transit would show up in play as a run finding all six zones
+            // on offer again with half of one already mapped.
+            Assert.AreEqual(2, restored.ExpeditionZones["chosen"].Value<int>());
+            Assert.AreEqual(22f, restored.ExpeditionZones["inner"].Value<float>());
+
             Assert.AreEqual(original.ComputeReserve, restored.ComputeReserve);
             Assert.AreEqual(original.ResearchActiveId, restored.ResearchActiveId);
             Assert.AreEqual(original.ResearchProgress, restored.ResearchProgress);
@@ -198,6 +206,7 @@ namespace Game.Tests.EditMode.Save
             Assert.IsNull(restored.PlayTimeSeconds, "A save from before the run clock is not a run that lasted zero seconds.");
             Assert.IsNull(restored.ConstructionSites, "A save from before the robots restores without one.");
             Assert.IsNull(restored.Missions, "a save from before the expeditions restores as a game whose probes have not arrived.");
+            Assert.IsNull(restored.ExpeditionZones, "A save from before the zones is a run with the six still on offer.");
             Assert.IsNull(restored.DecorRemoved,
                 "A save from before the decor recorded no clearing, which DecorRuntime.RestoreState reads as a world nobody has cleared anything in.");
         }

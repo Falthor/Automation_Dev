@@ -88,6 +88,22 @@ namespace Game.Save
         /// </summary>
         public JObject Missions;
 
+        /// <summary>
+        /// The expedition zones: which one the player chose, the radius the six were laid out from, and
+        /// the sites whose state has moved off what the derivation gives
+        /// (<c>ExpeditionZoneSystem.CaptureState</c>).
+        ///
+        /// <b>Almost nothing, deliberately.</b> A zone's bounds, its sites and their positions are pure
+        /// functions of the world seed, so they come back on their own - what cannot be re-derived is
+        /// the choice, the ground the layout started from, and which sites the player has turned up or
+        /// spent. The inner radius travels because the layout was frozen against it: re-reading the
+        /// Core's radius at load would re-cut the zones under a run already half mapped.
+        ///
+        /// No <c>Version</c> bump - an additive field with a per-field fallback, which restores as a run
+        /// with the six zones still on offer and nothing touched.
+        /// </summary>
+        public JObject ExpeditionZones;
+
         public float ComputeReserve;
 
         public string ResearchActiveId;

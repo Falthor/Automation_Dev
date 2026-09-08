@@ -1,5 +1,6 @@
 using Game.Data;
 using Game.Gameplay.Compute;
+using Game.Gameplay.Expeditions;
 using Game.Gameplay.Missions;
 using Game.Gameplay.Sectors;
 using Game.Grid;
@@ -63,19 +64,31 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         sealed class Fixture
         {
             public MissionSettings Settings;
+
+            /// <summary>Non-null only for the tests about the zone gate. Kept so they can be destroyed with the rest.</summary>
+            public ExpeditionZoneSettings ZoneSettings;
+
             public SectorGrid Grid;
             public DiscoveryRuntime Discovery;
             public SectorCatalog Catalog;
             public ComputeSystem Compute;
+            public ExpeditionZoneSystem Zones;
             public MissionSystem Missions;
 
             public void Destroy()
             {
                 if (Settings != null) Object.DestroyImmediate(Settings);
+                if (ZoneSettings != null) Object.DestroyImmediate(ZoneSettings);
             }
         }
 
-        static Fixture NewFixture(MissionSettings settings = null)
+        /// <summary>
+        /// <paramref name="withZones"/> is what separates the tests about the process from the tests
+        /// about the zone gate. Without it there is no zone rule at all, which is the shape every test
+        /// written before the zones existed assumes - and the shape a headless test of the process
+        /// itself still wants.
+        /// </summary>
+        static Fixture NewFixture(MissionSettings settings = null, bool withZones = false)
         {
             var fixture = new Fixture { Settings = settings ?? NewSettings() };
 
@@ -83,8 +96,16 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             fixture.Discovery = new DiscoveryRuntime(MapSize, ChunkSize);
             fixture.Catalog = new SectorCatalog(fixture.Grid, Seed, CoreCenter, 40f, 250f, 330f, 384);
             fixture.Compute = new ComputeSystem();
+
+            if (withZones)
+            {
+                fixture.ZoneSettings = ScriptableObject.CreateInstance<ExpeditionZoneSettings>();
+                fixture.Zones = new ExpeditionZoneSystem(fixture.ZoneSettings, fixture.Grid, NewRange(),
+                    CoreCenter, CoreRadius, Seed);
+            }
+
             fixture.Missions = new MissionSystem(fixture.Settings, fixture.Grid, fixture.Discovery,
-                fixture.Catalog, fixture.Compute, NewRange(), Seed);
+                fixture.Catalog, fixture.Compute, NewRange(), fixture.Zones, Seed);
 
             return fixture;
         }
@@ -125,6 +146,104 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             }
 
             throw new System.InvalidOperationException($"no {offset}th sector in the mining band");
+        }
+
+        /// <summary>The first sector of the mining band that falls in a given expedition zone, in a stable order.</summary>
+        static int SectorInZone(Fixture fixture, int zone)
+        {
+            var range = NewRange();
+
+            for (int row = -12; row <= 12; row++)
+            {
+                for (int column = -12; column <= 12; column++)
+                {
+                    int index = fixture.Grid.IndexAt(312 + column, 312 + row);
+                    if (index < 0) continue;
+
+                    float distance = Vector2.Distance(fixture.Grid.CenterCells(index), CoreCenter);
+                    if (distance <= CoreRadius || distance > range.ExplorationMinimumCells) continue;
+                    if (fixture.Zones.ZoneOfSector(index) != zone) continue;
+
+                    return index;
+                }
+            }
+
+            throw new System.InvalidOperationException($"no mining-band sector in zone {zone}");
+        }
+
+        // ---- The zone gate, entered where the game enters it ----
+
+        /// <summary>
+        /// <b>Started from TryLaunch, and that is the whole design of this test.</b> Asking
+        /// ExpeditionZoneSystem whether it would refuse proves only that the predicate is right; the
+        /// defect this project has met four times is a predicate nobody calls. The launch path is the
+        /// only place that can be wrong about that.
+        /// </summary>
+        [Test]
+        public void NothingLaunches_UntilAZoneHasBeenChosen()
+        {
+            Fixture fixture = NewFixture(withZones: true);
+            SummonRobots(fixture);
+            int target = SectorInZone(fixture, 0);
+
+            MissionSystem.LaunchRefusal refusal =
+                fixture.Missions.TryLaunch(MissionKind.Prospection, target, CoreRadius, out MissionRuntime mission);
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.NoZoneChosen, refusal);
+            Assert.IsNull(mission, "A refused launch produces no mission.");
+            Assert.AreEqual(0, fixture.Missions.InFlight.Count);
+
+            fixture.Destroy();
+        }
+
+        /// <summary>
+        /// Choosing locks the other five, and the lock is only worth anything where a mission is
+        /// actually sent. The same sector that goes now would have gone before the choice too - what
+        /// changed is the sector in the neighbouring slice, which is refused.
+        /// </summary>
+        [Test]
+        public void ChoosingAZone_LocksTheOtherFive_AndALaunchOutsideItIsRefused()
+        {
+            Fixture fixture = NewFixture(withZones: true);
+            SummonRobots(fixture);
+
+            int inside = SectorInZone(fixture, 0);
+            int outside = SectorInZone(fixture, 3);
+
+            Assert.AreEqual(ZoneChoiceRefusal.None, fixture.Zones.Choose(0));
+            Assert.IsTrue(fixture.Zones.IsAvailable(0));
+            for (int zone = 1; zone < fixture.Zones.ZoneCount; zone++)
+            {
+                Assert.IsFalse(fixture.Zones.IsAvailable(zone), $"zone {zone} must be locked");
+            }
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.OutsideChosenZone,
+                fixture.Missions.TryLaunch(MissionKind.Prospection, outside, CoreRadius, out MissionRuntime refused));
+            Assert.IsNull(refused);
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.None,
+                fixture.Missions.TryLaunch(MissionKind.Prospection, inside, CoreRadius, out MissionRuntime sent));
+            Assert.IsNotNull(sent);
+            Assert.AreEqual(inside, sent.TargetSector);
+
+            fixture.Destroy();
+        }
+
+        /// <summary>A recovery is bound by the zone too - a run works one zone at a time, whatever kind is aimed at it. Checked separately because a gate placed inside a kind's own branch would pass the test above and miss this one entirely.</summary>
+        [Test]
+        public void ARecoveryOutsideTheChosenZone_IsRefusedLikeAnyOtherMission()
+        {
+            Fixture fixture = NewFixture(withZones: true);
+            SummonRobots(fixture);
+            fixture.Zones.Choose(0);
+
+            int outside = SectorInZone(fixture, 3);
+            fixture.Grid.RevealInscribedDisc(outside, fixture.Discovery);
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.OutsideChosenZone,
+                fixture.Missions.TryLaunch(MissionKind.Recuperation, outside, CoreRadius, out _));
+
+            fixture.Destroy();
         }
 
         /// <summary>A sector in the mining band that a robot has already opened - what a recovery needs.</summary>

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Game.Core;
 using Game.Data;
 using Game.Gameplay.Compute;
+using Game.Gameplay.Expeditions;
 using Game.Gameplay.Sectors;
 using Game.Grid;
 using Newtonsoft.Json.Linq;
@@ -40,6 +41,14 @@ namespace Game.Gameplay.Missions
         /// <summary>The two reconnaissance bands. Optional: null enforces no band at all, which is what a headless test uninterested in geometry wants.</summary>
         readonly SectorMissionRange _range;
 
+        /// <summary>
+        /// The six expedition zones and which one the player is working. Optional in the same sense as
+        /// the bands above - null means no zone rule - but <b>required as a constructor argument</b>, so
+        /// a caller cannot forget it and quietly ship a game where the rule is never applied. That is the
+        /// exact defect DEVELOPMENT_RULES.md §7 was written after.
+        /// </summary>
+        readonly ExpeditionZoneSystem _zones;
+
         readonly int _seed;
 
         readonly List<MissionRuntime> _inFlight = new List<MissionRuntime>();
@@ -57,7 +66,8 @@ namespace Game.Gameplay.Missions
         float _regeneratingCooldownLeft;
 
         public MissionSystem(MissionSettings settings, SectorGrid grid, DiscoveryRuntime discovery,
-            SectorCatalog catalog, ComputeSystem compute, SectorMissionRange range, int seed)
+            SectorCatalog catalog, ComputeSystem compute, SectorMissionRange range,
+            ExpeditionZoneSystem zones, int seed)
         {
             _settings = settings;
             _grid = grid;
@@ -65,6 +75,7 @@ namespace Game.Gameplay.Missions
             _catalog = catalog;
             _compute = compute;
             _range = range;
+            _zones = zones;
             _seed = seed;
         }
 
@@ -189,7 +200,13 @@ namespace Game.Gameplay.Missions
             NotYetReconnoitred,
 
             /// <summary>A recovery aimed at a sector whose derivation put no point of interest in it.</summary>
-            NothingToRecover
+            NothingToRecover,
+
+            /// <summary>The six expedition zones are still on offer. Nothing goes anywhere until the player has picked a direction.</summary>
+            NoZoneChosen,
+
+            /// <summary>Aimed at ground the chosen zone does not cover - one of the five locked slices, or past the zones altogether.</summary>
+            OutsideChosenZone
         }
 
         /// <summary>
@@ -218,6 +235,19 @@ namespace Game.Gameplay.Missions
             if (_inFlight.Count >= _settings.MaxConcurrentMissions) return LaunchRefusal.AllSlotsBusy;
             if (FreeRobot() < 0) return LaunchRefusal.NoRobotAvailable;
             if (_grid == null || !_grid.ContainsIndex(targetSector)) return LaunchRefusal.NotASector;
+
+            // The zone gate, and it sits ahead of every kind's own rules because it applies to all of
+            // them: a run works one zone at a time, so a recovery is as refused outside it as a
+            // reconnaissance. Applied here rather than only offered as a predicate - the seam is the
+            // thing that gets forgotten, not either half of it.
+            if (_zones != null)
+            {
+                switch (_zones.MayTarget(targetSector))
+                {
+                    case ExpeditionZoneRefusal.NoZoneChosen: return LaunchRefusal.NoZoneChosen;
+                    case ExpeditionZoneRefusal.OutsideChosenZone: return LaunchRefusal.OutsideChosenZone;
+                }
+            }
 
             // A recovery has no band: it exploits a point of interest inside ground a reconnaissance
             // already opened, so its rules are the mirror of a reconnaissance's.
