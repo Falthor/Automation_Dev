@@ -72,10 +72,12 @@ namespace Game.Gameplay.Expeditions
     {
         None,
 
-        /// <summary>The six zones are still on offer. Nothing launches until the player has picked a direction.</summary>
-        NoZoneChosen,
-
-        /// <summary>In a zone, but not the one being mapped - or in none at all, which is ground no zone covers.</summary>
+        /// <summary>
+        /// In a zone, but not the one being mapped - or in none at all, which is ground no zone covers.
+        ///
+        /// There is deliberately no "no zone chosen" refusal: while none is chosen every zone is a legal
+        /// target, because launching into one is what chooses it.
+        /// </summary>
         OutsideChosenZone
     }
 }

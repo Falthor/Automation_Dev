@@ -208,11 +208,43 @@ namespace Game.Gameplay.Expeditions
         /// </summary>
         public ExpeditionZoneRefusal MayTarget(int sectorIndex)
         {
-            if (ChosenZone < 0) return ExpeditionZoneRefusal.NoZoneChosen;
+            int zone = ZoneOfSector(sectorIndex);
 
-            return ZoneOfSector(sectorIndex) == ChosenZone
-                ? ExpeditionZoneRefusal.None
-                : ExpeditionZoneRefusal.OutsideChosenZone;
+            // Ground no zone covers is refused whatever has been chosen: inside the Core's own reach,
+            // or past the ring altogether.
+            if (zone < 0) return ExpeditionZoneRefusal.OutsideChosenZone;
+
+            // <b>While nothing is chosen, every zone is a legal target</b> - because sending the first
+            // robot somewhere is what chooses it. A separate "choose" gesture would be a second click
+            // meaning something a click does not otherwise mean on this map, and a decision taken with
+            // nothing to tell the six apart. See WouldChoose.
+            if (ChosenZone < 0) return ExpeditionZoneRefusal.None;
+
+            return zone == ChosenZone ? ExpeditionZoneRefusal.None : ExpeditionZoneRefusal.OutsideChosenZone;
+        }
+
+        /// <summary>
+        /// Whether launching at this sector would commit the choice - true only while none has been made
+        /// and the sector falls in a zone.
+        ///
+        /// Read by the screen so it can say what the click is about to cost before it is made. The lock
+        /// is irreversible, and a lock arrived at as the side effect of an unannounced launch would be
+        /// the worst way to meet it.
+        /// </summary>
+        public bool WouldChoose(int sectorIndex) => ChosenZone < 0 && ZoneOfSector(sectorIndex) >= 0;
+
+        /// <summary>
+        /// Commits the choice the launch at this sector implies. Does nothing once a zone is chosen, and
+        /// nothing for ground no zone covers.
+        ///
+        /// Called by <c>MissionSystem.TryLaunch</c> after the launch is known to succeed - a refused
+        /// launch must not lock five zones.
+        /// </summary>
+        public void ChooseByLaunch(int sectorIndex)
+        {
+            if (!WouldChoose(sectorIndex)) return;
+
+            Choose(ZoneOfSector(sectorIndex));
         }
 
         // ---- Content ----

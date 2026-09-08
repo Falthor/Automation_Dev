@@ -212,20 +212,53 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         /// ExpeditionZoneSystem whether it would refuse proves only that the predicate is right; the
         /// defect this project has met four times is a predicate nobody calls. The launch path is the
         /// only place that can be wrong about that.
+        ///
+        /// <b>The first launch is the choice.</b> There is no separate gesture and no state where the
+        /// map is readable but sterile: sending the first robot somewhere is what picks that direction
+        /// and locks the other five.
         /// </summary>
         [Test]
-        public void NothingLaunches_UntilAZoneHasBeenChosen()
+        public void TheFirstLaunch_ChoosesTheZone_AndLocksTheOtherFive()
         {
             Fixture fixture = NewFixture(withZones: true);
             SummonRobots(fixture);
-            int target = SectorInZone(fixture, 0);
 
-            MissionSystem.LaunchRefusal refusal =
-                fixture.Missions.TryLaunch(MissionKind.Prospection, target, CoreRadius, out MissionRuntime mission);
+            int target = SectorInZone(fixture, 2);
+            Assert.AreEqual(-1, fixture.Zones.ChosenZone, "precondition: the six are still on offer");
+            Assert.IsTrue(fixture.Zones.WouldChoose(target), "and this launch is about to commit one");
 
-            Assert.AreEqual(MissionSystem.LaunchRefusal.NoZoneChosen, refusal);
-            Assert.IsNull(mission, "A refused launch produces no mission.");
-            Assert.AreEqual(0, fixture.Missions.InFlight.Count);
+            Assert.AreEqual(MissionSystem.LaunchRefusal.None,
+                fixture.Missions.TryLaunch(MissionKind.Prospection, target, CoreRadius, out MissionRuntime mission));
+
+            Assert.IsNotNull(mission);
+            Assert.AreEqual(2, fixture.Zones.ChosenZone, "the launch chose the zone it went into");
+
+            for (int zone = 0; zone < fixture.Zones.ZoneCount; zone++)
+            {
+                Assert.AreEqual(zone == 2, fixture.Zones.IsAvailable(zone), $"zone {zone}");
+            }
+
+            fixture.Destroy();
+        }
+
+        /// <summary>
+        /// A refused launch must not cost the player their five other directions. The lock is
+        /// irreversible, so it is committed only once the launch is known to go - which is why
+        /// ChooseByLaunch sits after the refusal check and not inside it.
+        /// </summary>
+        [Test]
+        public void ARefusedLaunch_ChoosesNothing()
+        {
+            Fixture fixture = NewFixture(withZones: true);
+            SummonRobots(fixture);
+
+            // Inside the Core's own reach: ground no zone covers, so no zone can be chosen by aiming there.
+            int tooClose = fixture.Grid.IndexAt(312, 312);
+
+            Assert.AreNotEqual(MissionSystem.LaunchRefusal.None,
+                fixture.Missions.TryLaunch(MissionKind.Prospection, tooClose, CoreRadius, out MissionRuntime refused));
+            Assert.IsNull(refused);
+            Assert.AreEqual(-1, fixture.Zones.ChosenZone, "a refusal must leave the six on offer");
 
             fixture.Destroy();
         }

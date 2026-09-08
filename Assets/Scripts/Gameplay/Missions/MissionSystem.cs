@@ -213,9 +213,6 @@ namespace Game.Gameplay.Missions
             /// <summary>A recovery aimed at a sector whose derivation put no point of interest in it.</summary>
             NothingToRecover,
 
-            /// <summary>The six expedition zones are still on offer. Nothing goes anywhere until the player has picked a direction.</summary>
-            NoZoneChosen,
-
             /// <summary>Aimed at ground the chosen zone does not cover - one of the five locked slices, or past the zones altogether.</summary>
             OutsideChosenZone
         }
@@ -251,13 +248,9 @@ namespace Game.Gameplay.Missions
             // them: a run works one zone at a time, so a recovery is as refused outside it as a
             // reconnaissance. Applied here rather than only offered as a predicate - the seam is the
             // thing that gets forgotten, not either half of it.
-            if (_zones != null)
+            if (_zones != null && _zones.MayTarget(targetSector) == ExpeditionZoneRefusal.OutsideChosenZone)
             {
-                switch (_zones.MayTarget(targetSector))
-                {
-                    case ExpeditionZoneRefusal.NoZoneChosen: return LaunchRefusal.NoZoneChosen;
-                    case ExpeditionZoneRefusal.OutsideChosenZone: return LaunchRefusal.OutsideChosenZone;
-                }
+                return LaunchRefusal.OutsideChosenZone;
             }
 
             // A recovery has no band: it exploits a point of interest inside ground a reconnaissance
@@ -300,6 +293,11 @@ namespace Game.Gameplay.Missions
 
             LaunchRefusal refusal = CanLaunch(kind, targetSector, coreRadiusCells);
             if (refusal != LaunchRefusal.None) return refusal;
+
+            // <b>The launch is what chooses the zone, and it locks the other five.</b> Committed here
+            // rather than in CanLaunch, and only once the launch is known to succeed: a refused mission
+            // must not cost the player their five other directions.
+            _zones?.ChooseByLaunch(targetSector);
 
             int robot = FreeRobot();
             int id = _nextMissionId++;

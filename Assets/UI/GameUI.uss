@@ -2286,3 +2286,15 @@
     border-top-width: 1px;
     border-top-color: rgb(38, 45, 54);
 }
+
+/* The one irreversible thing this screen does, said before the click that does it. Amber rather than
+   the refusal grey: it is not a refusal, it is a cost. */
+.sector-map-lock-warning {
+    color: rgb(239, 159, 39);
+    font-size: 10px;
+    white-space: normal;
+    margin-top: 4px;
+    padding-top: 5px;
+    border-top-width: 1px;
+    border-top-color: rgb(48, 42, 28);
+}

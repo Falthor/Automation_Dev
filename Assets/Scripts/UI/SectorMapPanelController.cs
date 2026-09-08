@@ -627,6 +627,18 @@ namespace Game.UI
                 _missionList.Add(BuildMissionRow(kind, sector, refusal));
             }
 
+            // <b>Said before the click, never after.</b> The first launch picks the zone it goes into
+            // and locks the other five, and that is irreversible - a lock met as the unannounced side
+            // effect of pressing "Lancer" would be the worst possible way to learn the rule.
+            if (_missionList.childCount != 0 && Zones != null && Zones.WouldChoose(sector))
+            {
+                var warning = new Label(
+                    $"Lancer ici choisit la {ZoneName(Zones.ZoneOfSector(sector)).ToLowerInvariant()} "
+                    + "et verrouille les cinq autres.");
+                warning.AddToClassList("sector-map-lock-warning");
+                _missionList.Add(warning);
+            }
+
             if (_missionList.childCount != 0) return;
 
             var none = new Label("Aucune mission possible sur cette cible.");
@@ -718,7 +730,6 @@ namespace Game.UI
 
                 // Not an interface for the zones - that is its own chantier. These two only keep this
                 // switch from answering "impossible" to a refusal that has a reason worth reading.
-                case MissionSystem.LaunchRefusal.NoZoneChosen: return "aucune zone choisie";
                 case MissionSystem.LaunchRefusal.OutsideChosenZone: return "hors de la zone choisie";
                 default: return "impossible";
             }
