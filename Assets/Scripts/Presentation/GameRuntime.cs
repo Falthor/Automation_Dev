@@ -236,9 +236,14 @@ namespace Game.Presentation
         /// satisfied by the starting stock alone. The reserve still funds construction, which is
         /// what GlobalStock is for.
         ///
-        /// Here rather than in a panel because three places read it - the Top Bar's chips, the Core
-        /// panel's figures, and its Validate button - and a rule split across three readers is a
-        /// rule that will disagree with itself.
+        /// Here rather than in a panel because two places display it - the Top Bar's chips and the
+        /// Core panel's figures - and a rule split across its readers is a rule that will disagree
+        /// with itself.
+        ///
+        /// <b>Display only.</b> Whether a directive may be validated is not asked of this: it is asked
+        /// of <c>CoreDirectiveSystem.CanValidate()</c>, which reads the same view for itself. While the
+        /// decision took a dictionary from its caller, a caller could hand in the wrong one - and the
+        /// directive tests did, accepting on stock the haul was then forbidden to claim.
         /// </summary>
         public IReadOnlyDictionary<string, int> DirectiveStock =>
             ConstructionSites != null ? ConstructionSites.GetAvailableForCoreHaul() : new Dictionary<string, int>();

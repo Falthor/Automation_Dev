@@ -100,7 +100,7 @@ namespace Game.UI
 
         void OnValidateClicked()
         {
-            gameRuntime.CoreDirectives?.Validate(gameRuntime.DirectiveStock, _selected);
+            gameRuntime.CoreDirectives?.Validate(_selected);
         }
 
         /// <summary>
@@ -160,7 +160,10 @@ namespace Game.UI
             _rewardTitle.EnableInClassList("hidden", !hasItemReward && !hasMenuReward && !hasResearchReward);
 
             _validateButton.text = delivering ? "LIVRAISON EN COURS" : "VALIDER";
-            _validateButton.SetEnabled(directives.CanValidate(available));
+            // No stock handed in: the system reads the one view the haul reserves from. `available`
+            // above is the same figure, shown - but showing and deciding are now the same answer by
+            // construction rather than by this panel passing the right dictionary.
+            _validateButton.SetEnabled(directives.CanValidate());
         }
 
         /// <summary>One requirement: a large icon with stock-over-target underneath, per the Core panel's own layout rather than the compact ingredient rows used elsewhere.</summary>

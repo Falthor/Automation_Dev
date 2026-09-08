@@ -85,13 +85,28 @@ namespace Game.Gameplay.Directives
             => _sites != null && _sites.CoreHaul != null ? _sites.CoreHaul.DeliveredOf(itemId) : 0;
 
         /// <summary>
-        /// Whether the current directive can be validated right now: every requirement covered by
-        /// stock a robot could actually go and claim. The same aggregate the player is shown, so the
-        /// button is grey exactly when the numbers underneath say it should be.
+        /// What a directive may be satisfied from: the aggregate minus the Core's own reserve, which
+        /// is the same view <c>ReserveForCoreHaul</c> then draws on.
+        ///
+        /// <b>Read here rather than handed in, and that is the repair.</b> While the caller chose the
+        /// dictionary it could choose the wrong one - and did. The tests passed the full aggregate
+        /// while the reservation pass that follows used the narrowed one, so validating accepted stock
+        /// the haul had no right to claim, reserved nothing, and sent the robots out empty. Asking
+        /// <see cref="ConstructionSiteSystem"/> for the one view makes the decision and the
+        /// reservation agree by construction instead of by every caller remembering.
         /// </summary>
-        public bool CanValidate(IReadOnlyDictionary<string, int> availableStock)
+        IReadOnlyDictionary<string, int> AvailableForDirective
+            => _sites != null ? _sites.GetAvailableForCoreHaul() : null;
+
+        /// <summary>
+        /// Whether the current directive can be validated right now: every requirement covered by
+        /// stock a robot could actually go and claim. The same view the haul reserves from, so the
+        /// button is grey exactly when the delivery would find nothing.
+        /// </summary>
+        public bool CanValidate()
         {
             CoreDirectiveDefinition directive = Current;
+            IReadOnlyDictionary<string, int> availableStock = AvailableForDirective;
             if (directive == null || IsDelivering || availableStock == null) return false;
 
             foreach (RecipeIngredient requirement in directive.Requirements)
@@ -107,9 +122,9 @@ namespace Game.Gameplay.Directives
         /// when the stock is not there or a delivery is already running, so the button being enabled
         /// and this succeeding are the same condition.
         /// </summary>
-        public bool Validate(IReadOnlyDictionary<string, int> availableStock, BuildingRuntime core)
+        public bool Validate(BuildingRuntime core)
         {
-            if (core == null || !CanValidate(availableStock)) return false;
+            if (core == null || !CanValidate()) return false;
 
             var bill = new Dictionary<string, int>();
             foreach (RecipeIngredient requirement in Current.Requirements)

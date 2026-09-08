@@ -159,6 +159,30 @@ prochain atterrissage plutôt que perdu.
 nouvelles clés sont assertées **à travers l'aller-retour JSON**, pas seulement présentes dans la
 fixture — c'est le trou trouvé la fois précédente sur `Discovered`.
 
+## 7bis. Une décision qui prenait son stock de l'extérieur
+
+`CoreDirectiveSystem.CanValidate` et `Validate` recevaient le dictionnaire de stock **en argument**.
+Le jeu passait `GameRuntime.DirectiveStock` (= `GetAvailableForCoreHaul()`, l'agrégat moins la réserve
+du Noyau) ; les tests passaient `GetAvailableAggregate()` et mettaient tout le matériel dans cette
+réserve. La validation acceptait donc sur un stock que la passe de réservation, elle, n'avait plus le
+droit de réclamer : rien n'était réservé, les robots partaient vides, et **sept tests sont restés
+rouges** le jour où la règle « la réserve ne compte pas pour une directive » a été posée.
+
+**Le paramètre était le défaut.** Tant que l'appelant choisit le dictionnaire, un appelant peut choisir
+le mauvais — et c'est arrivé. `CoreDirectiveSystem` détient déjà `ConstructionSiteSystem` ; il lit donc
+maintenant `GetAvailableForCoreHaul()` lui-même. Décider et réserver lisent la même vue par
+construction, plus par discipline d'appel. Le commentaire de `GetAvailableForCoreHaul` prévoyait
+exactement ce désaccord — « les deux doivent exclure à l'identique » — dans l'autre sens.
+
+**Et la règle n'avait aucune couverture verte.** C'est le vrai coût : la suite affirmait le contraire
+de la règle et échouait plus loin, pour une raison que personne ne lisait. Un rouge qu'on garde devient
+un rouge qu'on ignore. `TheCoreReserve_CannotSatisfyADirective` et
+`TheHaul_DrainsTheBox_AndLeavesTheCoreReserveAlone` la tiennent maintenant des deux côtés — la décision
+et la réservation étant deux passes, c'est leur désaccord qu'il faut épingler, pas seulement chacune.
+
+Mesuré des deux côtés plutôt que supposé : `git stash`, suite complète sur `7713de9` propre —
+**665 verts, 7 rouges**, exactement les mêmes. Après correction : **694 verts, 0 rouge.**
+
 ## 8. Un rappel coûteux sur la vérification
 
 La suite a affiché **653 verts pendant que `Game.Presentation` ne compilait pas** : un `using`
