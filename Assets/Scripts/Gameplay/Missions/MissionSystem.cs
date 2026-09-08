@@ -86,6 +86,9 @@ namespace Game.Gameplay.Missions
         /// <summary>Missions currently out. Never more than the configured maximum.</summary>
         public IReadOnlyList<MissionRuntime> InFlight => _inFlight;
 
+        /// <summary>How many may be out at once. Read by the Top Bar's permanent counter, which §5.3 requires so the player never has to open the map to know.</summary>
+        public int MaxConcurrentMissions => _settings.MaxConcurrentMissions;
+
         /// <summary>Reports waiting to be read. A mission sits here until the caller closes it.</summary>
         public IReadOnlyList<MissionRuntime> Reports => _reports;
 

@@ -8,7 +8,22 @@
                 <ui:Button name="SectorMapCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
 
-            <ui:VisualElement name="SectorMapViewport" class="sector-map-viewport" />
+            <ui:VisualElement class="sector-map-body">
+                <ui:VisualElement name="SectorMapViewport" class="sector-map-viewport" />
+
+                <!-- What the aimed sector is, and what may be sent to it. Beside the map rather than
+                     under it: choosing a target and choosing what to do with it are one gesture, and
+                     the answer must not move the map. -->
+                <ui:VisualElement class="sector-map-aside">
+                    <ui:Label name="SectorMapTargetName" text="" class="sector-map-target-name" />
+                    <ui:Label name="SectorMapTargetState" text="" class="sector-map-target-detail" />
+
+                    <ui:Label text="MISSIONS" class="extractor-section-label section-label-spaced" />
+                    <ui:VisualElement name="SectorMapMissionList" class="sector-map-mission-list" />
+
+                    <ui:Label name="SectorMapFleet" text="" class="sector-map-fleet" />
+                </ui:VisualElement>
+            </ui:VisualElement>
 
             <ui:VisualElement class="sector-map-footer">
                 <ui:Label name="SectorMapHoverName" text="" class="sector-map-hover-name" />

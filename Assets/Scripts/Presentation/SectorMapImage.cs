@@ -38,10 +38,14 @@ namespace Game.Presentation
         /// 1.5 MB instead of 390 KB on the shipped map, which is nothing, and removes the shader that
         /// would otherwise exist only to recolour three values.
         ///
-        /// Undiscovered matches the panel's own background, so fog reads as the absence of a map
-        /// rather than as a black shape drawn on one.
+        /// Undiscovered used to match the panel's own background exactly, so fog read as the absence
+        /// of a map rather than as a black shape drawn on one. That was right while the map was only
+        /// read, and wrong the moment it became the thing missions are aimed at: a sector you cannot
+        /// see is a sector you cannot send anyone to, and the whole world outside the Core's disc
+        /// simply was not there. It is now a shade above the background - present, plainly unvisited,
+        /// and pointable at.
         /// </summary>
-        static readonly Color32 UnknownColour = new Color32(14, 18, 23, 255);
+        static readonly Color32 UnknownColour = new Color32(30, 36, 44, 255);
 
         static readonly Color32 PartialColour = new Color32(74, 62, 48, 255);
 

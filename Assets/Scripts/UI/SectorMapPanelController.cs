@@ -1,3 +1,4 @@
+using Game.Gameplay.Missions;
 using Game.Gameplay.Sectors;
 using Game.Grid;
 using Game.Presentation;
@@ -29,7 +30,20 @@ namespace Game.UI
         Label _hoverName;
         Label _hoverDetail;
 
+        Label _targetName;
+        Label _targetState;
+        VisualElement _missionList;
+        Label _fleet;
+
         bool _bound;
+
+        /// <summary>Every kind, always in this order, so the same mission is always in the same place in the list.</summary>
+        static readonly MissionKind[] Kinds =
+        {
+            MissionKind.Prospection,
+            MissionKind.ExplorationLointaine,
+            MissionKind.Recuperation
+        };
 
         void Start()
         {
@@ -43,8 +57,14 @@ namespace Game.UI
             _hoverDetail = panelRoot.Q<Label>("SectorMapHoverDetail");
             panelRoot.Q<Button>("SectorMapCloseButton").clicked += Hide;
 
+            _targetName = panelRoot.Q<Label>("SectorMapTargetName");
+            _targetState = panelRoot.Q<Label>("SectorMapTargetState");
+            _missionList = panelRoot.Q<VisualElement>("SectorMapMissionList");
+            _fleet = panelRoot.Q<Label>("SectorMapFleet");
+
             _map = new SectorMapElement();
             _map.HoveredSectorChanged += OnHoveredSectorChanged;
+            _map.SelectedSectorChanged += _ => RenderTarget();
             panelRoot.Q<VisualElement>("SectorMapViewport").Add(_map);
 
             _root.EnableInClassList("hidden", true);
@@ -70,8 +90,14 @@ namespace Game.UI
             gameRuntime.KeyboardOwnedByPanel = visible;
 
             // Opening always finds the player, rather than wherever they last dragged to. A map that
-            // opens somewhere unexpected costs a moment of "where am I" every single time.
-            if (visible && Bind()) _map.CentreOnCore();
+            // opens somewhere unexpected costs a moment of "where am I" every single time. The aim
+            // is dropped with it: a target chosen last time is a decision that has since gone stale.
+            if (visible && Bind())
+            {
+                _map.CentreOnCore();
+                _map.ClearSelection();
+                RenderTarget();
+            }
         }
 
         void Hide()
@@ -111,6 +137,148 @@ namespace Game.UI
             // a still frame - see SectorMapImage.
             gameRuntime.SectorMap.Refresh();
             _map.SetCoreRadius(gameRuntime.World.ActionRadiusCells);
+
+            RenderTarget();
+        }
+
+        // ---- The aimed sector, and what may be sent to it ----
+
+        /// <summary>
+        /// Rebuilds the side pane for whatever is currently aimed at.
+        ///
+        /// Called on selection and every frame, because a refusal is not a property of the target: a
+        /// slot frees when a mission lands, a robot's last charge is spent by the launch before it.
+        /// A button that was enabled when the sector was picked would otherwise stay enabled after
+        /// the reason for it went away.
+        /// </summary>
+        void RenderTarget()
+        {
+            if (_targetName == null || gameRuntime.Missions == null) return;
+
+            int sector = _map.SelectedSector;
+            _fleet.text = FleetLine();
+
+            if (sector < 0)
+            {
+                _targetName.text = "Aucune cible";
+                _targetState.text = "Cliquez un secteur sur la carte.";
+                _missionList.Clear();
+                return;
+            }
+
+            bool unknown = gameRuntime.Sectors.IsWhollyUnknown(sector, gameRuntime.Discovery);
+
+            // Same rule as the hover, and for the same reason: what a robot has not reported is not
+            // the Core's to know. A target can be aimed at without being described.
+            _targetName.text = unknown ? "Secteur non reconnu" : gameRuntime.SectorCatalog.NameOf(sector);
+            _targetState.text = unknown
+                ? "Aucun robot n'y est allé."
+                : $"Risque estimé : {RiskLabel(gameRuntime.SectorCatalog.RiskOf(sector))}";
+
+            RenderMissions(sector);
+        }
+
+        void RenderMissions(int sector)
+        {
+            _missionList.Clear();
+
+            float radius = gameRuntime.World.ActionRadiusCells;
+            foreach (MissionKind kind in Kinds)
+            {
+                MissionSystem.LaunchRefusal refusal = gameRuntime.Missions.CanLaunch(kind, sector, radius);
+
+                // A kind the target's distance simply does not admit is left out rather than listed
+                // as impossible: the bands are a property of where you are pointing, not a fault to
+                // report, and three greyed rows on every sector would drown the one that can go.
+                if (refusal == MissionSystem.LaunchRefusal.WrongBand
+                    || refusal == MissionSystem.LaunchRefusal.NotASector) continue;
+
+                _missionList.Add(BuildMissionRow(kind, sector, refusal));
+            }
+
+            if (_missionList.childCount != 0) return;
+
+            var none = new Label("Aucune mission possible sur cette cible.");
+            none.AddToClassList("sector-map-mission-none");
+            _missionList.Add(none);
+        }
+
+        VisualElement BuildMissionRow(MissionKind kind, int sector, MissionSystem.LaunchRefusal refusal)
+        {
+            var row = new VisualElement();
+            row.AddToClassList("sector-map-mission-row");
+
+            var name = new Label(KindLabel(kind));
+            name.AddToClassList("sector-map-mission-name");
+            row.Add(name);
+
+            // Always "estimee". SPEC_EXPEDITIONS.md 5.2 forbids ever presenting a mission's numbers
+            // as certainties - the duration is the one figure shown at all, and it is a forecast.
+            var duration = new Label($"~ {FormatDuration(gameRuntime.Missions.DurationOf(kind, sector))}");
+            duration.AddToClassList("sector-map-mission-duration");
+            row.Add(duration);
+
+            if (refusal == MissionSystem.LaunchRefusal.None)
+            {
+                var launch = new Button(() => Launch(kind, sector)) { text = "Lancer" };
+                launch.AddToClassList("sector-map-mission-launch");
+                row.Add(launch);
+            }
+            else
+            {
+                var why = new Label(RefusalLabel(refusal));
+                why.AddToClassList("sector-map-mission-refusal");
+                row.Add(why);
+            }
+
+            return row;
+        }
+
+        void Launch(MissionKind kind, int sector)
+        {
+            gameRuntime.Missions.TryLaunch(kind, sector, gameRuntime.World.ActionRadiusCells, out _);
+            RenderTarget();
+        }
+
+        /// <summary>What the fleet has left, which is the one number that decides whether any of this is possible at all.</summary>
+        string FleetLine()
+        {
+            MissionSystem missions = gameRuntime.Missions;
+            if (missions == null || !missions.RobotsHaveAppeared) return string.Empty;
+
+            return $"{missions.InFlight.Count}/{missions.MaxConcurrentMissions} en cours · {missions.TotalChargesLeft} charges";
+        }
+
+        static string KindLabel(MissionKind kind)
+        {
+            switch (kind)
+            {
+                case MissionKind.Prospection: return "Prospection";
+                case MissionKind.ExplorationLointaine: return "Exploration lointaine";
+                default: return "Récupération";
+            }
+        }
+
+        static string RefusalLabel(MissionSystem.LaunchRefusal refusal)
+        {
+            switch (refusal)
+            {
+                case MissionSystem.LaunchRefusal.RobotsHaveNotArrived: return "aucun robot";
+                case MissionSystem.LaunchRefusal.AllSlotsBusy: return "emplacements occupés";
+                case MissionSystem.LaunchRefusal.NoRobotAvailable: return "robots épuisés";
+                case MissionSystem.LaunchRefusal.AlreadyReconnoitred: return "déjà reconnu";
+                case MissionSystem.LaunchRefusal.NotYetReconnoitred: return "à reconnaître d'abord";
+                case MissionSystem.LaunchRefusal.NothingToRecover: return "rien à récupérer";
+                case MissionSystem.LaunchRefusal.AlreadyRecovered: return "déjà récupéré";
+                default: return "impossible";
+            }
+        }
+
+        /// <summary>Minutes and seconds, because a mission is minutes long and a bare count of seconds stops being readable past a hundred or so.</summary>
+        static string FormatDuration(float seconds)
+        {
+            int whole = Mathf.RoundToInt(seconds);
+            return whole < 60 ? $"{whole} s" : $"{whole / 60} min {whole % 60:00} s";
         }
 
         /// <summary>Same AZERTY layout the world camera uses, so the keys mean the same thing whichever is listening.</summary>

@@ -54,6 +54,12 @@ namespace Game.UI
         static readonly Color RadiusColour = new Color(0.333f, 0.867f, 0.961f, 0.85f);
         static readonly Color HoverColour = new Color(1f, 1f, 1f, 0.9f);
 
+        /// <summary>The aimed sector. The panel's accent, and thicker than the hover: one is a glance, the other a decision.</summary>
+        static readonly Color SelectionColour = new Color(0.333f, 0.867f, 0.961f, 1f);
+
+        /// <summary>Faint on purpose. The grid is there so a sector reads as a square you can point at, not so it can be counted.</summary>
+        static readonly Color GridlineColour = new Color(1f, 1f, 1f, 0.07f);
+
         readonly VisualElement _image = new VisualElement();
         readonly VisualElement _overlay = new VisualElement();
 
@@ -67,7 +73,12 @@ namespace Game.UI
         /// <summary>Which sector the pointer is over, or -1. Read by the panel to fill its tooltip.</summary>
         public int HoveredSector { get; private set; } = -1;
 
+        /// <summary>The sector a mission would be aimed at, or -1. Survives the pointer leaving, unlike the hover: it is a decision, not a glance.</summary>
+        public int SelectedSector { get; private set; } = -1;
+
         public event Action<int> HoveredSectorChanged;
+
+        public event Action<int> SelectedSectorChanged;
 
         /// <summary>Pixels per sector. The one number that says how zoomed in the map is.</summary>
         public float PixelsPerSector { get; private set; } = DefaultPixelsPerSector;
@@ -76,8 +87,15 @@ namespace Game.UI
         public Vector2 ViewCentreSectors { get; private set; }
 
         bool _dragging;
+        bool _dragMoved;
         Vector2 _dragStart;
         Vector2 _dragCentreAtStart;
+
+        /// <summary>How far the pointer may travel between press and release and still count as a click rather than a pan.</summary>
+        const float ClickSlopPixels = 4f;
+
+        /// <summary>Below this, sector outlines would be a solid wash rather than a grid, so they are not drawn at all.</summary>
+        const float GridlineMinPixelsPerSector = 10f;
 
         public SectorMapElement()
         {
@@ -185,6 +203,7 @@ namespace Game.UI
         void OnPointerDown(PointerDownEvent evt)
         {
             _dragging = true;
+            _dragMoved = false;
             _dragStart = evt.localPosition;
             _dragCentreAtStart = ViewCentreSectors;
             this.CapturePointer(evt.pointerId);
@@ -197,15 +216,38 @@ namespace Game.UI
             if (!_dragging) return;
 
             Vector2 movedPixels = (Vector2)evt.localPosition - _dragStart;
+
+            // A drag and a click arrive as the same pair of events; only the distance between them
+            // tells the two apart. Without this, panning the map also re-aimed the mission at
+            // whatever sector the button happened to come up over.
+            if (movedPixels.sqrMagnitude > ClickSlopPixels * ClickSlopPixels) _dragMoved = true;
+
             ViewCentreSectors = _dragCentreAtStart - movedPixels / PixelsPerSector;
             Layout();
         }
 
         void OnPointerUp(PointerUpEvent evt)
         {
+            bool wasClick = _dragging && !_dragMoved;
+
             _dragging = false;
             this.ReleasePointer(evt.pointerId);
+
+            if (wasClick) SetSelected(SectorIndexAt(evt.localPosition));
         }
+
+        /// <summary>Aims at a sector, or at nothing when the click fell off the map. Clicking the sector already aimed at leaves it aimed at - only the panel's own close clears it.</summary>
+        void SetSelected(int sector)
+        {
+            if (sector == SelectedSector) return;
+
+            SelectedSector = sector;
+            _overlay.MarkDirtyRepaint();
+            SelectedSectorChanged?.Invoke(sector);
+        }
+
+        /// <summary>Drops the aim, for the panel to call when it opens on a new session of looking.</summary>
+        public void ClearSelection() => SetSelected(-1);
 
         void SetHovered(int sector)
         {
@@ -278,23 +320,83 @@ namespace Game.UI
 
             Painter2D painter = context.painter2D;
 
+            DrawGridlines(painter);
             DrawHoveredSector(painter);
+            DrawSelectedSector(painter);
             DrawRadius(painter);
             DrawCore(painter);
         }
 
+        /// <summary>
+        /// The sector grid, drawn over the image rather than baked into it.
+        ///
+        /// Unknown sectors are all one colour, so without lines the unexplored world is a single flat
+        /// field with no squares in it - and a player asked to aim at a sector cannot see where one
+        /// ends. Drawn, not baked, because it belongs to the view's scale: at three pixels a sector
+        /// the lines would be the whole image.
+        /// </summary>
+        void DrawGridlines(Painter2D painter)
+        {
+            if (PixelsPerSector < GridlineMinPixelsPerSector) return;
+
+            Vector2 size = contentRect.size;
+            Vector2 topLeftSector = SectorAt(Vector2.zero);
+            Vector2 bottomRightSector = SectorAt(size);
+
+            painter.strokeColor = GridlineColour;
+            painter.lineWidth = 1f;
+
+            int firstColumn = Mathf.Max(0, Mathf.FloorToInt(topLeftSector.x));
+            int lastColumn = Mathf.Min(_sizeSectors, Mathf.CeilToInt(bottomRightSector.x));
+            for (int column = firstColumn; column <= lastColumn; column++)
+            {
+                float x = PointAt(new Vector2(column * _sectorSizeCells, 0f)).x;
+                painter.BeginPath();
+                painter.MoveTo(new Vector2(x, 0f));
+                painter.LineTo(new Vector2(x, size.y));
+                painter.Stroke();
+            }
+
+            // Rows count upward while the screen counts downward, hence the swapped bounds.
+            int firstRow = Mathf.Max(0, Mathf.FloorToInt(bottomRightSector.y));
+            int lastRow = Mathf.Min(_sizeSectors, Mathf.CeilToInt(topLeftSector.y));
+            for (int row = firstRow; row <= lastRow; row++)
+            {
+                float y = PointAt(new Vector2(0f, row * _sectorSizeCells)).y;
+                painter.BeginPath();
+                painter.MoveTo(new Vector2(0f, y));
+                painter.LineTo(new Vector2(size.x, y));
+                painter.Stroke();
+            }
+        }
+
+        void DrawSelectedSector(Painter2D painter)
+        {
+            if (SelectedSector < 0) return;
+
+            painter.strokeColor = SelectionColour;
+            painter.lineWidth = 2.5f;
+            StrokeSector(painter, SelectedSector);
+        }
+
         void DrawHoveredSector(Painter2D painter)
         {
-            if (HoveredSector < 0) return;
+            if (HoveredSector < 0 || HoveredSector == SelectedSector) return;
 
-            int column = HoveredSector % _sizeSectors;
-            int row = HoveredSector / _sizeSectors;
+            painter.strokeColor = HoverColour;
+            painter.lineWidth = 1.5f;
+            StrokeSector(painter, HoveredSector);
+        }
+
+        /// <summary>One sector's outline. Shared by the hover and the selection so the two are the same rectangle, differing only in colour and weight.</summary>
+        void StrokeSector(Painter2D painter, int sector)
+        {
+            int column = sector % _sizeSectors;
+            int row = sector / _sizeSectors;
 
             Vector2 topLeft = PointAt(new Vector2(column * _sectorSizeCells, (row + 1) * _sectorSizeCells));
             float side = PixelsPerSector;
 
-            painter.strokeColor = HoverColour;
-            painter.lineWidth = 1.5f;
             painter.BeginPath();
             painter.MoveTo(topLeft);
             painter.LineTo(topLeft + new Vector2(side, 0f));

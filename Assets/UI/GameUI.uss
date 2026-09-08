@@ -2072,3 +2072,102 @@
 .storage-slot-menu-item:hover {
     background-color: rgb(46, 26, 26);
 }
+
+/* --- The map's launch pane -------------------------------------------------------------------
+   The map and the decision about it sit side by side: choosing a target and choosing what to send
+   there is one gesture, and answering must not move the map out from under the pointer. */
+
+.sector-map-body {
+    flex-direction: row;
+    flex-grow: 1;
+    margin: 8px 0;
+}
+
+.sector-map-body .sector-map-viewport {
+    margin: 0 8px 0 0;
+}
+
+.sector-map-aside {
+    width: 240px;
+    flex-direction: column;
+}
+
+.sector-map-target-name {
+    color: rgb(222, 232, 238);
+    font-size: 14px;
+    -unity-font-style: bold;
+}
+
+/* Quiet, like the hover line and for the same reason: on an unreconnoitred sector this says only
+   that nobody has been, and must not read as information being withheld. */
+.sector-map-target-detail {
+    color: rgb(138, 152, 160);
+    font-size: 11px;
+    margin-bottom: 4px;
+    white-space: normal;
+}
+
+.sector-map-mission-list {
+    flex-direction: column;
+}
+
+.sector-map-mission-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.sector-map-mission-name {
+    color: rgb(200, 205, 210);
+    font-size: 11px;
+    flex-grow: 1;
+}
+
+.sector-map-mission-duration {
+    color: rgb(135, 147, 156);
+    font-size: 10px;
+    margin-right: 8px;
+}
+
+.sector-map-mission-launch {
+    height: 22px;
+    padding: 0 10px;
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-color: rgb(85, 221, 245);
+    color: rgb(85, 221, 245);
+    font-size: 10px;
+}
+
+.sector-map-mission-launch:hover {
+    background-color: rgb(26, 40, 46);
+}
+
+/* A refusal is stated, not shouted: it is usually a fact about where the player is pointing, not a
+   mistake they made. */
+.sector-map-mission-refusal {
+    color: rgb(120, 130, 138);
+    font-size: 10px;
+    -unity-text-align: middle-right;
+    min-width: 96px;
+}
+
+.sector-map-mission-none {
+    color: rgb(120, 130, 138);
+    font-size: 11px;
+    white-space: normal;
+}
+
+.sector-map-fleet {
+    color: rgb(135, 147, 156);
+    font-size: 10px;
+    margin-top: 8px;
+}
+
+/* One in-flight mission's remaining time, on the Top Bar's permanent counter. Same shape as the
+   directive's requirement chips - they are the same kind of statement, a thing being waited on. */
+.top-bar-mission-chip {
+    color: rgb(85, 221, 245);
+    font-size: 11px;
+    margin-right: 8px;
+}
