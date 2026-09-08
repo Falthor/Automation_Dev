@@ -247,6 +247,33 @@ namespace Game.Gameplay.Expeditions
             Choose(ZoneOfSector(sectorIndex));
         }
 
+        /// <summary>
+        /// The sector a first mission into this zone is aimed at: on the zone's own bearing, just past
+        /// the inner edge.
+        ///
+        /// <b>Derived, and identical for all six by construction.</b> The zones are the same wedge turned
+        /// six times, so their entry sectors sit at the same distance from the Core and a mission to any
+        /// of them takes the same time - which is exactly what the first screen has to be able to say:
+        /// what is shown is true and identical everywhere, because there is nothing yet to tell the
+        /// directions apart.
+        ///
+        /// One sector out from the edge rather than on it, so the target is clear of the Core's own
+        /// ground whatever rounding does.
+        /// </summary>
+        public int EntrySectorOf(int zoneIndex)
+        {
+            if (_grid == null || zoneIndex < 0 || zoneIndex >= ZoneCount) return -1;
+
+            float radians = ZoneOf(zoneIndex).CentreDegrees * Mathf.Deg2Rad;
+            float radius = InnerRadiusCells + _grid.SectorSizeCells;
+
+            var cell = new GridCoord(
+                Mathf.RoundToInt(_coreCentreCells.x + Mathf.Cos(radians) * radius),
+                Mathf.RoundToInt(_coreCentreCells.y + Mathf.Sin(radians) * radius));
+
+            return _grid.IndexAt(cell);
+        }
+
         // ---- Content ----
 
         /// <summary>

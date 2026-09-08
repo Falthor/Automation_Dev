@@ -1808,9 +1808,15 @@
 
 /* ---- Zoomed-out sector map ---- */
 
+/* The map is the one panel whose content is the whole world rather than one building's numbers, so
+   it takes the screen it needs. Sized in percent with a floor: on a 1080p screen it is close to the
+   940x680 it used to be fixed at, and it grows with anything larger instead of leaving the map a
+   letterbox in the middle of a 4K display. */
 .sector-map-panel {
-    width: 940px;
-    height: 680px;
+    width: 78%;
+    height: 82%;
+    min-width: 940px;
+    min-height: 680px;
 }
 
 /* The viewport clips the map; the map element inside it is what pans. A dark ground so an

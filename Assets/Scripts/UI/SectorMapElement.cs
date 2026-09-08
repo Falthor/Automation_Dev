@@ -76,6 +76,12 @@ namespace Game.UI
         /// <summary>The chosen zone's own two separators, a shade up from the rest so the worked slice reads without being announced.</summary>
         static readonly Color ChosenSeparatorColour = new Color(0.333f, 0.867f, 0.961f, 0.35f);
 
+        /// <summary>A zone under the pointer while none has been chosen. Faint: it answers "this one", not "take this one".</summary>
+        static readonly Color ZoneHoverFill = new Color(1f, 1f, 1f, 0.05f);
+
+        /// <summary>The zone picked. The panel's own accent, because this is a decision rather than a glance.</summary>
+        static readonly Color ZoneSelectedFill = new Color(0.333f, 0.867f, 0.961f, 0.10f);
+
         /// <summary>A site that has given what it held. Sourd, and never clickable - it stays as the trace of what was done there.</summary>
         static readonly Color DoneColour = new Color(0.42f, 0.45f, 0.5f, 1f);
 
@@ -132,6 +138,30 @@ namespace Game.UI
         /// is exactly the kind of duplicate that stops agreeing.
         /// </summary>
         public event Action<Vector2> ZoneFramingRequested;
+
+        /// <summary>The zone the pointer is over while none has been chosen, or -1.</summary>
+        public int HoveredZone { get; private set; } = -1;
+
+        /// <summary>The zone aimed at while none has been chosen, or -1. What the side pane offers its first mission for.</summary>
+        public int SelectedZone { get; private set; } = -1;
+
+        public event Action<int> SelectedZoneChanged;
+
+        /// <summary>
+        /// Answers which zone a point in cell space falls in. Set by the panel, because the partition
+        /// belongs to <c>ExpeditionZoneSystem</c> - a second copy here is the duplicate that stops
+        /// agreeing.
+        /// </summary>
+        public Func<Vector2, int> ZoneResolver { get; set; }
+
+        /// <summary>
+        /// Whether the map is aiming at whole zones rather than at squares inside one.
+        ///
+        /// <b>True until a zone has been chosen.</b> At that stage the player is picking a direction,
+        /// not a destination: there is nothing to tell one sector from another, and asking them to click
+        /// a 16-cell square would be asking a question the map cannot answer yet.
+        /// </summary>
+        public bool AimsAtZones => _chosenZone < 0 && _zoneCount > 0 && ZoneResolver != null;
 
         /// <summary>
         /// Whether the view currently shows the whole ring of zones - the scale the design calls
@@ -193,7 +223,7 @@ namespace Game.UI
             RegisterCallback<PointerMoveEvent>(OnPointerMove);
             RegisterCallback<PointerUpEvent>(OnPointerUp);
             RegisterCallback<PointerLeaveEvent>(_ => SetHovered(-1));
-            RegisterCallback<GeometryChangedEvent>(_ => Layout());
+            RegisterCallback<GeometryChangedEvent>(_ => OnGeometryChanged());
         }
 
         /// <summary>Hands the element what it draws. Called once the world exists; safe to call again if the map is rebuilt.</summary>
@@ -312,7 +342,8 @@ namespace Game.UI
 
         void OnPointerMove(PointerMoveEvent evt)
         {
-            SetHovered(SectorIndexAt(evt.localPosition));
+            if (AimsAtZones) SetHoveredZone(ZoneResolver(CellAt(evt.localPosition)));
+            else SetHovered(SectorIndexAt(evt.localPosition));
 
             if (!_dragging) return;
 
@@ -336,9 +367,18 @@ namespace Game.UI
 
             if (!wasClick) return;
 
-            // At the whole-world scale a click frames the zone it fell in rather than aiming at a
-            // sector: sectors are a few pixels across there, so a click could only ever mean "take me
-            // closer". Nothing is stacked and nothing is left to quit - it is the same screen, moved.
+            // While no zone has been chosen, a click aims at the whole wedge. The view is not moved:
+            // the player is picking a direction, and jumping the camera under the click they just made
+            // would answer a question they did not ask.
+            if (AimsAtZones)
+            {
+                SetSelectedZone(ZoneResolver(CellAt(evt.localPosition)));
+                return;
+            }
+
+            // Afterwards, at the whole-world scale, a click frames the zone it fell in rather than
+            // aiming at a sector: sectors are a few pixels across there, so a click could only ever
+            // mean "take me closer". Nothing is stacked and nothing is left to quit.
             if (ShowsWholeRing)
             {
                 ZoneFramingRequested?.Invoke(CellAt(evt.localPosition));
@@ -452,6 +492,32 @@ namespace Game.UI
             {
                 PixelsPerSector = Mathf.Clamp(
                     halfViewport / radiusCells * _sectorSizeCells, MinPixelsPerSector, MaxPixelsPerSector);
+
+                _pendingFrameRadiusCells = 0f;
+            }
+            else
+            {
+                // <b>Asked for before the panel has been laid out.</b> Opening the map frames the whole
+                // ring, but that happens on the frame the panel becomes visible, when contentRect is
+                // still zero - so the zoom was computed against nothing and quietly dropped, and the map
+                // opened at whatever scale it was last left at. Kept and applied on the first geometry.
+                _pendingFrameCentreCells = centreCells;
+                _pendingFrameRadiusCells = radiusCells;
+            }
+
+            Layout();
+        }
+
+        /// <summary>A framing that arrived before there was a viewport to fit it into. Zero means none pending.</summary>
+        Vector2 _pendingFrameCentreCells;
+        float _pendingFrameRadiusCells;
+
+        void OnGeometryChanged()
+        {
+            if (_pendingFrameRadiusCells > 0f && contentRect.size.x > 0f)
+            {
+                FrameCells(_pendingFrameCentreCells, _pendingFrameRadiusCells);
+                return;
             }
 
             Layout();
@@ -468,6 +534,26 @@ namespace Game.UI
             _overlay.MarkDirtyRepaint();
             HoveredSectorChanged?.Invoke(sector);
         }
+
+        void SetHoveredZone(int zone)
+        {
+            if (zone == HoveredZone) return;
+
+            HoveredZone = zone;
+            _overlay.MarkDirtyRepaint();
+        }
+
+        void SetSelectedZone(int zone)
+        {
+            if (zone == SelectedZone) return;
+
+            SelectedZone = zone;
+            _overlay.MarkDirtyRepaint();
+            SelectedZoneChanged?.Invoke(zone);
+        }
+
+        /// <summary>Drops the aim on both slots, for the panel to call when it opens on a new session of looking.</summary>
+        public void ClearZoneSelection() => SetSelectedZone(-1);
 
         // ---- Geometry ----
 
@@ -644,6 +730,23 @@ namespace Game.UI
             float outer = _zoneOuterRadiusCells * pixelsPerCell;
             if (outer - inner < 2f) return;
 
+            // The zone being pointed at or picked, filled behind everything else so the wedge reads as
+            // one place rather than as two lines with something between them.
+            if (AimsAtZones)
+            {
+                if (HoveredZone >= 0 && HoveredZone != SelectedZone) FillWedge(painter, HoveredZone, inner, outer, ZoneHoverFill);
+                if (SelectedZone >= 0) FillWedge(painter, SelectedZone, inner, outer, ZoneSelectedFill);
+            }
+
+            // <b>The ring closes the zones.</b> Six lines that simply stop leave the eye to guess where
+            // the reachable ground ends - and that edge is the whole reason a zone is finite. Drawn
+            // before the separators so they cross it rather than being cut by it.
+            painter.strokeColor = SeparatorColour;
+            painter.lineWidth = 1f;
+            painter.BeginPath();
+            painter.Arc(centre, outer, 0f, 360f);
+            painter.Stroke();
+
             float slice = 360f / _zoneCount;
             painter.lineWidth = 1f;
 
@@ -654,8 +757,7 @@ namespace Game.UI
                 float degrees = i * slice + slice * 0.5f;
                 bool bordersChosen = _chosenZone >= 0 && (i == _chosenZone || (i + 1) % _zoneCount == _chosenZone);
 
-                float radians = degrees * Mathf.Deg2Rad;
-                var direction = new Vector2(Mathf.Cos(radians), -Mathf.Sin(radians));   // screen Y grows downward
+                Vector2 direction = Bearing(degrees);
 
                 painter.strokeColor = bordersChosen ? ChosenSeparatorColour : SeparatorColour;
                 painter.BeginPath();
@@ -663,6 +765,49 @@ namespace Game.UI
                 painter.LineTo(centre + direction * outer);
                 painter.Stroke();
             }
+        }
+
+        /// <summary>
+        /// One zone's wedge, filled.
+        ///
+        /// Built from line segments along both arcs rather than from <c>Painter2D.Arc</c>: the screen's
+        /// Y grows downward while the world's grows north, so an arc's sweep direction is mirrored here
+        /// and the two edges would have to be swept opposite ways. Sampling the arc sidesteps the whole
+        /// question and is exact enough at any zoom the map reaches.
+        /// </summary>
+        void FillWedge(Painter2D painter, int zone, float inner, float outer, Color colour)
+        {
+            const int Steps = 24;
+
+            Vector2 centre = PointAt(_coreCentreCells);
+            float slice = 360f / _zoneCount;
+            float from = zone * slice - slice * 0.5f;
+            float to = zone * slice + slice * 0.5f;
+
+            painter.fillColor = colour;
+            painter.BeginPath();
+
+            for (int i = 0; i <= Steps; i++)
+            {
+                Vector2 point = centre + Bearing(Mathf.Lerp(from, to, i / (float)Steps)) * outer;
+                if (i == 0) painter.MoveTo(point);
+                else painter.LineTo(point);
+            }
+
+            for (int i = Steps; i >= 0; i--)
+            {
+                painter.LineTo(centre + Bearing(Mathf.Lerp(from, to, i / (float)Steps)) * inner);
+            }
+
+            painter.ClosePath();
+            painter.Fill();
+        }
+
+        /// <summary>A unit vector for a world bearing, in screen space - where Y grows downward and the world's grows north.</summary>
+        static Vector2 Bearing(float degrees)
+        {
+            float radians = degrees * Mathf.Deg2Rad;
+            return new Vector2(Mathf.Cos(radians), -Mathf.Sin(radians));
         }
 
         /// <summary>

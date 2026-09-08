@@ -96,6 +96,10 @@ namespace Game.UI
             _map.HoveredSectorChanged += OnHoveredSectorChanged;
             _map.SelectedSectorChanged += _ => RenderTarget();
             _map.ZoneFramingRequested += FrameZoneAt;
+            _map.SelectedZoneChanged += _ => RenderTarget();
+
+            // The partition stays in the zone system; the element only asks.
+            _map.ZoneResolver = cell => Zones != null ? Zones.ZoneAt(cell) : -1;
             panelRoot.Q<VisualElement>("SectorMapViewport").Add(_map);
 
             _root.EnableInClassList("hidden", true);
@@ -129,6 +133,7 @@ namespace Game.UI
                 // already is. The Core's own ground is one click away on the breadcrumb.
                 FrameWorld();
                 _map.ClearSelection();
+                _map.ClearZoneSelection();
                 RenderTarget();
             }
         }
@@ -582,8 +587,20 @@ namespace Game.UI
         {
             if (_targetName == null || gameRuntime.Missions == null) return;
 
-            int sector = _map.SelectedSector;
             _fleet.text = FleetLine();
+
+            // <b>Before a zone is chosen the target is a direction, not a square.</b> There is nothing
+            // to tell one sector from another out there, so asking the player to pick one would be
+            // asking a question the map cannot answer yet. The zone's entry sector is what the mission
+            // is actually aimed at, and it is the same distance in all six - which is why what the
+            // panel says here is true and identical everywhere.
+            if (_map.AimsAtZones)
+            {
+                RenderZoneTarget();
+                return;
+            }
+
+            int sector = _map.SelectedSector;
 
             if (sector < 0)
             {
@@ -607,6 +624,38 @@ namespace Game.UI
             if (underway != null) _targetState.text += "\n" + underway;
 
             RenderMissions(sector);
+        }
+
+        /// <summary>
+        /// The first screen's answer: a direction, and what one mission into it would cost.
+        ///
+        /// <b>What is shown is true and identical everywhere</b>, because nothing yet distinguishes the
+        /// six - no robot has been. Saying anything more would be inventing knowledge the Core does not
+        /// have, which is the one thing this panel refuses to do.
+        /// </summary>
+        void RenderZoneTarget()
+        {
+            int zone = _map.SelectedZone;
+
+            if (zone < 0)
+            {
+                _targetName.text = "Aucune direction";
+                _targetState.text = "Survolez une zone, puis choisissez-en une.";
+                _missionList.Clear();
+                return;
+            }
+
+            _targetName.text = ZoneName(zone);
+            _targetState.text = "Aucune donnée. Les six directions se valent tant qu'aucun robot n'y est allé.";
+
+            int entry = Zones.EntrySectorOf(zone);
+            if (entry < 0)
+            {
+                _missionList.Clear();
+                return;
+            }
+
+            RenderMissions(entry);
         }
 
         void RenderMissions(int sector)
