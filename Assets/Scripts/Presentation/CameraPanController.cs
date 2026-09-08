@@ -14,8 +14,18 @@ namespace Game.Presentation
     {
         [SerializeField] float panSpeed = 10f;
 
+        GameRuntime _gameRuntime;
+
+        // Found rather than wired, like GameRuntime does for the zoom controller: there is one of
+        // each in the scene, and a missing one only means nothing ever suppresses panning.
+        void Start() => _gameRuntime = FindAnyObjectByType<GameRuntime>();
+
         void Update()
         {
+            // A panel that navigates with the keyboard takes ZQSD for itself. Without this the map
+            // panned and the world scrolled underneath it on the same keypress.
+            if (_gameRuntime != null && _gameRuntime.KeyboardOwnedByPanel) return;
+
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
 

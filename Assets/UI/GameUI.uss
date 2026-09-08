@@ -2039,3 +2039,36 @@
     font-size: 9px;
     margin-right: 6px;
 }
+
+/* The map button's own pulse, on the lit half of NewUnlockPulse's cycle. Green rather than the
+   Research menu's cyan: cyan is this UI's ordinary accent and says "interactive", while the map
+   appearing is a one-off event - somewhere beyond the Core has become reachable. Only the colours
+   change, never the border width, so the button does not twitch a pixel every half second. */
+.bottom-nav-map-button.newly-reachable {
+    color: rgb(100, 210, 130);
+    border-color: rgb(100, 210, 130);
+    background-color: rgb(20, 38, 27);
+}
+
+/* The right-click menu on a storage slot. Absolutely positioned inside the panel so it survives the
+   grid being rebuilt every frame, and drawn over it. */
+.storage-slot-menu {
+    position: absolute;
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-color: rgb(85, 221, 245);
+    padding: 2px;
+}
+
+.storage-slot-menu-item {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    color: rgb(220, 105, 95);
+    font-size: 11px;
+    padding: 4px 10px;
+    -unity-text-align: middle-left;
+}
+
+.storage-slot-menu-item:hover {
+    background-color: rgb(46, 26, 26);
+}

@@ -37,6 +37,12 @@ namespace Game.UI
         /// <summary>Opens the zoomed-out map. Hidden until the explorer robots arrive.</summary>
         Button _mapButton;
 
+        /// <summary>The slot the map button lives in. Hidden with the button, so before the robots arrive there is no empty frame sitting where a control will one day be.</summary>
+        VisualElement _mapSlot;
+
+        /// <summary>False until the player has opened the map once - what ends the green pulse announcing that somewhere else has become reachable.</summary>
+        bool _mapSeen;
+
         /// <summary>False until the player has opened the Research panel once - what ends the "this is new" pulse on the icon that just appeared.</summary>
         bool _researchMenuSeen;
         readonly VisualElement[] _slotRoots = new VisualElement[BuildingMenuController.ToolbarSlotCount];
@@ -118,6 +124,7 @@ namespace Game.UI
         {
             if (slot == null) return;
 
+            _mapSlot = slot;
             _mapButton = new Button(() => ToggleGlobalPanel(SectorMapPanelController.PanelName)) { text = "CARTE" };
             _mapButton.AddToClassList("bottom-nav-map-button");
 
@@ -125,13 +132,27 @@ namespace Game.UI
             slot.Add(_mapButton);
         }
 
-        /// <summary>The map exists once the robots do: before that there is nowhere to send anything, and §9 makes their arrival what opens it.</summary>
+        /// <summary>
+        /// The map exists once the robots do: before that there is nowhere to send anything, and §9
+        /// makes their arrival what opens it.
+        ///
+        /// The whole slot goes, not just the button inside it. Hiding only the button left its empty
+        /// frame drawn in the corner for the entire opening - a control-shaped hole announcing a
+        /// control the player has not been given, which is the announcement the pulse below is for.
+        ///
+        /// Green rather than the Research menu's tint: this is not another menu being handed over,
+        /// it is the world beyond the Core becoming reachable at all.
+        /// </summary>
         void RefreshMapAvailability()
         {
             if (_mapButton == null) return;
 
             bool available = gameRuntime.Missions != null && gameRuntime.Missions.RobotsHaveAppeared;
+            _mapSlot?.EnableInClassList("hidden", !available);
             _mapButton.EnableInClassList("hidden", !available);
+
+            if (gameRuntime.Selection.ActiveGlobalPanel == SectorMapPanelController.PanelName) _mapSeen = true;
+            _mapButton.EnableInClassList("newly-reachable", available && !_mapSeen && NewUnlockPulse.IsOn);
         }
 
         void AddCategoryButton(int index, string panelName, Sprite icon)

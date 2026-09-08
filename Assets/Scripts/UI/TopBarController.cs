@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Data;
+using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Directives;
 using Game.Gameplay.Session;
@@ -204,8 +205,23 @@ namespace Game.UI
 
             root.Add(header);
 
+            // The card states a bill; the Core panel is where it is read in full and accepted. The
+            // player who reads "0/40" on the bar is already asking about the directive, and having
+            // to go find the Core on the map to answer that is a detour the bar can spare them.
+            root.AddToClassList("top-bar-card-clickable");
+            root.RegisterCallback<ClickEvent>(_ => OpenCorePanel());
+
             _cardsRow.Add(root);
             return card;
+        }
+
+        /// <summary>Selects the Core, which is what CorePanelController listens for - the same route a click on the Core itself takes, so there is one way in and not two.</summary>
+        void OpenCorePanel()
+        {
+            CoreRuntime core = gameRuntime.World?.Core;
+            if (core == null) return;
+
+            gameRuntime.Selection.Select(core);
         }
 
         static void SetExpanded(Card card, bool expanded)
@@ -365,7 +381,7 @@ namespace Game.UI
                 return;
             }
 
-            IReadOnlyDictionary<string, int> available = gameRuntime.GlobalStock;
+            IReadOnlyDictionary<string, int> available = gameRuntime.DirectiveStock;
             foreach (RecipeIngredient requirement in current.Requirements)
             {
                 if (requirement.Item == null || requirement.Amount <= 0) continue;

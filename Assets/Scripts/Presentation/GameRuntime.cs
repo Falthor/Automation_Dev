@@ -143,6 +143,12 @@ namespace Game.Presentation
         /// <summary>One texel per sector, for the whole map - what the zoomed-out map draws. Rebuilds only the chunks discovery actually moved, so a still frame costs one comparison.</summary>
         public SectorMapImage SectorMap { get; private set; }
 
+        /// <summary>Where the explorer robots stand between missions. A view, driven from the tick below; the fleet's real state is charges in MissionSystem.</summary>
+        ExplorerRobotParkView _explorerPark;
+
+        /// <summary>Whether a parked explorer robot stands on this cell. What lets a click on the fleet open the map instead of falling through to empty ground.</summary>
+        public bool ExplorerRobotStandsOn(GridCoord cell) => _explorerPark != null && _explorerPark.StandsOn(cell);
+
         /// <summary>
         /// The scene's one depth ladder - every sorted-band rank comes from it. There must be
         /// exactly one: a rank is only meaningful against the window it was measured in, so ranks
@@ -205,6 +211,29 @@ namespace Game.Presentation
         /// </summary>
         public IReadOnlyDictionary<string, int> GlobalStock =>
             ConstructionSites != null ? ConstructionSites.GetAvailableAggregate() : new Dictionary<string, int>();
+
+        /// <summary>
+        /// What a Core directive counts: <see cref="GlobalStock"/> minus the Core's own reserve.
+        ///
+        /// A directive asks for material to be brought to the Core, and what already sits in the
+        /// hatch beneath it was never brought anywhere - counting it let the opening directive be
+        /// satisfied by the starting stock alone. The reserve still funds construction, which is
+        /// what GlobalStock is for.
+        ///
+        /// Here rather than in a panel because three places read it - the Top Bar's chips, the Core
+        /// panel's figures, and its Validate button - and a rule split across three readers is a
+        /// rule that will disagree with itself.
+        /// </summary>
+        public IReadOnlyDictionary<string, int> DirectiveStock =>
+            ConstructionSites != null ? ConstructionSites.GetAvailableForCoreHaul() : new Dictionary<string, int>();
+
+        /// <summary>
+        /// True while an open panel is navigating with the keyboard itself - the zoomed-out map is
+        /// the only one today, where ZQSD moves the map. The world camera stands down for as long as
+        /// it is set, so the two never move at once. Set by the panel that takes the keys, cleared
+        /// when it closes.
+        /// </summary>
+        public bool KeyboardOwnedByPanel { get; set; }
 
         /// <summary>Construction sites + the two builder robots (TASK_05_ROBOT_CONSTRUCTEUR.md), ticked from this object's central Update() like every other simulation system.</summary>
         public ConstructionSiteSystem ConstructionSites { get; private set; }
@@ -319,6 +348,7 @@ namespace Game.Presentation
             // follows it on its own rather than being a second figure to keep in step.
             MissionRange = new SectorMissionRange(CoreRuntime.ExtendedActionRadiusCells, sectorSettings.TerritorySpacingCells);
             SectorMap = new SectorMapImage(Sectors, Discovery);
+            _explorerPark = new ExplorerRobotParkView(Grid, missionSettings, DepthSort);
 
             if (missionSettings != null)
             {
@@ -736,6 +766,11 @@ namespace Game.Presentation
             // map rather than under it. The reserve and its cap are handed over rather than read,
             // because the probe threshold is a fraction of the cap - see MissionSettings.
             Missions?.Tick(Time.deltaTime, Compute.Reserve, ComputeSystem.ReserveCap);
+
+            // Immediately after, so the frame the fleet exists is the frame it is on the ground.
+            // Does nothing at all until then, and nothing again once it has spawned. Parked at the
+            // Core's hatch, falling back to the Core itself if a game somehow has no reserve.
+            _explorerPark?.Refresh(Missions, (BuildingRuntime)World?.CoreStorage ?? World?.Core);
 
             // Scaled deltaTime, like every system above it - which is the whole of how the run
             // clock pauses and resumes. Pause sets Time.timeScale to 0, so this is fed 0 and stops

@@ -17,6 +17,12 @@ namespace Game.Data
 
         [SerializeField, Min(0)] int explorerRobotCount = 2;
 
+        /// <summary>
+        /// What an explorer robot looks like where it stands. Data rather than a scene reference so
+        /// the fleet's look travels with the settings that say how many there are.
+        /// </summary>
+        [SerializeField] Sprite explorerRobotSprite;
+
         /// <summary>Missions, not minutes. Counted in missions is what makes the budget guaranteeable: a robot that runs out mid-introduction with the player also out of CU would leave no way forward at all.</summary>
         [SerializeField, Min(1)] int missionsPerRobot = 10;
 
@@ -85,6 +91,7 @@ namespace Game.Data
         [SerializeField, Min(1f)] float regeneratingCooldownSeconds = 600f;
 
         public int ExplorerRobotCount => explorerRobotCount;
+        public Sprite ExplorerRobotSprite => explorerRobotSprite;
         public int MissionsPerRobot => missionsPerRobot;
         public float RobotThresholdFractionOfCap => robotThresholdFractionOfCap;
         public int MaxConcurrentMissions => maxConcurrentMissions;

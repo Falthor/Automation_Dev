@@ -94,6 +94,17 @@ namespace Game.UI
 
             if (TryShowPanelFor(occupant)) return;
 
+            // The parked fleet is not a grid occupant - it is a view standing on free ground - so it
+            // is asked for separately, after the occupant lookup came back with nothing. Clicking a
+            // robot opens the map, which is the only thing there is to do with one: a mission is
+            // designated out there, not here.
+            if (gameRuntime.ExplorerRobotStandsOn(cell))
+            {
+                storagePanel.Hide();
+                gameRuntime.Selection.OpenGlobalPanel(SectorMapPanelController.PanelName);
+                return;
+            }
+
             storagePanel.Hide();
             gameRuntime.Selection.Clear();
         }

@@ -601,7 +601,7 @@ namespace Game.Construction
         /// fresh reference to it then. Demolishing the Core was already unreachable in practice,
         /// but nothing previously stopped it explicitly.
         /// </summary>
-        static bool IsProtectedFromDemolition(BuildingRuntime building) =>
+        public static bool IsProtectedFromDemolition(BuildingRuntime building) =>
             building is CoreRuntime || building.Definition.Id == CoreStorageDefinitionId;
 
         const string CoreStorageDefinitionId = "core_storage";

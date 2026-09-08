@@ -344,7 +344,7 @@ namespace Game.Gameplay.Sites
                 int remaining = _coreHaul.RemainingToReserve(itemId);
                 if (remaining <= 0) continue;
 
-                foreach (StorageRuntime storage in StoragesInCollectionOrder())
+                foreach (StorageRuntime storage in StoragesForCoreHaul())
                 {
                     if (remaining <= 0) break;
                     int available = storage.GetInputAmount(itemId) - TotalReserved(storage, itemId);
@@ -430,6 +430,16 @@ namespace Game.Gameplay.Sites
             }
         }
 
+        /// <summary>Collection order with the Core's own reserve left out - see <see cref="GetAvailableForCoreHaul"/> for why a Core delivery may not draw on it.</summary>
+        IEnumerable<StorageRuntime> StoragesForCoreHaul()
+        {
+            foreach (StorageRuntime storage in StoragesInCollectionOrder())
+            {
+                if (storage.Definition.Id == CoreStorageDefinitionId) continue;
+                yield return storage;
+            }
+        }
+
         IEnumerable<ProductionBuildingRuntime> ProductionOutputsInOrder()
         {
             if (_transport == null) yield break;
@@ -446,11 +456,28 @@ namespace Game.Gameplay.Sites
         /// already reserved - exactly what a robot could still go claim right now. Never includes
         /// items in transit on a conveyor or in a robot's cargo, by design (§1's invariant).
         /// </summary>
-        public IReadOnlyDictionary<string, int> GetAvailableAggregate()
+        public IReadOnlyDictionary<string, int> GetAvailableAggregate() => Aggregate(StoragesInCollectionOrder());
+
+        /// <summary>
+        /// What a Core delivery may draw on: the same aggregate <b>minus the Core's own reserve</b>.
+        ///
+        /// A directive asks the player to bring the Core something. Material already sitting in the
+        /// hatch under it has not been brought anywhere - it started there - so counting it would
+        /// let the opening directive be satisfied by the starting stock without a single machine
+        /// being built. The reserve still funds construction: <see cref="GetAvailableAggregate"/> is
+        /// unchanged, and that is what a building's bill reads.
+        ///
+        /// Paired with <see cref="StoragesForCoreHaul"/>, which excludes the same container from the
+        /// reservation pass. The two must exclude identically, or the Validate button would grey out
+        /// on stock the haul would then happily claim.
+        /// </summary>
+        public IReadOnlyDictionary<string, int> GetAvailableForCoreHaul() => Aggregate(StoragesForCoreHaul());
+
+        IReadOnlyDictionary<string, int> Aggregate(IEnumerable<StorageRuntime> storages)
         {
             var totals = new Dictionary<string, int>();
 
-            foreach (StorageRuntime storage in StoragesInCollectionOrder())
+            foreach (StorageRuntime storage in storages)
             {
                 var seen = new HashSet<string>();
                 foreach (InventorySlot slot in storage.Slots)

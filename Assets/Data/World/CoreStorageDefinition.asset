@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: CoreStorageDefinition
   m_EditorClassIdentifier: Game.Data::Game.Data.StorageDefinition
   id: core_storage
-  displayName: Reserve du Noyau
+  displayName: Reserve
   footprintSize: {x: 2, y: 2}
   placeholderColor: {r: 0.7, g: 0.55, b: 0.3, a: 1}
   unlockResearch: {fileID: 0}

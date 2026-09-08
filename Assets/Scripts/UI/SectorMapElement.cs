@@ -24,14 +24,31 @@ namespace Game.UI
     /// </summary>
     public sealed class SectorMapElement : VisualElement
     {
-        /// <summary>Pixels per sector at the closest zoom. Past this the texels are so large the map reads as blocks rather than as ground.</summary>
-        public const float MaxPixelsPerSector = 48f;
+        /// <summary>
+        /// Pixels per sector at the closest zoom.
+        ///
+        /// Three times what it was. A sector is not decoration on this map, it is the thing a mission
+        /// is aimed at, and the scale has to be set by what stays comfortably clickable rather than by
+        /// how much world fits. At the old sizes a sector shrank to a few pixels well before the map
+        /// stopped being useful to read, so the two purposes fought each other.
+        /// </summary>
+        public const float MaxPixelsPerSector = 144f;
 
-        /// <summary>Pixels per sector when the whole world is asked for. Below one texel per pixel there is nothing more to see.</summary>
-        public const float MinPixelsPerSector = 1f;
+        /// <summary>Pixels per sector when the whole world is asked for. Three pixels is the floor because a target has to be hittable, not because there is nothing left to draw.</summary>
+        public const float MinPixelsPerSector = 3f;
 
         /// <summary>What the panel opens on: close enough that the mission-reachable ring fills a good part of the view.</summary>
-        public const float DefaultPixelsPerSector = 16f;
+        public const float DefaultPixelsPerSector = 48f;
+
+        /// <summary>
+        /// How much one notch of the wheel changes the zoom. 8% rather than the 20% this started at:
+        /// a map is read by creeping up on a scale, and at 20% two notches nearly halved the view,
+        /// so finding a comfortable one meant overshooting and coming back.
+        /// </summary>
+        const float ZoomStep = 1.08f;
+
+        /// <summary>Sectors crossed per second by the keyboard pan, at the default zoom. Scaled by the zoom so the map moves at a constant speed on screen rather than a constant speed in sectors.</summary>
+        const float KeyboardPanSectorsPerSecond = 24f;
 
         static readonly Color CoreColour = new Color(0.85f, 0.45f, 0.95f, 1f);
         static readonly Color RadiusColour = new Color(0.333f, 0.867f, 0.961f, 0.85f);
@@ -122,22 +139,47 @@ namespace Game.UI
 
         void OnWheel(WheelEvent evt)
         {
+            // Read the anchor BEFORE the zoom changes. SectorAt answers using the current
+            // PixelsPerSector, so asking it afterwards answered the new zoom's question and named a
+            // different sector - the point under the cursor crept away a little on every notch.
+            Vector2 anchor = SectorAt(evt.localMousePosition);
+
             float previous = PixelsPerSector;
-            float wanted = PixelsPerSector * (evt.delta.y < 0f ? 1.2f : 1f / 1.2f);
+            float wanted = PixelsPerSector * (evt.delta.y < 0f ? ZoomStep : 1f / ZoomStep);
             PixelsPerSector = Mathf.Clamp(wanted, MinPixelsPerSector, MaxPixelsPerSector);
 
             if (!Mathf.Approximately(previous, PixelsPerSector))
             {
                 // Zoom about the pointer rather than the centre: zooming towards what you are looking
                 // at is the difference between exploring a map and fighting one.
-                Vector2 underPointer = SectorAt(evt.localMousePosition);
+                //
+                // This inverts SectorAt at the new scale, so the anchor lands back under the pointer.
+                // The Y term is *added* because SectorAt subtracts it - screen Y grows downward and
+                // sector Y grows north. Reusing the same sign for both axes, as this did, slid the
+                // view vertically on every notch, which is what read as the map wandering off.
                 Vector2 fromCentre = evt.localMousePosition - contentRect.size * 0.5f;
-                ViewCentreSectors = underPointer - fromCentre / PixelsPerSector;
+                ViewCentreSectors = new Vector2(
+                    anchor.x - fromCentre.x / PixelsPerSector,
+                    anchor.y + fromCentre.y / PixelsPerSector);
 
                 Layout();
             }
 
             evt.StopPropagation();
+        }
+
+        /// <summary>
+        /// Moves the view by a screen distance expressed in seconds of held key, divided by the zoom
+        /// so the map slides at the same speed on screen whatever scale it is at. Zoomed right out,
+        /// a fixed number of sectors per second would be imperceptible; zoomed right in, unusable.
+        /// </summary>
+        public void PanByKeyboard(Vector2 direction, float deltaTime)
+        {
+            if (direction.sqrMagnitude <= 0f) return;
+
+            float sectorsPerSecond = KeyboardPanSectorsPerSecond * DefaultPixelsPerSector / PixelsPerSector;
+            ViewCentreSectors += direction.normalized * sectorsPerSecond * deltaTime;
+            Layout();
         }
 
         void OnPointerDown(PointerDownEvent evt)

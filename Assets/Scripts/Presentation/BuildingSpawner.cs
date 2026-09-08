@@ -43,8 +43,32 @@ namespace Game.Presentation
         /// </summary>
         public const float ArrowSizeCells = 0.25f;
 
+        /// <summary>The pause badge's size, in cells. Big enough to read on a 1x1 at a glance, small enough not to hide what a 4x4 is.</summary>
+        public const float PausedBadgeSizeCells = 0.7f;
+
+        /// <summary>The same yellow the Top Bar and the pause button use for "someone stopped this" - not the red of a fault, because nothing is wrong.</summary>
+        public static readonly Color PausedBadgeColor = new Color(1f, 0.847f, 0.4f, 1f);
+
         /// <summary>The arrow's world-space scale on a given grid - what both the built view and the ghost set on the transform.</summary>
         public static float ArrowWorldSize(float cellSize) => cellSize * ArrowSizeCells;
+
+        /// <summary>
+        /// How far back from the centre of the cell it marks an arrow is drawn, in cells.
+        ///
+        /// The cell an arrow marks is the one <b>outside</b> the footprint - where items leave to, or
+        /// arrive from - and drawing at its centre put the arrow a full half-cell clear of the
+        /// building, floating in open ground. Half a cell brings it exactly onto the footprint edge;
+        /// the arrow's own half-size then leaves it sitting against that edge rather than straddling
+        /// it, which is what makes it read as belonging to the building rather than to the ground.
+        /// </summary>
+        public static float ArrowEdgeInset(float cellSize) => cellSize * (0.5f - ArrowSizeCells * 0.5f);
+
+        /// <summary>Where an arrow is actually drawn: the marked cell's centre, pulled back towards the building it belongs to. Shared with the placement ghost so the preview and the built thing agree.</summary>
+        public static Vector3 ArrowPosition(Vector3 markedCellCentre, Direction outwardDirection, float cellSize)
+        {
+            GridCoord offset = outwardDirection.ToOffset();
+            return markedCellCentre - new Vector3(offset.X, offset.Y, 0f) * ArrowEdgeInset(cellSize);
+        }
 
         readonly GridRuntime _grid;
         readonly ProceduralSpriteFactory _spriteFactory;
@@ -221,6 +245,7 @@ namespace Game.Presentation
             }
 
             AttachShadow(runtime, renderer);
+            AttachPausedBadge(runtime, root.transform);
 
             if (definition.HasOutputArrow)
             {
@@ -367,10 +392,33 @@ namespace Game.Presentation
         /// </summary>
         static bool CastsShadow(BuildingRuntime runtime) => !(runtime is StorageRuntime);
 
+        /// <summary>
+        /// Gives a building that can be switched off a badge saying so, sat on its centre. Only
+        /// production buildings can be paused today, so only they get one - a badge that could never
+        /// light is a renderer per building for nothing.
+        /// </summary>
+        void AttachPausedBadge(BuildingRuntime runtime, Transform parent)
+        {
+            if (!(runtime is ProductionBuildingRuntime production)) return;
+
+            var badgeGo = new GameObject("PausedBadge");
+            badgeGo.transform.SetParent(parent, false);
+            badgeGo.transform.localPosition = Vector3.zero;
+            badgeGo.transform.localScale = Vector3.one * (_grid.CellSize * PausedBadgeSizeCells);
+
+            var badgeRenderer = badgeGo.AddComponent<SpriteRenderer>();
+            badgeRenderer.sprite = _spriteFactory.CreatePauseSprite(PausedBadgeColor);
+            _depthSort?.Register(badgeRenderer, BottomEdgeY(runtime), SortingBands.HoverOutline);
+
+            badgeGo.AddComponent<PausedBadgeView>().Bind(production);
+        }
+
         void SpawnDirectionalArrow(Transform parent, Vector3 worldPosition, Direction direction, Color color, GridCoord rankCell, bool inward)
         {
             var arrowGo = new GameObject(inward ? "InputArrow" : "OutputArrow");
-            arrowGo.transform.position = worldPosition;
+            // `direction` points away from the building on both paths - it is the exit side for an
+            // output and the side a delivery comes from for an input - so one inset serves both.
+            arrowGo.transform.position = ArrowPosition(worldPosition, direction, _grid.CellSize);
             Direction pointingDirection = inward ? direction.Opposite() : direction;
             arrowGo.transform.rotation = Quaternion.Euler(0f, 0f, -pointingDirection.ToRotationDegrees());
             arrowGo.transform.localScale = Vector3.one * ArrowWorldSize(_grid.CellSize);

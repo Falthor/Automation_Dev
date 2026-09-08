@@ -99,6 +99,26 @@ namespace Game.Gameplay.Items
             return taken;
         }
 
+        /// <summary>
+        /// Empties one slot outright, destroying what was in it. Answers what it discarded.
+        ///
+        /// By index, not by item id: this serves the player pointing at one square of a box, and two
+        /// squares can hold the same item. Take() would have emptied whichever it found first.
+        ///
+        /// The only path in the project that makes items cease to exist on purpose - everything else
+        /// moves them. It exists because a box holding something no longer wanted is otherwise stuck
+        /// with it forever: nothing consumes a stack the player has no use for.
+        /// </summary>
+        public int ClearSlot(int index)
+        {
+            if (index < 0 || index >= _slots.Length) return 0;
+
+            int discarded = _slots[index].Amount;
+            _slots[index].ItemId = null;
+            _slots[index].Amount = 0;
+            return discarded;
+        }
+
         int RemainingCapacityFor(string itemId)
         {
             int capacity = 0;

@@ -100,7 +100,7 @@ namespace Game.UI
 
         void OnValidateClicked()
         {
-            gameRuntime.CoreDirectives?.Validate(gameRuntime.GlobalStock, _selected);
+            gameRuntime.CoreDirectives?.Validate(gameRuntime.DirectiveStock, _selected);
         }
 
         /// <summary>
@@ -122,7 +122,7 @@ namespace Game.UI
             if (current == null) return;
 
             bool delivering = directives.IsDelivering;
-            IReadOnlyDictionary<string, int> available = gameRuntime.GlobalStock;
+            IReadOnlyDictionary<string, int> available = gameRuntime.DirectiveStock;
 
             _requirements.Clear();
             foreach (RecipeIngredient requirement in current.Requirements)

@@ -12,9 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2e2054a73c024404480b352d3a93c125, type: 3}
   m_Name: MissionSettings
   m_EditorClassIdentifier: Game.Data::Game.Data.MissionSettings
-  probeCount: 2
-  missionsPerProbe: 10
-  probeThresholdFractionOfCap: 0.35714287
+  explorerRobotCount: 2
+  explorerRobotSprite: {fileID: 21300000, guid: 92f60d47c562e4c42b7000ca82a3fdc2, type: 3}
+  missionsPerRobot: 10
+  robotThresholdFractionOfCap: 0.35714287
   maxConcurrentMissions: 2
   prospectionSeconds: 180
   explorationSeconds: 300

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Construction;
 using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Items;
@@ -29,10 +30,14 @@ namespace Game.UI
         readonly ProceduralSpriteFactory _spriteFactory = new ProceduralSpriteFactory();
 
         VisualElement _root;
+        VisualElement _panelRoot;
         VisualElement _grid;
         Label _title;
         Button _moveButton;
         StorageRuntime _selected;
+
+        /// <summary>The open right-click menu, or null. Lives beside the grid rather than inside a card, because the grid is rebuilt every frame.</summary>
+        VisualElement _slotMenu;
 
         /// <summary>
         /// True only while showing one specific box's 8 slots - false for the aggregate view,
@@ -54,7 +59,15 @@ namespace Game.UI
             panelRoot.pickingMode = PickingMode.Ignore;
 
             _root = panelRoot.Q<VisualElement>("StoragePanelRoot");
+            _panelRoot = _root.Q<VisualElement>(className: "panel");
             _grid = panelRoot.Q<VisualElement>("StorageGrid");
+
+            // Anywhere else in the panel dismisses an open slot menu, which is what makes it feel
+            // like a menu rather than a control that latched on.
+            _root.RegisterCallback<PointerDownEvent>(evt =>
+            {
+                if (_slotMenu != null && !_slotMenu.worldBound.Contains(evt.position)) HideSlotMenu();
+            }, TrickleDown.TrickleDown);
             _title = panelRoot.Q<Label>("StorageTitle");
             panelRoot.Q<Button>("StorageCloseButton").clicked += Hide;
 
@@ -73,6 +86,8 @@ namespace Game.UI
 
         void OnGlobalPanelChanged(string panelName)
         {
+            HideSlotMenu();
+
             if (panelName != PanelName)
             {
                 _selected = null;
@@ -89,6 +104,9 @@ namespace Game.UI
         {
             _selected = storage;
             gameRuntime.Selection.OpenGlobalPanel(PanelName);
+            // After opening, not before: opening clears the subject so no panel inherits the last
+            // one's. This is what lets the world outline the box being inspected.
+            gameRuntime.Selection.SetGlobalPanelSubject(storage);
             _root.EnableInClassList("hidden", false);
             RenderPerBox(storage);
         }
@@ -132,16 +150,23 @@ namespace Game.UI
 
         void RenderPerBox(StorageRuntime storage)
         {
-            _title.text = "Boite Rudimentaire";
+            // Read from the definition rather than written here: this panel serves every storage
+            // there is, and hard-coding one of their names made the Core's reserve introduce itself
+            // as a rudimentary box.
+            _title.text = storage.Definition.DisplayName;
             _root.EnableInClassList("overlay-root-right", true);
 
-            // Only a specific box can be moved; the aggregate view is every box at once.
-            _moveButton.EnableInClassList("hidden", false);
+            // Only a specific box can be moved - the aggregate view is every box at once - and only
+            // one the player actually placed. ConstructionService.BeginRelocation already refuses a
+            // world fixture like the Core's reserve, so showing the button there offered a gesture
+            // that silently did nothing.
+            _moveButton.EnableInClassList("hidden", ConstructionService.IsProtectedFromDemolition(storage));
 
             var cards = new List<VisualElement>(storage.Slots.Count);
-            foreach (InventorySlot slot in storage.Slots)
+            for (int i = 0; i < storage.Slots.Count; i++)
             {
-                cards.Add(slot.IsEmpty ? BuildEmptyCard() : BuildCard(slot.ItemId, slot.Amount));
+                InventorySlot slot = storage.Slots[i];
+                cards.Add(slot.IsEmpty ? BuildEmptyCard() : BuildCard(slot.ItemId, slot.Amount, i));
             }
             LayoutGrid(cards);
         }
@@ -173,7 +198,9 @@ namespace Game.UI
             var cards = new List<VisualElement>(totals.Count);
             foreach (var entry in totals)
             {
-                cards.Add(BuildCard(entry.Key, entry.Value));
+                // -1: the aggregate is a sum over every container, so no square of it is a slot
+                // anyone could empty. Right-clicking one offers nothing.
+                cards.Add(BuildCard(entry.Key, entry.Value, -1));
             }
             LayoutGrid(cards);
         }
@@ -194,7 +221,7 @@ namespace Game.UI
             }
         }
 
-        VisualElement BuildCard(string itemId, int amount)
+        VisualElement BuildCard(string itemId, int amount, int slotIndex)
         {
             var card = new VisualElement();
             card.AddToClassList("storage-card");
@@ -208,7 +235,54 @@ namespace Game.UI
             count.AddToClassList("storage-card-count");
             card.Add(count);
 
+            // Right-click offers to throw the stack away. Only on a full slot: there is nothing to
+            // discard from an empty one, and a menu that opens on nothing teaches the player the
+            // gesture does nothing.
+            if (slotIndex >= 0)
+            {
+                card.RegisterCallback<PointerDownEvent>(evt =>
+                {
+                    if (evt.button != 1) return;
+
+                    ShowSlotMenu(slotIndex, card.worldBound);
+                    evt.StopPropagation();
+                });
+            }
+
             return card;
+        }
+
+        /// <summary>
+        /// The one-entry menu on a slot. Built fresh each time and parented to the panel rather than
+        /// to the card: the grid is rebuilt every frame from Update, and a menu living inside a card
+        /// would be destroyed the frame after it opened.
+        /// </summary>
+        void ShowSlotMenu(int slotIndex, Rect cardBounds)
+        {
+            HideSlotMenu();
+            if (_selected == null) return;
+
+            _slotMenu = new VisualElement();
+            _slotMenu.AddToClassList("storage-slot-menu");
+            _slotMenu.style.left = cardBounds.xMin - _panelRoot.worldBound.xMin;
+            _slotMenu.style.top = cardBounds.yMax - _panelRoot.worldBound.yMin;
+
+            var discard = new Button(() =>
+            {
+                _selected?.DiscardSlot(slotIndex);
+                HideSlotMenu();
+            })
+            { text = "Supprimer" };
+            discard.AddToClassList("storage-slot-menu-item");
+            _slotMenu.Add(discard);
+
+            _panelRoot.Add(_slotMenu);
+        }
+
+        void HideSlotMenu()
+        {
+            _slotMenu?.RemoveFromHierarchy();
+            _slotMenu = null;
         }
 
         VisualElement BuildEmptyCard()

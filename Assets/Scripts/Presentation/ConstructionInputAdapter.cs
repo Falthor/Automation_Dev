@@ -206,7 +206,14 @@ namespace Game.Presentation
 
             if (gameRuntime.Selection.ActiveGlobalPanel != null)
             {
-                hoverHighlightView?.Hide();
+                // A global panel usually covers no particular place, so nothing is outlined. The
+                // Storage panel's per-box view is the exception: it is about one box on the map, and
+                // said so through a slot of its own rather than through SelectedBuilding, which a
+                // global panel excludes.
+                BuildingRuntime subject = gameRuntime.Selection.GlobalPanelSubject;
+                if (subject != null) hoverHighlightView?.Show(subject.Cell, subject.Definition.FootprintSize);
+                else hoverHighlightView?.Hide();
+
                 depositHoverGlowView?.Hide();
                 return;
             }
@@ -304,7 +311,10 @@ namespace Game.Presentation
                 // the first one: they differ on every even-width edge, so a 2x2 Foundry previewed
                 // its arrow one cell away from where it grew it.
                 GridCoord outputCell = BuildingRuntime.ComputeOutputCell(cell, selected.FootprintSize, previewRotation);
-                outputArrowWorldPos = gameRuntime.Grid.CellCenterToWorld(outputCell);
+                // Inset the same way the built view does, or the preview would show the arrow a
+                // half-cell further out than where it ends up.
+                outputArrowWorldPos = BuildingSpawner.ArrowPosition(
+                    gameRuntime.Grid.CellCenterToWorld(outputCell), previewRotation, gameRuntime.Grid.CellSize);
                 outputArrowSprite = _spriteFactory.CreateArrowSprite(BuildingSpawner.OutputArrowColor);
             }
 
@@ -316,7 +326,8 @@ namespace Game.Presentation
                 inputArrows = new List<(Vector3, Direction)>();
                 foreach ((GridCoord edgeCell, Direction fromMySide) in BuildingRuntime.ComputeInputCells(cell, selected.FootprintSize, previewRotation))
                 {
-                    inputArrows.Add((gameRuntime.Grid.CellCenterToWorld(edgeCell), fromMySide));
+                    inputArrows.Add((BuildingSpawner.ArrowPosition(
+                        gameRuntime.Grid.CellCenterToWorld(edgeCell), fromMySide, gameRuntime.Grid.CellSize), fromMySide));
                 }
             }
 

@@ -23,6 +23,18 @@ namespace Game.Gameplay.Selection
         public ConstructionSiteRuntime SelectedSite { get; private set; }
         public string ActiveGlobalPanel { get; private set; }
 
+        /// <summary>
+        /// The one building an open global panel is about, when it is about one.
+        ///
+        /// Not the same slot as <see cref="SelectedBuilding"/>, and deliberately so: that one is
+        /// mutually exclusive with a global panel - <see cref="Select"/> closes any open panel - while
+        /// this one accompanies it. The Storage panel is the case that needs it. It serves two views
+        /// through the same global slot, the aggregate over every container and one specific box, and
+        /// only the second is about a place on the map. Without this, a box being inspected was a
+        /// building nothing in the world could point at, and the hover outline had no cell to draw on.
+        /// </summary>
+        public BuildingRuntime GlobalPanelSubject { get; private set; }
+
         public event Action<BuildingRuntime> SelectionChanged;
         public event Action<ConstructionSiteRuntime> SiteSelectionChanged;
         public event Action<string> GlobalPanelChanged;
@@ -77,14 +89,26 @@ namespace Game.Gameplay.Selection
             if (ActiveGlobalPanel == name) return;
             Clear();
 
+            // A newly opened panel is about nothing until whoever opened it says otherwise, so the
+            // subject never survives from the panel before.
+            GlobalPanelSubject = null;
             ActiveGlobalPanel = name;
             GlobalPanelChanged?.Invoke(name);
+        }
+
+        /// <summary>Names the building the open panel is about, so the world can mark it. Cleared with the panel.</summary>
+        public void SetGlobalPanelSubject(BuildingRuntime building)
+        {
+            if (ActiveGlobalPanel == null) return;
+
+            GlobalPanelSubject = building;
         }
 
         public void CloseGlobalPanel()
         {
             if (ActiveGlobalPanel == null) return;
 
+            GlobalPanelSubject = null;
             ActiveGlobalPanel = null;
             GlobalPanelChanged?.Invoke(null);
         }

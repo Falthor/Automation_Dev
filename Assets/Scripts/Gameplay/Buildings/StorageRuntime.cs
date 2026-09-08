@@ -14,14 +14,6 @@ namespace Game.Gameplay.Buildings
         readonly StorageDefinition _definition;
         readonly Inventory _inventory;
 
-        /// <summary>
-        /// Time remaining before another delivery can be accepted (StorageDefinition.
-        /// IntakeIntervalSeconds) - caps absorption at the fastest conveyor's throughput so a
-        /// Storage placed straight against a production building's output can't drain it faster
-        /// than a belt ever could.
-        /// </summary>
-        float _intakeCooldown;
-
         /// <summary>Public read contract for UI (e.g. the Storage panel) to enumerate contents by slot.</summary>
         public System.Collections.Generic.IReadOnlyList<InventorySlot> Slots => _inventory.Slots;
 
@@ -34,23 +26,33 @@ namespace Game.Gameplay.Buildings
             _inventory = new Inventory(slotCount, capacityPerSlot);
         }
 
-        /// <summary>
-        /// Seeds contents directly, bypassing the intake cooldown - for world-generation fixtures
-        /// (the Core's starting-resources box) initialized once before the game actually starts,
-        /// not a real delivery that should count against the absorption rate.
-        /// </summary>
+        /// <summary>Seeds contents directly - for world-generation fixtures (the Core's reserve) initialized once before the game actually starts.</summary>
         public void SeedInitialContents(string itemId, int amount) => _inventory.Add(itemId, amount);
 
+        /// <summary>
+        /// Throws away one slot's contents at the player's request, and answers how much was
+        /// destroyed. Nothing else in the project destroys items - see <see cref="Inventory.ClearSlot"/>
+        /// for why a box needs to be able to.
+        /// </summary>
+        public int DiscardSlot(int index) => _inventory.ClearSlot(index);
+
+        /// <summary>
+        /// Takes whatever arrives, the instant it arrives. A Storage has no absorption rate, unlike
+        /// a production building: it is a container, not a machine with a cycle, and the only thing
+        /// that can stop it accepting is being full.
+        ///
+        /// It used to carry the same intake cooldown a Foundry has, to cap how fast a box parked
+        /// against an output could drain it. That made a box slower than the belt feeding it, so
+        /// items backed up in front of a container that was visibly empty.
+        /// </summary>
         public override bool CanAcceptInput(string itemId, int amount, Direction fromDirection)
         {
             if (_definition.RejectsConveyorInput) return false;
-            if (_intakeCooldown > 0f) return false;
             return _inventory.CanAccept(itemId, amount);
         }
 
         public override void AddInput(string itemId, int amount, Direction fromDirection)
         {
-            _intakeCooldown = _definition.IntakeIntervalSeconds;
             _inventory.Add(itemId, amount);
         }
 
@@ -65,9 +67,9 @@ namespace Game.Gameplay.Buildings
 
         public void AddFromRobot(string itemId, int amount) => _inventory.Add(itemId, amount);
 
+        /// <summary>Nothing to advance: a container has no cycle. Kept because the base declares it.</summary>
         public override void Tick(float deltaTime)
         {
-            if (_intakeCooldown > 0f) _intakeCooldown -= deltaTime;
         }
 
         public override int TakeInput(string itemId, int amount)
@@ -88,13 +90,14 @@ namespace Game.Gameplay.Buildings
                 if (slot.IsEmpty) continue;
                 slots.Add(new JObject { ["itemId"] = slot.ItemId, ["amount"] = slot.Amount });
             }
-            return new JObject { ["slots"] = slots, ["intakeCooldown"] = _intakeCooldown };
+            // No intake cooldown any more, so none is written. An older save carrying one is simply
+            // ignored on the way back in - per-field tolerance, CONTRACTS.md §14, which is why the
+            // format version does not move for this.
+            return new JObject { ["slots"] = slots };
         }
 
         public override void RestoreState(JObject state)
         {
-            _intakeCooldown = state.Value<float?>("intakeCooldown") ?? 0f;
-
             if (!(state["slots"] is JArray slots)) return;
             foreach (JToken entry in slots)
             {

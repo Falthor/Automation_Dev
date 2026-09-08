@@ -64,6 +64,11 @@ namespace Game.UI
             bool visible = panelName == PanelName;
             _root.EnableInClassList("hidden", !visible);
 
+            // While the map is up, ZQSD belongs to it. Set on the runtime rather than reached for by
+            // the camera so it is cleared by the same event that closes the panel - a flag nobody
+            // remembers to lower is a camera that never moves again.
+            gameRuntime.KeyboardOwnedByPanel = visible;
+
             // Opening always finds the player, rather than wherever they last dragged to. A map that
             // opens somewhere unexpected costs a moment of "where am I" every single time.
             if (visible && Bind()) _map.CentreOnCore();
@@ -100,10 +105,23 @@ namespace Game.UI
                 return;
             }
 
+            if (keyboard != null) _map.PanByKeyboard(PanDirection(keyboard), Time.unscaledDeltaTime);
+
             // The image rebuilds itself only when discovery moved, so this is a version comparison on
             // a still frame - see SectorMapImage.
             gameRuntime.SectorMap.Refresh();
             _map.SetCoreRadius(gameRuntime.World.ActionRadiusCells);
+        }
+
+        /// <summary>Same AZERTY layout the world camera uses, so the keys mean the same thing whichever is listening.</summary>
+        static Vector2 PanDirection(Keyboard keyboard)
+        {
+            var move = Vector2.zero;
+            if (keyboard.zKey.isPressed) move.y += 1f;
+            if (keyboard.sKey.isPressed) move.y -= 1f;
+            if (keyboard.dKey.isPressed) move.x += 1f;
+            if (keyboard.qKey.isPressed) move.x -= 1f;
+            return move;
         }
 
         // ---- Hover ----

@@ -169,6 +169,7 @@ namespace Game.Presentation
         /// its own blue, and the two ends of a building were indistinguishable.
         /// </summary>
         readonly Dictionary<Color32, Sprite> _arrowCache = new Dictionary<Color32, Sprite>();
+        readonly Dictionary<Color32, Sprite> _pauseCache = new Dictionary<Color32, Sprite>();
 
         /// <summary>Small triangle pointing North in the canonical frame (rotate the transform for other directions).</summary>
         public Sprite CreateArrowSprite(Color color)
@@ -204,6 +205,56 @@ namespace Game.Presentation
                 PixelsPerUnit);
 
             _arrowCache[key] = sprite;
+            return sprite;
+        }
+
+        /// <summary>
+        /// The two-bar pause glyph worn by a building the player has switched off, on its own dark
+        /// disc so it stays legible over whatever art is underneath.
+        ///
+        /// Drawn rather than imported for the same reason the arrows are: it must be exact at any
+        /// zoom, and it is two rectangles.
+        /// </summary>
+        public Sprite CreatePauseSprite(Color color)
+        {
+            Color32 key = color;
+            if (_pauseCache.TryGetValue(key, out Sprite cached)) return cached;
+
+            var texture = NewTexture();
+            var pixels = new Color[TextureSize * TextureSize];
+
+            float centre = (TextureSize - 1) * 0.5f;
+            float discRadius = TextureSize * 0.46f;
+            var disc = new Color(0.05f, 0.06f, 0.08f, 0.82f);
+
+            // Bars sized as fractions of the texture so the glyph is the same shape at any size.
+            float barHalfWidth = TextureSize * 0.075f;
+            float barOffset = TextureSize * 0.15f;
+            float barHalfHeight = TextureSize * 0.22f;
+
+            for (int y = 0; y < TextureSize; y++)
+            {
+                for (int x = 0; x < TextureSize; x++)
+                {
+                    float dx = x - centre;
+                    float dy = y - centre;
+
+                    Color pixel = new Color(0f, 0f, 0f, 0f);
+                    if (dx * dx + dy * dy <= discRadius * discRadius) pixel = disc;
+
+                    bool onABar = Mathf.Abs(dy) <= barHalfHeight
+                        && (Mathf.Abs(dx + barOffset) <= barHalfWidth || Mathf.Abs(dx - barOffset) <= barHalfWidth);
+                    if (onABar) pixel = color;
+
+                    pixels[y * TextureSize + x] = pixel;
+                }
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply(false, false);
+
+            var sprite = Sprite.Create(texture, new Rect(0, 0, TextureSize, TextureSize), new Vector2(0.5f, 0.5f), PixelsPerUnit);
+            _pauseCache[key] = sprite;
             return sprite;
         }
 
