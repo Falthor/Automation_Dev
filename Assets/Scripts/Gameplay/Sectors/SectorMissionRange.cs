@@ -78,7 +78,7 @@ namespace Game.Gameplay.Sectors
             // A field study shares the mining band: its site is placed in the near stretch like a
             // prospection's, and it is aimed at in exactly the same way. Only a far reconnaissance
             // belongs past the threshold.
-            if (kind == MissionKind.Prospection || kind == MissionKind.Reconnaissance)
+            if (kind == MissionKind.Prospection || kind == MissionKind.EtudeDeTerrain)
             {
                 inner = Mathf.Max(0f, coreRadiusCells);
                 outer = ExplorationMinimumCells;

@@ -21,11 +21,11 @@ namespace Game.Gameplay.Expeditions
         EtudeCivilisation,
 
         /// <summary>
-        /// A field study - <c>MissionKind.Reconnaissance</c>. An ordinary site in the near stretch, like
+        /// A field study - <c>MissionKind.EtudeDeTerrain</c>. An ordinary site in the near stretch, like
         /// a prospection's: the design gives it no free targeting and no designation mode of its own.
         /// What makes it different is that it is the only mission that can turn up a hidden site.
         /// </summary>
-        Reconnaissance
+        EtudeDeTerrain
     }
 
     /// <summary>

@@ -313,6 +313,25 @@ la mission en `Résolution`. Le helper `RunToReport` existait déjà. Deux tests
 — ils ont échoué — mais un test qui aurait *affirmé* qu'il ne se passe rien serait passé au vert pour la
 mauvaise raison.
 
+### Une assertion négative passe aussi quand le mécanisme n'a pas tourné
+
+Troisième occurrence de la même famille — après le test dont le nom sur-promettait, et celui qui
+n'assertait rien de réel. Le motif : **une assertion négative est toujours suspecte**, parce qu'elle est
+satisfaite par deux mondes différents — celui où le mécanisme a tourné et n'a rien changé, et celui où
+il n'a pas tourné du tout. Le vert ne les distingue pas.
+
+Ici, `AFieldStudyThatDrewNothing_LeavesTheStockAlone` affirme que le stock ne bouge pas. Avec un `Tick`
+qui n'atterrissait pas, il serait passé — en vérifiant que rien ne se passe quand rien ne se passe. Ce
+sont ses deux voisins, qui affirment un changement, qui ont échoué et l'ont dénoncé.
+
+**La parade n'est pas de supprimer l'assertion négative** : « le stock ne bouge pas » est exactement ce
+qu'il faut vérifier. C'est de la doubler d'une positive dans le même test, ou de vérifier d'abord que le
+mécanisme a bien tourné — ici, que la mission a atteint `Rapport`. Sans ça, le test dit « je n'ai rien
+observé », pas « il ne s'est rien passé ».
+
+Candidat pour `DEVELOPMENT_RULES.md` §7, où vivent déjà les deux autres membres de la famille. Laissé au
+carnet le temps qu'une quatrième occurrence dise si la formulation tient.
+
 **L'index des sites a bougé**, `Reconnaissance` s'insérant après `Prospection` dans la liste dérivée.
 `ExpeditionZoneSystem.CaptureState` référence les sites par index, donc une sauvegarde antérieure
 appliquerait son état aux mauvais sites. Sans effet réel : rien ne pouvait écrire ce tableau

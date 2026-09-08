@@ -262,13 +262,13 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             SummonRobots(fixture);
 
             Assert.AreEqual(MissionSystem.LaunchRefusal.None,
-                fixture.Missions.TryLaunch(MissionKind.Reconnaissance, NearSector(fixture), CoreRadius, out MissionRuntime mission));
+                fixture.Missions.TryLaunch(MissionKind.EtudeDeTerrain, NearSector(fixture), CoreRadius, out MissionRuntime mission));
             Assert.IsNotNull(mission);
 
             // And refused past the threshold, where only a far reconnaissance may go.
             int beyond = fixture.Grid.IndexAt(312 + 14, 312);
             Assert.AreEqual(MissionSystem.LaunchRefusal.WrongBand,
-                fixture.Missions.TryLaunch(MissionKind.Reconnaissance, beyond, CoreRadius, out _));
+                fixture.Missions.TryLaunch(MissionKind.EtudeDeTerrain, beyond, CoreRadius, out _));
 
             fixture.Destroy();
         }
@@ -280,9 +280,9 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             Fixture fixture = NewFixture();
             SummonRobots(fixture);
 
-            Assert.AreEqual(120f, fixture.Missions.DurationOf(MissionKind.Reconnaissance, NearSector(fixture)), 0.001f);
+            Assert.AreEqual(120f, fixture.Missions.DurationOf(MissionKind.EtudeDeTerrain, NearSector(fixture)), 0.001f);
 
-            fixture.Missions.TryLaunch(MissionKind.Reconnaissance, NearSector(fixture), CoreRadius, out MissionRuntime study);
+            fixture.Missions.TryLaunch(MissionKind.EtudeDeTerrain, NearSector(fixture), CoreRadius, out MissionRuntime study);
             Assert.AreEqual(250f, study.RewardCu, 0.001f);
 
             // The budget is untouched: a prospection launched afterwards still gets the full 500.
@@ -333,6 +333,13 @@ namespace Game.Tests.EditMode.Gameplay.Missions
 
             int before = fixture.Zones.HiddenSitesLeft(0);
             RunToReport(fixture, study);
+
+            // The negative assertion below is satisfied by two different worlds: one where the study
+            // landed and found nothing, and one where it never landed at all. So the positive comes
+            // first - this is the shape that let a single oversized Tick pass for a working test.
+            // Close rather than Rapport: RunToReport lands it and reads the report, and it is that
+            // whole path - the one that would have revealed a site - which has to have run.
+            Assert.AreEqual(MissionState.Close, study.State, "precondition: it actually came home and delivered");
 
             Assert.AreEqual(before, fixture.Zones.HiddenSitesLeft(0));
 
@@ -388,7 +395,7 @@ namespace Game.Tests.EditMode.Gameplay.Missions
                 // A fresh sector each time: the previous one has been revealed by the study that just
                 // ran home, and a reconnaissance aimed at known ground is refused.
                 MissionSystem.LaunchRefusal refusal = fixture.Missions.TryLaunch(
-                    MissionKind.Reconnaissance, SectorInZone(fixture, 0, attempt), CoreRadius, out MissionRuntime mission);
+                    MissionKind.EtudeDeTerrain, SectorInZone(fixture, 0, attempt), CoreRadius, out MissionRuntime mission);
 
                 if (refusal != MissionSystem.LaunchRefusal.None) throw new System.InvalidOperationException($"refused: {refusal}");
                 if (mission.RevealsHiddenSite == wantsFind) return mission;

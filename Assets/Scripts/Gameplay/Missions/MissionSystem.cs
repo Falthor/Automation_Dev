@@ -320,7 +320,7 @@ namespace Game.Gameplay.Missions
         /// </summary>
         bool DrawHiddenSiteFind(MissionKind kind, int missionId)
         {
-            if (kind != MissionKind.Reconnaissance || _settings.FieldStudyHiddenSiteChance <= 0f) return false;
+            if (kind != MissionKind.EtudeDeTerrain || _settings.FieldStudyHiddenSiteChance <= 0f) return false;
 
             return DeterministicHash.Unit(_seed, missionId, FindingSalt) < _settings.FieldStudyHiddenSiteChance;
         }
@@ -347,7 +347,7 @@ namespace Game.Gameplay.Missions
             float baseSeconds =
                 kind == MissionKind.Prospection ? _settings.ProspectionSeconds :
                 kind == MissionKind.ExplorationLointaine ? _settings.ExplorationSeconds :
-                kind == MissionKind.Reconnaissance ? _settings.FieldStudySeconds :
+                kind == MissionKind.EtudeDeTerrain ? _settings.FieldStudySeconds :
                 _settings.RecoverySeconds;
 
             float distance = 0f;
@@ -389,7 +389,7 @@ namespace Game.Gameplay.Missions
             // A field study pays its own flat figure and never draws on the introduction's finite
             // reconnaissance budget. It is not a fountain either: what bounds it is the number of
             // field-study sites a zone holds, which is finite like every other site.
-            if (kind == MissionKind.Reconnaissance) return _settings.FieldStudyReward;
+            if (kind == MissionKind.EtudeDeTerrain) return _settings.FieldStudyReward;
 
             if (kind == MissionKind.Recuperation)
             {
@@ -408,7 +408,7 @@ namespace Game.Gameplay.Missions
         {
             // A field study spends none of the two budgets, so there is nothing to commit and nothing
             // to put the regenerating payout on cooldown for.
-            if (kind == MissionKind.Reconnaissance) return;
+            if (kind == MissionKind.EtudeDeTerrain) return;
 
             if (kind == MissionKind.Recuperation && outcome != MissionOutcome.RecolteManquee
                 && _paidRecoveries < _settings.PaidRecoveries)

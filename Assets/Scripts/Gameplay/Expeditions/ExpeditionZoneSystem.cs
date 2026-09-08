@@ -288,8 +288,8 @@ namespace Game.Gameplay.Expeditions
                 : Mathf.Max(0, _settings.ProspectionSites);
 
             int reconnaissances = composed
-                ? Mathf.Max(0, _settings.FirstZoneReconnaissances)
-                : Mathf.Max(0, _settings.ReconnaissanceSites);
+                ? Mathf.Max(0, _settings.FirstZoneFieldStudies)
+                : Mathf.Max(0, _settings.FieldStudySites);
 
             int explorations = composed
                 ? Mathf.Max(0, _settings.FirstZoneFarExplorations)
@@ -314,7 +314,7 @@ namespace Game.Gameplay.Expeditions
             int carrier = explorations > 0 ? (int)(Hash(zone, CarrierSalt) % (uint)explorations) : -1;
 
             AddKind(sites, zone, bounds, ExpeditionSiteKind.Prospection, prospections, carrier);
-            AddKind(sites, zone, bounds, ExpeditionSiteKind.Reconnaissance, reconnaissances, carrier);
+            AddKind(sites, zone, bounds, ExpeditionSiteKind.EtudeDeTerrain, reconnaissances, carrier);
             AddKind(sites, zone, bounds, ExpeditionSiteKind.ExplorationLointaine, explorations, carrier);
             AddKind(sites, zone, bounds, ExpeditionSiteKind.Recuperation, recoveries, carrier);
             AddKind(sites, zone, bounds, ExpeditionSiteKind.EtudeCivilisation, studies, carrier);

@@ -49,14 +49,13 @@ namespace Game.Data
         [SerializeField, Min(1f)] float recoverySeconds = 360f;
 
         /// <summary>
-        /// The field study - <c>MissionKind.Reconnaissance</c>. Short, so it is the one a player launches
+        /// The field study - <c>MissionKind.EtudeDeTerrain</c>. Short, so it is the one a player launches
         /// rather than leave a robot idle.
         ///
-        /// <b>Named "field study" here and not "reconnaissance", deliberately.</b> The word is used for
-        /// two different things by the design documents: this mission kind, and the pair of
-        /// reconnaissances whose finite payout budget <see cref="ReconnaissanceReward"/> already holds. A
-        /// second <c>reconnaissanceSeconds</c> beside a <c>reconnaissanceReward</c> that pays the other
-        /// two kinds would be a trap rather than a name.
+        /// <b>"Field study", never "reconnaissance".</b> The design documents used that one word for two
+        /// things - this kind, and the category covering Prospection and ExplorationLointaine that
+        /// <see cref="ReconnaissanceReward"/> pays. The word now belongs to the category alone; the kind
+        /// is <c>MissionKind.EtudeDeTerrain</c> and its settings are named for it.
         /// </summary>
         [SerializeField, Min(1f)] float fieldStudySeconds = 120f;
 
@@ -79,6 +78,12 @@ namespace Game.Data
         /// <b>Introduction only.</b> After the Datacenter is bootstrapped, missions pay in map, sites
         /// and plans - never in currency. Two parallel economies would have the player arbitrating
         /// between building a factory and sending robots.
+        ///
+        /// <b>"Reconnaissance" here means exactly one thing: the pair</b> - Prospection and
+        /// ExplorationLointaine, which SPEC_EXPEDITIONS §4.9 calls "les deux Reconnaissances". It used to
+        /// also name a mission kind, and every reader had to work out which was meant; that kind is
+        /// <c>MissionKind.EtudeDeTerrain</c> now, and it pays <see cref="FieldStudyReward"/> instead of
+        /// drawing on this budget.
         /// </summary>
         [SerializeField, Min(0f)] float reconnaissanceReward = 500f;
 

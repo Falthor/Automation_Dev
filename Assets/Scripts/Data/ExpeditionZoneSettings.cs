@@ -43,7 +43,7 @@ namespace Game.Data
         [SerializeField, Min(0)] int prospectionSites = 3;
 
         /// <summary>Field studies. Three, like the prospections: the design gives them ordinary sites, not a designation mode of their own.</summary>
-        [SerializeField, Min(0)] int reconnaissanceSites = 3;
+        [SerializeField, Min(0)] int fieldStudySites = 3;
 
         /// <summary>
         /// The far reconnaissances, on the zone's outer border. Two is what makes the secondary Core
@@ -92,7 +92,7 @@ namespace Game.Data
         [SerializeField, Min(0)] int firstZoneProspections = 1;
 
         /// <summary>Three field studies. What takes the first zone from six launchable quests to nine, and the only thing that can reach its hidden stock.</summary>
-        [SerializeField, Min(0)] int firstZoneReconnaissances = 3;
+        [SerializeField, Min(0)] int firstZoneFieldStudies = 3;
 
         [SerializeField, Min(0)] int firstZoneFarExplorations = 2;
 
@@ -114,7 +114,7 @@ namespace Game.Data
         public float AngleJitterFraction => angleJitterFraction;
 
         public int ProspectionSites => prospectionSites;
-        public int ReconnaissanceSites => reconnaissanceSites;
+        public int FieldStudySites => fieldStudySites;
         public int FarExplorationSites => farExplorationSites;
         public int RecoverySitesMin => recoverySitesMin;
         public int RecoverySitesMax => recoverySitesMax;
@@ -125,7 +125,7 @@ namespace Game.Data
 
         public bool ComposeFirstChosenZone => composeFirstChosenZone;
         public int FirstZoneProspections => firstZoneProspections;
-        public int FirstZoneReconnaissances => firstZoneReconnaissances;
+        public int FirstZoneFieldStudies => firstZoneFieldStudies;
         public int FirstZoneFarExplorations => firstZoneFarExplorations;
         public int FirstZoneRecoveries => firstZoneRecoveries;
         public int FirstZoneCivilisationStudies => firstZoneCivilisationStudies;

@@ -17,14 +17,21 @@ namespace Game.Gameplay.Missions
         Recuperation,
 
         /// <summary>
-        /// The field study, which the zone design also calls a reconnaissance. Short, cheap, and the
-        /// only mission whose result is open: it may turn up one of the zone's hidden sites.
+        /// The field study. Short, cheap, and the only mission whose result is open: it may turn up one
+        /// of the zone's hidden sites.
         ///
         /// <b>An ordinary site in the zone, aimed at like any other.</b> It shares the mining band with
         /// a prospection - there is no free targeting and no separate designation mode. What makes it
         /// different is what it can find, not how it is launched.
+        ///
+        /// <b>Named "étude de terrain" and never "reconnaissance", and that is a decision rather than a
+        /// preference.</b> The design documents used the one word for two things: this kind, and the
+        /// category covering <see cref="Prospection"/> and <see cref="ExplorationLointaine"/> that
+        /// <c>MissionSettings.ReconnaissanceReward</c> pays under the introduction's finite budget. While
+        /// both stood, every reader had to work out which was meant. The word is now the category's
+        /// alone.
         /// </summary>
-        Reconnaissance
+        EtudeDeTerrain
     }
 
     /// <summary>
