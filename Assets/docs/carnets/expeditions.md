@@ -240,6 +240,34 @@ variée vue de l'intérieur, et le monde était un pochoir vu d'en haut. `TheSix
 existe pour ça — le déterminisme et la variété sont deux propriétés distinctes, et tester la première
 ne dit rien de la seconde.
 
+### Le test du pochoir est faible, et voici par où le renforcer
+
+Écrit **avant** d'avoir la mesure, délibérément : plus tard, cette note deviendrait la justification
+d'un chiffre déjà choisi. Elle dit quoi mesurer et pourquoi ce n'est pas encore mesuré.
+
+**La projection démasque la rotation, pas la statistique.** Le test compare les gisements *relatifs au
+centre de chaque zone* (`Mathf.DeltaAngle(zone * SliceDegrees, ...)`). En coordonnées monde, six
+rotations auraient l'air de six choses différentes et rien n'aurait été visible. Le cadre de mesure est
+donc déjà le bon ; c'est la statistique qui est faible. **À ne pas confondre en renforçant** : quelqu'un
+qui durcirait la projection travaillerait sur la moitié qui va déjà bien.
+
+**Ce qui trahit un pochoir n'est pas que deux zones soient proches, c'est qu'un motif de similarité se
+répète.** Sur des zones tirées indépendamment, la distribution des écarts entre paires est étalée ; sur
+des rotations, elle est concentrée. C'est cette forme-là qu'il faut regarder, et elle ne dépend pas du
+nombre de zones — contrairement à un seuil de proximité, qu'il faudrait rejuger à chaque changement de
+réglage.
+
+**Le repère ne supprime pas le seuil, il dit où le poser.** Le pochoir complet donne des écarts
+*exactement* nuls, donc il se teste sans nombre inventé — c'est le cas qui s'est produit, et le test
+actuel l'attrape. Le pochoir **partiel** non : six familles de trois donneraient deux valeurs au lieu
+d'un étalement, « pas tous identiques » passerait, et couper entre « étalé » et « concentré » sur
+quinze paires redemande un chiffre.
+
+Ce chiffre viendra de la vue d'ensemble de la carte, où l'on aura vu à quoi ressemble un étalement
+normal. Le durcir maintenant produirait une valeur inventée qui contraint le code sans rien décrire.
+C'est aussi là que le défaut se serait vu : un motif régulier sur la carte d'ensemble, dont on aurait
+cherché la cause dans le rendu.
+
 **Rien ne se lance avant qu'une zone soit choisie**, et c'est la règle du document, pas un effet de
 bord. `MissionSystem.CanLaunch` appelle `MayTarget` avant les règles propres à chaque type, donc une
 récupération est refusée hors zone comme une reconnaissance — vérifié séparément, parce qu'un garde
