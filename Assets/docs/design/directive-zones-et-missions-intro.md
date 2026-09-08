@@ -246,9 +246,9 @@ trancher.
 
 ### Les charges
 
-**Dix charges par robot**, pas un budget total. Deux robots au départ, un troisième acquis en cours
-de route — ce troisième n'est pas construit : `MissionSettings.explorerRobotCount` vaut 2 et rien ne
-l'incrémente.
+**Dix charges par robot**, pas un budget total. **Deux robots, et deux seulement** : le troisième que
+ce paragraphe annonçait venait du signal anormal, retiré de la conception (§7 du nid, et
+`SPEC_EXPEDITIONS.md` §9).
 
 L'arbitrage est réel : lancer les deux robots ensemble réduit légèrement la durée d'une mission mais
 consomme deux charges.
@@ -304,8 +304,12 @@ moins qu'un compteur permanent.
 
 ### Le nid dormant
 
-Déclenché par **deux conditions cumulatives** : le troisième robot acquis **et** l'amorçage du
-Datacenter effectué. La mission du signal perturbé le révèle.
+Déclenché par **une seule condition** : l'amorçage du Datacenter effectué. La mission du signal
+perturbé le révèle — elle n'est pas verrouillée, elle est absente jusque-là puis apparaît (§6).
+
+Ce paragraphe demandait deux conditions cumulatives, la première étant le troisième robot acquis. Le
+signal anormal qui donnait ce robot a été retiré de la conception, la condition lui a survécu, et rien
+n'incrémente `MissionSettings.explorerRobotCount` — le nid n'aurait donc jamais pu apparaître.
 
 Le nid est découvert **dormant**. Le joueur sait qu'il se réveillera sans savoir quand — être attaqué
 dans la minute ferait de la découverte une punition.

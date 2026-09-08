@@ -261,8 +261,9 @@ answer "has anything actually changed". It allocates nothing.
   since every other mission aims at a finite site; and the starting zone holds six or seven launchable
   quests instead of the nine the design's own arithmetic is built on. **Any measurement of the
   introduction has to know this before it starts**, or it will read a short run as a balance problem.
-- **A third explorer robot.** `MissionSettings.explorerRobotCount` is 2 and nothing ever raises it, so
-  the dormant nest's first condition — the third robot acquired — cannot be met.
+- ~~A third explorer robot.~~ **Not missing — gone.** It came from the abnormal signal, which has been
+  removed from the design; the dormant nest now waits on the Datacenter priming alone. Two robots is
+  the intended fleet, not a shortfall.
 - **A starting zone distinct from the other five.** Every zone derives the same content (§5). The
   design wants the first one composed differently; whether it should be, and whether "first" means a
   particular slice or whichever the player picks, is still open — see
