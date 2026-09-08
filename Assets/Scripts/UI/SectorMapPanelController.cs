@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Gameplay.Buildings;
 using Game.Gameplay.Expeditions;
 using Game.Gameplay.Missions;
 using Game.Gameplay.Sectors;
@@ -27,6 +28,9 @@ namespace Game.UI
         [SerializeField] VisualTreeAsset visualTree;
         [SerializeField] GameRuntime gameRuntime;
 
+        /// <summary>One picture per zone, in zone order. The only thing that tells the six directions apart before a robot has been to any of them.</summary>
+        [SerializeField] Texture2D[] zoneImages;
+
         VisualElement _root;
         SectorMapElement _map;
         Label _hoverName;
@@ -36,6 +40,15 @@ namespace Game.UI
         Label _targetState;
         VisualElement _missionList;
         Label _fleet;
+
+        VisualElement _sections;
+        VisualElement _zoneCard;
+        VisualElement _zoneImage;
+        Label _zoneCardName;
+        Label _zoneCardMapped;
+        Label _zoneCardStatus;
+        Label _zoneCardMission;
+        Button _exploreButton;
 
         VisualElement _crumbs;
         Label _zoneName;
@@ -52,9 +65,19 @@ namespace Game.UI
         /// <summary>Reused for the same reason. A zone holds a dozen or so sites, and they are refilled every frame.</summary>
         readonly List<MapSiteMarker> _siteMarkers = new List<MapSiteMarker>();
 
-        /// <summary>What the breadcrumb and the counts last said. Rebuilding a row per frame would allocate; comparing a string does not.</summary>
+        /// <summary>The base's cells, and how many buildings they came from. Refilled only when that count moves - see RenderBuildings.</summary>
+        readonly List<MapBuildingCell> _buildingCells = new List<MapBuildingCell>();
+        int _buildingCount = -1;
+
+        /// <summary>What the breadcrumb, the counts and the mission list last said. Rebuilding a row per frame would allocate; comparing a string does not - and for the mission list it would also make its buttons unclickable.</summary>
         string _crumbText;
         string _countsText;
+        string _missionsText;
+
+        /// <summary>Reused by the mission list: one refusal per kind, computed once and then read twice - by the signature and by the rows.</summary>
+        readonly MissionSystem.LaunchRefusal[] _refusals = new MissionSystem.LaunchRefusal[Kinds.Length];
+
+        readonly System.Text.StringBuilder _signature = new System.Text.StringBuilder(48);
 
         /// <summary>Which zone the view is framed on, or -1 at the whole-world scale. The breadcrumb's middle segment.</summary>
         int _framedZone = -1;
@@ -84,6 +107,19 @@ namespace Game.UI
             _targetState = panelRoot.Q<Label>("SectorMapTargetState");
             _missionList = panelRoot.Q<VisualElement>("SectorMapMissionList");
             _fleet = panelRoot.Q<Label>("SectorMapFleet");
+
+            _sections = panelRoot.Q<VisualElement>("SectorMapSections");
+            _zoneCard = panelRoot.Q<VisualElement>("SectorMapZoneCard");
+            _zoneImage = panelRoot.Q<VisualElement>("SectorMapZoneImage");
+            _zoneCardName = panelRoot.Q<Label>("SectorMapZoneCardName");
+            _zoneCardMapped = panelRoot.Q<Label>("SectorMapZoneCardMapped");
+            _zoneCardStatus = panelRoot.Q<Label>("SectorMapZoneCardStatus");
+            _zoneCardMission = panelRoot.Q<Label>("SectorMapZoneCardMission");
+
+            // Built once, from the UXML, and never rebuilt - see RenderMissions for what happens to a
+            // button this pane makes and remakes.
+            _exploreButton = panelRoot.Q<Button>("SectorMapExploreButton");
+            _exploreButton.clicked += Explore;
 
             _crumbs = panelRoot.Q<VisualElement>("SectorMapCrumbs");
             _zoneName = panelRoot.Q<Label>("SectorMapZoneName");
@@ -186,6 +222,7 @@ namespace Game.UI
             _map.SetMissionTargets(_missionTargets);
 
             RenderZoneRing();
+            RenderBuildings();
             RenderSites();
             RenderCrumbs();
             RenderCartography();
@@ -401,6 +438,42 @@ namespace Game.UI
         }
 
         /// <summary>
+        /// The player's own base, as ground they already hold.
+        ///
+        /// <b>Rebuilt only when the base changes size.</b> Expanding every building through its footprint
+        /// allocates an array per building, so doing it per frame would churn while the map is simply
+        /// open. Nothing can be built or demolished while this panel covers the screen, which makes the
+        /// building count a sufficient signal that the shape has moved.
+        /// </summary>
+        void RenderBuildings()
+        {
+            if (gameRuntime.Transport == null) return;
+
+            int count = 0;
+            foreach (BuildingRuntime building in gameRuntime.Transport.GetAllBuildings()) count++;
+            if (count == _buildingCount) return;
+
+            _buildingCount = count;
+            _buildingCells.Clear();
+
+            foreach (BuildingRuntime building in gameRuntime.Transport.GetAllBuildings())
+            {
+                bool belt = IsBelt(building);
+                foreach (Vector2Int offset in building.Definition.FootprintCells)
+                {
+                    _buildingCells.Add(new MapBuildingCell(
+                        building.Cell.X + offset.x, building.Cell.Y + offset.y, belt));
+                }
+            }
+
+            _map.SetBuildings(_buildingCells);
+        }
+
+        /// <summary>What carries rather than transforms. The same three types the building cap exempts, and for the same reason: they are the network, not the works.</summary>
+        static bool IsBelt(BuildingRuntime building)
+            => building is ConveyorRuntime || building is SplitterRuntime || building is CrossroadRuntime;
+
+        /// <summary>
         /// How far the zone has been mapped, and what it still holds.
         ///
         /// <b>In surface, never in sites.</b> A field study adds sites, so a bar over a site count would
@@ -595,9 +668,13 @@ namespace Game.UI
             // asking a question the map cannot answer yet. The zone's entry sector is what the mission
             // is actually aimed at, and it is the same distance in all six - which is why what the
             // panel says here is true and identical everywhere.
-            if (_map.AimsAtZones)
+            bool aimsAtZones = _map.AimsAtZones;
+            _zoneCard.EnableInClassList("hidden", !aimsAtZones);
+            _sections.EnableInClassList("hidden", aimsAtZones);
+
+            if (aimsAtZones)
             {
-                RenderZoneTarget();
+                RenderZoneCard();
                 return;
             }
 
@@ -606,8 +683,8 @@ namespace Game.UI
             if (sector < 0)
             {
                 _targetName.text = "Aucune cible";
-                _targetState.text = "Cliquez un secteur sur la carte.";
-                _missionList.Clear();
+                _targetState.text = "Cliquez un site sur la carte.";
+                ClearMissions();
                 return;
             }
 
@@ -627,64 +704,140 @@ namespace Game.UI
             RenderMissions(sector);
         }
 
+        /// <summary>The one mission the first screen offers, under the one name it is offered by. See <see cref="Explore"/> for why this kind.</summary>
+        const MissionKind DiscoveryKind = MissionKind.Prospection;
+
         /// <summary>
-        /// The first screen's answer: a direction, and what one mission into it would cost.
+        /// The first screen's answer: a direction, a picture of it, and the one mission that opens it.
         ///
-        /// <b>What is shown is true and identical everywhere</b>, because nothing yet distinguishes the
-        /// six - no robot has been. Saying anything more would be inventing knowledge the Core does not
-        /// have, which is the one thing this panel refuses to do.
+        /// <b>One action, not a menu.</b> Listing every kind the entry sector happens to admit made the
+        /// panel contradict itself twice over - it said "aucune donnée" and then printed three durations
+        /// and a risk for ground nobody has walked, which is exactly what directive-ecran-carte.md §8
+        /// forbids. Before the choice there is one thing to do: go and look.
         /// </summary>
-        void RenderZoneTarget()
+        void RenderZoneCard()
         {
             int zone = _map.SelectedZone;
 
             if (zone < 0)
             {
-                _targetName.text = "Aucune direction";
-                _targetState.text = "Survolez une zone, puis choisissez-en une.";
-                _missionList.Clear();
+                _zoneCardName.text = "Aucune direction";
+                _zoneCardMapped.text = string.Empty;
+                _zoneCardStatus.text = "Survolez une zone pour la lire.";
+                _zoneCardMission.text = string.Empty;
+                _zoneImage.style.backgroundImage = default;
+                _exploreButton.SetEnabled(false);
                 return;
             }
 
-            _targetName.text = ZoneName(zone);
-            _targetState.text = "Aucune donnée. Les six directions se valent tant qu'aucun robot n'y est allé.";
+            _zoneImage.style.backgroundImage = ImageOf(zone);
+            _zoneCardName.text = ZoneName(zone);
+
+            float mapped = Zones.CartographyOf(zone, gameRuntime.Discovery).Ratio;
+            _zoneCardMapped.text = $"Cartographie : {mapped * 100f:0.0} %".Replace('.', ',');
+            _zoneCardStatus.text = mapped > 0f ? "Statut : exploration en cours" : "Statut : non exploré";
 
             int entry = Zones.EntrySectorOf(zone);
             if (entry < 0)
             {
-                _missionList.Clear();
+                _zoneCardMission.text = string.Empty;
+                _exploreButton.SetEnabled(false);
                 return;
             }
 
-            RenderMissions(entry);
+            MissionSystem.LaunchRefusal refusal =
+                gameRuntime.Missions.CanLaunch(DiscoveryKind, entry, gameRuntime.World.ActionRadiusCells);
+
+            // Always "estimée": SPEC_EXPEDITIONS.md §5.2 forbids ever presenting a mission's numbers as
+            // certainties, and out here the figure is a travel time and nothing more.
+            _zoneCardMission.text = refusal == MissionSystem.LaunchRefusal.None
+                ? $"Découverte · ~ {FormatDuration(gameRuntime.Missions.DurationOf(DiscoveryKind, entry))}"
+                : $"Découverte · {RefusalLabel(refusal)}";
+
+            _exploreButton.SetEnabled(refusal == MissionSystem.LaunchRefusal.None);
         }
 
+        /// <summary>The picture of a direction, or nothing when none was wired. Indexed by zone, so the six differ from one another and stay put across sessions.</summary>
+        StyleBackground ImageOf(int zone)
+        {
+            if (zoneImages == null || zoneImages.Length == 0) return default;
+
+            Texture2D image = zoneImages[zone % zoneImages.Length];
+            return image != null ? new StyleBackground(image) : default;
+        }
+
+        /// <summary>
+        /// Sends the discovery into the direction being read, which is also what chooses it.
+        ///
+        /// <b>A prospection, under the name "découverte".</b> Its band is the one the entry sector sits
+        /// in, and opening ground is what it does - the field study is the second gesture, once there is
+        /// terrain to point it at. The player is never shown the kind out here: before a robot has been,
+        /// naming four kinds would describe a place nobody has seen.
+        /// </summary>
+        void Explore()
+        {
+            int zone = _map.SelectedZone;
+            if (Zones == null || zone < 0) return;
+
+            int entry = Zones.EntrySectorOf(zone);
+            if (entry < 0) return;
+
+            Launch(DiscoveryKind, entry);
+
+            // The robots left for somewhere; the map goes there. Framing the zone is also what ends the
+            // aiming mode on screen, so the choice and its consequence are one movement.
+            FrameZone(zone);
+        }
+
+        /// <summary>
+        /// What may be sent to the aimed sector.
+        ///
+        /// <b>Rebuilt only when its content changes, and that is a correctness rule rather than an
+        /// optimisation.</b> This pane re-renders every frame, so clearing the list unconditionally
+        /// destroyed each "Lancer" between the press and the release: a Button's click completes on the
+        /// pointer coming back up on the same element, and that element no longer existed. Every launch
+        /// from this panel silently did nothing. A row that has not changed is now left alone, which is
+        /// also what keeps the pointer's own hover state.
+        /// </summary>
         void RenderMissions(int sector)
         {
+            float radius = gameRuntime.World.ActionRadiusCells;
+            for (int i = 0; i < Kinds.Length; i++)
+            {
+                _refusals[i] = gameRuntime.Missions.CanLaunch(Kinds[i], sector, radius);
+            }
+
+            bool wouldChoose = Zones != null && Zones.WouldChoose(sector);
+
+            _signature.Length = 0;
+            _signature.Append(sector).Append(wouldChoose ? '+' : '-');
+            for (int i = 0; i < _refusals.Length; i++) _signature.Append('|').Append((int)_refusals[i]);
+
+            string text = _signature.ToString();
+            if (text == _missionsText) return;
+
+            _missionsText = text;
             _missionList.Clear();
 
-            float radius = gameRuntime.World.ActionRadiusCells;
-            foreach (MissionKind kind in Kinds)
+            for (int i = 0; i < Kinds.Length; i++)
             {
-                MissionSystem.LaunchRefusal refusal = gameRuntime.Missions.CanLaunch(kind, sector, radius);
-
                 // A kind the target's distance simply does not admit is left out rather than listed
                 // as impossible: the bands are a property of where you are pointing, not a fault to
                 // report, and three greyed rows on every sector would drown the one that can go.
-                if (refusal == MissionSystem.LaunchRefusal.WrongBand
-                    || refusal == MissionSystem.LaunchRefusal.NotASector) continue;
+                if (_refusals[i] == MissionSystem.LaunchRefusal.WrongBand
+                    || _refusals[i] == MissionSystem.LaunchRefusal.NotASector) continue;
 
-                _missionList.Add(BuildMissionRow(kind, sector, refusal));
+                _missionList.Add(BuildMissionRow(Kinds[i], sector, _refusals[i]));
             }
 
             // <b>Said before the click, never after.</b> The first launch picks the zone it goes into
-            // and locks the other five, and that is irreversible - a lock met as the unannounced side
+            // and shuts the other five until this one is mapped - a lock met as the unannounced side
             // effect of pressing "Lancer" would be the worst possible way to learn the rule.
-            if (_missionList.childCount != 0 && Zones != null && Zones.WouldChoose(sector))
+            if (_missionList.childCount != 0 && wouldChoose)
             {
                 var warning = new Label(
                     $"Lancer ici choisit la {ZoneName(Zones.ZoneOfSector(sector)).ToLowerInvariant()} "
-                    + "et verrouille les cinq autres.");
+                    + "et verrouille les cinq autres jusqu'à sa complétion.");
                 warning.AddToClassList("sector-map-lock-warning");
                 _missionList.Add(warning);
             }
@@ -694,6 +847,15 @@ namespace Game.UI
             var none = new Label("Aucune mission possible sur cette cible.");
             none.AddToClassList("sector-map-mission-none");
             _missionList.Add(none);
+        }
+
+        /// <summary>Emptied through here rather than by hand, so the signature above can never claim a list that is no longer on screen.</summary>
+        void ClearMissions()
+        {
+            if (_missionsText == null) return;
+
+            _missionsText = null;
+            _missionList.Clear();
         }
 
         VisualElement BuildMissionRow(MissionKind kind, int sector, MissionSystem.LaunchRefusal refusal)

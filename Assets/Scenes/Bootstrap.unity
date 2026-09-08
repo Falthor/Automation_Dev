@@ -761,6 +761,13 @@ MonoBehaviour:
   uiDocument: {fileID: 60635889}
   visualTree: {fileID: 9197481963319205126, guid: e430464a888107b4cba96cde9e18c659, type: 3}
   gameRuntime: {fileID: 2103112250}
+  zoneImages:
+  - {fileID: 2800000, guid: 1ed9293ed8cdb8a46bee3be6d22d887c, type: 3}
+  - {fileID: 2800000, guid: c3b7dfec96fd5454194f30887440b338, type: 3}
+  - {fileID: 2800000, guid: 60e5178b784f07d4a99208e9a0a57ccc, type: 3}
+  - {fileID: 2800000, guid: a38c9a4c699d16649a3f3e5c1b724659, type: 3}
+  - {fileID: 2800000, guid: c6890d3d2f57f6f4791e008b793b0a07, type: 3}
+  - {fileID: 2800000, guid: eb2866969ab870c4292af0e657a730db, type: 3}
 --- !u!1 &134080686
 GameObject:
   m_ObjectHideFlags: 0

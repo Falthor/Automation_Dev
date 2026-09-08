@@ -2293,8 +2293,8 @@
     border-top-color: rgb(38, 45, 54);
 }
 
-/* The one irreversible thing this screen does, said before the click that does it. Amber rather than
-   the refusal grey: it is not a refusal, it is a cost. */
+/* The heaviest thing this screen does, said before the click that does it. Amber rather than the
+   refusal grey: it is not a refusal, it is a cost. */
 .sector-map-lock-warning {
     color: rgb(239, 159, 39);
     font-size: 10px;
@@ -2303,4 +2303,65 @@
     padding-top: 5px;
     border-top-width: 1px;
     border-top-color: rgb(48, 42, 28);
+}
+
+/* --- The first screen's card ------------------------------------------------------------------
+   One direction, and the one mission that opens it. It replaces the sections rather than sitting
+   above them: cartography, site counts and a mission list all describe a zone somebody has been
+   to, and printing them empty would say the map is withholding rather than that nothing is known
+   yet. */
+.sector-map-zone-card {
+    flex-direction: column;
+}
+
+/* Full width of the aside. The image is the only thing on this screen that distinguishes one
+   direction from another, so it gets the width it needs to read as a place. */
+.sector-map-zone-image {
+    width: 100%;
+    height: 132px;
+    background-color: rgb(14, 18, 23);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    -unity-background-scale-mode: scale-and-crop;
+    margin-bottom: 8px;
+}
+
+.sector-map-zone-card-name {
+    color: rgb(222, 232, 238);
+    font-size: 15px;
+    -unity-font-style: bold;
+    margin-bottom: 4px;
+}
+
+.sector-map-zone-card-line {
+    color: rgb(150, 160, 168);
+    font-size: 11px;
+    margin-bottom: 2px;
+}
+
+.sector-map-zone-card-mission {
+    color: rgb(200, 208, 214);
+    font-size: 12px;
+    margin-top: 6px;
+}
+
+.sector-map-explore-button {
+    height: 30px;
+    margin: 10px 0 0 0;
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-color: rgb(85, 221, 245);
+    border-radius: 0;
+    color: rgb(85, 221, 245);
+    font-size: 12px;
+    -unity-font-style: bold;
+}
+
+.sector-map-explore-button:hover {
+    background-color: rgb(26, 34, 41);
+}
+
+.sector-map-explore-button:disabled {
+    border-color: rgb(48, 59, 66);
+    color: rgb(90, 96, 102);
 }

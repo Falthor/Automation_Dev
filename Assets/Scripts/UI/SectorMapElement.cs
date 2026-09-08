@@ -71,6 +71,13 @@ namespace Game.UI
         /// The zone separators. Deliberately dim: their job is to show that five other directions exist,
         /// not to compete with the one being worked.
         /// </summary>
+        /// <summary>The base's own colours: everything that transforms or holds in blue, everything that carries in white.</summary>
+        static readonly Color BuildingColour = new Color(0.30f, 0.52f, 0.93f, 1f);
+        static readonly Color BeltColour = new Color(0.92f, 0.94f, 0.97f, 1f);
+
+        /// <summary>Below this the base is not drawn at all - see DrawBuildings. One pixel per cell is the point at which a footprint is a shape rather than a speck.</summary>
+        const float MinPixelsPerCellForBuildings = 1f;
+
         static readonly Color SeparatorColour = new Color(1f, 1f, 1f, 0.13f);
 
         /// <summary>The chosen zone's own two separators, a shade up from the rest so the worked slice reads without being announced.</summary>
@@ -123,6 +130,9 @@ namespace Game.UI
         int _chosenZone = -1;
 
         readonly List<MapSiteMarker> _sites = new List<MapSiteMarker>();
+
+        /// <summary>Every cell the player's base stands on. The one thing on this map that is already theirs.</summary>
+        readonly List<MapBuildingCell> _buildings = new List<MapBuildingCell>();
 
         /// <summary>The one label shown without hovering, for the site put forward. Painter2D draws no text, so it is a child element parked over the mark.</summary>
         readonly Label _highlightLabel = new Label();
@@ -360,7 +370,14 @@ namespace Game.UI
         {
             if (AimsAtZones)
             {
-                SetHoveredZone(ZoneResolver(CellAt(evt.localPosition)));
+                int zone = ZoneResolver(CellAt(evt.localPosition));
+                SetHoveredZone(zone);
+
+                // <b>Hovering aims, and the aim survives the pointer leaving.</b> What the pane shows
+                // about a direction carries the button that acts on it, so reaching for that button
+                // must not blank the thing it acts on - and a wedge that emptied on the way to its own
+                // "Explorer" would be unusable. Leaving a wedge keeps the last one read.
+                if (zone >= 0) SetSelectedZone(zone);
             }
             else
             {
@@ -475,6 +492,35 @@ namespace Game.UI
             _zoneCount = zoneCount;
             _chosenZone = chosenZone;
             _overlay.MarkDirtyRepaint();
+        }
+
+        /// <summary>
+        /// The cells the player's own base occupies. Safe to call every frame, on the same terms as the
+        /// sites: it repaints only when the base has actually changed shape.
+        /// </summary>
+        public void SetBuildings(IReadOnlyList<MapBuildingCell> buildings)
+        {
+            if (SameBuildings(buildings)) return;
+
+            _buildings.Clear();
+            if (buildings != null)
+            {
+                for (int i = 0; i < buildings.Count; i++) _buildings.Add(buildings[i]);
+            }
+
+            _overlay.MarkDirtyRepaint();
+        }
+
+        bool SameBuildings(IReadOnlyList<MapBuildingCell> buildings)
+        {
+            int count = buildings?.Count ?? 0;
+            if (count != _buildings.Count) return false;
+
+            for (int i = 0; i < count; i++)
+            {
+                if (!buildings[i].SameAs(_buildings[i])) return false;
+            }
+            return true;
         }
 
         /// <summary>
@@ -741,6 +787,7 @@ namespace Game.UI
 
             // Bottom to top, and the order is the design's: the ground's own marks first, then what the
             // player can act on, then what they are pointing at.
+            DrawBuildings(painter);
             DrawZoneSeparators(painter);
             DrawMissionTargets(painter);
             DrawSites(painter);
@@ -783,6 +830,40 @@ namespace Game.UI
                 painter.fillColor = MissionColour;
                 painter.BeginPath();
                 painter.Arc(centre, 3.5f, 0f, 360f);
+                painter.Fill();
+            }
+        }
+
+        /// <summary>
+        /// The base, cell by cell.
+        ///
+        /// <b>Only once a cell is worth a pixel.</b> At the whole-world scale a belt is a fraction of one,
+        /// so hundreds of sub-pixel quads would cost a frame to draw a grey smudge over the Core's own
+        /// mark - which already says "you are here", and says it better. The base appears as the player
+        /// zooms towards it, which is also the only scale at which its shape means anything.
+        /// </summary>
+        void DrawBuildings(Painter2D painter)
+        {
+            if (_buildings.Count == 0) return;
+
+            float pixelsPerCell = PixelsPerSector / _sectorSizeCells;
+            if (pixelsPerCell < MinPixelsPerCellForBuildings) return;
+
+            for (int i = 0; i < _buildings.Count; i++)
+            {
+                MapBuildingCell cell = _buildings[i];
+
+                // The cell's north-west corner: the world's Y grows north and the screen's grows down,
+                // so the top edge is the cell above.
+                Vector2 corner = PointAt(new Vector2(cell.X, cell.Y + 1));
+
+                painter.fillColor = cell.IsBelt ? BeltColour : BuildingColour;
+                painter.BeginPath();
+                painter.MoveTo(corner);
+                painter.LineTo(corner + new Vector2(pixelsPerCell, 0f));
+                painter.LineTo(corner + new Vector2(pixelsPerCell, pixelsPerCell));
+                painter.LineTo(corner + new Vector2(0f, pixelsPerCell));
+                painter.ClosePath();
                 painter.Fill();
             }
         }

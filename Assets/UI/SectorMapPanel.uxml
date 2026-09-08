@@ -19,20 +19,37 @@
                      under it: choosing a target and choosing what to do with it are one gesture, and
                      the answer must not move the map. -->
                 <ui:VisualElement class="sector-map-aside">
-                    <ui:Label text="CARTOGRAPHIE" class="extractor-section-label" />
-                    <ui:Label name="SectorMapZoneName" text="" class="sector-map-zone-name" />
-                    <ui:VisualElement class="sector-map-progress-track">
-                        <ui:VisualElement name="SectorMapProgressFill" class="sector-map-progress-fill" />
+                    <!-- Before a zone is chosen there is one direction to read and one thing to send
+                         into it. The sections below answer questions that only exist afterwards -
+                         how much is mapped, what kind of sites are left - so they are not shown
+                         empty beside a screen that has none of those answers yet. -->
+                    <ui:VisualElement name="SectorMapZoneCard" class="sector-map-zone-card hidden">
+                        <ui:VisualElement name="SectorMapZoneImage" class="sector-map-zone-image" />
+                        <ui:Label name="SectorMapZoneCardName" text="" class="sector-map-zone-card-name" />
+                        <ui:Label name="SectorMapZoneCardMapped" text="" class="sector-map-zone-card-line" />
+                        <ui:Label name="SectorMapZoneCardStatus" text="" class="sector-map-zone-card-line" />
+                        <ui:Label name="SectorMapZoneCardMission" text="" class="sector-map-zone-card-mission" />
+                        <ui:Label name="SectorMapZoneCardWarning" text="Lancer ici choisit la zone et verrouille les cinq autres jusqu'à sa complétion."
+                                  class="sector-map-lock-warning" />
+                        <ui:Button name="SectorMapExploreButton" text="Explorer" class="sector-map-explore-button" />
                     </ui:VisualElement>
-                    <ui:Label name="SectorMapProgress" text="" class="sector-map-figure mono-value" />
 
-                    <ui:Label name="SectorMapCountsTitle" text="SITES CONNUS" class="extractor-section-label section-label-spaced" />
-                    <ui:VisualElement name="SectorMapSiteCounts" class="sector-map-counts" />
+                    <ui:VisualElement name="SectorMapSections" class="sector-map-sections">
+                        <ui:Label text="CARTOGRAPHIE" class="extractor-section-label" />
+                        <ui:Label name="SectorMapZoneName" text="" class="sector-map-zone-name" />
+                        <ui:VisualElement class="sector-map-progress-track">
+                            <ui:VisualElement name="SectorMapProgressFill" class="sector-map-progress-fill" />
+                        </ui:VisualElement>
+                        <ui:Label name="SectorMapProgress" text="" class="sector-map-figure mono-value" />
 
-                    <ui:Label text="MISSIONS" class="extractor-section-label section-label-spaced" />
-                    <ui:Label name="SectorMapTargetName" text="" class="sector-map-target-name" />
-                    <ui:Label name="SectorMapTargetState" text="" class="sector-map-target-detail" />
-                    <ui:VisualElement name="SectorMapMissionList" class="sector-map-mission-list" />
+                        <ui:Label name="SectorMapCountsTitle" text="SITES CONNUS" class="extractor-section-label section-label-spaced" />
+                        <ui:VisualElement name="SectorMapSiteCounts" class="sector-map-counts" />
+
+                        <ui:Label text="MISSIONS" class="extractor-section-label section-label-spaced" />
+                        <ui:Label name="SectorMapTargetName" text="" class="sector-map-target-name" />
+                        <ui:Label name="SectorMapTargetState" text="" class="sector-map-target-detail" />
+                        <ui:VisualElement name="SectorMapMissionList" class="sector-map-mission-list" />
+                    </ui:VisualElement>
 
                     <ui:Label name="SectorMapFleet" text="" class="sector-map-fleet" />
                 </ui:VisualElement>
