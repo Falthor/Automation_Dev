@@ -135,6 +135,11 @@ Il change selon l'échelle.
 **Au niveau monde** : le nom de la zone choisie, sa progression de cartographie, et le décompte des
 missions par état — disponibles, faites, nécessitant des unités.
 
+> **Corrigé à la livraison.** Ces trois lignes ne valent qu'**après** le rapport de la première mission.
+> Avant, elles décriraient des sites que personne n'a vus : le panneau porte à la place une carte de
+> direction — image, cartographie, statut, ce que le lancement coûte aux cinq autres, une action. Voir
+> `architecture/MAP.md` §5 et §7.
+
 **Au niveau zone** : la progression, le nombre de sites restants, et le **décompte par type**. C'est
 lui qui rend la cartographie lisible sans survoler chaque point : le joueur sait qu'il lui reste sept
 sites et de quelle nature.

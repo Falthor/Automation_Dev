@@ -99,7 +99,7 @@ namespace Game.Gameplay.Transport
         /// <summary>Every registered Storage in the world, for UI that needs to aggregate across all of them (e.g. the global Storage panel).</summary>
         public IReadOnlyList<StorageRuntime> Storages => _storages;
 
-        /// <summary>Every registered building across every internal list (CONTRACTS.md §14) - used only by the save/load system to enumerate every placed building at once; no other consumer should need this.</summary>
+        /// <summary>Every registered building across every internal list (CONTRACTS.md §14). Three consumers, all of them needing the whole set at once: the save, the building cap (CONTRACTS.md §8) and the map's drawing of the base (MAP.md §6). Not a general-purpose accessor - anything that wants one building has a narrower way to it.</summary>
         public IEnumerable<BuildingRuntime> GetAllBuildings()
         {
             foreach (BuildingRuntime building in _conveyors) yield return building;

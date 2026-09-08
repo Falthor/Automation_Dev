@@ -542,13 +542,18 @@ public int ZoneAt(Vector2 cellPosition)     // -1 for ground no zone covers
 public int ZoneOfSector(int sectorIndex)
 
 public int ChosenZone { get; }              // -1 while the six are on offer
-public bool IsAvailable(int zoneIndex)
+public bool IsAvailable(int zoneIndex, DiscoveryRuntime discovery)
+public bool ChosenZoneIsMapped(DiscoveryRuntime discovery)   // cartography >= ZoneReleaseRatio
 public bool IsComposed(int zoneIndex)       // the first chosen zone carries an authored content
-public ZoneChoiceRefusal Choose(int zoneIndex)
+public ZoneChoiceRefusal Choose(int zoneIndex, DiscoveryRuntime discovery)
 public ExpeditionZoneRefusal MayTarget(int sectorIndex)
 public bool WouldChoose(int sectorIndex)    // true while none is chosen and the sector is in a zone
-public void ChooseByLaunch(int sectorIndex) // commits the choice a launch there implies
+public void ChooseByLaunch(int sectorIndex, DiscoveryRuntime discovery)
+public void UseDiscovery(DiscoveryRuntime discovery)         // what MayTarget measures against
 public int EntrySectorOf(int zoneIndex)     // what a first mission into it is aimed at
+
+public bool IsSurveyed(int zoneIndex)       // a robot has reported from it
+public void MarkSurveyed(int zoneIndex)     // called from MissionSystem's delivery
 
 public IReadOnlyList<ExpeditionZoneSite> SitesOf(int zoneIndex)
 public int HiddenSitesLeft(int zoneIndex)
@@ -564,12 +569,17 @@ public void RestoreState(JObject state)
 
 **The choice is applied on the real launch path, and the launch is what makes it.** `MissionSystem.CanLaunch` calls `MayTarget` **before** any kind's own rules, and adds one refusal, `LaunchRefusal.OutsideChosenZone`. It is a required constructor argument of `MissionSystem` (nullable in value, not omissible in code) so that no caller can quietly ship a game where the rule exists and is never asked.
 
-**While no zone is chosen every zone is a legal target**, and sending the first robot into one is what picks that direction and locks the other five. There is deliberately no "no zone chosen" refusal: one gesture rather than two, no second meaning for a click on a map where a click is otherwise a framing shortcut, and no state where the map is readable but nothing can be launched. `MayTarget` therefore answers `None` for any sector inside a zone while `ChosenZone` is -1, and refuses only ground no zone covers.
+**While no zone is chosen every zone is a legal target**, and sending the first robot into one is what picks that direction and shuts the other five until it is mapped. There is deliberately no "no zone chosen" refusal: one gesture rather than two, no second meaning for a click on a map where a click is otherwise a framing shortcut, and no state where the map is readable but nothing can be launched. `MayTarget` therefore answers `None` for any sector inside a zone while `ChosenZone` is -1, and refuses only ground no zone covers.
 
-- **`ChooseByLaunch` is called from `TryLaunch` after the refusal check, never inside it.** The lock is irreversible, and a refused mission must not cost the player their five other directions.
+- **`ChooseByLaunch` is called from `TryLaunch` after the refusal check, never inside it.** A refused mission must not cost the player the five other directions.
+- **The lock is a wait, not a forfeit.** The other five reopen once the chosen zone is mapped: `IsAvailable`/`MayTarget` answer through `ChosenZoneIsMapped`, which is `CartographyOf(...).Ratio >= ExpeditionZoneSettings.ZoneReleaseRatio` — a setting, shipped at 1. The introduction is not meant to reach it, so in play the five stay shut for its whole length **without the rule being a lie**. Measured in surface like everything else about a zone.
+- **The discovery is handed to the system once** (`UseDiscovery`, from `GameRuntime`) rather than threaded through the launch path: `MayTarget` is asked by `CanLaunch`, which has no business knowing about cartography.
+- **`IsSurveyed` is what a zone's content is shown through.** Choosing a direction derives its content; it does not reveal it. The first mission to report from a zone marks it surveyed (`MissionSystem` delivery, any kind), and only then does the screen draw its sites. Per zone, so moving on to another one starts that one unsurveyed and coming back never un-knows a visited one.
 - **`WouldChoose` exists so the screen can say what the click is about to cost** before it is made. A lock met as the unannounced side effect of pressing a button would be the worst way to learn the rule.
 - **`EntrySectorOf` is what a first mission is aimed at**: on the zone's own bearing, one sector past the inner edge. The six zones are one wedge turned six times, so their entry sectors sit at the same distance and a mission to any of them takes the same time - which is what lets the first screen claim that what it shows is true and identical everywhere.
 
 **Cartography is surface, never sites** (`ExpeditionZoneCartography` is `DiscoveredCells` / `TotalCells`). Field studies add sites, so a site count would go backwards; over a fixed cell set with append-only discovery, monotonic is structural. Measured on demand in one walk for all zones and cached against `DiscoveryRuntime.Version`; allocates nothing.
 
-**Save:** `SaveData.ExpeditionZones` (a `JObject`) round-trips the chosen zone, the frozen inner radius, and only the sites whose state has moved off what the derivation gives. Everything else - bounds, sites, their positions and findings - is a pure function of `SaveData.TerrainSeed` and re-derives at load, exactly like a sector's identity (§14). No `Version` bump: an additive field with a per-field fallback, restoring as a run with the six zones still on offer.
+**Save:** `SaveData.ExpeditionZones` (a `JObject`) round-trips the chosen zone, the frozen inner radius, which zones have been surveyed, and only the sites whose state has moved off what the derivation gives.
+
+- **`surveyed` is the one key whose absence does not restore as "nothing has happened".** A save without it was written by a build where choosing a zone showed its sites at once, so restoring it as unvisited would take back what that run already had and ask for an exploration it had already made. Absent, the chosen zone counts as surveyed; a run that chose nothing still surveys nothing. Everything else - bounds, sites, their positions and findings - is a pure function of `SaveData.TerrainSeed` and re-derives at load, exactly like a sector's identity (§14). No `Version` bump: an additive field with a per-field fallback, restoring as a run with the six zones still on offer.

@@ -445,3 +445,54 @@ bord. `MissionSystem.CanLaunch` appelle `MayTarget` avant les règles propres à
 récupération est refusée hors zone comme une reconnaissance — vérifié séparément, parce qu'un garde
 placé dans la branche d'un type passerait le test général en manquant celui-là. Conséquence à
 connaître tant que l'écran de carte n'existe pas : le choix se fait par script.
+
+---
+
+## 10. L'écran de carte — trois défauts que seul l'écran pouvait révéler
+
+### Un bouton reconstruit à chaque frame n'est pas cliquable
+
+Aucune mission ne pouvait être lancée depuis la carte. Le panneau latéral se redessine à chaque frame,
+et c'est voulu : un refus n'est pas une propriété de la cible — un créneau se libère, une charge se
+dépense — donc un bouton actif au moment du choix ne doit pas le rester quand la raison a disparu. Mais
+la liste était vidée sans condition, si bien que le bouton était **détruit entre l'enfoncement et le
+relâchement**. Un `Button` d'UI Toolkit ne déclenche qu'au relâchement sur le même élément.
+
+**Le correctif n'est pas de dessiner moins souvent, c'est de ne reconstruire que ce qui a changé.** Une
+signature (secteur, refus par type, verrou en jeu) est comparée avant de vider — la garde que les
+décomptes de sites utilisaient déjà, et que la liste des missions n'avait pas.
+
+**Ce que ça dit du reste.** Aucun test EditMode ne pouvait l'attraper : la logique de lancement était
+juste, la liste affichait les bonnes lignes, et le défaut vivait entièrement dans la durée de vie d'un
+élément. C'est la troisième forme de couture rencontrée sur ce chantier — les deux premières étaient un
+prédicat jamais appelé et un contrat écrit à l'envers du code. Celle-ci ne se voit qu'en cliquant.
+
+### Le premier écran disait ne rien savoir, puis parlait
+
+Il affichait « aucune donnée, les six directions se valent tant qu'aucun robot n'y est allé », et
+listait dessous trois missions avec leurs durées et un refus fondé sur le risque — pour un secteur où
+personne n'était allé. `directive-ecran-carte.md` §8 l'interdit explicitement. La contradiction ne
+venait pas d'une négligence de texte : la méthode qui rend les missions d'un secteur était réutilisée
+telle quelle pour une direction, et une direction n'est pas un secteur.
+
+**Une seule action avant le choix**, sous le nom que le joueur comprend : *découverte*, qui est une
+prospection. Le type n'est pas montré — nommer quatre types, c'est décrire un lieu que personne n'a vu.
+
+### Choisir une direction n'est pas y aller
+
+Le contenu d'une zone est dérivé à l'instant du choix, et il était **affiché** à cet instant : les
+ronds apparaissaient avant que le premier robot ne parte, ce qui laissait la mission de découverte sans
+rien à découvrir. La correction est une règle de jeu, pas d'affichage — `IsSurveyed`, posée par le
+rapport de mission, quel que soit le type.
+
+**Ce que la règle a ouvert, c'est un intervalle.** Entre le lancement et le rapport, l'écran n'avait
+plus rien à dire : la carte de zone disparaissait au moment du choix, donc la chose qu'on venait de
+lancer sortait de l'écran. Elle reste maintenant jusqu'au rapport, avec l'horloge de la mission comme
+barre. **La barre est le trajet, pas la cartographie** : le sol s'ouvre à l'arrivée, donc une barre de
+cartographie resterait à zéro la moitié du voyage puis sauterait — ce qui se lit comme un blocage.
+
+**Une clé de sauvegarde qui ne se restaure pas à « rien n'a eu lieu ».** Une sauvegarde antérieure à
+`surveyed` vient d'une version où le choix montrait les sites : la restaurer en « jamais visitée »
+reprendrait ce que la partie avait déjà et redemanderait une exploration déjà faite. Absente, la zone
+choisie compte comme reconnue. C'est la seule exception au défaut tolérant habituel, et elle est écrite
+dans `CONTRACTS.md` §16 pour qu'elle ne passe pas pour un oubli.

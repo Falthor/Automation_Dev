@@ -214,11 +214,26 @@ divides by the slice, so the circle is partitioned by construction — no seam c
 nobody, whatever the count. `ZoneOfSector` measures on the sector's **centre**, the same rule the
 mission bands use.
 
-**The first launch is the choice, and it locks the rest.** All six are legal targets until one is
-chosen; sending the first robot into one picks that direction, and afterwards only that zone accepts a
-mission. `MissionSystem.CanLaunch` applies it ahead of every kind's own rules, so a recovery is as
-refused outside the zone as a reconnaissance — `LaunchRefusal.OutsideChosenZone`, which is the only
-refusal the rule needs. See `CONTRACTS.md` §16.
+**The first launch is the choice, and it shuts the rest until this one is mapped.** All six are legal
+targets until one is chosen; sending the first robot into one picks that direction, and afterwards only
+that zone accepts a mission. `MissionSystem.CanLaunch` applies it ahead of every kind's own rules, so a
+recovery is as refused outside the zone as a reconnaissance — `LaunchRefusal.OutsideChosenZone`, which
+is the only refusal the rule needs. See `CONTRACTS.md` §16.
+
+**The lock is a wait, not a forfeit.** The five reopen at `ExpeditionZoneSettings.ZoneReleaseRatio` of
+the chosen zone's cartography — shipped at 1, which the introduction is not meant to reach. So the five
+stay shut for its whole length while the rule stays true, rather than the screen promising a return the
+code refuses.
+
+**Choosing a direction is not going there.** A zone's content is derived the moment it is picked, but
+none of it is shown: `IsSurveyed` is false until a mission *reports* from the zone, and the map draws no
+site before that. That is what the first mission is for — it comes back with the whole list, not with
+the corner it stood in. Per zone and saved.
+
+**A first mission is aimed at the zone's entry sector** (`EntrySectorOf`): on the zone's own bearing,
+one sector past the inner edge. The six are one wedge turned six times, so all six entry sectors sit at
+the same distance and a first mission costs the same whichever direction is picked — which is what lets
+the choice screen say that what it shows is true and identical everywhere.
 
 **Content is derived and deterministic**, like a sector's: pure functions of the world seed and the
 zone index through `Game.Core.DeterministicHash`, never `System.Random`. Three prospections, two far
@@ -260,7 +275,7 @@ keep the derivation, and nothing decides yet whether they will ever be composed.
   repeated on demand. `RevealNextHiddenSite` hands over one and returns null once it is spent, after
   which a field study finds only ground.
 
-**The field study** (`MissionKind.Reconnaissance`, which the design also calls *étude de terrain*) is
+**The field study** (`MissionKind.EtudeDeTerrain`, named for the design's *étude de terrain*) is
 an ordinary site in the near stretch, aimed at exactly like a prospection and sharing its band — no
 free targeting, no designation mode of its own. What separates it is what it can find: it carries a
 one-in-three chance of turning up a hidden site, and it is the stock's only consumer.
@@ -329,18 +344,50 @@ Rebuilding is guarded on `DiscoveryRuntime.Version` and then per chunk on its ow
 frame costs one integer comparison and a revelation repaints the one chunk it landed in. The element
 holds one child per tile, reused across pans and zooms, so moving the view allocates nothing.
 
+**The base is drawn on it, cell by cell** — blue for what transforms or holds, white for what carries
+(`ConveyorRuntime`, `SplitterRuntime`, `CrossroadRuntime`). Two colours and no legend: at this distance
+what a base looks like from above is its shape and its transport network, not its building types.
+
+- **Per cell, from `BuildingDefinition.FootprintCells`**, the same list the grid, demolition and the
+  action-radius check go through. One rectangle per building would claim ground the player does not
+  hold — a splitter's footprint is a cross.
+- **Only once a cell is worth a pixel.** At the whole-world scale a belt is a fraction of one, so
+  hundreds of sub-pixel quads would cost a frame to draw a smudge over the Core's own mark, which
+  already says "you are here". The base appears as the player zooms towards it.
+- **Rebuilt only when the building count moves.** Expanding footprints allocates an array per building,
+  and nothing can be built or demolished while the map covers the screen.
+
+**Zone separators and the outer ring are drawn at every scale.** They were the whole-world view's alone,
+which took a zone's boundary away exactly when the player zoomed in to work inside it — and everything
+outside that boundary is refused. Zoomed in they simply leave the screen, which is how a boundary that
+is far away should behave.
+
+**Nothing on this map is square.** The sector division is how a mission is aimed, never something the
+player points at: a hover, a selection and a mission's target are rings around a mark, and what the
+pointer finds is a site rather than the square under it. A click aims at **the site's** sector, not at
+the one under the cursor — a mark is picked from up to 16 px away, which at the zone scale is a good
+fraction of a sector.
+
 ## 7. What is not built yet
 
 - ~~Lazy terrain generation.~~ **Done, and differently than planned.** Terrain is no longer
   materialised at all: `GetTerrainType` computes its answer from the seed and the coordinate, so
   there is nothing to generate lazily. See `TERRAIN.md` §1.
-- **The map screen itself.** Its terrain layer is built (§6); what is still missing is everything
-  stacked on it — the three scales and their breadcrumb, the zone separators, the sites with their four
-  states, and a side panel that changes with the scale. **The zone-choice screen comes before all of
-  it**: until one exists, nothing launches at all except through `ExpeditionZoneSystem.Choose` from a
-  script (§5).
+- ~~The map screen itself.~~ **Built** — `SectorMapElement` and `SectorMapPanelController` (`Game.UI`):
+  the three scales and their breadcrumb, the zone separators and outer ring, the sites in their four
+  states, the base (§6), and a side pane that changes with the scale. Missions launch from it.
+
+  **Before a zone is chosen the pane is one card, not a list**: the direction's picture, its
+  cartography, its status, what the launch costs in the other five, and a single action — a prospection
+  offered under the name *découverte*. Listing the kinds a sector happens to admit would describe ground
+  nobody has walked. The card stays through the flight, with the mission's own clock as its bar, and
+  gives way to the sections when the report lands and the zone's sites appear (§5).
+
+  What is still missing on it: a launch panel proper, the site hover line (name, kind, estimated risk),
+  the highlighted site's behaviour (`MapSiteState.Highlighted` draws but nothing produces it), and the
+  count of sites left beside the cartography figure.
 - ~~Mission trip traces.~~ **Done, and there was never a layer to draw.** See §6.
-- ~~The field study.~~ **Done** — `MissionKind.Reconnaissance`, three sites per zone, in the mining
+- ~~The field study.~~ **Done** — `MissionKind.EtudeDeTerrain`, three sites per zone, in the mining
   band like a prospection. See §5.
 - ~~A third explorer robot.~~ **Not missing — gone.** It came from the abnormal signal, which has been
   removed from the design; the dormant nest now waits on the Datacenter priming alone. Two robots is
