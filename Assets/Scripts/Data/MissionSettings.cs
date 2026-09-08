@@ -48,6 +48,28 @@ namespace Game.Data
 
         [SerializeField, Min(1f)] float recoverySeconds = 360f;
 
+        /// <summary>
+        /// The field study - <c>MissionKind.Reconnaissance</c>. Short, so it is the one a player launches
+        /// rather than leave a robot idle.
+        ///
+        /// <b>Named "field study" here and not "reconnaissance", deliberately.</b> The word is used for
+        /// two different things by the design documents: this mission kind, and the pair of
+        /// reconnaissances whose finite payout budget <see cref="ReconnaissanceReward"/> already holds. A
+        /// second <c>reconnaissanceSeconds</c> beside a <c>reconnaissanceReward</c> that pays the other
+        /// two kinds would be a trap rather than a name.
+        /// </summary>
+        [SerializeField, Min(1f)] float fieldStudySeconds = 120f;
+
+        /// <summary>
+        /// What a field study pays. Its own figure rather than a draw on the introduction's finite
+        /// reconnaissance budget: what bounds it is the number of field-study sites a zone holds, not a
+        /// count of payouts.
+        /// </summary>
+        [SerializeField, Min(0f)] float fieldStudyReward = 250f;
+
+        /// <summary>How often a field study turns up one of the zone's hidden sites. Drawn at launch and carried by the mission, so a reload cannot re-roll it.</summary>
+        [SerializeField, Range(0f, 1f)] float fieldStudyHiddenSiteChance = 1f / 3f;
+
         /// <summary>Extra seconds per cell of distance from the Core. What makes a far target actually feel far, and the only thing separating the two reconnaissances beyond their reward.</summary>
         [SerializeField, Min(0f)] float secondsPerDistanceCell = 0.5f;
 
@@ -98,6 +120,9 @@ namespace Game.Data
         public float ProspectionSeconds => prospectionSeconds;
         public float ExplorationSeconds => explorationSeconds;
         public float RecoverySeconds => recoverySeconds;
+        public float FieldStudySeconds => fieldStudySeconds;
+        public float FieldStudyReward => fieldStudyReward;
+        public float FieldStudyHiddenSiteChance => fieldStudyHiddenSiteChance;
         public float SecondsPerDistanceCell => secondsPerDistanceCell;
         public float ReconnaissanceReward => reconnaissanceReward;
         public float RecoveryReward => recoveryReward;

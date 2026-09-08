@@ -42,6 +42,9 @@ namespace Game.Data
 
         [SerializeField, Min(0)] int prospectionSites = 3;
 
+        /// <summary>Field studies. Three, like the prospections: the design gives them ordinary sites, not a designation mode of their own.</summary>
+        [SerializeField, Min(0)] int reconnaissanceSites = 3;
+
         /// <summary>
         /// The far reconnaissances, on the zone's outer border. Two is what makes the secondary Core
         /// site worth drawing between them rather than announcing: some runs find it on the first,
@@ -88,6 +91,9 @@ namespace Game.Data
         /// <summary>One, and deliberately: mining has no real content yet, so a zone full of it would open on a promise the game does not keep.</summary>
         [SerializeField, Min(0)] int firstZoneProspections = 1;
 
+        /// <summary>Three field studies. What takes the first zone from six launchable quests to nine, and the only thing that can reach its hidden stock.</summary>
+        [SerializeField, Min(0)] int firstZoneReconnaissances = 3;
+
         [SerializeField, Min(0)] int firstZoneFarExplorations = 2;
 
         /// <summary>Three. The mission that pays today, so the introduction leans on it.</summary>
@@ -108,6 +114,7 @@ namespace Game.Data
         public float AngleJitterFraction => angleJitterFraction;
 
         public int ProspectionSites => prospectionSites;
+        public int ReconnaissanceSites => reconnaissanceSites;
         public int FarExplorationSites => farExplorationSites;
         public int RecoverySitesMin => recoverySitesMin;
         public int RecoverySitesMax => recoverySitesMax;
@@ -118,6 +125,7 @@ namespace Game.Data
 
         public bool ComposeFirstChosenZone => composeFirstChosenZone;
         public int FirstZoneProspections => firstZoneProspections;
+        public int FirstZoneReconnaissances => firstZoneReconnaissances;
         public int FirstZoneFarExplorations => firstZoneFarExplorations;
         public int FirstZoneRecoveries => firstZoneRecoveries;
         public int FirstZoneCivilisationStudies => firstZoneCivilisationStudies;

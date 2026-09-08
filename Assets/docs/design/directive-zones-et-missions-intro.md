@@ -246,15 +246,12 @@ prospection, qui n'a pas de contenu réel aujourd'hui, plus de récupération, q
 soit, qui reçoit cette composition, au moment du choix — les six restent équivalentes tant qu'elles sont
 offertes, comme §1 l'exige. Les cinq autres gardent la dérivation de §2.
 
-**Ce qui manque à ce tableau tant que l'étude de terrain n'existe pas.** Trois de ses neuf quêtes en
-sont, donc la première zone n'en offre que **six** de lançables — 1 prospection, 2 explorations
-lointaines, 3 récupérations — plus le signal perturbé après l'amorçage, et 2 études de civilisation
-verrouillées. Le stock caché de 4 sites n'a aucun consommateur.
+**Mesuré sur les assets livrés** : 1 prospection, 3 études de terrain, 2 explorations lointaines,
+3 récupérations — **neuf quêtes lançables**, plus le signal perturbé après l'amorçage. Deux études de
+civilisation verrouillées, et un stock caché de 4 sites que les études de terrain peuvent atteindre.
 
-Conséquence sur les charges : 6 quêtes contre 20 charges (2 robots × 10). Le solo en dépense 6, le
-tout-en-binôme 12 — **la tension que ce paragraphe décrit n'existe pas**, quelle que soit la valeur
-retenue pour les charges. Et l'intervalle avant l'amorçage s'allonge d'autant, alors que §3 comptait sur
-les études de terrain pour le combler.
+Les charges : 9 quêtes contre 20 charges (2 robots × 10). Le solo en dépense 9, le tout-en-binôme 18 —
+l'arbitrage que ce paragraphe décrit existe, avec deux charges de marge au lieu de zéro.
 
 ### Les charges
 

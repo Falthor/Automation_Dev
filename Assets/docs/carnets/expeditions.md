@@ -283,6 +283,46 @@ de terrain n'existent pas encore. Contre 20 charges (2 × 10), le solo en dépen
 et aucune valeur de charge ne la ferait apparaître. Le chiffrage attend l'étude de terrain, pas un
 réglage.
 
+### L'étude de terrain, et le mot « reconnaissance » qui désignait déjà autre chose
+
+**Rien de neuf n'a été conçu**, et c'était la consigne : un membre d'énumération, ses valeurs, et
+l'appel à `RevealNextHiddenSite` — construit, testé, documenté, et appelé par rien. **Cinquième
+occurrence** de cette forme dans le projet.
+
+**Un conflit de nom que le code a rendu visible.** `MissionSettings.reconnaissanceReward` existait déjà
+et paie les *deux* reconnaissances (prospection et exploration lointaine), au titre du gisement fini de
+§8. Ajouter `reconnaissanceSeconds` à côté aurait fait deux champs voisins dont l'un ne concerne pas le
+type qu'il nomme. Les réglages du nouveau type s'appellent donc `fieldStudy*` — l'autre nom que la
+conception lui donne — pendant que le membre d'énumération reste `Reconnaissance` comme demandé.
+Le désaccord vient des documents, pas du code : §3 de la directive des zones appelle le type
+« reconnaissance — appelée ici étude de terrain », et `SPEC_EXPEDITIONS` §8 appelle « reconnaissances »
+les deux autres.
+
+**Elle ne tire sur aucun des deux budgets**, et ce n'est pas une fontaine pour autant : ce qui la borne
+est le nombre de sites d'étude qu'une zone contient, fini comme tous les autres. Un budget de paiements
+en plus aurait été un second mécanisme pour la même propriété.
+
+**Le tirage du site caché est fait au lancement et porté par la mission**, comme l'issue et la
+récompense. Mais *savoir s'il reste quelque chose à trouver* est demandé à l'atterrissage : une autre
+étude peut avoir vidé le stock entre-temps, et une étude qui trouve un stock épuisé ne trouve que du
+terrain — ce que la conception dit déjà.
+
+**Un défaut dans mes propres tests, pas dans le code.** Un seul gros `Tick` ne fait pas atterrir une
+mission : `MissionRuntime.Advance` avance d'un cran par appel, donc un `Tick` de la durée totale laisse
+la mission en `Résolution`. Le helper `RunToReport` existait déjà. Deux tests ont menti dans le bon sens
+— ils ont échoué — mais un test qui aurait *affirmé* qu'il ne se passe rien serait passé au vert pour la
+mauvaise raison.
+
+**L'index des sites a bougé**, `Reconnaissance` s'insérant après `Prospection` dans la liste dérivée.
+`ExpeditionZoneSystem.CaptureState` référence les sites par index, donc une sauvegarde antérieure
+appliquerait son état aux mauvais sites. Sans effet réel : rien ne pouvait écrire ce tableau
+jusqu'ici — `RevealNextHiddenSite` n'avait pas d'appelant et `Consume` n'en a toujours pas — donc il est
+vide dans toute sauvegarde existante. C'était le dernier moment où ce déplacement était gratuit.
+
+**Mesuré sur les assets livrés** : la première zone offre 1 prospection, 3 études de terrain, 2
+explorations lointaines et 3 récupérations — **neuf quêtes lançables**, ce que §7 annonçait. Contre 20
+charges, le solo en dépense 9 et le binôme 18 : l'arbitrage existe enfin, avec deux charges de marge.
+
 ### Le test du pochoir est faible, et voici par où le renforcer
 
 Écrit **avant** d'avoir la mesure, délibérément : plus tard, cette note deviendrait la justification

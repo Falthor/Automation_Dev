@@ -39,6 +39,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         static ExpeditionZoneSettings NewSettings(
             int zoneCount = 6,
             int prospections = 3,
+            int reconnaissances = 3,
             int explorations = 2,
             int recoveryMin = 2, int recoveryMax = 3,
             int studyMin = 1, int studyMax = 2,
@@ -46,7 +47,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
             float radiusJitterCells = 20f,
             float angleJitterFraction = 0.1f,
             bool composeFirstZone = false,
-            int firstProspections = 1, int firstFarExplorations = 2, int firstRecoveries = 3,
+            int firstProspections = 1, int firstReconnaissances = 3, int firstFarExplorations = 2, int firstRecoveries = 3,
             int firstStudies = 2, int firstHidden = 4)
         {
             var settings = ScriptableObject.CreateInstance<ExpeditionZoneSettings>();
@@ -54,6 +55,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
             var so = new SerializedObject(settings);
             so.FindProperty("composeFirstChosenZone").boolValue = composeFirstZone;
             so.FindProperty("firstZoneProspections").intValue = firstProspections;
+            so.FindProperty("firstZoneReconnaissances").intValue = firstReconnaissances;
             so.FindProperty("firstZoneFarExplorations").intValue = firstFarExplorations;
             so.FindProperty("firstZoneRecoveries").intValue = firstRecoveries;
             so.FindProperty("firstZoneCivilisationStudies").intValue = firstStudies;
@@ -62,6 +64,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
             so.FindProperty("radiusJitterCells").floatValue = radiusJitterCells;
             so.FindProperty("angleJitterFraction").floatValue = angleJitterFraction;
             so.FindProperty("prospectionSites").intValue = prospections;
+            so.FindProperty("reconnaissanceSites").intValue = reconnaissances;
             so.FindProperty("farExplorationSites").intValue = explorations;
             so.FindProperty("recoverySitesMin").intValue = recoveryMin;
             so.FindProperty("recoverySitesMax").intValue = recoveryMax;
@@ -465,7 +468,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         [Test]
         public void ChangingASiteCount_MovesWhatTheZoneHolds()
         {
-            Fixture five = NewFixture(NewSettings(hiddenMin: 5, hiddenMax: 5, prospections: 1, explorations: 1,
+            Fixture five = NewFixture(NewSettings(hiddenMin: 5, hiddenMax: 5, prospections: 1, reconnaissances: 0, explorations: 1,
                 recoveryMin: 0, recoveryMax: 0, studyMin: 0, studyMax: 0));
 
             Assert.AreEqual(5, five.Zones.HiddenSitesLeft(3));
@@ -490,6 +493,7 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         static void AssertComposed(ExpeditionZoneSystem zones, int zone)
         {
             Assert.AreEqual(1, VisibleCount(zones, zone, ExpeditionSiteKind.Prospection), $"zone {zone} prospections");
+            Assert.AreEqual(3, VisibleCount(zones, zone, ExpeditionSiteKind.Reconnaissance), $"zone {zone} field studies");
             Assert.AreEqual(2, VisibleCount(zones, zone, ExpeditionSiteKind.ExplorationLointaine), $"zone {zone} far explorations");
             Assert.AreEqual(3, VisibleCount(zones, zone, ExpeditionSiteKind.Recuperation), $"zone {zone} recoveries");
             Assert.AreEqual(2, VisibleCount(zones, zone, ExpeditionSiteKind.EtudeCivilisation), $"zone {zone} studies");

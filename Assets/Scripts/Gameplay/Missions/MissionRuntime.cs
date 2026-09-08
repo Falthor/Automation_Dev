@@ -14,7 +14,17 @@ namespace Game.Gameplay.Missions
         ExplorationLointaine,
 
         /// <summary>A point of interest a reconnaissance already found. Never a sector.</summary>
-        Recuperation
+        Recuperation,
+
+        /// <summary>
+        /// The field study, which the zone design also calls a reconnaissance. Short, cheap, and the
+        /// only mission whose result is open: it may turn up one of the zone's hidden sites.
+        ///
+        /// <b>An ordinary site in the zone, aimed at like any other.</b> It shares the mining band with
+        /// a prospection - there is no free targeting and no separate designation mode. What makes it
+        /// different is what it can find, not how it is launched.
+        /// </summary>
+        Reconnaissance
     }
 
     /// <summary>
@@ -97,9 +107,19 @@ namespace Game.Gameplay.Missions
         /// <summary>Kept for the day squads exist. Always 1 today - see the class summary of MissionSystem.</summary>
         public int Crew { get; }
 
+        /// <summary>
+        /// Whether this field study will turn up one of the zone's hidden sites.
+        ///
+        /// <b>Drawn at launch and carried, like the outcome and the reward</b>, and for the same reason:
+        /// a mission saved in flight has to land identically, and a draw made on arrival would depend on
+        /// the state of the world at a moment a reload moves. Always false for every other kind.
+        /// </summary>
+        public bool RevealsHiddenSite { get; }
+
         public MissionRuntime(int id, MissionKind kind, int targetSector, float totalSeconds,
-            MissionOutcome outcome, float rewardCu, int robotIndex, int crew)
+            MissionOutcome outcome, float rewardCu, int robotIndex, int crew, bool revealsHiddenSite = false)
         {
+            RevealsHiddenSite = revealsHiddenSite;
             Id = id;
             Kind = kind;
             TargetSector = targetSector;

@@ -295,9 +295,10 @@ namespace Game.Gameplay.Missions
 
             MissionOutcome outcome = DrawOutcome(kind, targetSector, id);
             float reward = DrawReward(kind, outcome);
+            bool revealsHiddenSite = DrawHiddenSiteFind(kind, id);
 
             mission = new MissionRuntime(id, kind, targetSector, DurationOf(kind, targetSector, crew),
-                outcome, reward, robot, crew);
+                outcome, reward, robot, crew, revealsHiddenSite);
 
             _robotCharges[robot]--;
 
@@ -307,6 +308,21 @@ namespace Game.Gameplay.Missions
 
             _inFlight.Add(mission);
             return LaunchRefusal.None;
+        }
+
+        /// <summary>
+        /// Whether this field study will turn up a hidden site. Drawn at launch and carried, like the
+        /// outcome and the reward - so a reload cannot re-roll a find.
+        ///
+        /// Only the draw is decided here. Whether there is still anything to find is asked at landing,
+        /// because the stock may be emptied by another study that lands first; a study that draws a find
+        /// on an exhausted stock simply finds ground, which is the design's own rule.
+        /// </summary>
+        bool DrawHiddenSiteFind(MissionKind kind, int missionId)
+        {
+            if (kind != MissionKind.Reconnaissance || _settings.FieldStudyHiddenSiteChance <= 0f) return false;
+
+            return DeterministicHash.Unit(_seed, missionId, FindingSalt) < _settings.FieldStudyHiddenSiteChance;
         }
 
         int FreeRobot()
@@ -331,6 +347,7 @@ namespace Game.Gameplay.Missions
             float baseSeconds =
                 kind == MissionKind.Prospection ? _settings.ProspectionSeconds :
                 kind == MissionKind.ExplorationLointaine ? _settings.ExplorationSeconds :
+                kind == MissionKind.Reconnaissance ? _settings.FieldStudySeconds :
                 _settings.RecoverySeconds;
 
             float distance = 0f;
@@ -369,6 +386,11 @@ namespace Game.Gameplay.Missions
         /// </summary>
         float DrawReward(MissionKind kind, MissionOutcome outcome)
         {
+            // A field study pays its own flat figure and never draws on the introduction's finite
+            // reconnaissance budget. It is not a fountain either: what bounds it is the number of
+            // field-study sites a zone holds, which is finite like every other site.
+            if (kind == MissionKind.Reconnaissance) return _settings.FieldStudyReward;
+
             if (kind == MissionKind.Recuperation)
             {
                 if (outcome == MissionOutcome.RecolteManquee) return 0f;
@@ -384,6 +406,10 @@ namespace Game.Gameplay.Missions
 
         void CommitReward(MissionKind kind, MissionOutcome outcome)
         {
+            // A field study spends none of the two budgets, so there is nothing to commit and nothing
+            // to put the regenerating payout on cooldown for.
+            if (kind == MissionKind.Reconnaissance) return;
+
             if (kind == MissionKind.Recuperation && outcome != MissionOutcome.RecolteManquee
                 && _paidRecoveries < _settings.PaidRecoveries)
             {
@@ -439,6 +465,12 @@ namespace Game.Gameplay.Missions
                 // real the moment a robot reports on it. Placed content wins - see
                 // SectorMaterialisation for the rule and the ordering constraint behind it.
                 Materialisation?.Materialise(mission.TargetSector);
+
+                // The hidden stock's one consumer. It was built, tested and documented before anything
+                // called it - the seam this project has now met five times - and this is the mission the
+                // design always meant to close it. A spent stock returns null and the study finds only
+                // ground, which is what keeps the zone bounded.
+                if (mission.RevealsHiddenSite) _zones?.RevealNextHiddenSite(_zones.ChosenZone);
             }
 
             // The robot's charge was spent at launch, so there is nothing to return here - a robot
@@ -477,7 +509,8 @@ namespace Game.Gameplay.Missions
                     ["outcome"] = (int)mission.Outcome,
                     ["reward"] = mission.RewardCu,
                     ["robot"] = mission.RobotIndex,
-                    ["crew"] = mission.Crew
+                    ["crew"] = mission.Crew,
+                    ["hidden"] = mission.RevealsHiddenSite
                 });
             }
 
@@ -550,7 +583,8 @@ namespace Game.Gameplay.Missions
                         (MissionOutcome)(json.Value<int?>("outcome") ?? 0),
                         json.Value<float?>("reward") ?? 0f,
                         json.Value<int?>("robot") ?? 0,
-                        json.Value<int?>("crew") ?? 1);
+                        json.Value<int?>("crew") ?? 1,
+                        json.Value<bool?>("hidden") ?? false);
 
                     mission.RestoreProgress(
                         json.Value<float?>("elapsed") ?? 0f,

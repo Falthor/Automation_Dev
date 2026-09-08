@@ -148,10 +148,11 @@ namespace Game.Tests.EditMode.Gameplay.Missions
             throw new System.InvalidOperationException($"no {offset}th sector in the mining band");
         }
 
-        /// <summary>The first sector of the mining band that falls in a given expedition zone, in a stable order.</summary>
-        static int SectorInZone(Fixture fixture, int zone)
+        /// <summary>The nth sector of the mining band that falls in a given expedition zone, in a stable order.</summary>
+        static int SectorInZone(Fixture fixture, int zone, int offset = 0)
         {
             var range = NewRange();
+            int found = 0;
 
             for (int row = -12; row <= 12; row++)
             {
@@ -164,11 +165,12 @@ namespace Game.Tests.EditMode.Gameplay.Missions
                     if (distance <= CoreRadius || distance > range.ExplorationMinimumCells) continue;
                     if (fixture.Zones.ZoneOfSector(index) != zone) continue;
 
-                    return index;
+                    if (found == offset) return index;
+                    found++;
                 }
             }
 
-            throw new System.InvalidOperationException($"no mining-band sector in zone {zone}");
+            throw new System.InvalidOperationException($"no {offset}th mining-band sector in zone {zone}");
         }
 
         // ---- The zone gate, entered where the game enters it ----
@@ -244,6 +246,160 @@ namespace Game.Tests.EditMode.Gameplay.Missions
                 fixture.Missions.TryLaunch(MissionKind.Recuperation, outside, CoreRadius, out _));
 
             fixture.Destroy();
+        }
+
+        // ---- The field study ----
+
+        /// <summary>
+        /// It is aimed exactly like a prospection - same band, same designation - so the only thing the
+        /// launch path needed was the kind. Started from TryLaunch, because a band shared in
+        /// <c>BandFor</c> and not reached from here would be the same unwired seam as before.
+        /// </summary>
+        [Test]
+        public void AFieldStudy_IsLaunchedIntoTheMiningBand_LikeAProspection()
+        {
+            Fixture fixture = NewFixture();
+            SummonRobots(fixture);
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.None,
+                fixture.Missions.TryLaunch(MissionKind.Reconnaissance, NearSector(fixture), CoreRadius, out MissionRuntime mission));
+            Assert.IsNotNull(mission);
+
+            // And refused past the threshold, where only a far reconnaissance may go.
+            int beyond = fixture.Grid.IndexAt(312 + 14, 312);
+            Assert.AreEqual(MissionSystem.LaunchRefusal.WrongBand,
+                fixture.Missions.TryLaunch(MissionKind.Reconnaissance, beyond, CoreRadius, out _));
+
+            fixture.Destroy();
+        }
+
+        /// <summary>Two minutes and 250 CU, and it spends neither of the introduction's two budgets - so a run's eight paid reconnaissances are still eight after one.</summary>
+        [Test]
+        public void AFieldStudy_IsShortCheap_AndSpendsNeitherBudget()
+        {
+            Fixture fixture = NewFixture();
+            SummonRobots(fixture);
+
+            Assert.AreEqual(120f, fixture.Missions.DurationOf(MissionKind.Reconnaissance, NearSector(fixture)), 0.001f);
+
+            fixture.Missions.TryLaunch(MissionKind.Reconnaissance, NearSector(fixture), CoreRadius, out MissionRuntime study);
+            Assert.AreEqual(250f, study.RewardCu, 0.001f);
+
+            // The budget is untouched: a prospection launched afterwards still gets the full 500.
+            fixture.Missions.TryLaunch(MissionKind.Prospection, NearSector(fixture, 1), CoreRadius, out MissionRuntime prospection);
+            Assert.AreEqual(500f, prospection.RewardCu, 0.001f, "the field study must not have eaten a paid reconnaissance");
+
+            fixture.Destroy();
+        }
+
+        /// <summary>
+        /// <b>The stock's first consumer.</b> RevealNextHiddenSite was built, tested and documented with
+        /// nothing calling it - the fifth time this project has met that shape. A study that drew a find
+        /// turns one up when it lands; one that did not, does not.
+        /// </summary>
+        [Test]
+        public void AFieldStudyThatDrewAFind_TurnsUpAHiddenSite_WhenItLands()
+        {
+            Fixture fixture = NewFixture(withZones: true);
+            SummonRobots(fixture);
+            fixture.Zones.Choose(0);
+
+            MissionRuntime study = LaunchStudyUntilItDrawsAFind(fixture, wantsFind: true);
+            Assert.IsTrue(study.RevealsHiddenSite);
+
+            // Read after the helper, never before: the attempts it discarded land too.
+            int before = fixture.Zones.HiddenSitesLeft(0);
+            Assert.Greater(before, 0, "precondition: the zone still holds a stock");
+
+            Assert.AreEqual(before, fixture.Zones.HiddenSitesLeft(0), "nothing is found while the robot is still out");
+
+            RunToReport(fixture, study);
+
+            Assert.AreEqual(before - 1, fixture.Zones.HiddenSitesLeft(0), "one turned up at the docking");
+
+            fixture.Destroy();
+        }
+
+        /// <summary>A study that drew no find leaves the stock alone - so the one in three is a draw and not a formality.</summary>
+        [Test]
+        public void AFieldStudyThatDrewNothing_LeavesTheStockAlone()
+        {
+            Fixture fixture = NewFixture(withZones: true);
+            SummonRobots(fixture);
+            fixture.Zones.Choose(0);
+
+            MissionRuntime study = LaunchStudyUntilItDrawsAFind(fixture, wantsFind: false);
+            Assert.IsFalse(study.RevealsHiddenSite);
+
+            int before = fixture.Zones.HiddenSitesLeft(0);
+            RunToReport(fixture, study);
+
+            Assert.AreEqual(before, fixture.Zones.HiddenSitesLeft(0));
+
+            fixture.Destroy();
+        }
+
+        /// <summary>Once the stock is spent a study finds only ground - which is what keeps a zone bounded however many are launched.</summary>
+        [Test]
+        public void OnceTheStockIsSpent_AFieldStudyFindsOnlyGround()
+        {
+            Fixture fixture = NewFixture(withZones: true);
+            SummonRobots(fixture);
+            fixture.Zones.Choose(0);
+
+            while (fixture.Zones.RevealNextHiddenSite(0) != null) { }
+            Assert.AreEqual(0, fixture.Zones.HiddenSitesLeft(0), "precondition: emptied");
+
+            MissionRuntime study = LaunchStudyUntilItDrawsAFind(fixture, wantsFind: true);
+            RunToReport(fixture, study);
+
+            Assert.AreEqual(0, fixture.Zones.HiddenSitesLeft(0), "an exhausted stock stays exhausted, and nothing throws");
+
+            fixture.Destroy();
+        }
+
+        /// <summary>The find is drawn at launch and carried, like the outcome and the reward - so a reload cannot re-roll it.</summary>
+        [Test]
+        public void TheFind_IsDrawnAtLaunch_AndSurvivesASave()
+        {
+            Fixture fixture = NewFixture(withZones: true);
+            SummonRobots(fixture);
+            fixture.Zones.Choose(0);
+
+            MissionRuntime study = LaunchStudyUntilItDrawsAFind(fixture, wantsFind: true);
+            JObject captured = fixture.Missions.CaptureState();
+
+            Fixture reloaded = NewFixture(withZones: true);
+            reloaded.Missions.RestoreState(captured);
+
+            Assert.AreEqual(1, reloaded.Missions.InFlight.Count);
+            Assert.IsTrue(reloaded.Missions.InFlight[0].RevealsHiddenSite, "a reload must not lose the find");
+            Assert.AreEqual(study.Id, reloaded.Missions.InFlight[0].Id);
+
+            fixture.Destroy();
+            reloaded.Destroy();
+        }
+
+        /// <summary>Launches field studies until one draws the wanted answer, and returns it. The draw is a pure function of the mission id, so this walks ids rather than re-rolling anything.</summary>
+        static MissionRuntime LaunchStudyUntilItDrawsAFind(Fixture fixture, bool wantsFind)
+        {
+            for (int attempt = 0; attempt < 20; attempt++)
+            {
+                // A fresh sector each time: the previous one has been revealed by the study that just
+                // ran home, and a reconnaissance aimed at known ground is refused.
+                MissionSystem.LaunchRefusal refusal = fixture.Missions.TryLaunch(
+                    MissionKind.Reconnaissance, SectorInZone(fixture, 0, attempt), CoreRadius, out MissionRuntime mission);
+
+                if (refusal != MissionSystem.LaunchRefusal.None) throw new System.InvalidOperationException($"refused: {refusal}");
+                if (mission.RevealsHiddenSite == wantsFind) return mission;
+
+                // Not the draw wanted: run it home so a slot frees up, and try the next id. Note that a
+                // discarded attempt lands like any other - which is why a caller reads the stock after
+                // this returns, never before.
+                RunToReport(fixture, mission);
+            }
+
+            throw new System.InvalidOperationException($"no field study drew RevealsHiddenSite={wantsFind} in 20 tries");
         }
 
         /// <summary>A sector in the mining band that a robot has already opened - what a recovery needs.</summary>

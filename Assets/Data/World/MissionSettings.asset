@@ -20,6 +20,9 @@ MonoBehaviour:
   prospectionSeconds: 180
   explorationSeconds: 300
   recoverySeconds: 360
+  fieldStudySeconds: 120
+  fieldStudyReward: 250
+  fieldStudyHiddenSiteChance: 0.33333334
   secondsPerDistanceCell: 0.5
   reconnaissanceReward: 500
   recoveryReward: 1500

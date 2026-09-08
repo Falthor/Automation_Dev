@@ -171,7 +171,30 @@ Les mêmes règles que le restyle des panneaux de bâtiment :
 
 ---
 
-## 9. Points ouverts
+## 9. Documentation à mettre à jour
+
+Comme pour tout chantier : la documentation permanente décrit l'état accepté, et elle doit suivre.
+
+- **`MAP.md`** est le document de sous-système concerné. Sa §5 liste « la carte dézoomée, son survol
+  et son affichage du risque » comme non construite — cette ligne sort quand le chantier est livré.
+  Ce qui est décrit ici — l'empilement des couches, les trois échelles, ce que `SectorMapImage`
+  alimente — y a sa place, avec ses raisons.
+- **`GLOBAL_UI.md`** si le routage des panneaux, l'ancrage ou le vocabulaire visuel changent.
+- **`CONTRACTS.md`** si une surface publique est ajoutée — un accesseur de trajet, un état de site,
+  un décompte exposé à l'UI.
+- **`DEVELOPMENT_RULES.md`** si une règle nouvelle émerge, comme celles ajoutées cette semaine.
+
+**Ce document-ci et les maquettes ne sont pas de la documentation permanente.** Ce sont des
+intentions de conception : une fois le chantier livré, ce qui a été construit se décrit dans
+`MAP.md`, et le raisonnement — décisions, écarts, mesures qui ont contredit une intuition — va au
+carnet. Ne les recopie pas dans les documents d'architecture.
+
+Signale-moi tout ce qui, en écrivant, s'avère contredire un document existant. La relecture d'un
+sous-système est la meilleure occasion de trouver une divergence qu'aucun audit ciblé ne verrait.
+
+---
+
+## 10. Points ouverts
 
 - **Les zones voisines apparaissent-elles en bordure de la vue d'une zone**, ou pas du tout ?
 - **Le terrain révélé par un trajet traversant une zone verrouillée** sera visible. Le refus doit

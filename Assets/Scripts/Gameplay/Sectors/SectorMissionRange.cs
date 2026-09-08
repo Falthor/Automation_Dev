@@ -75,7 +75,10 @@ namespace Game.Gameplay.Sectors
         /// <summary>The band a kind of mission may be sent into, as (inner, outer] in cells from the Core. The outer edge of exploration is infinite rather than the map's corner, so the band does not change shape with the map.</summary>
         public void BandFor(MissionKind kind, float coreRadiusCells, out float inner, out float outer)
         {
-            if (kind == MissionKind.Prospection)
+            // A field study shares the mining band: its site is placed in the near stretch like a
+            // prospection's, and it is aimed at in exactly the same way. Only a far reconnaissance
+            // belongs past the threshold.
+            if (kind == MissionKind.Prospection || kind == MissionKind.Reconnaissance)
             {
                 inner = Mathf.Max(0f, coreRadiusCells);
                 outer = ExplorationMinimumCells;

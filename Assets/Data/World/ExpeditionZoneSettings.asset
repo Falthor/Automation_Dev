@@ -16,6 +16,7 @@ MonoBehaviour:
   radiusJitterCells: 20
   angleJitterFraction: 0.1
   prospectionSites: 3
+  reconnaissanceSites: 3
   farExplorationSites: 2
   recoverySitesMin: 2
   recoverySitesMax: 3
@@ -25,6 +26,7 @@ MonoBehaviour:
   hiddenSitesMax: 4
   composeFirstChosenZone: 1
   firstZoneProspections: 1
+  firstZoneReconnaissances: 3
   firstZoneFarExplorations: 2
   firstZoneRecoveries: 3
   firstZoneCivilisationStudies: 2

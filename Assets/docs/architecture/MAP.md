@@ -256,13 +256,23 @@ keep the derivation, and nothing decides yet whether they will ever be composed.
   zone's civilisation study on the map: it must not be empty, or half the players discover that one of
   their two quests held nothing.
 - **The hidden stock is finite by construction** — a fixed-length part of a derived list, not a draw
-  repeated on demand. `RevealNextHiddenSite` hands over one and returns null once it is spent.
-  **Nothing calls it yet**: the field study is the mission kind meant to, and it does not exist — see
-  §6.
+  repeated on demand. `RevealNextHiddenSite` hands over one and returns null once it is spent, after
+  which a field study finds only ground.
 
-**Cartography is measured in surface, never in sites.** A field study will *add* sites, so a bar over
-a site count would go backwards the moment the player found something. Over a fixed set of cells with
-a discovery that only ever adds, monotonic is a property of the construction rather than one to police.
+**The field study** (`MissionKind.Reconnaissance`, which the design also calls *étude de terrain*) is
+an ordinary site in the near stretch, aimed at exactly like a prospection and sharing its band — no
+free targeting, no designation mode of its own. What separates it is what it can find: it carries a
+one-in-three chance of turning up a hidden site, and it is the stock's only consumer.
+
+**That draw is made at launch and carried by the mission** (`MissionRuntime.RevealsHiddenSite`), like
+the outcome and the reward and for the same reason — a mission saved in flight has to land identically.
+Whether there is still anything to find is asked at the landing, since another study may have emptied
+the stock in the meantime. It pays a flat figure and spends neither of the introduction's two budgets;
+what bounds it is the number of field-study sites a zone holds.
+
+**Cartography is measured in surface, never in sites.** A field study *adds* sites, so a bar over a
+site count would go backwards the moment the player found something. Over a fixed set of cells with a
+discovery that only ever adds, monotonic is a property of the construction rather than one to police.
 `CartographyOf` walks the bounding box of the outer disc once for all zones — so the six can never
 disagree about the partition — and caches against `DiscoveryRuntime.Version`, which already exists to
 answer "has anything actually changed". It allocates nothing.
@@ -275,12 +285,8 @@ answer "has anything actually changed". It allocates nothing.
 - **The zoomed-out map**, its hover and its risk display — the interface over §4, which the directive
   places last. **The zone-choice screen comes before it**: until one exists, nothing launches at all
   except through `ExpeditionZoneSystem.Choose` from a script (§5).
-- **The field study** — the fourth mission kind, and the only one with no predefined site.
-  `MissionKind` has three members; this is not one of them. Three things wait on it: the hidden stock
-  has no consumer, so `RevealNextHiddenSite` is never called in play; 100 % cartography is unreachable,
-  since every other mission aims at a finite site; and the starting zone holds six or seven launchable
-  quests instead of the nine the design's own arithmetic is built on. **Any measurement of the
-  introduction has to know this before it starts**, or it will read a short run as a balance problem.
+- ~~The field study.~~ **Done** — `MissionKind.Reconnaissance`, three sites per zone, in the mining
+  band like a prospection. See §5.
 - ~~A third explorer robot.~~ **Not missing — gone.** It came from the abnormal signal, which has been
   removed from the design; the dormant nest now waits on the Datacenter priming alone. Two robots is
   the intended fleet, not a shortfall.

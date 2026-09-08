@@ -18,7 +18,14 @@ namespace Game.Gameplay.Expeditions
         Recuperation,
 
         /// <summary>Needs units, which need the weapons branch. Placed with everything else and unreachable for the whole introduction, deliberately.</summary>
-        EtudeCivilisation
+        EtudeCivilisation,
+
+        /// <summary>
+        /// A field study - <c>MissionKind.Reconnaissance</c>. An ordinary site in the near stretch, like
+        /// a prospection's: the design gives it no free targeting and no designation mode of its own.
+        /// What makes it different is that it is the only mission that can turn up a hidden site.
+        /// </summary>
+        Reconnaissance
     }
 
     /// <summary>
