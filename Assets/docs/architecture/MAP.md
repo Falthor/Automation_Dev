@@ -236,11 +236,13 @@ identity is derived; only what the player did to it (revealed, consumed) enters 
   zone's civilisation study on the map: it must not be empty, or half the players discover that one of
   their two quests held nothing.
 - **The hidden stock is finite by construction** — a fixed-length part of a derived list, not a draw
-  repeated on demand. Once spent, a field study finds only ground.
+  repeated on demand. `RevealNextHiddenSite` hands over one and returns null once it is spent.
+  **Nothing calls it yet**: the field study is the mission kind meant to, and it does not exist — see
+  §6.
 
-**Cartography is measured in surface, never in sites.** A field study *adds* sites, so a bar over a
-site count would go backwards the moment the player found something. Over a fixed set of cells with a
-discovery that only ever adds, monotonic is a property of the construction rather than one to police.
+**Cartography is measured in surface, never in sites.** A field study will *add* sites, so a bar over
+a site count would go backwards the moment the player found something. Over a fixed set of cells with
+a discovery that only ever adds, monotonic is a property of the construction rather than one to police.
 `CartographyOf` walks the bounding box of the outer disc once for all zones — so the six can never
 disagree about the partition — and caches against `DiscoveryRuntime.Version`, which already exists to
 answer "has anything actually changed". It allocates nothing.
@@ -251,7 +253,20 @@ answer "has anything actually changed". It allocates nothing.
   materialised at all: `GetTerrainType` computes its answer from the seed and the coordinate, so
   there is nothing to generate lazily. See `TERRAIN.md` §1.
 - **The zoomed-out map**, its hover and its risk display — the interface over §4, which the directive
-  places last.
+  places last. **The zone-choice screen comes before it**: until one exists, nothing launches at all
+  except through `ExpeditionZoneSystem.Choose` from a script (§5).
+- **The field study** — the fourth mission kind, and the only one with no predefined site.
+  `MissionKind` has three members; this is not one of them. Three things wait on it: the hidden stock
+  has no consumer, so `RevealNextHiddenSite` is never called in play; 100 % cartography is unreachable,
+  since every other mission aims at a finite site; and the starting zone holds six or seven launchable
+  quests instead of the nine the design's own arithmetic is built on. **Any measurement of the
+  introduction has to know this before it starts**, or it will read a short run as a balance problem.
+- **A third explorer robot.** `MissionSettings.explorerRobotCount` is 2 and nothing ever raises it, so
+  the dormant nest's first condition — the third robot acquired — cannot be met.
+- **A starting zone distinct from the other five.** Every zone derives the same content (§5). The
+  design wants the first one composed differently; whether it should be, and whether "first" means a
+  particular slice or whichever the player picks, is still open — see
+  [`../design/directive-zones-et-missions-intro.md`](../design/directive-zones-et-missions-intro.md) §9.
 - **Missions themselves** — the process exists (`MissionSystem`, `Game.Gameplay.Missions`): probes,
   the state machine, the two reconnaissances, launch-time draw surviving a save, and the introduction's
   finite reward budget. What is missing is everything with a screen — the launch panel, the mission

@@ -237,18 +237,36 @@ chercher parmi les autres points. Cette sélection automatique ne vaut que cette
 
 **Neuf quêtes réalisables**, plus une après le Datacenter.
 
+**Ce tableau décrit un cas particulier, et §2 le contenu par défaut.** Les deux ne coïncident pas — §2
+donne 3 prospections et 2 à 3 récupérations, celui-ci l'inverse — et rien ne le disait, ce qui en
+faisait une contradiction plutôt qu'une intention. La zone de départ est composée autrement : moins de
+prospection, qui n'a pas de contenu réel aujourd'hui, plus de récupération, qui paie. **Non construit** :
+toute zone dérive aujourd'hui le contenu de §2, la première comprise. Voir §9 pour ce qui reste à
+trancher.
+
 ### Les charges
 
-**Neuf charges par robot**, pas un budget total. Deux robots au départ, un troisième acquis en cours
-de route.
+**Dix charges par robot**, pas un budget total. Deux robots au départ, un troisième acquis en cours
+de route — ce troisième n'est pas construit : `MissionSettings.explorerRobotCount` vaut 2 et rien ne
+l'incrémente.
 
 L'arbitrage est réel : lancer les deux robots ensemble réduit légèrement la durée d'une mission mais
-consomme deux charges. Neuf quêtes pour neuf charges par robot signifie que le solo n'est jamais
-bloqué, tandis que le tout-en-binôme demanderait dix-huit charges pour dix-huit disponibles — le
-joueur doit alors choisir ce qu'il accélère.
+consomme deux charges.
 
-**La marge est nulle par construction.** Une dixième quête, ou une mission à relancer, mettrait le
-joueur en solo à court. À vérifier au chiffrage si c'est voulu au chiffre près.
+**La marge est de deux charges par robot, et c'est elle qu'il faut juger.** Ce paragraphe disait neuf ;
+neuf était déduit du « neuf quêtes » ci-dessus, jamais mesuré, et l'asset livré dit dix depuis
+toujours. Corrigé dans ce sens plutôt que l'inverse : aligner le code sur un document qui a inventé son
+chiffre serait le mauvais sens.
+
+Le raisonnement reste ce que le chiffrage doit trancher. À neuf, la marge serait nulle par construction
+et le tout-en-binôme demanderait dix-huit charges pour dix-huit disponibles. À dix, le joueur en solo
+garde deux relances et le binôme reste possible sur deux quêtes. Laquelle des deux tensions on veut est
+une question de jeu, pas de nombre.
+
+**Et le chiffrage ne peut pas se faire tel quel.** Sans l'étude de terrain (§3), qui n'existe pas encore
+comme type de mission, la zone de départ n'offre pas neuf quêtes lançables mais six ou sept, et le stock
+caché ne se révèle jamais. Mesurer avant de l'avoir construite lirait une partie courte comme un
+problème d'équilibrage.
 
 La durée d'une mission varie déjà avec la distance au Noyau.
 
@@ -347,6 +365,21 @@ cliquera, sinon il croira à un bug.
 ---
 
 ## 9. Points laissés ouverts
+
+- **La zone de départ est-elle composée à la main, ou identique aux cinq autres ?** La première rend
+  l'introduction contrôlable, la seconde évite un chemin de code de plus.
+
+  **Une complication à trancher avec, et pas après.** « La zone de départ » n'est pas une tranche
+  particulière : le joueur choisit sa direction parmi six, et §1 dit que les six sont équivalentes
+  pendant l'introduction. Composer une tranche à la main contredirait donc §1, et en composer six
+  serait six fois le travail pour cinq qu'on ne verra pas. Si le cas particulier existe, il porte sur
+  **la première zone choisie, quelle qu'elle soit**, et s'applique au moment du choix — ce qui garde
+  l'équivalence des six avant qu'il soit fait.
+
+  Le projet a déjà la forme de cette règle ailleurs : `MAP.md` §6 pose « un secteur portant du contenu
+  posé le garde, la dérivation ne remplit que ceux qui n'en ont pas ». Une règle sur les données, pas
+  sur la géométrie — et c'est ce qui la rend durable, puisqu'elle ne connaît aucun périmètre de départ
+  à entretenir.
 
 - **Ce qui distingue visuellement un site fait d'un site restant** — la marque discrète est décidée,
   sa forme exacte non.
