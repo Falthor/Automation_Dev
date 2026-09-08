@@ -89,8 +89,11 @@ namespace Game.UI
         /// <summary>The zone picked. The panel's own accent, because this is a decision rather than a glance.</summary>
         static readonly Color ZoneSelectedFill = new Color(0.333f, 0.867f, 0.961f, 0.10f);
 
-        /// <summary>A site that has given what it held. Sourd, and never clickable - it stays as the trace of what was done there.</summary>
-        static readonly Color DoneColour = new Color(0.42f, 0.45f, 0.5f, 1f);
+        /// <summary>A site that has given what it held. The palette's "acquired" green - the same one the research panel uses - because it is a thing the player did, not a thing that failed.</summary>
+        static readonly Color DoneColour = new Color(0.39f, 0.82f, 0.51f, 1f);
+
+        /// <summary>The tick drawn inside a done site. Dark rather than white, so it reads as cut into the disc rather than laid on it.</summary>
+        static readonly Color TickColour = new Color(0.06f, 0.09f, 0.11f, 1f);
 
         /// <summary>A site needing units. An empty circle: it promises rather than offers.</summary>
         static readonly Color LockedColour = new Color(0.45f, 0.48f, 0.53f, 0.75f);
@@ -869,6 +872,26 @@ namespace Game.UI
         }
 
         /// <summary>
+        /// A tick inside a mark: two strokes, sized off the mark's own radius so it follows it.
+        ///
+        /// Painter2D rather than a glyph - the same gesture as the Core and the radius ring, and for the
+        /// same reason: exact at any size, no texture to keep, and nothing to load.
+        /// </summary>
+        static void DrawTick(Painter2D painter, Vector2 centre, float radius)
+        {
+            painter.strokeColor = TickColour;
+            painter.lineWidth = Mathf.Max(1.5f, radius * 0.22f);
+            painter.lineJoin = LineJoin.Round;
+            painter.lineCap = LineCap.Round;
+
+            painter.BeginPath();
+            painter.MoveTo(centre + new Vector2(-0.45f, 0.02f) * radius);
+            painter.LineTo(centre + new Vector2(-0.12f, 0.38f) * radius);
+            painter.LineTo(centre + new Vector2(0.48f, -0.36f) * radius);
+            painter.Stroke();
+        }
+
+        /// <summary>
         /// The base, cell by cell.
         ///
         /// <b>Only once a cell is worth a pixel.</b> At the whole-world scale a belt is a fraction of one,
@@ -1039,17 +1062,16 @@ namespace Game.UI
                         break;
 
                     case MapSiteState.Done:
-                        // Kept, and kept quiet. The inner mark is what was found, still legible.
-                        painter.strokeColor = DoneColour;
-                        painter.lineWidth = 1.5f;
-                        painter.BeginPath();
-                        painter.Arc(point, SiteRadiusPixels, 0f, 360f);
-                        painter.Stroke();
-
+                        // <b>Green and ticked.</b> A site that has given what it held is not a muted
+                        // version of an available one - it is the record of something the player did, and
+                        // the map is where that record lives. Green is this project's "acquired", and a
+                        // tick is read without a legend.
                         painter.fillColor = DoneColour;
                         painter.BeginPath();
-                        painter.Arc(point, SiteRadiusPixels * 0.4f, 0f, 360f);
+                        painter.Arc(point, SiteRadiusPixels, 0f, 360f);
                         painter.Fill();
+
+                        DrawTick(painter, point, SiteRadiusPixels);
                         break;
 
                     default:

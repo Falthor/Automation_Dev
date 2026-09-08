@@ -691,6 +691,45 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         }
 
         /// <summary>
+        /// <b>No two sites land on top of one another, whatever the seed.</b> Each kind used to lay its
+        /// own even ladder across the whole wedge without knowing the others were doing the same, and
+        /// both the bearing and the radius rose with the ordinal - so five ladders stacked on one
+        /// diagonal and pairs ended up a single cell apart. Measured before: 1,0 cell. After: 10,0.
+        ///
+        /// The threshold is under the measurement rather than on it: what is being pinned is that the
+        /// construction cannot bunch them, not the exact figure a particular arrangement produces.
+        /// </summary>
+        [Test]
+        public void NoTwoSitesOfAZone_LandWithinEightCellsOfEachOther()
+        {
+            foreach (int seed in new[] { Seed, 7, 999331, -412 })
+            {
+                Fixture fixture = NewFixture(seed: seed);
+
+                for (int zone = 0; zone < fixture.Zones.ZoneCount; zone++)
+                {
+                    IReadOnlyList<ExpeditionZoneSite> sites = fixture.Zones.SitesOf(zone);
+                    Assert.Greater(sites.Count, 1, "precondition: there are pairs to measure");
+
+                    for (int i = 0; i < sites.Count; i++)
+                    {
+                        for (int j = i + 1; j < sites.Count; j++)
+                        {
+                            float distance = Vector2.Distance(
+                                new Vector2(sites[i].Cell.X, sites[i].Cell.Y),
+                                new Vector2(sites[j].Cell.X, sites[j].Cell.Y));
+
+                            Assert.GreaterOrEqual(distance, 8f,
+                                $"seed {seed}, zone {zone}: sites {i} and {j} are {distance:0.0} cells apart");
+                        }
+                    }
+                }
+
+                fixture.Destroy();
+            }
+        }
+
+        /// <summary>
         /// <b>The game shows once, and only once there is something to show.</b> A highlight before the
         /// zone has been surveyed would point at a site the player has not been told about; one that
         /// stayed lit after a launch would be a rail rather than a suggestion.

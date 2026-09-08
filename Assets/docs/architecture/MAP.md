@@ -240,13 +240,11 @@ been visited, and it is refused (`LaunchRefusal.ZoneAlreadySurveyed`) once its z
 | duration | `MissionSettings.DiscoverySeconds`, **flat** — two minutes in all six directions |
 | reward | the introduction's reconnaissance budget, like every reconnaissance |
 | target | the zone's entry sector, which is what the choice screen aims it at |
-| what it opens | the ground around **each site it reports**, one disc per site at `SectorGrid.InscribedRadiusCells` |
+| what it opens | **nothing.** The marks appear, the map does not change |
 
-**A discovery opens ground, and that was a defect before it did.** It came back with a list of sites and
-dropped their marks into the dark: the zone still read as untouched, and the one mission whose purpose is
-to show what is out there showed nothing. Each site is now reported with the ground it stands on —
-patches, not the wedge. Opening the whole zone here would finish its cartography on the first mission,
-and with it lift the lock on the other five.
+**A discovery reveals no ground at all** — no arrival disc, no trail. What it brings back is the list;
+terrain is opened by the missions sent to those sites, each on its own completion, which is what makes a
+zone fill in as it is worked rather than all at once.
 
 **The flat duration is the point, not a shortcut.** A discovery only ever goes to an entry sector, and
 the six are one wedge turned six times — so the travel term every other kind carries would add nothing
@@ -283,6 +281,13 @@ keep the derivation, and nothing decides yet whether they will ever be composed.
   travels, and of a settings asset — so a reload re-derives it. What is pinned instead is that the
   re-derivation lands on exactly the same sites, positions included.
 
+- **Sites are spread on one ladder per stretch, and their bearing comes off the golden ratio.** Each
+  kind used to lay its own even ladder across the whole wedge without knowing the others were doing the
+  same, and both the bearing and the radius rose with the ordinal — so five ladders stacked on one
+  diagonal and pairs landed a single cell apart. Numbering every site of a stretch on one ladder spaces
+  them radially; taking the bearing from consecutive multiples of 1/φ spreads them across the wedge
+  instead of along a chord of it. **Measured: the closest pair anywhere went from 1,0 to 10,0 cells**,
+  stable across seeds, and a test holds it at 8.
 - **A site is placed where its own kind of mission may go.** Far reconnaissances sit past the
   exploration threshold, which is the only band a far reconnaissance may be sent into; everything else
   sits short of it, where a prospection may be sent. A site its own mission cannot reach would be a

@@ -495,11 +495,25 @@ namespace Game.Gameplay.Expeditions
             // which is the very failure the design names.
             int carrier = explorations > 0 ? (int)(Hash(zone, CarrierSalt) % (uint)explorations) : -1;
 
-            AddKind(sites, zone, bounds, ExpeditionSiteKind.Prospection, prospections, carrier);
-            AddKind(sites, zone, bounds, ExpeditionSiteKind.EtudeDeTerrain, reconnaissances, carrier);
-            AddKind(sites, zone, bounds, ExpeditionSiteKind.ExplorationLointaine, explorations, carrier);
-            AddKind(sites, zone, bounds, ExpeditionSiteKind.Recuperation, recoveries, carrier);
-            AddKind(sites, zone, bounds, ExpeditionSiteKind.EtudeCivilisation, studies, carrier);
+            // <b>One ladder per stretch, not one per kind.</b> Each kind used to spread itself evenly
+            // across the whole wedge without knowing the others were doing the same, so five ladders lay
+            // on top of one another and sites of different kinds landed within a few cells - evenly
+            // spaced per kind, and bunched on screen, which is the only place it can be seen. Numbering
+            // every site of a stretch on one ladder is what actually spaces them.
+            int near = prospections + reconnaissances + recoveries + studies + hidden;
+            int nearPlaced = 0;
+            int farPlaced = 0;
+
+            AddKind(sites, zone, bounds, ExpeditionSiteKind.Prospection, prospections, carrier,
+                ref nearPlaced, ref farPlaced, near, explorations);
+            AddKind(sites, zone, bounds, ExpeditionSiteKind.EtudeDeTerrain, reconnaissances, carrier,
+                ref nearPlaced, ref farPlaced, near, explorations);
+            AddKind(sites, zone, bounds, ExpeditionSiteKind.ExplorationLointaine, explorations, carrier,
+                ref nearPlaced, ref farPlaced, near, explorations);
+            AddKind(sites, zone, bounds, ExpeditionSiteKind.Recuperation, recoveries, carrier,
+                ref nearPlaced, ref farPlaced, near, explorations);
+            AddKind(sites, zone, bounds, ExpeditionSiteKind.EtudeCivilisation, studies, carrier,
+                ref nearPlaced, ref farPlaced, near, explorations);
 
             // The hidden stock last, so its members sit at the end of the list and a save's index into
             // it stays meaningful even if a visible count is retuned.
@@ -516,7 +530,7 @@ namespace Game.Gameplay.Expeditions
                     ? ExpeditionSiteKind.Prospection
                     : ExpeditionSiteKind.Recuperation;
 
-                GridCoord cell = Place(bounds, kind, i, hidden, salt);
+                GridCoord cell = Place(bounds, kind, nearPlaced++, near, salt);
 
                 sites.Add(new ExpeditionZoneSite(zone, sites.Count, kind, cell, ExpeditionFinding.None, true));
             }
@@ -525,12 +539,18 @@ namespace Game.Gameplay.Expeditions
         }
 
         void AddKind(List<ExpeditionZoneSite> sites, int zone, ExpeditionZone bounds,
-            ExpeditionSiteKind kind, int count, int secondaryCoreCarrier)
+            ExpeditionSiteKind kind, int count, int secondaryCoreCarrier,
+            ref int nearPlaced, ref int farPlaced, int nearTotal, int farTotal)
         {
+            bool far = kind == ExpeditionSiteKind.ExplorationLointaine;
+
             for (int i = 0; i < count; i++)
             {
                 uint salt = SiteSalt(BearingSalt + (uint)kind * 0x01000193u, i);
-                GridCoord cell = Place(bounds, kind, i, count, salt);
+
+                // Its rung on its stretch's own ladder, which every kind shares - see BuildSites.
+                int ordinal = far ? farPlaced++ : nearPlaced++;
+                GridCoord cell = Place(bounds, kind, ordinal, far ? farTotal : nearTotal, salt);
 
                 ExpeditionFinding finding = kind != ExpeditionSiteKind.ExplorationLointaine
                     ? ExpeditionFinding.None
@@ -556,7 +576,14 @@ namespace Game.Gameplay.Expeditions
             float angleJitter = _settings.AngleJitterFraction * slice;
             float usableHalf = Mathf.Max(0f, bounds.HalfAngleDegrees - angleJitter);
 
-            float ladder = count <= 0 ? 0f : ((index + 0.5f) / count * 2f - 1f) * usableHalf;
+            // <b>The bearing does not follow the ladder, and that is what fills the wedge.</b> With both
+            // the angle and the radius rising with the ordinal, every site of a zone landed on one
+            // diagonal - fifteen marks strung along a line, with pairs a cell apart wherever the jitter
+            // brought two rungs together. The golden ratio spreads consecutive ordinals as far from one
+            // another as a sequence can, so the marks cover the area instead of a chord of it, and it is
+            // arithmetic rather than a draw: the same zone lays out the same way every time.
+            float spread = count <= 0 ? 0.5f : Frac((index + 0.5f) * GoldenRatioConjugate);
+            float ladder = (spread * 2f - 1f) * usableHalf;
             float degrees = bounds.CentreDegrees + ladder + Signed(bounds.Index, salt, AngleChannel) * angleJitter;
 
             // A far reconnaissance may only be sent past the exploration threshold, so that is where its
@@ -580,11 +607,23 @@ namespace Game.Gameplay.Expeditions
                 radiusJitter = Mathf.Max(0f, (stretchOuter - stretchInner) * 0.5f);
             }
 
+            // <b>The jitter can never reach the next rung.</b> Clamped to half the gap between two
+            // consecutive sites, so a site drawn outwards and its neighbour drawn inwards still cannot
+            // meet - which is what a minimum separation is, expressed as a property of the construction
+            // rather than as a distance to police afterwards.
+            float rung = count <= 1 ? (usableOuter - usableInner) : (usableOuter - usableInner) / count;
+            radiusJitter = Mathf.Min(radiusJitter, rung * 0.5f);
+
             float radius = usableInner + (usableOuter - usableInner) * (count <= 0 ? 0.5f : (index + 0.5f) / count)
                 + Signed(bounds.Index, salt, RadiusChannel) * radiusJitter;
 
             return CellAt(degrees, radius);
         }
+
+        /// <summary>1/phi. Consecutive multiples of it, taken modulo one, are as evenly spread as a sequence of any length can be - which is exactly what "no two sites near one another, whatever the count" asks for.</summary>
+        const float GoldenRatioConjugate = 0.6180339887f;
+
+        static float Frac(float value) => value - Mathf.Floor(value);
 
         /// <summary>Keeps the bearing's draw and the radius's independent for one and the same site.</summary>
         const uint AngleChannel = 0u;

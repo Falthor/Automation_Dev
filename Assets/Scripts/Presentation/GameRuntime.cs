@@ -345,7 +345,16 @@ namespace Game.Presentation
             }
             else
             {
-                Terrain = new TerrainRuntime(terrainSettings.Size, terrainSettings.Seed, terrainSettings.TerrainScale, terrainSettings.Proportion);
+                // <b>A new run draws its own seed.</b> The settings asset carries 0, so every new game
+                // was the same world down to the last site on the map - three runs in a row put the far
+                // explorations on the same cells. The draw happens here, once, and goes straight into
+                // the save (SaveData.TerrainSeed); everything downstream is derived from it through
+                // DeterministicHash, which is what keeps a reloaded run identical to itself.
+                int runSeed = terrainSettings.RandomiseSeedEachRun
+                    ? Random.Range(int.MinValue, int.MaxValue)
+                    : terrainSettings.Seed;
+
+                Terrain = new TerrainRuntime(terrainSettings.Size, runSeed, terrainSettings.TerrainScale, terrainSettings.Proportion);
                 Discovery = new DiscoveryRuntime(Terrain.Size, sectorSettings.ChunkSizeCells);
 
                 // The player's starting resources live in the Core chest fixture placed by

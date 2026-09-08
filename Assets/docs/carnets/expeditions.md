@@ -545,3 +545,43 @@ qu'ouvre déjà l'arrivée d'une mission, donc aucun chiffre nouveau.
 le déverrouillage des cinq autres directions lit cette cartographie. Ouvrir tout le coin d'un coup
 porterait la zone à 100 %, ce qui rouvrirait les cinq autres à la première mission — le verrou ne
 tiendrait plus une minute. Les taches laissent entre elles ce que le reste de la partie a à faire.
+
+---
+
+## 13. Trois parties, le même monde
+
+« Les points et les explorations lointaines sont exactement au même endroit. » Ce n'était pas le
+placement : **`TerrainGenerationSettings.seed` valait 0, et une nouvelle partie le prenait tel quel.**
+Toutes les parties neuves partageaient donc un seul monde — même terrain, mêmes secteurs, mêmes sites
+aux mêmes coordonnées.
+
+**Le correctif est à l'étage de la graine, pas à celui du tirage.** Ajouter de l'aléatoire dans le
+placement aurait cassé la règle qui tient tout le projet — un site doit se redériver identique après un
+rechargement. Une partie neuve tire maintenant sa graine une fois, et tout ce qui suit continue de
+passer par `DeterministicHash`. C'est le seul tirage non déterministe du projet, il a lieu une fois, et
+il part immédiatement dans la sauvegarde.
+
+`randomiseSeedEachRun` peut être décoché pour rejouer un monde précis — ce qui est la seule façon de
+retrouver un bug lié à une carte particulière.
+
+## 14. Cinq échelles empilées sur la même diagonale
+
+Les ronds se touchaient. La cause n'était pas leur taille : **chaque type posait sa propre échelle
+régulière sur toute la zone, sans savoir que les quatre autres faisaient la même chose.** Et comme
+l'angle *et* le rayon croissaient tous deux avec le rang, chaque échelle était une diagonale — cinq
+diagonales superposées sur le même coin.
+
+Deux corrections, aucune n'étant un « écart minimal » à faire respecter après coup :
+
+- **une échelle par tranche, partagée par tous les types** : le rang d'un site est son rang parmi tous
+  les sites de sa tranche, pas parmi ceux de son type ;
+- **le cap vient du nombre d'or** : les multiples successifs de 1/φ modulo 1 sont aussi étalés qu'une
+  suite peut l'être, donc les marques couvrent la surface du coin au lieu d'une corde. C'est de
+  l'arithmétique, pas un tirage : la même zone se dessine identiquement à chaque fois.
+
+Le jitter est en plus borné à la moitié de l'écart entre deux rangs, ce qui rend le chevauchement
+impossible par construction plutôt que surveillé.
+
+**Mesuré : la paire la plus proche passe de 1,0 à 10,0 cellules**, sur quatre graines. Le test tient le
+seuil à 8 — sous la mesure, parce que ce qui est figé est la propriété, pas le chiffre exact d'un
+arrangement donné.

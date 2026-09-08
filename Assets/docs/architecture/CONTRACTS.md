@@ -578,7 +578,7 @@ public void RestoreState(JObject state)
 
   **Appended to the enum, never inserted.** A mission in flight saves its kind as `(int)Kind`, so inserting a member would turn every saved mission into another kind.
 
-  **A discovery opens the ground around each site it reports** — one disc per site, at `SectorGrid.InscribedRadiusCells`, from `MissionSystem`'s delivery. Patches, not the wedge: opening the whole zone would finish its cartography on the first mission and lift the lock on the other five with it.
+  **A discovery reveals no ground** — no arrival disc and no trail, the only mission with neither. It reports the zone's list of sites and nothing else; terrain is opened by the missions sent to those sites, each on its own completion.
 
 - **`HighlightedSite` is derived, `SpendHighlight` is the only state.** The chosen zone's first standing recovery, once the zone is surveyed and while the highlight has not been spent. `TryLaunch` spends it after a successful launch, and `SpendHighlight` only bites while one is actually showing — the discovery is a launch too, and it lands before the survey, so an unconditional spend would put out a highlight that had never been lit. Saved as `highlightSpent`; absent restores as not yet spent, since a run from before the key was never shown one.
 

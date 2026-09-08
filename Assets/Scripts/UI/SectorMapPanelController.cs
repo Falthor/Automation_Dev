@@ -659,7 +659,10 @@ namespace Game.UI
             name.AddToClassList("sector-map-count-name");
             row.Add(name);
 
-            var value = new Label(done > 0 ? $"{left} · {done} faits" : left.ToString());
+            // <b>Done over total, not what is left.</b> "3" answers "how much is there"; the question a
+            // player actually has in front of a zone is how far they are through it, and a bare count
+            // that shrank as they worked read as the zone emptying rather than as progress.
+            var value = new Label($"{done}/{done + left}");
             value.AddToClassList("sector-map-count-value");
             value.AddToClassList("mono-value");
             row.Add(value);

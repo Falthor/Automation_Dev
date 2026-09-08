@@ -496,45 +496,34 @@ namespace Game.Gameplay.Missions
         /// mission asks for it, it does not re-implement it.
         /// </summary>
         /// <summary>
-        /// The ground around each site the discovery reported, opened with it.
-        ///
-        /// <b>A discovery that changed nothing on the map was the defect.</b> It came back with a list of
-        /// sites and dropped their marks into the dark: the zone still read as untouched, and the one
-        /// mission whose whole purpose is to show what is out there showed nothing. Each site is now
-        /// reported with the ground it stands on.
-        ///
-        /// <b>Patches, not the zone.</b> The radius is the one a mission's arrival already opens
-        /// (<c>SectorGrid.InscribedRadiusCells</c>) rather than a figure of its own, and what stays dark
-        /// between them is what the rest of the run is for - opening the whole wedge here would finish
-        /// the zone's cartography on its first mission, and with it lift the lock on the other five.
+        /// <b>A discovery reveals no ground at all, and that is the rule rather than an omission.</b>
+        /// What it brings back is the zone's list of sites: the marks appear, the map does not change.
+        /// No arrival disc and no trail either - terrain is opened by the missions sent to those sites,
+        /// each on its own completion, which is what makes a zone fill in as it is worked.
         /// </summary>
-        void OpenTheSitesFound(int zone)
-        {
-            if (_zones == null || _discovery == null || _grid == null || zone < 0) return;
-
-            foreach (ExpeditionZoneSite site in _zones.SitesOf(zone))
-            {
-                if (!site.IsRevealed) continue;
-
-                _discovery.RevealDisc(
-                    new Vector2(site.Cell.X + 0.5f, site.Cell.Y + 0.5f), _grid.InscribedRadiusCells);
-            }
-        }
-
         void Deliver(MissionRuntime mission)
         {
-            // Every mission travelled, whatever it went for, so every mission leaves a trail. A robot
-            // that crossed the map without seeing anything on the way would be incoherent.
-            RevealTrail(mission.TargetSector);
-
             // <b>The report is what puts a zone's sites on the map.</b> Choosing a direction only says
             // where the run will happen; what is in it is what the first mission goes to find out, and
             // it comes back with the whole list rather than with the corner it stood in. Any kind counts
             // - a robot that has been is a robot that has seen.
-            int reportedZone = _zones != null ? _zones.ZoneOfSector(mission.TargetSector) : -1;
-            _zones?.MarkSurveyed(reportedZone);
+            _zones?.MarkSurveyed(_zones.ZoneOfSector(mission.TargetSector));
 
-            if (mission.Kind == MissionKind.Decouverte) OpenTheSitesFound(reportedZone);
+            // A discovery opens nothing: it came back with the list, not with the ground. Its reward
+            // still lands below - what it skips is the map, not the trip.
+            if (mission.Kind != MissionKind.Decouverte) DeliverGround(mission);
+
+            // The robot's charge was spent at launch, so there is nothing to return here - a robot
+            // that went out has used its charge whatever came of the trip.
+            if (mission.RewardCu > 0f) _compute?.Grant(mission.RewardCu);
+        }
+
+        /// <summary>What a mission that actually looked at a place brings home: the road it took, the ground it stood on, and whatever was there.</summary>
+        void DeliverGround(MissionRuntime mission)
+        {
+            // Every mission that went to look leaves a trail. A robot that crossed the map without
+            // seeing anything on the way would be incoherent.
+            RevealTrail(mission.TargetSector);
 
             if (mission.Kind == MissionKind.Recuperation)
             {
@@ -555,10 +544,6 @@ namespace Game.Gameplay.Missions
                 // ground, which is what keeps the zone bounded.
                 if (mission.RevealsHiddenSite) _zones?.RevealNextHiddenSite(_zones.ChosenZone);
             }
-
-            // The robot's charge was spent at launch, so there is nothing to return here - a robot
-            // that went out has used its charge whatever came of the trip.
-            if (mission.RewardCu > 0f) _compute?.Grant(mission.RewardCu);
         }
 
         /// <summary>
