@@ -543,8 +543,12 @@ public int ZoneOfSector(int sectorIndex)
 
 public int ChosenZone { get; }              // -1 while the six are on offer
 public bool IsAvailable(int zoneIndex)
+public bool IsComposed(int zoneIndex)       // the first chosen zone carries an authored content
 public ZoneChoiceRefusal Choose(int zoneIndex)
 public ExpeditionZoneRefusal MayTarget(int sectorIndex)
+public bool WouldChoose(int sectorIndex)    // true while none is chosen and the sector is in a zone
+public void ChooseByLaunch(int sectorIndex) // commits the choice a launch there implies
+public int EntrySectorOf(int zoneIndex)     // what a first mission into it is aimed at
 
 public IReadOnlyList<ExpeditionZoneSite> SitesOf(int zoneIndex)
 public int HiddenSitesLeft(int zoneIndex)
@@ -558,7 +562,13 @@ public void RestoreState(JObject state)
 
 **Nothing derived is settable.** The slice angle comes off the count; the outer edge comes off `SectorMissionRange.ExplorationMinimumCells` plus its `MaxCoreRadiusCells`. Both are properties, never fields: entering either beside the figure it is derived from makes a second copy able to contradict it.
 
-**The choice is applied on the real launch path.** `MissionSystem.CanLaunch` calls `MayTarget` **before** any kind's own rules, and adds two refusals - `LaunchRefusal.NoZoneChosen` and `LaunchRefusal.OutsideChosenZone`. It is a required constructor argument of `MissionSystem` (nullable in value, not omissible in code) so that no caller can quietly ship a game where the rule exists and is never asked. **Nothing launches at all before a zone is chosen**, which is the design's own rule and not a defect to route around.
+**The choice is applied on the real launch path, and the launch is what makes it.** `MissionSystem.CanLaunch` calls `MayTarget` **before** any kind's own rules, and adds one refusal, `LaunchRefusal.OutsideChosenZone`. It is a required constructor argument of `MissionSystem` (nullable in value, not omissible in code) so that no caller can quietly ship a game where the rule exists and is never asked.
+
+**While no zone is chosen every zone is a legal target**, and sending the first robot into one is what picks that direction and locks the other five. There is deliberately no "no zone chosen" refusal: one gesture rather than two, no second meaning for a click on a map where a click is otherwise a framing shortcut, and no state where the map is readable but nothing can be launched. `MayTarget` therefore answers `None` for any sector inside a zone while `ChosenZone` is -1, and refuses only ground no zone covers.
+
+- **`ChooseByLaunch` is called from `TryLaunch` after the refusal check, never inside it.** The lock is irreversible, and a refused mission must not cost the player their five other directions.
+- **`WouldChoose` exists so the screen can say what the click is about to cost** before it is made. A lock met as the unannounced side effect of pressing a button would be the worst way to learn the rule.
+- **`EntrySectorOf` is what a first mission is aimed at**: on the zone's own bearing, one sector past the inner edge. The six zones are one wedge turned six times, so their entry sectors sit at the same distance and a mission to any of them takes the same time - which is what lets the first screen claim that what it shows is true and identical everywhere.
 
 **Cartography is surface, never sites** (`ExpeditionZoneCartography` is `DiscoveredCells` / `TotalCells`). Field studies add sites, so a site count would go backwards; over a fixed cell set with append-only discovery, monotonic is structural. Measured on demand in one walk for all zones and cached against `DiscoveryRuntime.Version`; allocates nothing.
 
