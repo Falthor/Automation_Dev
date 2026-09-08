@@ -214,10 +214,11 @@ divides by the slice, so the circle is partitioned by construction — no seam c
 nobody, whatever the count. `ZoneOfSector` measures on the sector's **centre**, the same rule the
 mission bands use.
 
-**The choice locks the rest.** All six are available until one is chosen; afterwards only that one is.
-`MissionSystem.CanLaunch` applies it, ahead of every kind's own rules, so a recovery is as refused
-outside the zone as a reconnaissance — `LaunchRefusal.NoZoneChosen` and `OutsideChosenZone`. **Nothing
-launches before a zone is chosen.**
+**The first launch is the choice, and it locks the rest.** All six are legal targets until one is
+chosen; sending the first robot into one picks that direction, and afterwards only that zone accepts a
+mission. `MissionSystem.CanLaunch` applies it ahead of every kind's own rules, so a recovery is as
+refused outside the zone as a reconnaissance — `LaunchRefusal.OutsideChosenZone`, which is the only
+refusal the rule needs. See `CONTRACTS.md` §16.
 
 **Content is derived and deterministic**, like a sector's: pure functions of the world seed and the
 zone index through `Game.Core.DeterministicHash`, never `System.Random`. Three prospections, two far
