@@ -108,9 +108,32 @@ namespace Game.Gameplay.Expeditions
         public float OuterRadiusCells
             => _range != null ? _range.ExplorationMinimumCells + _range.MaxCoreRadiusCells : 0f;
 
-        /// <summary>Where the far reconnaissances live: past the threshold, which is the only band a far exploration may be sent into. A site is never placed where its own kind of mission cannot go.</summary>
-        float FarStretchInner => Mathf.Clamp(_range != null ? _range.ExplorationMinimumCells : 0f,
+        /// <summary>
+        /// Where a secondary Core would stand: the exploration threshold, which is two maximum Core
+        /// radii back to back plus the gap wanted between two territories - 250 cells at the shipped 80
+        /// and 90.
+        /// </summary>
+        float SecondaryCoreDistance => Mathf.Clamp(_range != null ? _range.ExplorationMinimumCells : 0f,
             InnerRadiusCells, OuterRadiusCells);
+
+        /// <summary>
+        /// How far either side of that distance a far exploration's site may actually land.
+        ///
+        /// <b>The threshold is the intent, this is what the placement accepts.</b> A site at 230 leaves
+        /// two Cores 70 cells apart rather than the 90 asked for, and a site at 270 leaves 110 - the
+        /// slack is deliberate, so the six zones do not each put their secondary Core on the same ring.
+        /// The band a far exploration may be sent into opens at the same figure, because a site its own
+        /// mission cannot reach is a quest nobody can accept.
+        ///
+        /// <b>Read off the range rather than off this system's own settings.</b> The band and the
+        /// placement have to agree about it exactly; two copies of the figure - one here, one there -
+        /// would be free to drift, and the first thing that drift produces is a site nothing can be
+        /// sent to. One owner, and it is the object that defines the bands.
+        /// </summary>
+        float SecondaryCoreToleranceCells => _range != null ? _range.SiteToleranceCells : 0f;
+
+        /// <summary>Where the near stretch stops and the far one starts: as close as a secondary Core site may be placed.</summary>
+        float FarStretchInner => Mathf.Max(InnerRadiusCells, SecondaryCoreDistance - SecondaryCoreToleranceCells);
 
         public ExpeditionZone ZoneOf(int index)
         {
@@ -572,9 +595,17 @@ namespace Game.Gameplay.Expeditions
         /// </summary>
         GridCoord Place(ExpeditionZone bounds, ExpeditionSiteKind kind, int index, int count, uint salt)
         {
+            // <b>The bearing's jitter is bounded like the radius's, and it has to be.</b> Raising the
+            // tolerance to +-10 degrees for the secondary Core's site - which has two rungs of 20 degrees
+            // to itself - handed the same ten degrees to fifteen near sites sharing rungs of under
+            // three, and the closest pair collapsed from 8,5 cells back to 2,0. Bounded to half a rung,
+            // a far site still gets its full +-10 and a near one gets what its own share allows.
             float slice = SliceDegrees;
-            float angleJitter = _settings.AngleJitterFraction * slice;
-            float usableHalf = Mathf.Max(0f, bounds.HalfAngleDegrees - angleJitter);
+            float requestedAngleJitter = _settings.AngleJitterFraction * slice;
+            float usableHalf = Mathf.Max(0f, bounds.HalfAngleDegrees - requestedAngleJitter);
+
+            float angleRung = count <= 0 ? usableHalf * 2f : usableHalf * 2f / count;
+            float angleJitter = Mathf.Min(requestedAngleJitter, angleRung * JitterFractionOfRung);
 
             // <b>The bearing does not follow the ladder, and that is what fills the wedge.</b> With both
             // the angle and the radius rising with the ordinal, every site of a zone landed on one
@@ -582,15 +613,27 @@ namespace Game.Gameplay.Expeditions
             // brought two rungs together. The golden ratio spreads consecutive ordinals as far from one
             // another as a sequence can, so the marks cover the area instead of a chord of it, and it is
             // arithmetic rather than a draw: the same zone lays out the same way every time.
-            float spread = count <= 0 ? 0.5f : Frac((index + 0.5f) * GoldenRatioConjugate);
+            // <b>Both sequences are turned by a per-zone, per-seed offset.</b> Without it the layout was
+            // the same in every run: the ladders are arithmetic, so the seed only reached the jitter -
+            // three cells of it against a stretch a hundred and seventy deep - and three new games put
+            // every site back on the same cell. A constant offset leaves a low-discrepancy sequence
+            // exactly as well spread as it was, so the variety costs nothing in separation.
+            float spread = count <= 0 ? 0.5f : Frac((index + 0.5f) * GoldenRatioConjugate + Offset(bounds.Index, AngleChannel));
             float ladder = (spread * 2f - 1f) * usableHalf;
             float degrees = bounds.CentreDegrees + ladder + Signed(bounds.Index, salt, AngleChannel) * angleJitter;
 
             // A far reconnaissance may only be sent past the exploration threshold, so that is where its
             // site goes; everything else belongs to the near stretch, where a prospection may be sent.
+            // <b>A far exploration's site sits on the secondary Core's own distance, not across the
+            // whole outer stretch.</b> That distance is what the threshold means - two maximum radii and
+            // the gap between two territories - and the tolerance either side is what keeps the six from
+            // landing on one ring. The zone still reaches a full Core radius further out, because the
+            // territory that would stand there has to fit inside it.
             bool far = kind == ExpeditionSiteKind.ExplorationLointaine;
             float stretchInner = far ? FarStretchInner : bounds.InnerRadiusCells;
-            float stretchOuter = far ? bounds.OuterRadiusCells : FarStretchInner;
+            float stretchOuter = far
+                ? Mathf.Min(bounds.OuterRadiusCells, SecondaryCoreDistance + SecondaryCoreToleranceCells)
+                : FarStretchInner;
 
             // <b>The jitter is bounded by the ground each site owns, and measured on the stretch
             // itself.</b> Half the gap between two consecutive rungs: a site drawn outwards and its
@@ -612,7 +655,8 @@ namespace Game.Gameplay.Expeditions
             float usableInner = stretchInner + radiusJitter;
             float usableOuter = Mathf.Max(usableInner, stretchOuter - radiusJitter);
 
-            float radius = usableInner + (usableOuter - usableInner) * (count <= 0 ? 0.5f : (index + 0.5f) / count)
+            float rungFraction = count <= 0 ? 0.5f : Frac((index + 0.5f) / count + Offset(bounds.Index, RadiusChannel));
+            float radius = usableInner + (usableOuter - usableInner) * rungFraction
                 + Signed(bounds.Index, salt, RadiusChannel) * radiusJitter;
 
             return CellAt(degrees, radius);
@@ -630,6 +674,19 @@ namespace Game.Gameplay.Expeditions
         const float GoldenRatioConjugate = 0.6180339887f;
 
         static float Frac(float value) => value - Mathf.Floor(value);
+
+        /// <summary>
+        /// How far a zone's ladder is turned, in [0, 1). One draw per zone and per channel, so the six
+        /// differ from one another and a new run differs from the last - a cyclic shift of an evenly
+        /// spread sequence is still evenly spread, which is what lets variety cost nothing here.
+        ///
+        /// Not mixed with a site's salt: the offset belongs to the whole ladder, and drawing it per site
+        /// would scatter the rungs instead of turning them.
+        /// </summary>
+        float Offset(int zone, uint channel)
+            => (float)DeterministicHash.Unit(_seed, zone, LadderOffsetSalt + channel);
+
+        const uint LadderOffsetSalt = 0x27D4EB2Fu;
 
         /// <summary>Keeps the bearing's draw and the radius's independent for one and the same site.</summary>
         const uint AngleChannel = 0u;

@@ -66,10 +66,26 @@ namespace Game.Gameplay.Sectors
         /// </summary>
         public float ExplorationMinimumCells => 2f * MaxCoreRadiusCells + TerritorySpacingCells;
 
-        public SectorMissionRange(float maxCoreRadiusCells, float territorySpacingCells)
+        /// <summary>
+        /// How far short of the threshold a secondary Core site may actually be placed, and therefore
+        /// where the two bands meet.
+        ///
+        /// <b>The threshold is where a secondary Core should stand; this is what the placement
+        /// accepts.</b> Sites are laid on that distance with a tolerance either side, so the band has to
+        /// open at the near end of that tolerance - a site its own mission cannot be sent to is a quest
+        /// nobody can accept, and that invariant is the one thing holding the placement and the bands
+        /// together. Zero restores the old behaviour of a band that opens exactly on the threshold.
+        /// </summary>
+        public float SiteToleranceCells { get; }
+
+        /// <summary>Where mining stops and exploration starts, once the placement's tolerance is taken into account. The two bands meet here, with no gap and no overlap.</summary>
+        public float BandBoundaryCells => Mathf.Max(0f, ExplorationMinimumCells - SiteToleranceCells);
+
+        public SectorMissionRange(float maxCoreRadiusCells, float territorySpacingCells, float siteToleranceCells = 0f)
         {
             MaxCoreRadiusCells = Mathf.Max(0f, maxCoreRadiusCells);
             TerritorySpacingCells = Mathf.Max(0f, territorySpacingCells);
+            SiteToleranceCells = Mathf.Max(0f, siteToleranceCells);
         }
 
         /// <summary>The band a kind of mission may be sent into, as (inner, outer] in cells from the Core. The outer edge of exploration is infinite rather than the map's corner, so the band does not change shape with the map.</summary>
@@ -81,11 +97,11 @@ namespace Game.Gameplay.Sectors
             if (kind == MissionKind.Prospection || kind == MissionKind.EtudeDeTerrain)
             {
                 inner = Mathf.Max(0f, coreRadiusCells);
-                outer = ExplorationMinimumCells;
+                outer = BandBoundaryCells;
                 return;
             }
 
-            inner = ExplorationMinimumCells;
+            inner = BandBoundaryCells;
             outer = float.PositiveInfinity;
         }
 

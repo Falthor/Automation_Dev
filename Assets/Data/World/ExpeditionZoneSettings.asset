@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ExpeditionZoneSettings
   zoneCount: 6
   radiusJitterCells: 20
-  angleJitterFraction: 0.1
+  angleJitterFraction: 0.16666667
   prospectionSites: 3
   reconnaissanceSites: 3
   farExplorationSites: 2

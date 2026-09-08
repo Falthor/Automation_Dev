@@ -21,7 +21,7 @@ shader, this document owns everything that divides, reveals or hides the map.
 ## 1. Size and division
 
 The map is square and its size lives on `TerrainGenerationSettings.size`
-(`Assets/Data/Terrain/DefaultTerrain.asset`, currently **300**; the C# default of 60 is never what
+(`Assets/Data/Terrain/DefaultTerrain.asset`, currently **10 000**; the C# default of 60 is never what
 runs). The target is 10 000, and the systems below are sized so that reaching it changes settings
 rather than code.
 
@@ -160,13 +160,27 @@ outward across the seam to hold that. The mining band closes from the inside as 
 ground the Core already covers needs no mission to reach — while the exploration band does not move,
 since the current radius has no part in where it starts.
 
-**The threshold is derived and never entered**: two maximum Core radii back to back, plus
-`SectorSettings.territorySpacingCells`, the empty ground wanted between two territories. That is what
-keeps a secondary Core's radius from ever touching the main one's. The gap is the only figure of it
-that is a choice; writing the resulting distance down as a setting would make a second copy that stops
-agreeing the day a Core's maximum radius moves. At the shipped ceiling of 32 cells
-(`CoreRuntime.ExtendedActionRadiusCells`) and a gap of 90, the threshold is **154 cells** — the
-directive's 250 is the same formula at a maximum radius of 80, which no Core reaches yet.
+**The threshold is derived and never entered**: two maximum Core radii back to back, plus the empty
+ground wanted between two territories. That is what keeps a secondary Core's radius from ever touching
+the main one's. Both terms sit together on `SectorSettings` — `maxCoreRadiusCells` (**80**) and
+`territorySpacingCells` (**90**) — so the threshold is **250 cells**, and the zone's outer edge one Core
+radius further, at **330**. Writing either resulting distance down as a setting would make a second copy
+that stops agreeing the day the ceiling moves.
+
+> **The ceiling is not what research grants today.** The threshold was built on
+> `CoreRuntime.ExtendedActionRadiusCells` (32) — the radius `extended_bandwidth` currently extends a
+> Core to — which put it at 154. The figure it needs is how far a Core will **ever** reach: a secondary
+> Core standing at the threshold has to be able to grow to its own maximum without the two territories
+> meeting. The risk thresholds in the same asset (`moderateRiskWithinCells: 250`,
+> `highRiskWithinCells: 330`) had been written for 80 all along; the mission range was the one place
+> that had not.
+
+**A secondary Core's site is laid on that distance with a tolerance either side**
+(`ExpeditionZoneSettings.radiusJitterCells`, 20 cells, and ±10° of bearing), so the six zones do not put
+theirs on one ring. The two bands therefore meet at `SectorMissionRange.BandBoundaryCells` — the
+threshold minus that tolerance, **230** — and not at the threshold itself: a site its own mission cannot
+be sent to is a quest nobody can accept. The zone system reads the tolerance off the range rather than
+off its own settings, so the placement and the band cannot drift apart.
 
 The Core's radius is passed in on every call and nothing here remembers it. A result reports the band
 it looked in and whether that band is exhausted, so an empty answer is never indistinguishable from a
@@ -196,7 +210,7 @@ circle.
 | | |
 |---|---|
 | inner | the Core's action radius **at the moment the zones were laid out** |
-| outer | the exploration threshold plus one maximum Core radius — **186 cells** at the shipped 154 and 32 |
+| outer | the exploration threshold plus one maximum Core radius — **330 cells** at the shipped 250 and 80 |
 
 The outer edge is what makes a zone finite, and therefore mappable to the end at all: an unbounded 60°
 wedge runs to the corner of the world and never finishes. It is derived, read off

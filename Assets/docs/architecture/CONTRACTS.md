@@ -565,7 +565,7 @@ public JObject CaptureState()
 public void RestoreState(JObject state)
 ```
 
-**Nothing derived is settable.** The slice angle comes off the count; the outer edge comes off `SectorMissionRange.ExplorationMinimumCells` plus its `MaxCoreRadiusCells`. Both are properties, never fields: entering either beside the figure it is derived from makes a second copy able to contradict it.
+**Nothing derived is settable.** The slice angle comes off the count; the outer edge comes off `SectorMissionRange.ExplorationMinimumCells` plus its `MaxCoreRadiusCells`. Both terms of the threshold live on `SectorSettings` — `maxCoreRadiusCells` (80, the design ceiling, **not** `CoreRuntime.ExtendedActionRadiusCells` which is what research grants today) and `territorySpacingCells` (90) — giving a threshold of 250 and an outer edge of 330. `SiteToleranceCells` (20, the placement's slack on a secondary Core site) moves the boundary the two bands meet at to `BandBoundaryCells` = 230, and `ExpeditionZoneSystem` reads that tolerance back off the range so the placement and the band cannot drift apart. Both are properties, never fields: entering either beside the figure it is derived from makes a second copy able to contradict it.
 
 **The choice is applied on the real launch path, and the launch is what makes it.** `MissionSystem.CanLaunch` calls `MayTarget` **before** any kind's own rules, and adds one refusal, `LaunchRefusal.OutsideChosenZone`. It is a required constructor argument of `MissionSystem` (nullable in value, not omissible in code) so that no caller can quietly ship a game where the rule exists and is never asked.
 

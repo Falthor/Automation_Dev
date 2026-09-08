@@ -389,9 +389,16 @@ namespace Game.Presentation
                 sectorSettings.LowRiskWithinCells, sectorSettings.ModerateRiskWithinCells, sectorSettings.HighRiskWithinCells,
                 sectorSettings.PreferredRegionSizeCells);
 
-            // The maximum radius comes from the Core, which owns it, so the exploration threshold
-            // follows it on its own rather than being a second figure to keep in step.
-            MissionRange = new SectorMissionRange(CoreRuntime.ExtendedActionRadiusCells, sectorSettings.TerritorySpacingCells);
+            // <b>The ceiling, not what research grants today.</b> This used to read
+            // CoreRuntime.ExtendedActionRadiusCells (32) - the radius extended_bandwidth extends the
+            // Core to - which put the threshold at 154. The figure the threshold needs is how far a Core
+            // will ever reach (80): a secondary Core standing at the threshold has to be able to grow to
+            // its own maximum without the two territories ever meeting. Both terms now sit together in
+            // SectorSettings, and the threshold stays derived: 2 x 80 + 90 = 250.
+            MissionRange = new SectorMissionRange(sectorSettings.MaxCoreRadiusCells, sectorSettings.TerritorySpacingCells,
+                expeditionZoneSettings != null ? expeditionZoneSettings.RadiusJitterCells : 0f);
+            // The zones read that tolerance back off the range, so the band and the placement cannot
+            // drift apart - see ExpeditionZoneSystem.SecondaryCoreToleranceCells.
             SectorMap = new SectorMapImage(Sectors, Discovery);
             _explorerPark = new ExplorerRobotParkView(Grid, missionSettings, DepthSort);
 

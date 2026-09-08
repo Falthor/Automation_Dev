@@ -33,8 +33,12 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         /// <summary>The Core's reach when the zones were laid out - the inner edge they were frozen against.</summary>
         const float InnerRadius = 22f;
 
-        /// <summary>The shipped ceiling and gap: a threshold of 154 cells, and therefore an outer edge of 186.</summary>
-        static SectorMissionRange NewRange() => new SectorMissionRange(32f, 90f);
+        /// <summary>
+        /// The shipped figures: a Core reaching 80 at most, 90 cells wanted between two territories, and
+        /// 20 cells of tolerance on where a secondary Core's site may actually land. A threshold of 250,
+        /// a band boundary at 230, and an outer edge at 330.
+        /// </summary>
+        static SectorMissionRange NewRange() => new SectorMissionRange(80f, 90f, 20f);
 
         static ExpeditionZoneSettings NewSettings(
             int zoneCount = 6,
@@ -113,13 +117,16 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         public void TheOuterEdge_IsTheThresholdPlusOneCoreRadius_AndFollowsBoth()
         {
             Fixture shipped = NewFixture();
-            Assert.AreEqual(186f, shipped.Zones.OuterRadiusCells, 0.001f,
-                "154 (2x32 + 90) plus one 32-cell Core radius.");
+            Assert.AreEqual(330f, shipped.Zones.OuterRadiusCells, 0.001f,
+                "250 (2x80 + 90) plus one 80-cell Core radius.");
 
-            var reaching = new ExpeditionZoneSystem(shipped.Settings, shipped.Grid,
-                new SectorMissionRange(80f, 90f), CoreCenter, InnerRadius, Seed);
-            Assert.AreEqual(330f, reaching.OuterRadiusCells, 0.001f,
-                "A Core reaching 80 moves the threshold to 250 and the edge to 330, with nothing else touched.");
+            // A smaller ceiling moves both figures on its own, with nothing else touched. This was the
+            // shipped pair while the threshold was built on the radius research grants today (32)
+            // rather than on the one a Core will ever reach.
+            var narrower = new ExpeditionZoneSystem(shipped.Settings, shipped.Grid,
+                new SectorMissionRange(32f, 90f), CoreCenter, InnerRadius, Seed);
+            Assert.AreEqual(186f, narrower.OuterRadiusCells, 0.001f,
+                "A ceiling of 32 puts the threshold at 154 and the edge at 186.");
 
             shipped.Destroy();
         }
@@ -152,7 +159,9 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
             // And the radial edges: the Core's own ground is nobody's zone, and neither is anything past
             // the outer edge - which is what makes a zone finite.
             Assert.AreEqual(-1, fixture.Zones.ZoneAt(CoreCenter + new Vector2(InnerRadius - 1f, 0f)));
-            Assert.AreEqual(-1, fixture.Zones.ZoneAt(CoreCenter + new Vector2(187f, 0f)));
+            Assert.AreEqual(-1, fixture.Zones.ZoneAt(
+                CoreCenter + new Vector2(fixture.Zones.OuterRadiusCells + 1f, 0f)),
+                "asked from the edge itself rather than from a number typed beside it, which went stale the day the ceiling moved");
 
             fixture.Destroy();
         }
@@ -257,7 +266,12 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         public void EverySite_StandsWhereItsOwnKindOfMissionIsAllowedToGo()
         {
             Fixture fixture = NewFixture();
-            float threshold = NewRange().ExplorationMinimumCells;
+
+            // <b>The boundary, not the threshold.</b> The threshold is where a secondary Core should
+            // stand; its site is laid there with a tolerance either side, and the band opens at the near
+            // end of that tolerance so every site the placement can produce is one a mission can reach.
+            // Both figures come off the same object, which is what stops them drifting apart.
+            float boundary = NewRange().BandBoundaryCells;
 
             for (int zone = 0; zone < 6; zone++)
             {
@@ -267,13 +281,13 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
 
                     if (site.Kind == ExpeditionSiteKind.ExplorationLointaine)
                     {
-                        Assert.Greater(distance, threshold,
+                        Assert.Greater(distance, boundary,
                             $"a far reconnaissance site at {distance:0.#} cells is inside the mining band");
                     }
                     else
                     {
-                        Assert.LessOrEqual(distance, threshold,
-                            $"a {site.Kind} site at {distance:0.#} cells is past the exploration threshold");
+                        Assert.LessOrEqual(distance, boundary,
+                            $"a {site.Kind} site at {distance:0.#} cells is past the mining band");
                     }
                 }
             }
@@ -416,10 +430,10 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
             int summed = 0;
             for (int zone = 0; zone < 6; zone++) summed += fixture.Zones.CartographyOf(zone, fixture.Discovery).TotalCells;
 
-            // The annulus between 22 and 186 cells, counted by cell centres. Compared loosely because
+            // The annulus between 22 and 330 cells, counted by cell centres. Compared loosely because
             // the discretisation of a disc is not π r² to the cell, but a percent is far tighter than
             // any double-count or gap could hide in.
-            float expected = Mathf.PI * (186f * 186f - InnerRadius * InnerRadius);
+            float expected = Mathf.PI * (330f * 330f - InnerRadius * InnerRadius);
             Assert.AreEqual(expected, summed, expected * 0.01f);
 
             fixture.Destroy();

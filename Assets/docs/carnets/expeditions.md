@@ -585,3 +585,46 @@ impossible par construction plutôt que surveillé.
 **Mesuré : la paire la plus proche passe de 1,0 à 10,0 cellules**, sur quatre graines. Le test tient le
 seuil à 8 — sous la mesure, parce que ce qui est figé est la propriété, pas le chiffre exact d'un
 arrangement donné.
+
+---
+
+## 15. Le plafond du rayon n'était pas celui qu'on croyait
+
+Le seuil d'exploration se construisait sur `CoreRuntime.ExtendedActionRadiusCells` — **32**, ce que la
+recherche `extended_bandwidth` accorde aujourd'hui. Ce n'est pas le chiffre dont le seuil a besoin : il
+lui faut **jusqu'où un Noyau ira un jour**, parce qu'un Noyau secondaire posé au seuil doit pouvoir
+grandir jusqu'à son propre maximum sans que les deux territoires se touchent. Ce plafond est 80.
+
+**Le projet le savait déjà ailleurs.** Dans le même asset, `moderateRiskWithinCells: 250` et
+`highRiskWithinCells: 330` étaient écrits pour un plafond de 80 — 250 est le seuil, 330 le bord d'une
+zone. Seule la portée des missions était restée sur 32. Deux lectures du même monde cohabitaient dans un
+fichier de quinze lignes, et c'est la question « à quelle distance sont les explorations lointaines ? »
+qui les a mises face à face.
+
+Les deux termes vivent maintenant ensemble sur `SectorSettings`, parce qu'ils forment une seule phrase :
+à quelle distance deux territoires doivent se tenir.
+
+**La tolérance a créé une seconde couture.** Le site d'un Noyau secondaire est posé sur le seuil à ±20
+cases, donc entre 230 et 270 — mais la bande d'exploration lointaine s'ouvrait au seuil, à 250. Les
+sites entre 230 et 250 étaient donc **inatteignables par leur propre mission**. La bande s'ouvre
+maintenant à `BandBoundaryCells` = seuil − tolérance, et surtout : `ExpeditionZoneSystem` lit cette
+tolérance **sur la portée**, pas sur ses propres réglages. Deux copies du même chiffre auraient dérivé,
+et la première chose que produit cette dérive est un site que rien ne peut viser.
+
+## 16. Trois échelles arithmétiques font un monde unique
+
+Après avoir tiré une graine par partie, le joueur voyait toujours **exactement le même placement**. La
+graine ne mentait pas : les échelles — le rang radial, le cap tiré du nombre d'or — sont de
+l'arithmétique pure, et la graine n'atteignait plus que le jitter, trois cases sur une tranche profonde
+de cent soixante-dix. Une correction de lisibilité avait supprimé la variété.
+
+**Chaque échelle est maintenant tournée d'un décalage tiré par zone et par graine.** Un décalage
+constant laisse une suite à faible discrépance exactement aussi bien étalée qu'elle l'était : la
+variété ne coûte rien en séparation. Mesuré : un site de la zone 0 se déplace de **29 cases en moyenne**
+d'une graine à l'autre, et la paire la plus proche reste au-dessus de 6.
+
+**Et le jitter angulaire demandait la même borne que le radial.** Porter la tolérance à ±10° pour le
+site du Noyau secondaire — qui dispose de deux rangs de 20° — donnait dix degrés aux quinze sites
+proches, qui se partagent des rangs de moins de trois : la paire la plus proche retombait de 8,5 à 2,0
+cases. Borné à une fraction de son propre rang, un site lointain garde ses ±10° et un site proche prend
+ce que sa part permet.

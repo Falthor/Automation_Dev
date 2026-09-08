@@ -74,6 +74,21 @@ namespace Game.Data
         /// </summary>
         [SerializeField, Min(0f)] float territorySpacingCells = 90f;
 
+        /// <summary>
+        /// The largest radius any Core will ever reach, in cells — <b>the design ceiling, not what
+        /// research grants today</b>.
+        ///
+        /// The two are different numbers and conflating them was a defect: the threshold was built on
+        /// <c>CoreRuntime.ExtendedActionRadiusCells</c> (32), which is what <c>extended_bandwidth</c>
+        /// currently extends the Core to. The ceiling is 80. A secondary Core standing at the threshold
+        /// must be able to grow to 80 without its territory ever touching the first one's, which is why
+        /// this figure and not the current extension belongs in the threshold.
+        ///
+        /// It lives here beside the gap because the two are one statement — how far apart two
+        /// territories must be — and neither means anything without the other.
+        /// </summary>
+        [SerializeField, Min(0f)] float maxCoreRadiusCells = 80f;
+
         public int ChunkSizeCells => chunkSizeCells;
         public int SectorSizeCells => sectorSizeCells;
         public int PreferredRegionSizeCells => preferredRegionSizeCells;
@@ -82,6 +97,7 @@ namespace Game.Data
         public float ModerateRiskWithinCells => moderateRiskWithinCells;
         public float HighRiskWithinCells => highRiskWithinCells;
         public float TerritorySpacingCells => territorySpacingCells;
+        public float MaxCoreRadiusCells => maxCoreRadiusCells;
 
         /// <summary>How many sectors tile a chunk along one axis. 4 at the defaults.</summary>
         public int SectorsPerChunkAxis => Mathf.Max(1, chunkSizeCells / Mathf.Max(1, sectorSizeCells));
