@@ -1282,6 +1282,98 @@ namespace Game.Tests.EditMode.Gameplay.Missions
 
         /// <summary>Runs the clock until a mission has landed and its report is ready.</summary>
         /// <summary>
+        /// <b>Two minutes, whichever direction is picked, and distance adds nothing.</b> A discovery only
+        /// ever goes to an entry sector, and the six sit at the same distance by construction - so the
+        /// travel term every other kind carries would contribute nothing but the spread that rounding a
+        /// cell into a sector produces, and two minutes would stop being two minutes for five of the six.
+        /// </summary>
+        [Test]
+        public void ADiscovery_TakesItsFlatDuration_InEveryDirection()
+        {
+            Fixture fixture = NewFixture(withZones: true);
+
+            // <b>The travel term is switched on for this one.</b> NewSettings zeroes it so that most
+            // tests can ignore distance - which would make "the discovery is flat" true for the wrong
+            // reason, since every kind would be flat.
+            var so = new SerializedObject(fixture.Settings);
+            so.FindProperty("secondsPerDistanceCell").floatValue = 0.5f;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            Assert.AreEqual(6, fixture.Zones.ZoneCount, "precondition: there are directions to measure");
+
+            for (int zone = 0; zone < fixture.Zones.ZoneCount; zone++)
+            {
+                int entry = fixture.Zones.EntrySectorOf(zone);
+                Assert.IsTrue(fixture.Grid.ContainsIndex(entry), $"precondition: zone {zone} has an entry sector");
+
+                Assert.AreEqual(fixture.Settings.DiscoverySeconds,
+                    fixture.Missions.DurationOf(MissionKind.Decouverte, entry), 0.001f, $"zone {zone}");
+
+                // The positive that makes the line above mean something: every other kind pays for the
+                // trip to that very sector, so what is pinned is this kind's exemption rather than a
+                // travel term that is zero for everybody.
+                Assert.Greater(fixture.Missions.DurationOf(MissionKind.Prospection, entry),
+                    fixture.Settings.ProspectionSeconds, $"a prospection to zone {zone} pays for the trip");
+            }
+
+            fixture.Destroy();
+        }
+
+        /// <summary>
+        /// <b>One discovery per zone.</b> It is the mission that turns a direction into a place; once it
+        /// has reported there is nothing left for a second one to bring back, and the zone refuses it.
+        /// </summary>
+        [Test]
+        public void ADiscovery_IsRefusedOnceTheZoneHasBeenDiscovered()
+        {
+            Fixture fixture = NewFixture(withZones: true);
+            SummonRobots(fixture);
+            fixture.Zones.Choose(0, fixture.Discovery);
+
+            int entry = fixture.Zones.EntrySectorOf(0);
+            Assert.AreEqual(MissionSystem.LaunchRefusal.None,
+                fixture.Missions.CanLaunch(MissionKind.Decouverte, entry, CoreRadius),
+                "precondition: an unvisited zone takes one");
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.None,
+                fixture.Missions.TryLaunch(MissionKind.Decouverte, entry, CoreRadius, out MissionRuntime mission));
+
+            RunToReport(fixture, mission);
+
+            Assert.IsTrue(fixture.Zones.IsSurveyed(0), "precondition: it actually reported");
+            Assert.AreEqual(MissionSystem.LaunchRefusal.ZoneAlreadySurveyed,
+                fixture.Missions.CanLaunch(MissionKind.Decouverte, entry, CoreRadius));
+
+            fixture.Destroy();
+        }
+
+        /// <summary>
+        /// A discovery obeys no band: it is not a choice among several missions but the only one a zone
+        /// takes, and the entry sector it is aimed at is a property of the zone rather than of a band.
+        /// </summary>
+        [Test]
+        public void ADiscovery_IsRefusedByNoBand()
+        {
+            Fixture fixture = NewFixture(withZones: true);
+            SummonRobots(fixture);
+            fixture.Zones.Choose(0, fixture.Discovery);
+
+            // <b>One sector, two kinds.</b> The entry sector is far too close for a far exploration, so
+            // the band is demonstrably being applied there - and the discovery goes to the same square
+            // without it. Measuring on one sector is what keeps this about the band: anywhere else, the
+            // zone gate would answer first and the band would never be reached.
+            int entry = fixture.Zones.EntrySectorOf(0);
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.WrongBand,
+                fixture.Missions.CanLaunch(MissionKind.ExplorationLointaine, entry, CoreRadius));
+
+            Assert.AreEqual(MissionSystem.LaunchRefusal.None,
+                fixture.Missions.CanLaunch(MissionKind.Decouverte, entry, CoreRadius));
+
+            fixture.Destroy();
+        }
+
+        /// <summary>
         /// <b>What the first mission is for.</b> A zone that has been chosen is still a direction: its
         /// content was derived at the choice, but nobody has been to see it, and the map has nothing to
         /// show until a robot reports. The positive comes with the negative on purpose - "not surveyed"

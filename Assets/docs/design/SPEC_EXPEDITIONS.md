@@ -265,6 +265,7 @@ s'applique ici sans traitement particulier.
 
 | Type | Risque | Durée | Récompense CU intro | Nœud ??? | Exécutants |
 |---|---|---|---|---|---|
+| Découverte | bas | 2 min | 500 | non | robots |
 | Prospection minière | bas | 3 min | 500 | non | robots puis unités |
 | Exploration lointaine | croissant | à définir | 500 | non | robots puis unités |
 | Récupération | moyen | 6 min | 1 500 | non | robots puis unités |
@@ -273,7 +274,16 @@ s'applique ici sans traitement particulier.
 | Restauration de datacenter | élevé | à définir | — | non | unités |
 | Éradication | élevé | à définir | — | non | unités de combat |
 
-**Pendant l'introduction, seules les deux Reconnaissances et la Récupération existent.**
+**Pendant l'introduction, seules la Découverte, les deux Reconnaissances, l'Étude de terrain et la
+Récupération existent.**
+
+> **Ajouté après la rédaction de ce document.** La **Découverte** est la mission qui ouvre une zone
+> d'expédition : une par zone, sans bande, deux minutes forfaitaires, et ce qu'elle rapporte est la
+> liste des sites de la zone — c'est-à-dire tout ce que les autres missions viseront ensuite. Choisir
+> une direction ne la révèle pas ; y aller, si. Elle tire sur le budget de reconnaissance comme les
+> deux Reconnaissances. Voir `architecture/MAP.md` §5 et `architecture/CONTRACTS.md` §16.
+>
+> L'**Étude de terrain** manquait aussi à ce récapitulatif : voir §4.3 et `architecture/MAP.md` §5.
 
 ---
 

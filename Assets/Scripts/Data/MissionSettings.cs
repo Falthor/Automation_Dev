@@ -70,6 +70,17 @@ namespace Game.Data
         [SerializeField, Range(0f, 1f)] float fieldStudyHiddenSiteChance = 1f / 3f;
 
         /// <summary>
+        /// The discovery - <c>MissionKind.Decouverte</c>, one per zone. Two minutes, and it is the first
+        /// wait the game ever asks of the player.
+        ///
+        /// <b>The one duration distance does not add to.</b> A discovery is always aimed at its zone's
+        /// entry sector, and the six entry sectors are one wedge turned six times - so the travel term
+        /// would contribute nothing but the few seconds' spread that rounding a cell into a sector
+        /// happens to produce. Two minutes means two minutes, in all six directions.
+        /// </summary>
+        [SerializeField, Min(1f)] float discoverySeconds = 120f;
+
+        /// <summary>
         /// How far a robot's path bows away from the straight line, as a fraction of the distance it
         /// covers.
         ///
@@ -137,6 +148,7 @@ namespace Game.Data
         public float ExplorationSeconds => explorationSeconds;
         public float RecoverySeconds => recoverySeconds;
         public float FieldStudySeconds => fieldStudySeconds;
+        public float DiscoverySeconds => discoverySeconds;
         public float FieldStudyReward => fieldStudyReward;
         public float FieldStudyHiddenSiteChance => fieldStudyHiddenSiteChance;
         public float TrailBendFractionOfDistance => trailBendFractionOfDistance;

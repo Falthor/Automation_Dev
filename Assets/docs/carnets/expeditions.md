@@ -475,8 +475,24 @@ personne n'était allé. `directive-ecran-carte.md` §8 l'interdit explicitement
 venait pas d'une négligence de texte : la méthode qui rend les missions d'un secteur était réutilisée
 telle quelle pour une direction, et une direction n'est pas un secteur.
 
-**Une seule action avant le choix**, sous le nom que le joueur comprend : *découverte*, qui est une
-prospection. Le type n'est pas montré — nommer quatre types, c'est décrire un lieu que personne n'a vu.
+**Une seule action avant le choix** : la *découverte*. Le type n'est pas montré comme un choix —
+nommer quatre types, c'est décrire un lieu que personne n'a vu.
+
+**J'en avais d'abord fait une prospection sous un autre nom, et c'était ma décision, pas la sienne.**
+Je l'avais annoncée comme telle, ce qui ne la rend pas moins prise à la place de quelqu'un d'autre : le
+raccourci économisait un type d'énumération et coûtait la chose que la mission est censée être. Elle est
+un type à part entière — `MissionKind.Decouverte`, une par zone, sans bande, deux minutes forfaitaires.
+Vérifié avant de la construire : **aucun des quatre documents de conception ne nommait cette mission**,
+donc il n'y avait rien à retrouver ; c'était une décision à prendre, et elle n'était pas la mienne.
+
+**La durée forfaitaire n'est pas un raccourci.** Une découverte ne va jamais qu'au secteur d'entrée de
+sa zone, et les six sont un même coin tourné six fois. Le terme de distance n'apporterait donc que
+l'écart de quelques secondes produit par l'arrondi d'une case en secteur — mesuré : 3 min 15 à 3 min 19
+selon la direction, pour une même intention. « Deux minutes » veut dire deux minutes dans les six.
+
+**Ce qui ne change pas est aussi une décision.** La découverte tire sur le budget de reconnaissance de
+l'introduction, exactement comme la prospection qu'elle remplaçait. Lui donner une récompense à elle
+aurait déplacé l'économie de l'introduction alors que rien, dans ce changement, ne portait là-dessus.
 
 ### Choisir une direction n'est pas y aller
 

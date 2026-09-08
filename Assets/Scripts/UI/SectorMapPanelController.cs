@@ -717,8 +717,8 @@ namespace Game.UI
             RenderMissions(sector);
         }
 
-        /// <summary>The one mission the first screen offers, under the one name it is offered by. See <see cref="Explore"/> for why this kind.</summary>
-        const MissionKind DiscoveryKind = MissionKind.Prospection;
+        /// <summary>The one mission the first screen offers. A kind of its own: one per zone, no band, and what it brings back is the zone's list of sites.</summary>
+        const MissionKind DiscoveryKind = MissionKind.Decouverte;
 
         /// <summary>
         /// The first screen's answer: a direction, a picture of it, and the one mission that opens it.
@@ -777,8 +777,8 @@ namespace Game.UI
             // Always "estimée": SPEC_EXPEDITIONS.md §5.2 forbids ever presenting a mission's numbers as
             // certainties, and out here the figure is a travel time and nothing more.
             _zoneCardMission.text = refusal == MissionSystem.LaunchRefusal.None
-                ? $"Découverte · ~ {FormatDuration(gameRuntime.Missions.DurationOf(DiscoveryKind, entry))}"
-                : $"Découverte · {RefusalLabel(refusal)}";
+                ? $"{KindLabel(DiscoveryKind)} · ~ {FormatDuration(gameRuntime.Missions.DurationOf(DiscoveryKind, entry))}"
+                : $"{KindLabel(DiscoveryKind)} · {RefusalLabel(refusal)}";
 
             _exploreButton.SetEnabled(refusal == MissionSystem.LaunchRefusal.None);
         }
@@ -795,7 +795,7 @@ namespace Game.UI
             float progress = Mathf.Clamp01(mission.ElapsedSeconds / mission.TotalSeconds);
 
             _zoneCardStatus.text = "Statut : robots en route";
-            _zoneCardMission.text = $"Découverte · retour dans {FormatDuration(mission.RemainingSeconds)}";
+            _zoneCardMission.text = $"{KindLabel(mission.Kind)} · retour dans {FormatDuration(mission.RemainingSeconds)}";
 
             _zoneCardProgress.EnableInClassList("hidden", false);
             _zoneCardProgressFill.style.width = new StyleLength(Length.Percent(progress * 100f));
@@ -986,6 +986,7 @@ namespace Game.UI
                 case MissionKind.Prospection: return "Prospection";
                 case MissionKind.EtudeDeTerrain: return "Étude de terrain";
                 case MissionKind.ExplorationLointaine: return "Exploration lointaine";
+                case MissionKind.Decouverte: return "Découverte";
                 default: return "Récupération";
             }
         }
@@ -1005,6 +1006,7 @@ namespace Game.UI
                 // Not an interface for the zones - that is its own chantier. These two only keep this
                 // switch from answering "impossible" to a refusal that has a reason worth reading.
                 case MissionSystem.LaunchRefusal.OutsideChosenZone: return "hors de la zone choisie";
+                case MissionSystem.LaunchRefusal.ZoneAlreadySurveyed: return "zone déjà découverte";
                 default: return "impossible";
             }
         }

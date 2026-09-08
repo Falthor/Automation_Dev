@@ -214,7 +214,10 @@ namespace Game.Gameplay.Missions
             NothingToRecover,
 
             /// <summary>Aimed at ground the chosen zone does not cover - one of the five locked slices, or past the zones altogether.</summary>
-            OutsideChosenZone
+            OutsideChosenZone,
+
+            /// <summary>A discovery aimed at a zone a robot has already reported from. There is one per zone, and it has been made.</summary>
+            ZoneAlreadySurveyed
         }
 
         /// <summary>
@@ -251,6 +254,20 @@ namespace Game.Gameplay.Missions
             if (_zones != null && _zones.MayTarget(targetSector) == ExpeditionZoneRefusal.OutsideChosenZone)
             {
                 return LaunchRefusal.OutsideChosenZone;
+            }
+
+            // <b>The discovery has no band and is bounded to one per zone.</b> It is not a choice among
+            // several missions - it is the only one a zone takes before anybody has been there, and what
+            // it brings back is the list every other mission is then aimed at. Once that report is in,
+            // the zone has been discovered and cannot be discovered again.
+            if (kind == MissionKind.Decouverte)
+            {
+                if (_zones == null) return LaunchRefusal.None;
+
+                int zone = _zones.ZoneOfSector(targetSector);
+                if (zone < 0) return LaunchRefusal.OutsideChosenZone;
+
+                return _zones.IsSurveyed(zone) ? LaunchRefusal.ZoneAlreadySurveyed : LaunchRefusal.None;
             }
 
             // A recovery has no band: it exploits a point of interest inside ground a reconnaissance
@@ -353,6 +370,12 @@ namespace Game.Gameplay.Missions
         /// </summary>
         public float DurationOf(MissionKind kind, int targetSector, int crew = 1)
         {
+            // <b>The discovery is a flat figure.</b> It only ever goes to a zone's entry sector, and the
+            // six sit at the same distance by construction - a travel term would add nothing but the
+            // seconds' spread that rounding a cell into a sector produces, and "two minutes" would stop
+            // being two minutes for five of the six directions.
+            if (kind == MissionKind.Decouverte) return _settings.DiscoverySeconds;
+
             float baseSeconds =
                 kind == MissionKind.Prospection ? _settings.ProspectionSeconds :
                 kind == MissionKind.ExplorationLointaine ? _settings.ExplorationSeconds :
@@ -399,6 +422,12 @@ namespace Game.Gameplay.Missions
             // reconnaissance budget. It is not a fountain either: what bounds it is the number of
             // field-study sites a zone holds, which is finite like every other site.
             if (kind == MissionKind.EtudeDeTerrain) return _settings.FieldStudyReward;
+
+            // <b>A discovery draws on the reconnaissance budget, like the prospection it used to be.</b>
+            // Left deliberately in the branch below rather than given a figure of its own: it is a
+            // reconnaissance in the budget's sense - it goes out, opens ground and comes back with what
+            // it saw - and giving the first mission of the game its own payout would move the
+            // introduction's economy while nothing about it was meant to change.
 
             if (kind == MissionKind.Recuperation)
             {

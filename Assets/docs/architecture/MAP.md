@@ -230,6 +230,22 @@ none of it is shown: `IsSurveyed` is false until a mission *reports* from the zo
 site before that. That is what the first mission is for — it comes back with the whole list, not with
 the corner it stood in. Per zone and saved.
 
+**That first mission is a kind of its own: `MissionKind.Decouverte`, one per zone.** Not a prospection
+under another name — it answers a different question, it is the only thing a zone offers before it has
+been visited, and it is refused (`LaunchRefusal.ZoneAlreadySurveyed`) once its zone has reported.
+
+| | |
+|---|---|
+| band | none. A prospection is a choice among several; this is the only one on offer |
+| duration | `MissionSettings.DiscoverySeconds`, **flat** — two minutes in all six directions |
+| reward | the introduction's reconnaissance budget, like every reconnaissance |
+| target | the zone's entry sector, which is what the choice screen aims it at |
+
+**The flat duration is the point, not a shortcut.** A discovery only ever goes to an entry sector, and
+the six are one wedge turned six times — so the travel term every other kind carries would add nothing
+but the few seconds' spread that rounding a cell into a sector produces, and two minutes would stop
+being two minutes for five of the six directions.
+
 **A first mission is aimed at the zone's entry sector** (`EntrySectorOf`): on the zone's own bearing,
 one sector past the inner edge. The six are one wedge turned six times, so all six entry sectors sit at
 the same distance and a first mission costs the same whichever direction is picked — which is what lets
@@ -378,9 +394,8 @@ fraction of a sector.
   states, the base (§6), and a side pane that changes with the scale. Missions launch from it.
 
   **Before a zone is chosen the pane is one card, not a list**: the direction's picture, its
-  cartography, its status, what the launch costs in the other five, and a single action — a prospection
-  offered under the name *découverte*. Listing the kinds a sector happens to admit would describe ground
-  nobody has walked. The card stays through the flight, with the mission's own clock as its bar, and
+  cartography, its status, what the launch costs in the other five, and a single action — the
+  discovery (§5). Listing the kinds a sector happens to admit would describe ground nobody has walked. The card stays through the flight, with the mission's own clock as its bar, and
   gives way to the sections when the report lands and the zone's sites appear (§5).
 
   What is still missing on it: a launch panel proper, the site hover line (name, kind, estimated risk),

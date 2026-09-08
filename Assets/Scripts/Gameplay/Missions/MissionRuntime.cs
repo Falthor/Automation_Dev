@@ -31,7 +31,21 @@ namespace Game.Gameplay.Missions
         /// both stood, every reader had to work out which was meant. The word is now the category's
         /// alone.
         /// </summary>
-        EtudeDeTerrain
+        EtudeDeTerrain,
+
+        /// <summary>
+        /// The discovery: <b>one per zone, and the only mission a zone takes before anybody has been
+        /// there.</b> It is what turns a direction into a place - it comes back with the zone's whole
+        /// list of sites, which is what every other mission is then aimed at.
+        ///
+        /// <b>A kind of its own, not a prospection under another name.</b> It answers a different
+        /// question, it is offered on a screen of its own, it is bounded to one per zone, and it obeys
+        /// no band: a prospection is a choice among several, this is the only thing on offer.
+        ///
+        /// <b>Appended to the enum, never inserted.</b> A mission in flight is saved as
+        /// <c>(int)Kind</c>, so inserting a member would turn every saved mission into another kind.
+        /// </summary>
+        Decouverte
     }
 
     /// <summary>

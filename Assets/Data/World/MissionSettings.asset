@@ -23,6 +23,7 @@ MonoBehaviour:
   fieldStudySeconds: 120
   fieldStudyReward: 250
   fieldStudyHiddenSiteChance: 0.33333334
+  discoverySeconds: 120
   secondsPerDistanceCell: 0.5
   reconnaissanceReward: 500
   recoveryReward: 1500
