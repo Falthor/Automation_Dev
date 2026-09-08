@@ -171,9 +171,35 @@ namespace Game.Gameplay.Expeditions
             if (zoneIndex < 0 || zoneIndex >= ZoneCount) return ZoneChoiceRefusal.NotAZone;
             if (ChosenZone >= 0 && ChosenZone != zoneIndex) return ZoneChoiceRefusal.AlreadyChosen;
 
+            bool changed = ChosenZone != zoneIndex;
             ChosenZone = zoneIndex;
+
+            // <b>The ordering constraint, held by construction rather than by remembering.</b> A zone's
+            // content is derived on first request and kept; anything that had already asked about this
+            // one - a screen offering the six, a hover - would have cached the derived content and the
+            // composition would have arrived too late to be seen. Dropping it here means the order in
+            // which the two happen cannot matter, which is the same hazard MAP.md §6 names for placed
+            // sector content and the reason it is a rule about data rather than a step to perform first.
+            //
+            // Nothing is lost by re-deriving: no mission can have launched before a zone was chosen, so
+            // no site can carry state yet. A test states that rather than leaving it assumed.
+            if (changed) _sites[zoneIndex] = null;
+
             return ZoneChoiceRefusal.None;
         }
+
+        /// <summary>
+        /// Whether this zone carries the composed content rather than the derived one: it is the zone
+        /// the player picked, and the settings ask for a composition.
+        ///
+        /// <b>A rule about the data, never about the geometry.</b> There is no zone 0 and no "is this
+        /// the starting slice" test - the six are equivalent until the choice, and it is the choice that
+        /// decides. That is what keeps it durable: no starting perimeter to maintain, and it survives
+        /// the player picking any direction.
+        /// </summary>
+        public bool IsComposed(int zoneIndex)
+            => _settings != null && _settings.ComposeFirstChosenZone
+               && zoneIndex >= 0 && zoneIndex == ChosenZone;
 
         /// <summary>
         /// The zone half of the launch gate. <c>MissionSystem.CanLaunch</c> is what applies it, and a
@@ -251,10 +277,31 @@ namespace Game.Gameplay.Expeditions
 
             ExpeditionZone bounds = ZoneOf(zone);
 
-            int recoveries = DrawCount(zone, _settings.RecoverySitesMin, _settings.RecoverySitesMax, RecoveryCountSalt);
-            int studies = DrawCount(zone, _settings.CivilisationStudiesMin, _settings.CivilisationStudiesMax, StudyCountSalt);
-            int hidden = DrawCount(zone, _settings.HiddenSitesMin, _settings.HiddenSitesMax, HiddenCountSalt);
-            int explorations = Mathf.Max(0, _settings.FarExplorationSites);
+            // The one place the composed zone differs from the five derived ones: how many of each kind
+            // the ladders lay out. Everything below - where a site goes, which exploration carries the
+            // secondary Core, what a hidden site is - is the same code on the same seed, because a
+            // position cannot be authored for a slice the player has not picked yet.
+            bool composed = IsComposed(zone);
+
+            int prospections = composed
+                ? Mathf.Max(0, _settings.FirstZoneProspections)
+                : Mathf.Max(0, _settings.ProspectionSites);
+
+            int explorations = composed
+                ? Mathf.Max(0, _settings.FirstZoneFarExplorations)
+                : Mathf.Max(0, _settings.FarExplorationSites);
+
+            int recoveries = composed
+                ? Mathf.Max(0, _settings.FirstZoneRecoveries)
+                : DrawCount(zone, _settings.RecoverySitesMin, _settings.RecoverySitesMax, RecoveryCountSalt);
+
+            int studies = composed
+                ? Mathf.Max(0, _settings.FirstZoneCivilisationStudies)
+                : DrawCount(zone, _settings.CivilisationStudiesMin, _settings.CivilisationStudiesMax, StudyCountSalt);
+
+            int hidden = composed
+                ? Mathf.Max(0, _settings.FirstZoneHiddenSites)
+                : DrawCount(zone, _settings.HiddenSitesMin, _settings.HiddenSitesMax, HiddenCountSalt);
 
             // Exactly one far exploration carries the secondary Core site; every other one carries the
             // trace that puts the zone's civilisation study on the map. Written for any count rather
@@ -262,7 +309,7 @@ namespace Game.Gameplay.Expeditions
             // which is the very failure the design names.
             int carrier = explorations > 0 ? (int)(Hash(zone, CarrierSalt) % (uint)explorations) : -1;
 
-            AddKind(sites, zone, bounds, ExpeditionSiteKind.Prospection, Mathf.Max(0, _settings.ProspectionSites), carrier);
+            AddKind(sites, zone, bounds, ExpeditionSiteKind.Prospection, prospections, carrier);
             AddKind(sites, zone, bounds, ExpeditionSiteKind.ExplorationLointaine, explorations, carrier);
             AddKind(sites, zone, bounds, ExpeditionSiteKind.Recuperation, recoveries, carrier);
             AddKind(sites, zone, bounds, ExpeditionSiteKind.EtudeCivilisation, studies, carrier);
@@ -501,8 +548,11 @@ namespace Game.Gameplay.Expeditions
         /// been chosen and nothing has been touched - which is exactly what a save from before the zones
         /// recorded.
         ///
-        /// The inner edge is restored <b>before</b> anything is re-derived, since every site's position
-        /// and every cell count is measured from it.
+        /// The chosen zone and the inner edge are restored <b>before</b> anything is re-derived: the
+        /// first decides whether a zone gets the composed content or the derived one, the second is what
+        /// every site's position and every cell count is measured from. Re-deriving in the wrong order
+        /// would hand a reloaded run five derived zones and no composed one - the same hazard
+        /// <see cref="Choose"/> guards on the live path.
         /// </summary>
         public void RestoreState(JObject state)
         {

@@ -240,6 +240,49 @@ variée vue de l'intérieur, et le monde était un pochoir vu d'en haut. `TheSix
 existe pour ça — le déterminisme et la variété sont deux propriétés distinctes, et tester la première
 ne dit rien de la seconde.
 
+### La première zone choisie, et pourquoi ce n'est pas une tranche
+
+**« La zone de départ » n'existe pas comme lieu.** Le joueur choisit sa direction parmi six et §1 les
+déclare équivalentes pendant l'introduction : composer une tranche à la main aurait contredit §1, et en
+composer six aurait été six fois le travail pour cinq qu'on ne verra jamais. C'est donc **le choix** qui
+compose, pas la géométrie — `IsComposed(zone)` répond « c'est celle qu'on a choisie », et il n'existe
+nulle part de test « est-ce la zone 0 ».
+
+C'est la forme de la règle déjà en place pour les secteurs (`MAP.md` §6) : une règle sur la donnée, pas
+sur la géométrie, donc aucun périmètre de départ à entretenir.
+
+**Ce qui est posé, c'est le compte, pas les coordonnées.** Une position ne peut pas être écrite à
+l'avance pour une tranche que personne n'a encore choisie. Le placement, les trouvailles et les types du
+stock caché restent dérivés de la graine et de l'index — deux parties qui choisissent la même direction
+obtiennent la même carte. C'est un écart de forme avec la règle des secteurs, où le contenu posé est un
+gisement à une cellule précise, et il vaut d'être noté plutôt que d'être présenté comme la même chose.
+
+**Le piège d'ordonnancement, et sa forme ici.** Le contenu d'une zone est dérivé à la première demande
+puis conservé. Un écran qui présente les six avant le choix aurait donc figé le contenu dérivé, et la
+composition serait arrivée trop tard pour être vue — le contenu posé écrasé par la dérivation, exactement
+le danger que `MAP.md` §6 nomme pour les secteurs, dans son autre sens. `Choose` jette ce que la zone
+avait dérivé, ce qui rend l'ordre des deux sans importance au lieu d'en faire une étape à respecter.
+Rien n'est perdu : aucune mission ne part avant qu'une zone soit choisie, donc aucun site ne porte
+encore d'état — et un test l'énonce plutôt que de le supposer.
+
+**Rien n'entre en sauvegarde**, et c'est le bon résultat plutôt qu'une économie. La composition est une
+fonction de la zone choisie — déjà sauvegardée — et d'un asset. `SaveFormatTests` n'avait donc pas à
+tomber. Ce qui est épinglé à la place est plus fort : un rechargement qui redemande les six zones *avant*
+que la sauvegarde ait dit laquelle est choisie retrouve quand même la zone composée, sites et positions
+identiques.
+
+**Deux chiffres que §7 ne donne pas** et que j'ai dû poser : les études de civilisation de la première
+zone (§7 dit « 6 nécessitant des unités » sans les répartir par type, et un seul de ces types existe) et
+son stock caché (§7 n'en parle pas). Ils sont dans les réglages comme le reste, signalés comme non lus
+sur le tableau.
+
+**Mesuré sur l'asset livré** : 1 prospection, 2 explorations lointaines, 3 récupérations, 2 études
+verrouillées, 4 sites cachés. **Six quêtes lançables** au lieu des neuf de §7, puisque les trois études
+de terrain n'existent pas encore. Contre 20 charges (2 × 10), le solo en dépense 6 et le tout-en-binôme
+12 : la tension que §7 décrit — « la marge est nulle par construction » — **n'existe simplement pas**,
+et aucune valeur de charge ne la ferait apparaître. Le chiffrage attend l'étude de terrain, pas un
+réglage.
+
 ### Le test du pochoir est faible, et voici par où le renforcer
 
 Écrit **avant** d'avoir la mesure, délibérément : plus tard, cette note deviendrait la justification

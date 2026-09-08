@@ -69,6 +69,40 @@ namespace Game.Data
         [SerializeField, Min(0)] int hiddenSitesMin = 3;
         [SerializeField, Min(0)] int hiddenSitesMax = 4;
 
+        [Header("La première zone choisie")]
+
+        /// <summary>
+        /// Whether the first zone the player picks carries a composed content instead of the derived
+        /// one above.
+        ///
+        /// <b>It is not a particular slice.</b> The six stay equivalent until the choice is made - the
+        /// design requires that - so this applies to whichever one is chosen, at the moment of
+        /// choosing. There is no zone 0 and no "is this the starting zone" test anywhere.
+        ///
+        /// <b>What is composed is the count, not the coordinates.</b> A position cannot be authored for
+        /// a slice nobody has picked yet, so the placement stays derived from the seed and the zone
+        /// index exactly as elsewhere - what changes is how many of each kind the ladder lays out.
+        /// </summary>
+        [SerializeField] bool composeFirstChosenZone = true;
+
+        /// <summary>One, and deliberately: mining has no real content yet, so a zone full of it would open on a promise the game does not keep.</summary>
+        [SerializeField, Min(0)] int firstZoneProspections = 1;
+
+        [SerializeField, Min(0)] int firstZoneFarExplorations = 2;
+
+        /// <summary>Three. The mission that pays today, so the introduction leans on it.</summary>
+        [SerializeField, Min(0)] int firstZoneRecoveries = 3;
+
+        /// <summary>
+        /// The locked group. The directive asks for six missions needing units and does not break them
+        /// down by type; only this one exists as a site kind today, so this figure is the one part of
+        /// the composition that is not read off that table.
+        /// </summary>
+        [SerializeField, Min(0)] int firstZoneCivilisationStudies = 2;
+
+        /// <summary>The directive says nothing about the hidden stock in the starting zone, so it keeps a figure of its own rather than inheriting a range that means something else.</summary>
+        [SerializeField, Min(0)] int firstZoneHiddenSites = 4;
+
         public int ZoneCount => zoneCount;
         public float RadiusJitterCells => radiusJitterCells;
         public float AngleJitterFraction => angleJitterFraction;
@@ -81,6 +115,13 @@ namespace Game.Data
         public int CivilisationStudiesMax => civilisationStudiesMax;
         public int HiddenSitesMin => hiddenSitesMin;
         public int HiddenSitesMax => hiddenSitesMax;
+
+        public bool ComposeFirstChosenZone => composeFirstChosenZone;
+        public int FirstZoneProspections => firstZoneProspections;
+        public int FirstZoneFarExplorations => firstZoneFarExplorations;
+        public int FirstZoneRecoveries => firstZoneRecoveries;
+        public int FirstZoneCivilisationStudies => firstZoneCivilisationStudies;
+        public int FirstZoneHiddenSites => firstZoneHiddenSites;
 
         /// <summary>
         /// One slice, in degrees. Derived, so it is a property and never a field anyone can set: an

@@ -224,6 +224,26 @@ zone index through `Game.Core.DeterministicHash`, never `System.Random`. Three p
 reconnaissances, 2–3 recoveries, 1–2 civilisation studies, and a finite hidden stock of 3–4. A site's
 identity is derived; only what the player did to it (revealed, consumed) enters the save.
 
+**The first zone chosen carries a composed content instead** — 1 prospection, 2 far reconnaissances,
+3 recoveries, 2 civilisation studies and 4 hidden, all from `ExpeditionZoneSettings`. The other five
+keep the derivation, and nothing decides yet whether they will ever be composed.
+
+- **A rule about the data, never about the geometry.** There is no zone 0 and no "is this the starting
+  slice" test: the six are equivalent while they are on offer, which the design requires, and it is the
+  *choice* that composes whichever one it lands on. Same form as the placed-sector rule in §6, and
+  durable for the same reason — no starting perimeter to maintain.
+- **The composition is the count, not the coordinates.** A position cannot be authored for a slice
+  nobody has picked yet, so placement, findings and the hidden stock's kinds stay derived from the seed
+  and the zone index. Two runs choosing the same direction get the same layout.
+- **Choosing drops what that zone had already derived**, which is what makes the order the two happen
+  in stop mattering. A screen offering the six would otherwise have cached the derived content and the
+  composition would arrive too late to be seen — the ordering hazard §6 names for placed sector content,
+  in its other form. Nothing is lost: no mission can launch before a zone is chosen, so no site can
+  carry state yet, and a test states that rather than leaving it assumed.
+- **Nothing new enters the save.** The composition is a function of the chosen zone, which already
+  travels, and of a settings asset — so a reload re-derives it. What is pinned instead is that the
+  re-derivation lands on exactly the same sites, positions included.
+
 - **A site is placed where its own kind of mission may go.** Far reconnaissances sit past the
   exploration threshold, which is the only band a far reconnaissance may be sent into; everything else
   sits short of it, where a prospection may be sent. A site its own mission cannot reach would be a
@@ -264,10 +284,8 @@ answer "has anything actually changed". It allocates nothing.
 - ~~A third explorer robot.~~ **Not missing — gone.** It came from the abnormal signal, which has been
   removed from the design; the dormant nest now waits on the Datacenter priming alone. Two robots is
   the intended fleet, not a shortfall.
-- **A starting zone distinct from the other five.** Every zone derives the same content (§5). The
-  design wants the first one composed differently; whether it should be, and whether "first" means a
-  particular slice or whichever the player picks, is still open — see
-  [`../design/directive-zones-et-missions-intro.md`](../design/directive-zones-et-missions-intro.md) §9.
+- ~~A starting zone distinct from the other five.~~ **Done** — see §5. The five unchosen ones are not
+  composed, and whether they ever should be is not decided.
 - **Missions themselves** — the process exists (`MissionSystem`, `Game.Gameplay.Missions`): probes,
   the state machine, the two reconnaissances, launch-time draw surviving a save, and the introduction's
   finite reward budget. What is missing is everything with a screen — the launch panel, the mission

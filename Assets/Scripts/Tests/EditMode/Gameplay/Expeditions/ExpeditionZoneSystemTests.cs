@@ -44,11 +44,20 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
             int studyMin = 1, int studyMax = 2,
             int hiddenMin = 3, int hiddenMax = 4,
             float radiusJitterCells = 20f,
-            float angleJitterFraction = 0.1f)
+            float angleJitterFraction = 0.1f,
+            bool composeFirstZone = false,
+            int firstProspections = 1, int firstFarExplorations = 2, int firstRecoveries = 3,
+            int firstStudies = 2, int firstHidden = 4)
         {
             var settings = ScriptableObject.CreateInstance<ExpeditionZoneSettings>();
 
             var so = new SerializedObject(settings);
+            so.FindProperty("composeFirstChosenZone").boolValue = composeFirstZone;
+            so.FindProperty("firstZoneProspections").intValue = firstProspections;
+            so.FindProperty("firstZoneFarExplorations").intValue = firstFarExplorations;
+            so.FindProperty("firstZoneRecoveries").intValue = firstRecoveries;
+            so.FindProperty("firstZoneCivilisationStudies").intValue = firstStudies;
+            so.FindProperty("firstZoneHiddenSites").intValue = firstHidden;
             so.FindProperty("zoneCount").intValue = zoneCount;
             so.FindProperty("radiusJitterCells").floatValue = radiusJitterCells;
             so.FindProperty("angleJitterFraction").floatValue = angleJitterFraction;
@@ -465,7 +474,183 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
             five.Destroy();
         }
 
+        // ---- The composed first zone ----
+
+        /// <summary>How many sites of one kind a zone holds, ignoring the hidden stock.</summary>
+        static int VisibleCount(ExpeditionZoneSystem zones, int zone, ExpeditionSiteKind kind)
+        {
+            int count = 0;
+            foreach (ExpeditionZoneSite site in zones.SitesOf(zone))
+            {
+                if (!site.IsHidden && site.Kind == kind) count++;
+            }
+            return count;
+        }
+
+        static void AssertComposed(ExpeditionZoneSystem zones, int zone)
+        {
+            Assert.AreEqual(1, VisibleCount(zones, zone, ExpeditionSiteKind.Prospection), $"zone {zone} prospections");
+            Assert.AreEqual(2, VisibleCount(zones, zone, ExpeditionSiteKind.ExplorationLointaine), $"zone {zone} far explorations");
+            Assert.AreEqual(3, VisibleCount(zones, zone, ExpeditionSiteKind.Recuperation), $"zone {zone} recoveries");
+            Assert.AreEqual(2, VisibleCount(zones, zone, ExpeditionSiteKind.EtudeCivilisation), $"zone {zone} studies");
+            Assert.AreEqual(4, zones.HiddenSitesLeft(zone), $"zone {zone} hidden stock");
+        }
+
+        /// <summary>
+        /// <b>It is not a slice, it is the choice.</b> Whichever of the six the player picks receives the
+        /// composed content - so the six can stay equivalent while they are still on offer, which the
+        /// design requires and which composing one particular slice would break.
+        /// </summary>
+        [Test]
+        public void WhicheverZoneIsChosenFirst_CarriesTheComposedContent()
+        {
+            for (int chosen = 0; chosen < 6; chosen++)
+            {
+                Fixture fixture = NewFixture(NewSettings(composeFirstZone: true));
+                Assert.AreEqual(ZoneChoiceRefusal.None, fixture.Zones.Choose(chosen));
+
+                Assert.IsTrue(fixture.Zones.IsComposed(chosen));
+                AssertComposed(fixture.Zones, chosen);
+
+                fixture.Destroy();
+            }
+        }
+
+        /// <summary>The other five keep the derivation. Checked on the counts the composition changes, so a composition leaking sideways cannot pass.</summary>
+        [Test]
+        public void TheFiveUnchosenZones_KeepTheirDerivedContent()
+        {
+            Fixture fixture = NewFixture(NewSettings(composeFirstZone: true));
+            fixture.Zones.Choose(2);
+
+            for (int zone = 0; zone < 6; zone++)
+            {
+                if (zone == 2) continue;
+
+                Assert.IsFalse(fixture.Zones.IsComposed(zone));
+                Assert.AreEqual(3, VisibleCount(fixture.Zones, zone, ExpeditionSiteKind.Prospection),
+                    $"zone {zone} must still derive its three prospections, not the composed one");
+                Assert.That(fixture.Zones.HiddenSitesLeft(zone), Is.InRange(3, 4), $"zone {zone} hidden stock");
+            }
+
+            fixture.Destroy();
+        }
+
+        /// <summary>
+        /// <b>The ordering trap, and the reason the rule is about data rather than a step to perform
+        /// first.</b> A zone's content is derived on first request and kept, so a screen that offered the
+        /// six - or a hover, or a test - would have cached the derived content before the choice was
+        /// made, and the composition would have arrived too late to be seen. Choosing drops what was
+        /// cached, so the order the two happen in cannot matter.
+        /// </summary>
+        [Test]
+        public void AskingAboutAZoneBeforeChoosingIt_DoesNotFreezeItsDerivedContent()
+        {
+            Fixture fixture = NewFixture(NewSettings(composeFirstZone: true));
+
+            // Exactly what a zone-choice screen does: show all six before anything is picked.
+            for (int zone = 0; zone < 6; zone++)
+            {
+                Assert.AreEqual(3, VisibleCount(fixture.Zones, zone, ExpeditionSiteKind.Prospection),
+                    "precondition: before the choice every zone is derived");
+            }
+
+            fixture.Zones.Choose(5);
+
+            AssertComposed(fixture.Zones, 5);
+
+            fixture.Destroy();
+        }
+
+        /// <summary>Nothing can have been done to a site before a zone is chosen - no mission launches until then - so re-deriving at the choice costs nothing. Stated rather than assumed, because it is what makes dropping the cache safe.</summary>
+        [Test]
+        public void BeforeAZoneIsChosen_NoSiteCanCarryState()
+        {
+            Fixture fixture = NewFixture(NewSettings(composeFirstZone: true));
+
+            foreach (ExpeditionZoneSite site in fixture.Zones.SitesOf(1))
+            {
+                Assert.IsFalse(site.IsConsumed, "nothing can have been spent");
+                Assert.AreEqual(!site.IsHidden, site.IsRevealed, "and nothing turned up");
+            }
+
+            fixture.Destroy();
+        }
+
+        /// <summary>The composition is a setting like any other: move it and the zone follows, with nothing else to adjust.</summary>
+        [Test]
+        public void ChangingTheComposition_MovesWhatTheFirstZoneHolds()
+        {
+            Fixture fixture = NewFixture(NewSettings(composeFirstZone: true,
+                firstProspections: 0, firstFarExplorations: 1, firstRecoveries: 5,
+                firstStudies: 0, firstHidden: 1));
+            fixture.Zones.Choose(0);
+
+            Assert.AreEqual(0, VisibleCount(fixture.Zones, 0, ExpeditionSiteKind.Prospection));
+            Assert.AreEqual(1, VisibleCount(fixture.Zones, 0, ExpeditionSiteKind.ExplorationLointaine));
+            Assert.AreEqual(5, VisibleCount(fixture.Zones, 0, ExpeditionSiteKind.Recuperation));
+            Assert.AreEqual(0, VisibleCount(fixture.Zones, 0, ExpeditionSiteKind.EtudeCivilisation));
+            Assert.AreEqual(1, fixture.Zones.HiddenSitesLeft(0));
+
+            fixture.Destroy();
+        }
+
+        /// <summary>Switched off, the chosen zone derives like the other five - so the composition is a decision the data carries, not something the code always does.</summary>
+        [Test]
+        public void WithTheCompositionOff_TheChosenZoneDerivesLikeTheRest()
+        {
+            Fixture fixture = NewFixture(NewSettings(composeFirstZone: false));
+            fixture.Zones.Choose(0);
+
+            Assert.IsFalse(fixture.Zones.IsComposed(0));
+            Assert.AreEqual(3, VisibleCount(fixture.Zones, 0, ExpeditionSiteKind.Prospection));
+
+            fixture.Destroy();
+        }
+
         // ---- Save / Restore ----
+
+        /// <summary>
+        /// The composition adds nothing to the save, and that is the point: it is a function of the
+        /// chosen zone, which already travels, and of a settings asset. A reload re-derives it rather
+        /// than restoring it - so what this pins is that the re-derivation lands on exactly the same
+        /// sites, positions included.
+        /// </summary>
+        [Test]
+        public void TheComposedZone_ComesBackIdenticalAfterAReload()
+        {
+            Fixture original = NewFixture(NewSettings(composeFirstZone: true));
+            original.Zones.Choose(4);
+            AssertComposed(original.Zones, 4);
+
+            JObject captured = original.Zones.CaptureState();
+
+            Fixture reloaded = NewFixture(NewSettings(composeFirstZone: true));
+
+            // The trap: the reloaded run asks about the zone before the save has said which one is
+            // chosen. RestoreState clears what that derived and sets the choice before re-deriving.
+            for (int zone = 0; zone < 6; zone++) reloaded.Zones.SitesOf(zone);
+
+            reloaded.Zones.RestoreState(captured);
+
+            Assert.AreEqual(4, reloaded.Zones.ChosenZone);
+            Assert.IsTrue(reloaded.Zones.IsComposed(4));
+            AssertComposed(reloaded.Zones, 4);
+
+            IReadOnlyList<ExpeditionZoneSite> before = original.Zones.SitesOf(4);
+            IReadOnlyList<ExpeditionZoneSite> after = reloaded.Zones.SitesOf(4);
+            Assert.AreEqual(before.Count, after.Count);
+            for (int i = 0; i < before.Count; i++)
+            {
+                Assert.AreEqual(before[i].Kind, after[i].Kind, $"site {i} kind");
+                Assert.AreEqual(before[i].Cell, after[i].Cell, $"site {i} cell");
+                Assert.AreEqual(before[i].Finding, after[i].Finding, $"site {i} finding");
+            }
+
+            original.Destroy();
+            reloaded.Destroy();
+        }
+
 
         /// <summary>
         /// What survives a save is the choice, the frozen inner edge and what the player has done to the

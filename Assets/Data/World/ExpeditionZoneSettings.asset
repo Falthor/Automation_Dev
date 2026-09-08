@@ -23,3 +23,9 @@ MonoBehaviour:
   civilisationStudiesMax: 2
   hiddenSitesMin: 3
   hiddenSitesMax: 4
+  composeFirstChosenZone: 1
+  firstZoneProspections: 1
+  firstZoneFarExplorations: 2
+  firstZoneRecoveries: 3
+  firstZoneCivilisationStudies: 2
+  firstZoneHiddenSites: 4

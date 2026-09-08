@@ -240,9 +240,21 @@ chercher parmi les autres points. Cette sélection automatique ne vaut que cette
 **Ce tableau décrit un cas particulier, et §2 le contenu par défaut.** Les deux ne coïncident pas — §2
 donne 3 prospections et 2 à 3 récupérations, celui-ci l'inverse — et rien ne le disait, ce qui en
 faisait une contradiction plutôt qu'une intention. La zone de départ est composée autrement : moins de
-prospection, qui n'a pas de contenu réel aujourd'hui, plus de récupération, qui paie. **Non construit** :
-toute zone dérive aujourd'hui le contenu de §2, la première comprise. Voir §9 pour ce qui reste à
-trancher.
+prospection, qui n'a pas de contenu réel aujourd'hui, plus de récupération, qui paie.
+
+**Construit**, et pas sur une tranche particulière : c'est la **première zone choisie**, quelle qu'elle
+soit, qui reçoit cette composition, au moment du choix — les six restent équivalentes tant qu'elles sont
+offertes, comme §1 l'exige. Les cinq autres gardent la dérivation de §2.
+
+**Ce qui manque à ce tableau tant que l'étude de terrain n'existe pas.** Trois de ses neuf quêtes en
+sont, donc la première zone n'en offre que **six** de lançables — 1 prospection, 2 explorations
+lointaines, 3 récupérations — plus le signal perturbé après l'amorçage, et 2 études de civilisation
+verrouillées. Le stock caché de 4 sites n'a aucun consommateur.
+
+Conséquence sur les charges : 6 quêtes contre 20 charges (2 robots × 10). Le solo en dépense 6, le
+tout-en-binôme 12 — **la tension que ce paragraphe décrit n'existe pas**, quelle que soit la valeur
+retenue pour les charges. Et l'intervalle avant l'amorçage s'allonge d'autant, alors que §3 comptait sur
+les études de terrain pour le combler.
 
 ### Les charges
 
@@ -370,20 +382,9 @@ cliquera, sinon il croira à un bug.
 
 ## 9. Points laissés ouverts
 
-- **La zone de départ est-elle composée à la main, ou identique aux cinq autres ?** La première rend
-  l'introduction contrôlable, la seconde évite un chemin de code de plus.
-
-  **Une complication à trancher avec, et pas après.** « La zone de départ » n'est pas une tranche
-  particulière : le joueur choisit sa direction parmi six, et §1 dit que les six sont équivalentes
-  pendant l'introduction. Composer une tranche à la main contredirait donc §1, et en composer six
-  serait six fois le travail pour cinq qu'on ne verra pas. Si le cas particulier existe, il porte sur
-  **la première zone choisie, quelle qu'elle soit**, et s'applique au moment du choix — ce qui garde
-  l'équivalence des six avant qu'il soit fait.
-
-  Le projet a déjà la forme de cette règle ailleurs : `MAP.md` §6 pose « un secteur portant du contenu
-  posé le garde, la dérivation ne remplit que ceux qui n'en ont pas ». Une règle sur les données, pas
-  sur la géométrie — et c'est ce qui la rend durable, puisqu'elle ne connaît aucun périmètre de départ
-  à entretenir.
+- **Les cinq zones non choisies doivent-elles être composées elles aussi ?** Elles gardent la
+  dérivation de §2 aujourd'hui. La question ne se pose qu'à la seconde zone, et §9 dit déjà qu'elle
+  sera moins guidée.
 
 - **Ce qui distingue visuellement un site fait d'un site restant** — la marque discrète est décidée,
   sa forme exacte non.
