@@ -15,7 +15,14 @@ l'écran.
 ## 1. Le point de départ
 
 `SectorMapImage` construit déjà la texture de carte, de façon incrémentale, à 0,25 ms par mission
-qui rentre. **Elle n'a aucun consommateur** — c'est une pièce posée sans être raccordée.
+qui rentre.
+
+> **Corrigé à la livraison.** Ce paragraphe disait « elle n'a aucun consommateur — une pièce posée sans
+> être raccordée » : c'était vrai deux chantiers plus tôt, et `SectorMapPanelController` la branchait
+> déjà. Et l'image ne pouvait pas produire ce que §4 décrit : elle faisait **un texel par secteur**, pas
+> par case, donc un disque révélé de rayon 8 remplissait un carré de 16 cases d'une couleur unie. Le
+> chantier a donc bien été « dessiner du terrain » — un texel par case, une tuile par chunk découvert.
+> Voir `architecture/MAP.md` §6.
 
 L'écran actuel affiche une grille de carrés à la place. Le chantier n'est donc pas « dessiner du
 terrain » mais brancher ce qui existe et empiler ce qui va dessus.

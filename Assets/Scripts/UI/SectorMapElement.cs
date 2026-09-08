@@ -1,17 +1,23 @@
 using System;
 using System.Collections.Generic;
+using Game.Presentation;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Game.UI
 {
     /// <summary>
-    /// The zoomed-out map: one texel per sector, zoomable and pannable, with the Core and its action
-    /// radius drawn over it.
+    /// The zoomed-out map: one quad per discovered chunk, zoomable and pannable, with the Core and its
+    /// action radius drawn over it.
     ///
-    /// <b>The whole map is always in the texture; only the view moves.</b> `SectorMapImage` holds
-    /// every sector of a 10 000-cell world in 390 KB, so zooming and panning cost nothing but a
-    /// rectangle change — no streaming, no re-upload, no window to follow.
+    /// <b>There is no map underneath the tiles.</b> Nothing is drawn where nothing is discovered, so
+    /// the black is the panel showing through - the absence of a map rather than a dark surface
+    /// somebody painted. It is what gives the revealed patches their weight and makes the gap between
+    /// them read as something to close.
+    ///
+    /// <b>The tiles are the whole terrain layer, and only the view moves.</b> Each holds one texel per
+    /// cell of one chunk (16 KB), created when that chunk is first discovered; zooming and panning cost
+    /// a rectangle per tile - a handful during the introduction - and no re-upload.
     ///
     /// <b>Zoom is not a nicety here, it is what makes the map readable at all.</b> Showing 10 000
     /// cells at once in a 900-pixel panel is 11 cells per pixel: the Core's radius would be under
@@ -58,16 +64,22 @@ namespace Game.UI
         /// <summary>The aimed sector. The panel's accent, and thicker than the hover: one is a glance, the other a decision.</summary>
         static readonly Color SelectionColour = new Color(0.333f, 0.867f, 0.961f, 1f);
 
-        /// <summary>Faint on purpose. The grid is there so a sector reads as a square you can point at, not so it can be counted.</summary>
-        static readonly Color GridlineColour = new Color(1f, 1f, 1f, 0.07f);
-
         /// <summary>A sector a robot is on its way to. The amber this project already uses for "under way" - the research row in progress wears the same.</summary>
         static readonly Color MissionColour = new Color(0.937f, 0.624f, 0.153f, 1f);
 
-        readonly VisualElement _image = new VisualElement();
+        /// <summary>
+        /// Holds one child per discovered chunk. <b>There is no map underneath them</b> - the black is
+        /// the panel showing through, which is what makes an unexplored world read as absence rather
+        /// than as a dark surface someone drew.
+        /// </summary>
+        readonly VisualElement _terrain = new VisualElement();
+
+        /// <summary>Reused across rebuilds so panning and zooming allocate nothing. Only ever grows: a chunk once discovered stays discovered.</summary>
+        readonly List<VisualElement> _tileViews = new List<VisualElement>();
+
         readonly VisualElement _overlay = new VisualElement();
 
-        Texture2D _texture;
+        SectorMapImage _image;
         int _sizeSectors = 1;
         int _sectorSizeCells = 16;
 
@@ -101,17 +113,18 @@ namespace Game.UI
         /// <summary>How far the pointer may travel between press and release and still count as a click rather than a pan.</summary>
         const float ClickSlopPixels = 4f;
 
-        /// <summary>Below this, sector outlines would be a solid wash rather than a grid, so they are not drawn at all.</summary>
-        const float GridlineMinPixelsPerSector = 10f;
-
         public SectorMapElement()
         {
             style.overflow = Overflow.Hidden;
             style.flexGrow = 1f;
 
-            _image.pickingMode = PickingMode.Ignore;
-            _image.style.position = Position.Absolute;
-            Add(_image);
+            _terrain.pickingMode = PickingMode.Ignore;
+            _terrain.style.position = Position.Absolute;
+            _terrain.style.left = 0;
+            _terrain.style.top = 0;
+            _terrain.style.right = 0;
+            _terrain.style.bottom = 0;
+            Add(_terrain);
 
             _overlay.pickingMode = PickingMode.Ignore;
             _overlay.style.position = Position.Absolute;
@@ -131,17 +144,45 @@ namespace Game.UI
         }
 
         /// <summary>Hands the element what it draws. Called once the world exists; safe to call again if the map is rebuilt.</summary>
-        public void Bind(Texture2D texture, int sizeSectors, int sectorSizeCells, Vector2 coreCentreCells)
+        public void Bind(SectorMapImage image, int sizeSectors, int sectorSizeCells, Vector2 coreCentreCells)
         {
-            _texture = texture;
+            _image = image;
             _sizeSectors = Mathf.Max(1, sizeSectors);
             _sectorSizeCells = Mathf.Max(1, sectorSizeCells);
             _coreCentreCells = coreCentreCells;
 
-            _image.style.backgroundImage = new StyleBackground(texture);
             ViewCentreSectors = coreCentreCells / _sectorSizeCells;
 
+            SyncTiles();
             Layout();
+        }
+
+        /// <summary>
+        /// Matches the child elements to the discovered chunks. Called when the image reports it
+        /// rebuilt - twice per mission rather than every frame.
+        ///
+        /// Children are only ever added, because a chunk once discovered is never undiscovered. The
+        /// texture reference is re-set each time because a tile's pixels change while its identity does
+        /// not, and UI Toolkit will not notice a texture rewritten under it otherwise.
+        /// </summary>
+        public void SyncTiles()
+        {
+            if (_image == null) return;
+
+            IReadOnlyList<SectorMapImage.Tile> tiles = _image.Tiles;
+
+            for (int i = _tileViews.Count; i < tiles.Count; i++)
+            {
+                var view = new VisualElement { pickingMode = PickingMode.Ignore };
+                view.style.position = Position.Absolute;
+                _terrain.Add(view);
+                _tileViews.Add(view);
+            }
+
+            for (int i = 0; i < tiles.Count; i++)
+            {
+                _tileViews[i].style.backgroundImage = new StyleBackground(tiles[i].Texture);
+            }
         }
 
         /// <summary>The Core's reach, redrawn when research extends it. Cells, like everything else the map is told.</summary>
@@ -298,23 +339,47 @@ namespace Game.UI
 
         void Layout()
         {
-            if (_texture == null) return;
-
-            float side = _sizeSectors * PixelsPerSector;
-            Vector2 centre = contentRect.size * 0.5f;
-
-            _image.style.width = side;
-            _image.style.height = side;
-            _image.style.left = centre.x - ViewCentreSectors.x * PixelsPerSector;
-
-            // The texture's row 0 is the map's south edge, and UI Toolkit already draws a Texture2D
-            // the right way up - so the element's own top edge is the map's *north*, and the offset
-            // is measured from there. An extra flip was tried here and was wrong twice over: it put
-            // north below the Core on screen, and it would have mirrored the hover against what was
-            // drawn.
-            _image.style.top = centre.y - (_sizeSectors - ViewCentreSectors.y) * PixelsPerSector;
-
+            LayoutTiles();
             _overlay.MarkDirtyRepaint();
+        }
+
+        /// <summary>
+        /// Places every tile at its own cell coordinates.
+        ///
+        /// One rectangle per discovered chunk rather than one for the whole world: there is no
+        /// whole-world image any more, so a chunk's position is the only thing that says where its
+        /// pixels belong. The texture's row 0 is the chunk's south edge and UI Toolkit draws a
+        /// Texture2D the right way up, so the screen's top edge is the chunk's *north* and the
+        /// rectangle is anchored from there.
+        /// </summary>
+        void LayoutTiles()
+        {
+            if (_image == null) return;
+
+            IReadOnlyList<SectorMapImage.Tile> tiles = _image.Tiles;
+            float pixelsPerCell = PixelsPerSector / _sectorSizeCells;
+            float side = _image.ChunkSizeCells * pixelsPerCell;
+
+            for (int i = 0; i < _tileViews.Count; i++)
+            {
+                if (i >= tiles.Count)
+                {
+                    _tileViews[i].style.display = DisplayStyle.None;
+                    continue;
+                }
+
+                SectorMapImage.Tile tile = tiles[i];
+                Vector2 topLeft = PointAt(new Vector2(
+                    tile.OriginCell.X,
+                    tile.OriginCell.Y + tile.SizeCells));
+
+                VisualElement view = _tileViews[i];
+                view.style.display = DisplayStyle.Flex;
+                view.style.left = topLeft.x;
+                view.style.top = topLeft.y;
+                view.style.width = side;
+                view.style.height = side;
+            }
         }
 
         /// <summary>The sector coordinate under a point in this element, in fractional sectors.</summary>
@@ -352,11 +417,10 @@ namespace Game.UI
 
         void DrawOverlay(MeshGenerationContext context)
         {
-            if (_texture == null) return;
+            if (_image == null) return;
 
             Painter2D painter = context.painter2D;
 
-            DrawGridlines(painter);
             DrawMissionTargets(painter);
             DrawHoveredSector(painter);
             DrawSelectedSector(painter);
@@ -396,49 +460,6 @@ namespace Game.UI
                 painter.BeginPath();
                 painter.Arc(centre, 3.5f, 0f, 360f);
                 painter.Fill();
-            }
-        }
-
-        /// <summary>
-        /// The sector grid, drawn over the image rather than baked into it.
-        ///
-        /// Unknown sectors are all one colour, so without lines the unexplored world is a single flat
-        /// field with no squares in it - and a player asked to aim at a sector cannot see where one
-        /// ends. Drawn, not baked, because it belongs to the view's scale: at three pixels a sector
-        /// the lines would be the whole image.
-        /// </summary>
-        void DrawGridlines(Painter2D painter)
-        {
-            if (PixelsPerSector < GridlineMinPixelsPerSector) return;
-
-            Vector2 size = contentRect.size;
-            Vector2 topLeftSector = SectorAt(Vector2.zero);
-            Vector2 bottomRightSector = SectorAt(size);
-
-            painter.strokeColor = GridlineColour;
-            painter.lineWidth = 1f;
-
-            int firstColumn = Mathf.Max(0, Mathf.FloorToInt(topLeftSector.x));
-            int lastColumn = Mathf.Min(_sizeSectors, Mathf.CeilToInt(bottomRightSector.x));
-            for (int column = firstColumn; column <= lastColumn; column++)
-            {
-                float x = PointAt(new Vector2(column * _sectorSizeCells, 0f)).x;
-                painter.BeginPath();
-                painter.MoveTo(new Vector2(x, 0f));
-                painter.LineTo(new Vector2(x, size.y));
-                painter.Stroke();
-            }
-
-            // Rows count upward while the screen counts downward, hence the swapped bounds.
-            int firstRow = Mathf.Max(0, Mathf.FloorToInt(bottomRightSector.y));
-            int lastRow = Mathf.Min(_sizeSectors, Mathf.CeilToInt(topLeftSector.y));
-            for (int row = firstRow; row <= lastRow; row++)
-            {
-                float y = PointAt(new Vector2(0f, row * _sectorSizeCells)).y;
-                painter.BeginPath();
-                painter.MoveTo(new Vector2(0f, y));
-                painter.LineTo(new Vector2(size.x, y));
-                painter.Stroke();
             }
         }
 

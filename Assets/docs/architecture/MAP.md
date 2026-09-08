@@ -277,14 +277,49 @@ discovery that only ever adds, monotonic is a property of the construction rathe
 disagree about the partition — and caches against `DiscoveryRuntime.Version`, which already exists to
 answer "has anything actually changed". It allocates nothing.
 
-## 6. What is not built yet
+## 6. The zoomed-out map's terrain
+
+`SectorMapImage` (`Game.Presentation`) draws the revealed ground the map screen is built on: **one tile
+per discovered chunk, one texel per cell, and nothing anywhere else.**
+
+**The chunk is the unit because it is the unit everywhere else.** Discovery storage already creates a
+chunk on first write and reads an absent one as unknown (§2); this does the same with pixels. A tile is
+64×64 cells — 16 KB — so the introduction's four chunks around the Core cost 64 KB, and fifty chunks of
+a well-explored run cost 800 KB.
+
+**It was one texel per sector, and that was the right answer to the wrong question.** One texture for
+the whole world is 400 MB per cell against 1.5 MB per sector, so the sector won on arithmetic. But a
+sector is 16 cells and a mission reveals a disc of radius 8: the revelation was smaller than the texel
+it was painted into, `DiscoveryOf` answered `Partial`, and the whole 16-cell square took one flat
+colour. The map read as a grid of blocks. Tiling by chunk keeps the memory bounded *and* gives the
+revelation an edge.
+
+**Unknown is not a colour.** A cell nobody has seen is transparent and nothing is drawn there, so the
+black is the absence of a map rather than a shape painted on one — which is what gives the revealed
+patches their weight. An earlier version tinted it so a sector could be aimed at; a mission is aimed at
+a site now, and sites are drawn on top. See [`../carnets/expeditions.md`](../carnets/expeditions.md).
+
+**No sector grid is drawn over it.** Nobody counts squares on a strategic map, and the blocks the lines
+used to explain are gone with the per-sector image.
+
+Rebuilding is guarded on `DiscoveryRuntime.Version` and then per chunk on its own stamp, so a still
+frame costs one integer comparison and a revelation repaints the one chunk it landed in. The element
+holds one child per tile, reused across pans and zooms, so moving the view allocates nothing.
+
+## 7. What is not built yet
 
 - ~~Lazy terrain generation.~~ **Done, and differently than planned.** Terrain is no longer
   materialised at all: `GetTerrainType` computes its answer from the seed and the coordinate, so
   there is nothing to generate lazily. See `TERRAIN.md` §1.
-- **The zoomed-out map**, its hover and its risk display — the interface over §4, which the directive
-  places last. **The zone-choice screen comes before it**: until one exists, nothing launches at all
-  except through `ExpeditionZoneSystem.Choose` from a script (§5).
+- **The map screen itself.** Its terrain layer is built (§6); what is still missing is everything
+  stacked on it — the three scales and their breadcrumb, the zone separators, the sites with their four
+  states, and a side panel that changes with the scale. **The zone-choice screen comes before all of
+  it**: until one exists, nothing launches at all except through `ExpeditionZoneSystem.Choose` from a
+  script (§5).
+- **Mission trip traces.** The layer stack wants a band drawn along the path a returning robot took,
+  a third the width of the disc it opened. Nothing derives or stores a path: no mission carries one, and
+  the design that describes it (curved, derived from the seed, the target and the mission index) is not
+  implemented. The layer has no source, not merely no renderer.
 - ~~The field study.~~ **Done** — `MissionKind.Reconnaissance`, three sites per zone, in the mining
   band like a prospection. See §5.
 - ~~A third explorer robot.~~ **Not missing — gone.** It came from the abnormal signal, which has been

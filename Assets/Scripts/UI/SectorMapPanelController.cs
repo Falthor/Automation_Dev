@@ -116,7 +116,7 @@ namespace Game.UI
             if (_bound) return true;
             if (gameRuntime.SectorMap == null || gameRuntime.Sectors == null || gameRuntime.World == null) return false;
 
-            _map.Bind(gameRuntime.SectorMap.Texture, gameRuntime.SectorMap.SizeSectors,
+            _map.Bind(gameRuntime.SectorMap, gameRuntime.Sectors.Columns,
                 gameRuntime.Sectors.SectorSizeCells, gameRuntime.World.CoreCenterCells);
 
             _bound = true;
@@ -138,8 +138,9 @@ namespace Game.UI
             if (keyboard != null) _map.PanByKeyboard(PanDirection(keyboard), Time.unscaledDeltaTime);
 
             // The image rebuilds itself only when discovery moved, so this is a version comparison on
-            // a still frame - see SectorMapImage.
-            gameRuntime.SectorMap.Refresh();
+            // a still frame - see SectorMapImage. A rebuild can have brought a chunk into existence,
+            // which is the only moment the element needs a child it does not already have.
+            if (gameRuntime.SectorMap.Refresh()) _map.SyncTiles();
             _map.SetCoreRadius(gameRuntime.World.ActionRadiusCells);
 
             _missionTargets.Clear();

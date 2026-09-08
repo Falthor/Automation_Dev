@@ -342,6 +342,39 @@ vide dans toute sauvegarde existante. C'était le dernier moment où ce déplace
 explorations lointaines et 3 récupérations — **neuf quêtes lançables**, ce que §7 annonçait. Contre 20
 charges, le solo en dépense 9 et le binôme 18 : l'arbitrage existe enfin, avec deux charges de marge.
 
+### Le terrain de la carte : pourquoi la teinte de l'inconnu a été levée
+
+**Une demande explicite, satisfaite puis retirée — et il faut que la levée soit écrite là où la demande
+se lit.** `SectorMapImage` peignait l'inconnu en `(30,36,44)`, une teinte au-dessus du fond du panneau,
+parce qu'un secteur invisible ne pouvait pas être visé. C'était une réponse juste à un vrai problème.
+
+La conception l'a résolu autrement depuis : **on ne vise plus un secteur nu, on vise un site.** Les
+sites sont dessinés par-dessus, donc cliquables même sur du noir ; et l'étude de terrain elle-même, seul
+type qui aurait pu demander un clic libre sur du terrain vide, est devenue un site posé. Le besoin qui
+justifiait la teinte a disparu, et le noir redevient l'absence.
+
+Quelqu'un qui lisait l'ancien commentaire y trouvait la demande sans savoir qu'elle avait été levée.
+C'est le même principe que le conflit « reconnaissance » : **une décision se documente à l'endroit où
+quelqu'un serait tenté de la défaire**, pas seulement là où elle a été prise.
+
+**Le texel par secteur était la bonne réponse à la mauvaise question.** « Comment couvrir 10 000 cases »
+donne 400 Mo par case contre 1,5 Mo par secteur ; le secteur gagne à l'arithmétique. Mais un secteur
+fait 16 cases et une mission révèle un disque de rayon 8 : la révélation était **plus petite que le
+texel où on la peignait**, donc `DiscoveryOf` rendait `Partial` et le carré entier prenait une couleur
+unie. La carte se lisait comme une grille de blocs — précisément ce que la directive veut supprimer.
+
+Retirer les traits de grille sans toucher à l'image aurait laissé les blocs **privés de ce qui les
+expliquait** : un écran pire que l'actuel. C'est ce raisonnement qui a fait grossir le commit plutôt que
+de le livrer conforme au périmètre et inutile.
+
+Le bon découpage était celui utilisé partout ailleurs : le chunk, créé à la première écriture, exactement
+comme l'état de découverte. Mesuré en jeu : **4 tuiles, 64 Ko**, pour le disque du Noyau à cheval sur
+quatre chunks.
+
+**Une couche de l'empilement n'a aucune source.** Les traces de trajet demandent le chemin d'une mission
+rentrée ; rien ne le dérive ni ne le stocke, et §8 de la directive des zones décrit une dérivation qui
+n'est pas implémentée. Ce n'est pas un rendu qui manque, c'est la donnée.
+
 ### Le test du pochoir est faible, et voici par où le renforcer
 
 Écrit **avant** d'avoir la mesure, délibérément : plus tard, cette note deviendrait la justification
