@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Gameplay.Missions;
 using Game.Gameplay.Sectors;
 using Game.Grid;
@@ -36,6 +37,9 @@ namespace Game.UI
         Label _fleet;
 
         bool _bound;
+
+        /// <summary>Reused each frame rather than allocated: this is rebuilt every Update and holds at most MaxConcurrentMissions entries.</summary>
+        readonly List<int> _missionTargets = new List<int>();
 
         /// <summary>Every kind, always in this order, so the same mission is always in the same place in the list.</summary>
         static readonly MissionKind[] Kinds =
@@ -138,6 +142,13 @@ namespace Game.UI
             gameRuntime.SectorMap.Refresh();
             _map.SetCoreRadius(gameRuntime.World.ActionRadiusCells);
 
+            _missionTargets.Clear();
+            if (gameRuntime.Missions != null)
+            {
+                foreach (MissionRuntime mission in gameRuntime.Missions.InFlight) _missionTargets.Add(mission.TargetSector);
+            }
+            _map.SetMissionTargets(_missionTargets);
+
             RenderTarget();
         }
 
@@ -174,6 +185,10 @@ namespace Game.UI
             _targetState.text = unknown
                 ? "Aucun robot n'y est allé."
                 : $"Risque estimé : {RiskLabel(gameRuntime.SectorCatalog.RiskOf(sector))}";
+
+            // In words as well as on the map: the amber outline says where, this says how long.
+            string underway = MissionUnderwayTo(sector);
+            if (underway != null) _targetState.text += "\n" + underway;
 
             RenderMissions(sector);
         }
@@ -238,6 +253,19 @@ namespace Game.UI
         {
             gameRuntime.Missions.TryLaunch(kind, sector, gameRuntime.World.ActionRadiusCells, out _);
             RenderTarget();
+        }
+
+        /// <summary>What is already on its way to this sector, or null when nothing is. Names the kind, because two different missions to one place are two different questions.</summary>
+        string MissionUnderwayTo(int sector)
+        {
+            if (gameRuntime.Missions == null) return null;
+
+            foreach (MissionRuntime mission in gameRuntime.Missions.InFlight)
+            {
+                if (mission.TargetSector != sector) continue;
+                return $"{KindLabel(mission.Kind)} en cours · {FormatDuration(mission.RemainingSeconds)}";
+            }
+            return null;
         }
 
         /// <summary>What the fleet has left, which is the one number that decides whether any of this is possible at all.</summary>

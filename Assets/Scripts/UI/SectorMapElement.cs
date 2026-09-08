@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -60,6 +61,9 @@ namespace Game.UI
         /// <summary>Faint on purpose. The grid is there so a sector reads as a square you can point at, not so it can be counted.</summary>
         static readonly Color GridlineColour = new Color(1f, 1f, 1f, 0.07f);
 
+        /// <summary>A sector a robot is on its way to. The amber this project already uses for "under way" - the research row in progress wears the same.</summary>
+        static readonly Color MissionColour = new Color(0.937f, 0.624f, 0.153f, 1f);
+
         readonly VisualElement _image = new VisualElement();
         readonly VisualElement _overlay = new VisualElement();
 
@@ -75,6 +79,9 @@ namespace Game.UI
 
         /// <summary>The sector a mission would be aimed at, or -1. Survives the pointer leaving, unlike the hover: it is a decision, not a glance.</summary>
         public int SelectedSector { get; private set; } = -1;
+
+        /// <summary>Sectors a robot is currently on its way to. Marked so the player can see at a glance where the fleet already is, without reading a list.</summary>
+        readonly List<int> _missionTargets = new List<int>();
 
         public event Action<int> HoveredSectorChanged;
 
@@ -249,6 +256,35 @@ namespace Game.UI
         /// <summary>Drops the aim, for the panel to call when it opens on a new session of looking.</summary>
         public void ClearSelection() => SetSelected(-1);
 
+        /// <summary>
+        /// Tells the map where the fleet currently is. Safe to call every frame: it repaints only
+        /// when the set actually changes, which is twice per mission - once on launch, once on
+        /// landing.
+        /// </summary>
+        public void SetMissionTargets(IReadOnlyList<int> targets)
+        {
+            if (SameAsCurrent(targets)) return;
+
+            _missionTargets.Clear();
+            if (targets != null) _missionTargets.AddRange(targets);
+            _overlay.MarkDirtyRepaint();
+        }
+
+        bool SameAsCurrent(IReadOnlyList<int> targets)
+        {
+            int count = targets?.Count ?? 0;
+            if (count != _missionTargets.Count) return false;
+
+            for (int i = 0; i < count; i++)
+            {
+                if (targets[i] != _missionTargets[i]) return false;
+            }
+            return true;
+        }
+
+        /// <summary>Whether a robot is on its way to this sector. Read by the panel so the side pane can say so in words as well.</summary>
+        public bool HasMissionTo(int sector) => _missionTargets.Contains(sector);
+
         void SetHovered(int sector)
         {
             if (sector == HoveredSector) return;
@@ -321,10 +357,46 @@ namespace Game.UI
             Painter2D painter = context.painter2D;
 
             DrawGridlines(painter);
+            DrawMissionTargets(painter);
             DrawHoveredSector(painter);
             DrawSelectedSector(painter);
             DrawRadius(painter);
             DrawCore(painter);
+        }
+
+        /// <summary>
+        /// Where the fleet already is.
+        /// </summary>
+        /// <remarks>
+        /// Drawn as an outline <b>and</b> a centre mark, because the two answer at different scales:
+        /// zoomed in, the outline says which square; zoomed out to the whole world, a sector is a few
+        /// pixels across and only a mark of its own remains visible. Without either, the one thing a
+        /// player most needs from this map - is a robot already handling that? - could only be
+        /// answered by reading a list somewhere else.
+        /// </remarks>
+        void DrawMissionTargets(Painter2D painter)
+        {
+            if (_missionTargets.Count == 0) return;
+
+            foreach (int sector in _missionTargets)
+            {
+                if (sector < 0 || sector >= _sizeSectors * _sizeSectors) continue;
+
+                painter.strokeColor = MissionColour;
+                painter.lineWidth = 2f;
+                StrokeSector(painter, sector);
+
+                int column = sector % _sizeSectors;
+                int row = sector / _sizeSectors;
+                Vector2 centre = PointAt(new Vector2(
+                    (column + 0.5f) * _sectorSizeCells,
+                    (row + 0.5f) * _sectorSizeCells));
+
+                painter.fillColor = MissionColour;
+                painter.BeginPath();
+                painter.Arc(centre, 3.5f, 0f, 360f);
+                painter.Fill();
+            }
         }
 
         /// <summary>
