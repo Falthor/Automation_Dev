@@ -2345,6 +2345,10 @@
     margin-top: 6px;
 }
 
+.sector-map-zone-card-progress {
+    margin-top: 6px;
+}
+
 .sector-map-explore-button {
     height: 30px;
     margin: 10px 0 0 0;

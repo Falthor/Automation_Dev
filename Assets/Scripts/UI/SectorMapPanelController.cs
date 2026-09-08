@@ -48,6 +48,9 @@ namespace Game.UI
         Label _zoneCardMapped;
         Label _zoneCardStatus;
         Label _zoneCardMission;
+        VisualElement _zoneCardProgress;
+        VisualElement _zoneCardProgressFill;
+        Label _zoneCardProgressValue;
         Button _exploreButton;
 
         VisualElement _crumbs;
@@ -115,6 +118,9 @@ namespace Game.UI
             _zoneCardMapped = panelRoot.Q<Label>("SectorMapZoneCardMapped");
             _zoneCardStatus = panelRoot.Q<Label>("SectorMapZoneCardStatus");
             _zoneCardMission = panelRoot.Q<Label>("SectorMapZoneCardMission");
+            _zoneCardProgress = panelRoot.Q<VisualElement>("SectorMapZoneCardProgress");
+            _zoneCardProgressFill = panelRoot.Q<VisualElement>("SectorMapZoneCardProgressFill");
+            _zoneCardProgressValue = panelRoot.Q<Label>("SectorMapZoneCardProgressValue");
 
             // Built once, from the UXML, and never rebuilt - see RenderMissions for what happens to a
             // button this pane makes and remakes.
@@ -417,7 +423,10 @@ namespace Game.UI
         {
             _siteMarkers.Clear();
 
-            if (Zones != null && Zones.ChosenZone >= 0)
+            // <b>Nothing until a robot has reported.</b> A zone's content is derived the moment it is
+            // chosen, but the player has not been told any of it - the discovery is what comes back with
+            // the list, and marks appearing before it would make that mission pointless.
+            if (Zones != null && Zones.ChosenZone >= 0 && Zones.IsSurveyed(Zones.ChosenZone))
             {
                 foreach (ExpeditionZoneSite site in Zones.SitesOf(Zones.ChosenZone))
                 {
@@ -668,11 +677,15 @@ namespace Game.UI
             // asking a question the map cannot answer yet. The zone's entry sector is what the mission
             // is actually aimed at, and it is the same distance in all six - which is why what the
             // panel says here is true and identical everywhere.
-            bool aimsAtZones = _map.AimsAtZones;
-            _zoneCard.EnableInClassList("hidden", !aimsAtZones);
-            _sections.EnableInClassList("hidden", aimsAtZones);
+            // <b>The card outlives the choice.</b> It stays up until a robot has reported from the zone,
+            // because until then there is still nothing else to say: the sections below it describe
+            // sites, and the mission that lists them has not come back. What changes in between is the
+            // card itself - the button becomes the progress of the thing it started.
+            bool showsCard = _map.AimsAtZones || AwaitingSurvey;
+            _zoneCard.EnableInClassList("hidden", !showsCard);
+            _sections.EnableInClassList("hidden", showsCard);
 
-            if (aimsAtZones)
+            if (showsCard)
             {
                 RenderZoneCard();
                 return;
@@ -717,7 +730,9 @@ namespace Game.UI
         /// </summary>
         void RenderZoneCard()
         {
-            int zone = _map.SelectedZone;
+            // Once chosen, the card is about the zone that was chosen - the pointer is free to wander
+            // over the five that are shut, and what it passes over must not replace what is underway.
+            int zone = Zones != null && Zones.ChosenZone >= 0 ? Zones.ChosenZone : _map.SelectedZone;
 
             if (zone < 0)
             {
@@ -726,6 +741,7 @@ namespace Game.UI
                 _zoneCardStatus.text = "Survolez une zone pour la lire.";
                 _zoneCardMission.text = string.Empty;
                 _zoneImage.style.backgroundImage = default;
+                _zoneCardProgress.EnableInClassList("hidden", true);
                 _exploreButton.SetEnabled(false);
                 return;
             }
@@ -735,7 +751,17 @@ namespace Game.UI
 
             float mapped = Zones.CartographyOf(zone, gameRuntime.Discovery).Ratio;
             _zoneCardMapped.text = $"Cartographie : {mapped * 100f:0.0} %".Replace('.', ',');
+
+            MissionRuntime underway = DiscoveryUnderway(zone);
+            if (underway != null)
+            {
+                RenderDiscoveryUnderway(underway);
+                return;
+            }
+
             _zoneCardStatus.text = mapped > 0f ? "Statut : exploration en cours" : "Statut : non exploré";
+            _zoneCardProgress.EnableInClassList("hidden", true);
+            _exploreButton.text = "Explorer";
 
             int entry = Zones.EntrySectorOf(zone);
             if (entry < 0)
@@ -756,6 +782,43 @@ namespace Game.UI
 
             _exploreButton.SetEnabled(refusal == MissionSystem.LaunchRefusal.None);
         }
+
+        /// <summary>
+        /// The same card, while the robots are out: the button becomes the state of what it started.
+        ///
+        /// <b>The bar is the mission's own clock, not the cartography.</b> Ground opens on arrival, so a
+        /// cartography bar would sit at zero for half the trip and then jump - which reads as a stall
+        /// rather than as a journey.
+        /// </summary>
+        void RenderDiscoveryUnderway(MissionRuntime mission)
+        {
+            float progress = Mathf.Clamp01(mission.ElapsedSeconds / mission.TotalSeconds);
+
+            _zoneCardStatus.text = "Statut : robots en route";
+            _zoneCardMission.text = $"Découverte · retour dans {FormatDuration(mission.RemainingSeconds)}";
+
+            _zoneCardProgress.EnableInClassList("hidden", false);
+            _zoneCardProgressFill.style.width = new StyleLength(Length.Percent(progress * 100f));
+            _zoneCardProgressValue.text = $"{progress * 100f:0} %";
+
+            _exploreButton.text = "En cours";
+            _exploreButton.SetEnabled(false);
+        }
+
+        /// <summary>The mission on its way into this zone, or null. Any kind: what the card is waiting for is a robot coming back, whatever it went for.</summary>
+        MissionRuntime DiscoveryUnderway(int zone)
+        {
+            if (gameRuntime.Missions == null || Zones == null) return null;
+
+            foreach (MissionRuntime mission in gameRuntime.Missions.InFlight)
+            {
+                if (Zones.ZoneOfSector(mission.TargetSector) == zone) return mission;
+            }
+            return null;
+        }
+
+        /// <summary>A zone is chosen and no robot has reported from it yet - the whole interval the card covers after the launch.</summary>
+        bool AwaitingSurvey => Zones != null && Zones.ChosenZone >= 0 && !Zones.IsSurveyed(Zones.ChosenZone);
 
         /// <summary>The picture of a direction, or nothing when none was wired. Indexed by zone, so the six differ from one another and stay put across sessions.</summary>
         StyleBackground ImageOf(int zone)
@@ -782,11 +845,10 @@ namespace Game.UI
             int entry = Zones.EntrySectorOf(zone);
             if (entry < 0) return;
 
+            // <b>The view stays where it is.</b> Zooming into the zone on launch would show the player a
+            // place they have not been to yet - the whole point of the mission they just sent. The map
+            // goes there when there is something to see, which is when the robots report.
             Launch(DiscoveryKind, entry);
-
-            // The robots left for somewhere; the map goes there. Framing the zone is also what ends the
-            // aiming mode on screen, so the choice and its consequence are one movement.
-            FrameZone(zone);
         }
 
         /// <summary>
@@ -977,12 +1039,13 @@ namespace Game.UI
 
             SectorGrid grid = gameRuntime.Sectors;
 
-            // The one rule this panel exists to hold. Everything below the check is information a
-            // robot brought back; above it, there is nothing to say but the state.
+            // The one rule this panel exists to hold. Everything below the check is information a robot
+            // brought back; above it there is nothing to say - and <b>saying "non reconnu" is still
+            // saying something</b>. The map is mostly unknown ground, so a footer that announced it
+            // followed the pointer everywhere repeating that the dark is dark. Silence carries it.
             if (grid.IsWhollyUnknown(sector, gameRuntime.Discovery))
             {
-                _hoverName.text = "Secteur non reconnu";
-                _hoverDetail.text = "Aucun robot n'y est allé.";
+                ShowNothingHovered();
                 return;
             }
 

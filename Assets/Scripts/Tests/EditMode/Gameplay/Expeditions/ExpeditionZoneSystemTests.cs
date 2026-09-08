@@ -691,6 +691,57 @@ namespace Game.Tests.EditMode.Gameplay.Expeditions
         }
 
         /// <summary>
+        /// Which zones have been visited survives a reload. Without it, a run that had already been told
+        /// what its zone holds would come back to an empty map and have to send a second discovery into
+        /// ground it has already opened.
+        /// </summary>
+        [Test]
+        public void WhichZonesHaveBeenSurveyed_SurvivesARoundTrip()
+        {
+            Fixture original = NewFixture();
+            original.Zones.Choose(4, original.Discovery);
+            original.Zones.MarkSurveyed(4);
+
+            JObject captured = original.Zones.CaptureState();
+
+            Fixture reloaded = NewFixture();
+            Assert.IsFalse(reloaded.Zones.IsSurveyed(4), "precondition: a fresh run has been nowhere");
+
+            reloaded.Zones.RestoreState(captured);
+
+            Assert.IsTrue(reloaded.Zones.IsSurveyed(4));
+            Assert.IsFalse(reloaded.Zones.IsSurveyed(2), "a zone nobody visited stays unvisited");
+
+            original.Destroy();
+            reloaded.Destroy();
+        }
+
+        /// <summary>
+        /// <b>The one restore that does not default to "nothing has happened".</b> A save written before
+        /// the key comes from a build where choosing a zone showed its sites at once, so restoring it as
+        /// unvisited would take back what that run had already been given - and would ask the player to
+        /// re-explore ground they had explored. A run that chose nothing still surveys nothing.
+        /// </summary>
+        [Test]
+        public void ASaveFromBeforeTheKey_RestoresItsChosenZoneAsSurveyed()
+        {
+            Fixture fixture = NewFixture();
+
+            fixture.Zones.RestoreState(new JObject { ["chosen"] = 3, ["inner"] = 22f });
+
+            Assert.IsTrue(fixture.Zones.IsSurveyed(3));
+            Assert.IsFalse(fixture.Zones.IsSurveyed(1), "and only the one it had chosen");
+
+            fixture.Zones.RestoreState(new JObject { ["chosen"] = -1 });
+            for (int zone = 0; zone < fixture.Zones.ZoneCount; zone++)
+            {
+                Assert.IsFalse(fixture.Zones.IsSurveyed(zone), "a run that chose nothing has been nowhere");
+            }
+
+            fixture.Destroy();
+        }
+
+        /// <summary>
         /// The inner edge travels because the layout was frozen against it. A save restored into a run
         /// whose Core has since grown must keep the zones it was mapping, or the ground under a
         /// half-finished map moves.

@@ -54,6 +54,9 @@ namespace Game.Gameplay.Expeditions
         readonly int[] _totalCells;
         readonly int[] _discoveredCells;
 
+        /// <summary>Which zones a robot has reported from - see <see cref="IsSurveyed"/>.</summary>
+        readonly bool[] _surveyed;
+
         /// <summary>The discovery version the counts above were measured at, and -1 for never.</summary>
         int _measuredAtDiscoveryVersion = -1;
 
@@ -76,6 +79,7 @@ namespace Game.Gameplay.Expeditions
             _sites = new List<ExpeditionZoneSite>[count];
             _totalCells = new int[count];
             _discoveredCells = new int[count];
+            _surveyed = new bool[count];
         }
 
         // ---- Geometry ----
@@ -211,6 +215,29 @@ namespace Game.Gameplay.Expeditions
             if (changed) _sites[zoneIndex] = null;
 
             return ZoneChoiceRefusal.None;
+        }
+
+        /// <summary>
+        /// Whether a robot has reported from this zone.
+        ///
+        /// <b>What the first mission is for.</b> A zone that has been chosen is still only a direction:
+        /// its content exists - it was derived the moment it was picked - but nobody has been to see it.
+        /// The discovery comes back with the list, and that is when the zone's sites become something the
+        /// player can be shown and can aim at. Before it lands there is one thing on offer, which is
+        /// going to look.
+        ///
+        /// Per zone rather than a single flag: moving on to another zone once this one is mapped starts
+        /// that one unsurveyed, and coming back to one already visited must not un-know it.
+        /// </summary>
+        public bool IsSurveyed(int zoneIndex)
+            => zoneIndex >= 0 && zoneIndex < _surveyed.Length && _surveyed[zoneIndex];
+
+        /// <summary>Records that a mission has reported from this zone. Idempotent: the second report tells the player nothing new.</summary>
+        public void MarkSurveyed(int zoneIndex)
+        {
+            if (zoneIndex < 0 || zoneIndex >= _surveyed.Length) return;
+
+            _surveyed[zoneIndex] = true;
         }
 
         /// <summary>
@@ -648,11 +675,18 @@ namespace Game.Gameplay.Expeditions
                 }
             }
 
+            var surveyed = new JArray();
+            for (int zone = 0; zone < _surveyed.Length; zone++)
+            {
+                if (_surveyed[zone]) surveyed.Add(zone);
+            }
+
             return new JObject
             {
                 ["chosen"] = ChosenZone,
                 ["inner"] = InnerRadiusCells,
-                ["sites"] = sites
+                ["sites"] = sites,
+                ["surveyed"] = surveyed
             };
         }
 
@@ -671,6 +705,7 @@ namespace Game.Gameplay.Expeditions
         {
             ChosenZone = -1;
             System.Array.Clear(_sites, 0, _sites.Length);
+            System.Array.Clear(_surveyed, 0, _surveyed.Length);
             _layoutVersion++;
 
             if (state == null) return;
@@ -680,6 +715,20 @@ namespace Game.Gameplay.Expeditions
 
             float? inner = state.Value<float?>("inner");
             if (inner.HasValue) InnerRadiusCells = Mathf.Max(0f, inner.Value);
+
+            // <b>An absent key restores the chosen zone as surveyed, not as unvisited.</b> The usual
+            // tolerant default - "nothing has happened yet" - would be wrong here in the one way that
+            // matters: a save written before this key comes from a build where choosing a zone showed
+            // its sites, so restoring it as unsurveyed would take away what that run had already been
+            // given. A run that has chosen nothing still surveys nothing.
+            if (state["surveyed"] is JArray surveyed)
+            {
+                foreach (JToken token in surveyed) MarkSurveyed(token.Value<int?>() ?? -1);
+            }
+            else
+            {
+                MarkSurveyed(ChosenZone);
+            }
 
             if (!(state["sites"] is JArray saved)) return;
 

@@ -1281,6 +1281,41 @@ namespace Game.Tests.EditMode.Gameplay.Missions
         // ---- Helpers ----
 
         /// <summary>Runs the clock until a mission has landed and its report is ready.</summary>
+        /// <summary>
+        /// <b>What the first mission is for.</b> A zone that has been chosen is still a direction: its
+        /// content was derived at the choice, but nobody has been to see it, and the map has nothing to
+        /// show until a robot reports. The positive comes with the negative on purpose - "not surveyed"
+        /// on its own passes just as well in a world where the mission never launched.
+        /// </summary>
+        [Test]
+        public void AZone_IsNotSurveyedUntilAMissionReportsFromIt()
+        {
+            Fixture fixture = NewFixture(withZones: true);
+            SummonRobots(fixture);
+            fixture.Zones.Choose(0, fixture.Discovery);
+
+            Assert.IsFalse(fixture.Zones.IsSurveyed(0), "choosing a direction is not going there");
+
+            int target = UnknownSector(fixture, 0);
+            Assert.AreEqual(MissionSystem.LaunchRefusal.None,
+                fixture.Missions.TryLaunch(MissionKind.Prospection, target, CoreRadius, out MissionRuntime mission));
+
+            Assert.IsFalse(fixture.Zones.IsSurveyed(0), "nothing is known while the robot is still out");
+
+            RunToReport(fixture, mission);
+
+            Assert.AreEqual(MissionState.Close, mission.State, "precondition: it actually came home and delivered");
+            Assert.IsTrue(fixture.Zones.IsSurveyed(0), "the report is what lists the zone");
+
+            // The other five are untouched: a robot that went east says nothing about the west.
+            for (int zone = 1; zone < fixture.Zones.ZoneCount; zone++)
+            {
+                Assert.IsFalse(fixture.Zones.IsSurveyed(zone), $"zone {zone} was never visited");
+            }
+
+            fixture.Destroy();
+        }
+
         static void RunToReport(Fixture fixture, MissionRuntime mission)
         {
             for (int guard = 0; guard < 1000 && mission.State != MissionState.Rapport; guard++)

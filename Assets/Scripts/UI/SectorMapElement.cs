@@ -151,7 +151,14 @@ namespace Game.UI
         /// A little wider than the mark itself: the marks are small at every scale the map reaches, and
         /// a target that has to be hit exactly is a target the player fights.
         /// </summary>
-        const float SitePickRadiusPixels = 13f;
+        const float SitePickRadiusPixels = 16f;
+
+        /// <summary>
+        /// How big a site's mark is. <b>Fixed in pixels, not in cells</b>: a site is a place to send a
+        /// mission, not a thing with a size on the ground, and one that shrank with the zoom would vanish
+        /// at exactly the scale where the player is choosing between several.
+        /// </summary>
+        const float SiteRadiusPixels = 8f;
 
         public event Action<int> HoveredSectorChanged;
 
@@ -431,7 +438,12 @@ namespace Game.UI
             if (site >= 0)
             {
                 SetSelectedSite(site);
-                SetSelected(SectorIndexAt(evt.localPosition));
+
+                // <b>The site's own sector, never the one under the cursor.</b> A mark is picked from up
+                // to SitePickRadiusPixels away, which at the zone scale is a good fraction of a sector -
+                // so a click on the edge of a mark could aim the mission at the square next door and
+                // send the robots somewhere the player never pointed at.
+                SetSelected(SectorOfCell(_sites[site].CellPosition));
             }
         }
 
@@ -766,6 +778,16 @@ namespace Game.UI
             return row * _sizeSectors + column;
         }
 
+        /// <summary>The sector a cell coordinate belongs to, or -1 off the map.</summary>
+        int SectorOfCell(Vector2 cells)
+        {
+            int column = Mathf.FloorToInt(cells.x / _sectorSizeCells);
+            int row = Mathf.FloorToInt(cells.y / _sectorSizeCells);
+
+            if (column < 0 || row < 0 || column >= _sizeSectors || row >= _sizeSectors) return -1;
+            return row * _sizeSectors + column;
+        }
+
         /// <summary>Where a cell coordinate lands in this element, in pixels.</summary>
         Vector2 PointAt(Vector2 cells)
         {
@@ -869,7 +891,12 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// Six lines from the edge of the Core's ground outward, at the whole-world scale only.
+        /// Six lines from the edge of the Core's ground outward, and the ring that closes them.
+        ///
+        /// <b>Drawn at every scale.</b> They were the whole-world view's alone, which meant a zone's own
+        /// edges disappeared the moment the player zoomed in to work inside it - exactly when knowing
+        /// where it ends matters most, since everything outside is refused. Zoomed in they simply leave
+        /// the screen, which is the correct way for a boundary to be far away.
         ///
         /// <b>They are dim on purpose.</b> Their job is to show that other directions exist, not to
         /// offer them - the five that are not being worked have no terrain to show and must not ask the
@@ -878,7 +905,7 @@ namespace Game.UI
         /// </summary>
         void DrawZoneSeparators(Painter2D painter)
         {
-            if (_zoneCount <= 0 || !ShowsWholeRing) return;
+            if (_zoneCount <= 0) return;
 
             Vector2 centre = PointAt(_coreCentreCells);
             float pixelsPerCell = PixelsPerSector / _sectorSizeCells;
@@ -982,20 +1009,20 @@ namespace Game.UI
                     case MapSiteState.Available:
                         painter.fillColor = site.Tint;
                         painter.BeginPath();
-                        painter.Arc(point, 5f, 0f, 360f);
+                        painter.Arc(point, SiteRadiusPixels, 0f, 360f);
                         painter.Fill();
                         break;
 
                     case MapSiteState.Highlighted:
                         painter.fillColor = site.Tint;
                         painter.BeginPath();
-                        painter.Arc(point, 5f, 0f, 360f);
+                        painter.Arc(point, SiteRadiusPixels, 0f, 360f);
                         painter.Fill();
 
                         painter.strokeColor = site.Tint;
                         painter.lineWidth = 2f;
                         painter.BeginPath();
-                        painter.Arc(point, 10f, 0f, 360f);
+                        painter.Arc(point, SiteRadiusPixels * 1.8f, 0f, 360f);
                         painter.Stroke();
                         break;
 
@@ -1004,12 +1031,12 @@ namespace Game.UI
                         painter.strokeColor = DoneColour;
                         painter.lineWidth = 1.5f;
                         painter.BeginPath();
-                        painter.Arc(point, 5f, 0f, 360f);
+                        painter.Arc(point, SiteRadiusPixels, 0f, 360f);
                         painter.Stroke();
 
                         painter.fillColor = DoneColour;
                         painter.BeginPath();
-                        painter.Arc(point, 2f, 0f, 360f);
+                        painter.Arc(point, SiteRadiusPixels * 0.4f, 0f, 360f);
                         painter.Fill();
                         break;
 
@@ -1017,7 +1044,7 @@ namespace Game.UI
                         painter.strokeColor = LockedColour;
                         painter.lineWidth = 1.5f;
                         painter.BeginPath();
-                        painter.Arc(point, 5f, 0f, 360f);
+                        painter.Arc(point, SiteRadiusPixels, 0f, 360f);
                         painter.Stroke();
                         break;
                 }
@@ -1029,7 +1056,7 @@ namespace Game.UI
                     painter.strokeColor = SelectionColour;
                     painter.lineWidth = 2.5f;
                     painter.BeginPath();
-                    painter.Arc(point, 12f, 0f, 360f);
+                    painter.Arc(point, SiteRadiusPixels * 2f, 0f, 360f);
                     painter.Stroke();
                 }
                 else if (i == HoveredSite)
@@ -1037,7 +1064,7 @@ namespace Game.UI
                     painter.strokeColor = HoverColour;
                     painter.lineWidth = 1.5f;
                     painter.BeginPath();
-                    painter.Arc(point, 10f, 0f, 360f);
+                    painter.Arc(point, SiteRadiusPixels * 1.7f, 0f, 360f);
                     painter.Stroke();
                 }
             }

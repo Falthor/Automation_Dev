@@ -29,6 +29,16 @@
                         <ui:Label name="SectorMapZoneCardMapped" text="" class="sector-map-zone-card-line" />
                         <ui:Label name="SectorMapZoneCardStatus" text="" class="sector-map-zone-card-line" />
                         <ui:Label name="SectorMapZoneCardMission" text="" class="sector-map-zone-card-mission" />
+
+                        <!-- Only while the discovery is out. A bar that sat at zero before the launch
+                             would be a progress bar for something nobody has started. -->
+                        <ui:VisualElement name="SectorMapZoneCardProgress" class="sector-map-zone-card-progress hidden">
+                            <ui:VisualElement class="sector-map-progress-track">
+                                <ui:VisualElement name="SectorMapZoneCardProgressFill" class="sector-map-progress-fill" />
+                            </ui:VisualElement>
+                            <ui:Label name="SectorMapZoneCardProgressValue" text="" class="sector-map-figure mono-value" />
+                        </ui:VisualElement>
+
                         <ui:Label name="SectorMapZoneCardWarning" text="Lancer ici choisit la zone et verrouille les cinq autres jusqu'à sa complétion."
                                   class="sector-map-lock-warning" />
                         <ui:Button name="SectorMapExploreButton" text="Explorer" class="sector-map-explore-button" />

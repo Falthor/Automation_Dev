@@ -466,6 +466,12 @@ namespace Game.Gameplay.Missions
             // that crossed the map without seeing anything on the way would be incoherent.
             RevealTrail(mission.TargetSector);
 
+            // <b>The report is what puts a zone's sites on the map.</b> Choosing a direction only says
+            // where the run will happen; what is in it is what the first mission goes to find out, and
+            // it comes back with the whole list rather than with the corner it stood in. Any kind counts
+            // - a robot that has been is a robot that has seen.
+            _zones?.MarkSurveyed(_zones.ZoneOfSector(mission.TargetSector));
+
             if (mission.Kind == MissionKind.Recuperation)
             {
                 if (mission.Outcome != MissionOutcome.RecolteManquee) _consumedSites.Add(mission.TargetSector);
