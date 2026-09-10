@@ -319,7 +319,9 @@ namespace Game.UI
             {
                 Toggle();
             }
-            else if (_isOpen && keyboard.escapeKey.wasPressedThisFrame)
+            // Not gated on _isOpen any more: the arbiter already knows a global panel is open, and
+            // this controller's own flag is only a mirror of that (see EscapeArbiter).
+            else if (gameRuntime.Escape.IsClaimedBy(EscapeClaimant.GlobalPanel))
             {
                 gameRuntime.Selection.CloseGlobalPanel();
             }

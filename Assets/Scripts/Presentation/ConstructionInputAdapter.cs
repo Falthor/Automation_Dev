@@ -153,12 +153,22 @@ namespace Game.Presentation
             // screen while the panel moved on to another building.
             HandleHoverHighlight(cellUnderMouse);
 
+            // Also above the gate, and for a reason the arbiter creates. An armed tool outranks an
+            // open panel for Escape, and a panel can be open with a tool still armed - clicking a
+            // notification opens a robot's own panel without disarming anything. Left below the
+            // gate, this method would never run in exactly the case the arbiter awards to it, and
+            // the key would go to nobody at all.
+            if (gameRuntime.Escape.IsClaimedBy(EscapeClaimant.ArmedTool))
+            {
+                gameRuntime.Construction.Cancel();
+            }
+
             // A UI panel (Building menu, Storage panel, ...) owns mouse/keyboard input while
             // open, and for one extra frame after it closes - otherwise the same click that
             // selected a menu item or closed a panel also lands on the world underneath it.
             if (gameRuntime.IsUIBlockingInput || gameRuntime.LastMenuCloseFrame == Time.frameCount) return;
 
-            HandleRotateAndCancel();
+            HandleRotateAndInputSide();
 
             UpdateGhost(cellUnderMouse);
             HandlePlacement(cellUnderMouse);
@@ -259,7 +269,11 @@ namespace Game.Presentation
             }
         }
 
-        void HandleRotateAndCancel()
+        /// <summary>
+        /// R and T, which only mean anything while the ghost is up. Escape used to live here and
+        /// moved above the UI gate - see Update.
+        /// </summary>
+        void HandleRotateAndInputSide()
         {
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
@@ -281,10 +295,6 @@ namespace Game.Presentation
                     gameRuntime.Construction.PreviewInputSide, gameRuntime.Construction.PreviewRotation));
             }
 
-            if (keyboard.escapeKey.wasPressedThisFrame)
-            {
-                gameRuntime.Construction.Cancel();
-            }
         }
 
         /// <summary>

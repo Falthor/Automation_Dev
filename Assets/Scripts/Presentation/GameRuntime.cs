@@ -213,6 +213,13 @@ namespace Game.Presentation
         public WorldGenerator World { get; private set; }
         public TransportSystem Transport { get; private set; }
         public SelectionRuntime Selection { get; private set; }
+
+        /// <summary>
+        /// Who Escape belongs to this frame. The one reader of the key, and the one place the
+        /// priority between an armed tool, a contextual panel and a global panel is written down -
+        /// see <see cref="EscapeArbiter"/> for why fourteen independent readers could not hold it.
+        /// </summary>
+        public EscapeArbiter Escape { get; private set; }
         public ItemVisualSync ItemVisuals => itemVisuals;
         public ConstructionSiteVisualSync ConstructionSiteVisuals => constructionSiteVisuals;
         public ItemDatabase Items => itemDatabase;
@@ -466,6 +473,11 @@ namespace Game.Presentation
             {
                 if (building == null) LastMenuCloseFrame = Time.frameCount;
             };
+
+            // Built here rather than beside Construction because both branches above assign that
+            // field, and the arbiter holds a reference: constructed any earlier, a loaded game
+            // would have handed it the service the new-game branch made and thrown away.
+            Escape = new EscapeArbiter(Selection, Construction);
 
             // New Game "generates a save" (per the main-menu contract) - the initial state is
             // written immediately so a Load right after New Game (without ever quitting) still

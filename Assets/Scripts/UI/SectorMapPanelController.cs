@@ -115,7 +115,7 @@ namespace Game.UI
             if (!Bind()) return;
 
             Keyboard keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            if (gameRuntime.Escape.IsClaimedBy(EscapeClaimant.GlobalPanel))
             {
                 Hide();
                 return;

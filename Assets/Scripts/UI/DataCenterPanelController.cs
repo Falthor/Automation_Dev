@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using Game.Gameplay.Buildings;
 using Game.Presentation;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 namespace Game.UI
@@ -115,8 +114,7 @@ namespace Game.UI
         {
             if (_selected == null) return;
 
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            if (gameRuntime.Escape.IsClaimedBy(EscapeClaimant.ContextualPanel))
             {
                 Close();
                 return;

@@ -76,3 +76,40 @@ référencé « nulle part ». Il l'est : c'est l'asset **project-wide actions**
 depuis `ProjectSettings/ProjectSettings.asset` et `EditorBuildSettings.asset`. La recherche avait
 couvert les scripts, les scènes et les prefabs — pas `ProjectSettings/`. Un inventaire d'entrées doit
 lire les réglages du projet, parce que c'est un endroit où une référence ne ressemble pas à du code.
+
+## 4. Quatorze `if` ne peuvent pas tenir une priorité
+
+Échap était lu en quatorze endroits. Aucun n'arbitrait : chacun sortait tôt sur son propre état —
+« suis-je le panneau actif », « quelque chose est-il sélectionné », « suis-je ouvert ». Ça
+fonctionnait, et uniquement parce que ces états se trouvaient être mutuellement exclusifs. **Rien ne
+le garantissait et aucun test ne regardait.**
+
+Et un cas se recouvre pour de bon : rien ne désarme un outil de construction quand un panneau
+s'ouvre, et cliquer une notification de datacard ouvre le panneau d'un robot. Un joueur peut donc
+avoir un fantôme sur le curseur et un panneau ancré en même temps.
+
+**L'exclusivité est dérivée, pas gagnée à la course.** Pas de drapeau « déjà consommé », pas d'ordre
+entre les lecteurs, parce qu'il n'y a rien à consommer : le revendiquant est une fonction pure de
+l'état, donc il ne peut nommer qu'un seul étage, et il nomme le même quel que soit l'ordre dans
+lequel Unity fait tourner les composants. Un drapeau aurait rendu la réponse dépendante du premier
+`Update` exécuté — le même défaut, déplacé d'un cran.
+
+**Ce que l'arbitre a rendu visible en arrivant.** L'étage de l'outil armé était derrière la barrière
+`IsUIBlockingInput` de `ConstructionInputAdapter`. Or l'outil armé gagne contre un panneau ouvert :
+laissé sous la barrière, le lecteur n'aurait jamais tourné dans exactement le cas que l'arbitre lui
+attribue, et la touche serait allée à personne. Échap est donc remonté au-dessus de la barrière,
+tandis que R et T restent en dessous — ils n'ont de sens que quand le fantôme est affiché.
+
+**Le quatrième étage demandé n'existait pas.** La consigne parlait d'« outil armé, panneau
+contextuel, panneau global, puis le menu ». Mais `BuildingMenuController.IsOpen` n'est pas un état
+indépendant : il est écrit depuis `GlobalPanelChanged` et n'est qu'un miroir de
+`ActiveGlobalPanel == PanelName`. Le menu bâtiments **est** un panneau global. Trois étages, pas
+quatre.
+
+**Ce que le test peut tenir, et ce qu'il ne peut pas.** `IsClaimedBy` lit la touche physique, et un
+test EditMode n'a pas de clavier à presser. Ce n'est pas un trou : l'exclusivité ne vit pas dans la
+lecture de la touche. `IsClaimedBy` vaut `revendiquant == le mien && la touche est baissée`, et le
+revendiquant est une valeur unique — donc épingler le revendiquant épingle qu'au plus un lecteur peut
+agir. La table des huit combinaisons est écrite en littéraux plutôt que bouclée : un changement
+d'ordre doit échouer contre une table que quelqu'un a décidée, pas contre une règle que le test
+recalcule comme le code.

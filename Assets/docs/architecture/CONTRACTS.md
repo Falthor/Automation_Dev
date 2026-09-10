@@ -419,6 +419,14 @@ UI may:
 - display static definition data
 - react to selection/state notifications
 
+### 12a. Escape
+
+**`GameRuntime.Escape` is the only reader of the Escape key, and the only place the priority between the things Escape can close is written down.** A consumer asks `IsClaimedBy(EscapeClaimant)` with its own tier and acts only if it gets `true`; it must not read the key itself, and it must not infer its turn from its own state alone.
+
+The stack is **armed construction tool, then contextual panel, then global panel**. `EscapeArbiter.Claimant` derives it from `ConstructionService.Selected` and `SelectionRuntime`'s slots, so exactly one tier is ever the claimant - there is no consumed flag, and no dependence on which component's `Update` runs first. `EscapeClaimant.None` is a description of the state and never something a consumer can claim.
+
+Two consequences a new consumer has to know. A contextual and a global panel cannot both be open (§7's mutual exclusion), so their relative order never decides anything today - it is stated so that it stays decided here if that changes. And an armed tool **can** coexist with an open panel, since nothing disarms a tool when a panel opens: a consumer serving the `ArmedTool` tier must therefore not sit behind a gate on `IsUIBlockingInput`, or the key is awarded to a reader that never runs.
+
 ## 13. Contract evolution
 
 Changing a public contract is an architectural change.

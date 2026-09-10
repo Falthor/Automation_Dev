@@ -5,7 +5,6 @@ using Game.Gameplay.Buildings;
 using Game.Gameplay.Items;
 using Game.Presentation;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 namespace Game.UI
@@ -121,8 +120,7 @@ namespace Game.UI
         {
             if (gameRuntime.Selection.ActiveGlobalPanel != PanelName) return;
 
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            if (gameRuntime.Escape.IsClaimedBy(EscapeClaimant.GlobalPanel))
             {
                 Hide();
                 return;
