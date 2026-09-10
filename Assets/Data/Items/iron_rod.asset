@@ -15,7 +15,7 @@ MonoBehaviour:
   id: iron_rod
   type: 2
   displayName: Tige de fer
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 7611a94b32beba14091b76e958756faf, type: 3}
   fallbackColor: {r: 0.66, g: 0.68, b: 0.7, a: 1}
   cuOutput: 0
   powerKw: 0

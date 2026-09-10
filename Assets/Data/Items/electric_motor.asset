@@ -15,7 +15,7 @@ MonoBehaviour:
   id: electric_motor
   type: 2
   displayName: Moteur électrique
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: ecb8d6a32619b1943bb36e3be8a20bec, type: 3}
   fallbackColor: {r: 0.35, g: 0.42, b: 0.5, a: 1}
   cuOutput: 0
   powerKw: 0
