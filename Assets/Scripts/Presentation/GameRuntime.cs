@@ -447,10 +447,20 @@ namespace Game.Presentation
             // the probes out. The robots stand at the base from the first frame.
             if (explorerRobotSettings != null)
             {
-                ExplorerRobots = new ExplorerRobotSystem(explorerRobotSettings, Discovery,
-                    World?.CoreCenterCells ?? Vector2.zero, ExplorerParkOrigin(), Terrain.Seed);
+                // The measurement log only exists when its switch is on, which it is not by default.
+                // A development instrument - see ExplorerHarvestLog, and delete this line with it.
+                ExplorerHarvestLog harvestLog = explorerRobotSettings.LogHarvestMeasurements
+                    ? new ExplorerHarvestLog()
+                    : null;
+
+                ExplorerRobots = new ExplorerRobotSystem(explorerRobotSettings, Discovery, Compute,
+                    World?.CoreCenterCells ?? Vector2.zero, ExplorerParkOrigin(), Terrain.Seed, harvestLog);
                 ExplorerRobots.RestoreState(loadedSave?.ExplorerRobots);
+                ExplorerRobots.StockFilled += AnnounceFullStock;
+
                 _explorerFleet = new ExplorerRobotFleetView(Grid, explorerRobotSettings, buildingShadowSettings);
+
+                if (harvestLog != null) Debug.Log($"ExplorerHarvestLog: measuring to {harvestLog.Path}");
             }
 
             // Before the missions, which are gated on it. The inner edge is read off the Core once, here,
@@ -863,6 +873,50 @@ namespace Game.Presentation
         /// Called from the tick and idempotent: the disc is only walked when the radius has actually
         /// moved since the last pass, so repeating it every frame allocates nothing and walks nothing.
         /// </summary>
+        /// <summary>
+        /// A robot has filled up. Posted from here rather than from the robot system because the
+        /// notification <b>leads to the action</b>: clicking it takes the camera to that robot and
+        /// opens its panel, ready for the recall - and only this side of the project knows what a
+        /// camera or a selection is. The gameplay side raises an event and stays clear of both.
+        ///
+        /// <b>It names the robot</b>, there being two of them, and it never repeats: the system fires
+        /// once per filling and re-arms only when the robot unloads. Repeating it would be nagging
+        /// about a decision the player has already made by ignoring it.
+        /// </summary>
+        void AnnounceFullStock(ExplorerRobotRuntime robot)
+        {
+            if (Notifications == null || robot == null) return;
+
+            Notifications.Post(NotificationSeverity.Info,
+                $"Robot {robot.Index + 1} : {ExplorerRobots.MaxCards} datacards. Rappelez-le pour les encaisser.",
+                FullStockNoticeSeconds,
+                countdownSeconds: null,
+                onActivated: () => GoToRobot(robot));
+        }
+
+        /// <summary>How long the full-stock notice stays up. Long enough to be read while the eye is elsewhere on a factory, short enough not to sit there.</summary>
+        const float FullStockNoticeSeconds = 12f;
+
+        /// <summary>
+        /// Puts the camera on a robot and opens its panel. The notification's whole point - an event
+        /// that hands over the action instead of only announcing it.
+        ///
+        /// The camera is snapped rather than eased: the robot is moving, so the position is only true
+        /// at the instant it is asked for.
+        /// </summary>
+        void GoToRobot(ExplorerRobotRuntime robot)
+        {
+            Camera worldCamera = _depthSortCamera != null ? _depthSortCamera : Camera.main;
+            if (worldCamera != null && Grid != null)
+            {
+                Vector3 target = new Vector3(robot.Position.x * Grid.CellSize, robot.Position.y * Grid.CellSize,
+                    worldCamera.transform.position.z);
+                worldCamera.transform.position = target;
+            }
+
+            Selection?.SelectExplorerRobot(robot);
+        }
+
         /// <summary>
         /// Says what can see, and from where. The whole of the observation field: everything else
         /// derives from this list.

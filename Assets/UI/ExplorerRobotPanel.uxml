@@ -18,9 +18,17 @@
                     <ui:Label text="DISTANCE" class="production-rate-caption" />
                     <ui:Label name="ExplorerRobotDistance" text="" class="production-rate-value" />
                 </ui:VisualElement>
+                <!-- The one line that decides whether the player recalls the robot: a full one, or
+                     one going back over ground it already opened, looks exactly like one at work. -->
                 <ui:VisualElement class="production-rate-row">
-                    <ui:Label text="SORTIES" class="production-rate-caption" />
-                    <ui:Label name="ExplorerRobotSorties" text="" class="production-rate-value" />
+                    <ui:Label text="RÉCOLTE" class="production-rate-caption" />
+                    <ui:Label name="ExplorerRobotHarvest" text="" class="production-rate-value" />
+                </ui:VisualElement>
+
+                <ui:Label text="DATACARDS" class="extractor-section-label section-label-spaced" />
+                <ui:VisualElement class="storage-card">
+                    <ui:VisualElement name="ExplorerRobotCardIcon" class="storage-card-icon" />
+                    <ui:Label name="ExplorerRobotCards" text="0/10" class="storage-card-count" />
                 </ui:VisualElement>
 
                 <!-- One button, whose label is the state read back: a robot at rest is offered the

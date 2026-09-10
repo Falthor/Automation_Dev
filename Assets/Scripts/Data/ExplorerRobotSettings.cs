@@ -68,6 +68,50 @@ namespace Game.Data
         /// <summary>Angle of each probe off the current heading. 45 degrees puts them squarely left and right of where the robot is going without either looking backwards.</summary>
         [SerializeField, Range(5f, 90f)] float probeAngleDegrees = 45f;
 
+        [Header("Récolte de datacards")]
+
+        /// <summary>
+        /// How much <b>newly discovered</b> ground buys one datacard, in cells.
+        ///
+        /// <b>Counted in new ground, never in time or distance</b>, which is the whole rule: a robot
+        /// circling inside what it has already opened must earn nothing, or the game pays for standing
+        /// still. Provisional - the figure assumes a robot opening virgin ground at every step, which
+        /// only happens on a clean frontier, and the real yield is what
+        /// <see cref="LogHarvestMeasurements"/> exists to find out.
+        /// </summary>
+        [SerializeField, Min(1f)] float cellsPerCard = 2500f;
+
+        /// <summary>What one card is worth when the robot gets home. Cards are spent the instant it docks - they are never an item and never enter a container.</summary>
+        [SerializeField, Min(0f)] float cardValueCu = 250f;
+
+        /// <summary>
+        /// How far either side of <see cref="CellsPerCard"/> a card's own threshold is drawn, as a
+        /// fraction. Drawn afresh for every card.
+        ///
+        /// <b>Not decoration.</b> At zero the card falls at an exact interval and the player reads a
+        /// metronome rather than a find.
+        /// </summary>
+        [SerializeField, Range(0f, 0.9f)] float cardThresholdJitterFraction = 0.3f;
+
+        /// <summary>How many cards a robot can carry. At the cap it stops harvesting and keeps wandering - there is no automatic return, the player decides.</summary>
+        [SerializeField, Min(1)] int maxCards = 10;
+
+        /// <summary>What a datacard looks like. Shown beside the count on the robot's panel; cards are not items, so this is the only place the art appears.</summary>
+        [SerializeField] Sprite cardSprite;
+
+        [Header("Mesure (outil de développement — à retirer)")]
+
+        /// <summary>
+        /// Writes a CSV of the real harvest rate beside the save, one line a minute.
+        ///
+        /// <b>An instrument, not a feature, and it is meant to be deleted.</b> It exists to answer one
+        /// question - what a robot actually opens per minute, against the guessed
+        /// <see cref="CellsPerCard"/> - because the guess assumes a clean frontier and the wander does
+        /// not provide one. Off by default; nothing reads it, and nothing should come to depend on it.
+        /// See the notebook entry, which is the only place it is documented.
+        /// </summary>
+        [SerializeField] bool logHarvestMeasurements;
+
         [Header("Rappel à la limite")]
 
         /// <summary>How hard the heading is bent back inwards past the limit. Well above the drift, so leaving is never a tug-of-war the drift can win.</summary>
@@ -88,6 +132,13 @@ namespace Game.Data
         public float ProbeAngleDegrees => probeAngleDegrees;
         public float BoundaryTurnDegreesPerSecond => boundaryTurnDegreesPerSecond;
         public float BoundaryRampCells => boundaryRampCells;
+
+        public float CellsPerCard => cellsPerCard;
+        public float CardValueCu => cardValueCu;
+        public float CardThresholdJitterFraction => cardThresholdJitterFraction;
+        public int MaxCards => maxCards;
+        public Sprite CardSprite => cardSprite;
+        public bool LogHarvestMeasurements => logHarvestMeasurements;
 
         /// <summary>
         /// How wide a patch each probe measures, rather than the single cell under it.

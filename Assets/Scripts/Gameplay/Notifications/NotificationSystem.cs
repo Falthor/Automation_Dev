@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Game.Gameplay.Notifications
@@ -13,8 +14,8 @@ namespace Game.Gameplay.Notifications
     /// </summary>
     public sealed class NotificationSystem
     {
-        readonly List<(int id, NotificationSeverity severity, string message, float remaining, float durationSeconds, float? countdownRemaining)> _active =
-            new List<(int, NotificationSeverity, string, float, float, float?)>();
+        readonly List<(int id, NotificationSeverity severity, string message, float remaining, float durationSeconds, float? countdownRemaining, Action onActivated)> _active =
+            new List<(int, NotificationSeverity, string, float, float, float?, Action)>();
 
         int _nextId;
 
@@ -27,7 +28,7 @@ namespace Game.Gameplay.Notifications
                 for (int i = _active.Count - 1; i >= 0; i--)
                 {
                     var entry = _active[i];
-                    result.Add(new Notification(entry.id, entry.severity, entry.message, entry.remaining, entry.countdownRemaining));
+                    result.Add(new Notification(entry.id, entry.severity, entry.message, entry.remaining, entry.countdownRemaining, entry.onActivated));
                 }
                 return result;
             }
@@ -38,11 +39,16 @@ namespace Game.Gameplay.Notifications
         /// UI (e.g. "20s before this cargo is lost") - NotificationSystem does not itself destroy
         /// anything when a countdown reaches zero; the caller owning that consequence (e.g.
         /// BuilderRobotRuntime) drives its own timer and simply mirrors it here for display.
+        ///
+        /// onActivated is optional and makes the notification clickable: an event that leads to an
+        /// action rather than only announcing itself. The delegate belongs to the caller - this system
+        /// stores it, hands it to the UI and never invokes it.
         /// </summary>
-        public int Post(NotificationSeverity severity, string message, float durationSeconds, float? countdownSeconds = null)
+        public int Post(NotificationSeverity severity, string message, float durationSeconds,
+            float? countdownSeconds = null, Action onActivated = null)
         {
             int id = _nextId++;
-            _active.Add((id, severity, message, durationSeconds, durationSeconds, countdownSeconds));
+            _active.Add((id, severity, message, durationSeconds, durationSeconds, countdownSeconds, onActivated));
             return id;
         }
 

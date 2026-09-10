@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using Game.Core;
 using Game.Data;
+using Game.Gameplay.Compute;
 using Game.Grid;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
@@ -25,9 +27,18 @@ namespace Game.Gameplay.Exploration
     /// </summary>
     public sealed class ExplorerRobotSystem
     {
-        /// <summary>Distinct salts so the drift and the departure bearing are independent draws rather than two views of one number.</summary>
+        /// <summary>Distinct salts so the drift, the departure bearing and a card's threshold are independent draws rather than three views of one number.</summary>
         const uint DriftSalt = 0x1B873593;
         const uint DepartureSalt = 0xCC9E2D51;
+        const uint CardSalt = 0x85EBCA6B;
+
+        /// <summary>
+        /// Consecutive fruitless reveals before the panel calls it "known ground". A display
+        /// hysteresis, not a balance value, which is why it is a constant here rather than a setting:
+        /// one barren reveal happens constantly at the edge of a trail, and reporting on it would make
+        /// the line flicker while the robot is plainly still working.
+        /// </summary>
+        const int BarrenRevealsBeforeKnownGround = 4;
 
         /// <summary>1/phi. Consecutive sorties step by this fraction of a turn - about 137.5 degrees - which is what stops two of them ever leaving on nearly the same bearing.</summary>
         const float GoldenRatioConjugate = 0.6180339887f;
@@ -55,18 +66,35 @@ namespace Game.Gameplay.Exploration
 
         readonly ExplorerRobotSettings _settings;
         readonly DiscoveryRuntime _discovery;
+
+        /// <summary>Where a card's worth lands when the robot docks. Optional: null is a world where cards are carried and never cashed, which is what a headless test of the harvest itself wants.</summary>
+        readonly ComputeSystem _compute;
+
         readonly Vector2 _coreCentreCells;
         readonly int _seed;
 
         readonly List<ExplorerRobotRuntime> _robots = new List<ExplorerRobotRuntime>();
 
+        /// <summary>The measurement instrument, or null when it is switched off - which it is by default. To be deleted with the rest of it; see ExplorerHarvestLog.</summary>
+        readonly ExplorerHarvestLog _log;
+
+        /// <summary>
+        /// Raised the moment a robot's card stock fills, and <b>once per filling</b>: the alert it
+        /// drives is a decision put to the player, and repeating it would be nagging about a choice
+        /// already made. Cleared when the robot unloads, so the next load can announce itself.
+        /// </summary>
+        public event Action<ExplorerRobotRuntime> StockFilled;
+
         public ExplorerRobotSystem(ExplorerRobotSettings settings, DiscoveryRuntime discovery,
-            Vector2 coreCentreCells, Vector2 parkOrigin, int seed)
+            ComputeSystem compute, Vector2 coreCentreCells, Vector2 parkOrigin, int seed,
+            ExplorerHarvestLog log = null)
         {
             _settings = settings;
             _discovery = discovery;
+            _compute = compute;
             _coreCentreCells = coreCentreCells;
             _seed = seed;
+            _log = log;
 
             int count = settings != null ? settings.RobotCount : 0;
             for (int i = 0; i < count; i++)
@@ -78,6 +106,9 @@ namespace Game.Gameplay.Exploration
         }
 
         public IReadOnlyList<ExplorerRobotRuntime> Robots => _robots;
+
+        /// <summary>How many cards a robot can carry. Read by the panel so the "3/10" it shows and the cap the harvest enforces are one number.</summary>
+        public int MaxCards => _settings != null ? _settings.MaxCards : 0;
 
         /// <summary>How many are out - either wandering or on their way back. What a caller wants in order to say "2 dehors" without walking the list itself.</summary>
         public int OutCount
@@ -175,22 +206,45 @@ namespace Game.Gameplay.Exploration
 
             float step = _settings.SpeedCellsPerSecond * deltaSeconds;
 
-            foreach (ExplorerRobotRuntime robot in _robots)
+            for (int i = 0; i < _robots.Count; i++)
             {
+                ExplorerRobotRuntime robot = _robots[i];
+
                 switch (robot.State)
                 {
                     case ExplorerRobotState.Exploring:
                         Wander(robot, step, deltaSeconds);
+                        _log?.RecordDistance(step);
                         break;
 
                     case ExplorerRobotState.Returning:
                         // Straight home, and it uncovers nothing: the way back is ground the robot
                         // has already walked, and a return leg that revealed would draw a second
                         // corridor across a map the outward leg has already answered for.
-                        if (robot.StepTowards(robot.HomePosition, step)) robot.State = ExplorerRobotState.Idle;
+                        if (robot.StepTowards(robot.HomePosition, step)) Dock(robot);
                         break;
                 }
             }
+
+            _log?.Tick(deltaSeconds);
+        }
+
+        /// <summary>
+        /// The robot is home. <b>Cards are spent here and instantly</b> - they are never an item and
+        /// never enter a container, so there is nothing to unload and nothing for the transport
+        /// network to carry.
+        ///
+        /// Unloading is also what re-arms the alert: the stock that announced itself is gone, so the
+        /// next one may announce itself in turn.
+        /// </summary>
+        void Dock(ExplorerRobotRuntime robot)
+        {
+            robot.State = ExplorerRobotState.Idle;
+
+            if (robot.Cards > 0) _compute?.Grant(robot.Cards * _settings.CardValueCu);
+
+            robot.Cards = 0;
+            robot.StockAlertRaised = false;
         }
 
         void Wander(ExplorerRobotRuntime robot, float stepCells, float deltaSeconds)
@@ -283,7 +337,93 @@ namespace Game.Gameplay.Exploration
         void RevealAround(ExplorerRobotRuntime robot)
         {
             robot.LastRevealPosition = robot.Position;
-            _discovery?.RevealDisc(robot.Position, _settings.RevealRadiusCells);
+
+            // RevealDisc already answers how many cells it changed, which is exactly the figure the
+            // harvest is paid on. Counting it here rather than re-walking the disc is what makes
+            // "new ground, not time or distance" free: the number is a by-product of revealing.
+            int newCells = _discovery?.RevealDisc(robot.Position, _settings.RevealRadiusCells) ?? 0;
+
+            robot.RevealsWithoutNewGround = newCells > 0 ? 0 : robot.RevealsWithoutNewGround + 1;
+            _log?.RecordNewCells(newCells);
+
+            Harvest(robot, newCells);
+        }
+
+        /// <summary>
+        /// Credits newly opened ground towards the next card, and hands over as many cards as that
+        /// buys.
+        ///
+        /// <b>Paid in new ground and nothing else.</b> A robot going back over what it has already
+        /// opened reveals nothing, so <paramref name="newCells"/> is zero and it earns nothing -
+        /// which is the rule the whole feature rests on: paying for time or distance would pay for
+        /// standing still.
+        ///
+        /// A loop rather than a single test, because one reveal can cross a threshold outright at a
+        /// wide radius, and the remainder carries over rather than being discarded.
+        /// </summary>
+        void Harvest(ExplorerRobotRuntime robot, int newCells)
+        {
+            // At the cap it stops earning and keeps wandering - and stops accumulating too, so a
+            // full robot does not bank progress it was never paid for.
+            if (newCells <= 0 || robot.Cards >= _settings.MaxCards) return;
+
+            robot.NewCellsSinceLastCard += newCells;
+
+            while (robot.Cards < _settings.MaxCards)
+            {
+                float threshold = CardThreshold(robot);
+                if (robot.NewCellsSinceLastCard < threshold) break;
+
+                robot.NewCellsSinceLastCard -= threshold;
+                robot.CardsDrawnEver++;
+                robot.Cards++;
+                _log?.RecordCard();
+            }
+
+            if (robot.Cards < _settings.MaxCards || robot.StockAlertRaised) return;
+
+            robot.StockAlertRaised = true;
+            StockFilled?.Invoke(robot);
+        }
+
+        /// <summary>
+        /// How much new ground this robot's next card costs, jittered either side of the setting.
+        ///
+        /// <b>Drawn from the card's ordinal, not from the clock</b>, so it survives a save: a reload
+        /// re-derives the same threshold the robot was already part-way towards, instead of re-rolling
+        /// it. Through <see cref="DeterministicHash"/> for the same reason the drift is.
+        ///
+        /// The jitter is what stops the card being a metronome. Without it every card falls at exactly
+        /// the same interval and the player reads a counter rather than a find.
+        /// </summary>
+        public float CardThreshold(ExplorerRobotRuntime robot)
+        {
+            float unit = (float)DeterministicHash.Unit(_seed + robot.Index * 7919, robot.CardsDrawnEver, CardSalt);
+            float jitter = (unit * 2f - 1f) * _settings.CardThresholdJitterFraction;
+
+            return Mathf.Max(1f, _settings.CellsPerCard * (1f + jitter));
+        }
+
+        /// <summary>
+        /// What the robot's panel needs in order to say whether it is still earning - the one thing a
+        /// player has to know to decide about recalling it. A full robot that has been forgotten
+        /// otherwise looks exactly like one at work.
+        /// </summary>
+        public ExplorerHarvestState HarvestStateOf(ExplorerRobotRuntime robot)
+        {
+            if (robot == null) return ExplorerHarvestState.AtBase;
+
+            switch (robot.State)
+            {
+                case ExplorerRobotState.Idle: return ExplorerHarvestState.AtBase;
+                case ExplorerRobotState.Returning: return ExplorerHarvestState.Returning;
+            }
+
+            if (_settings != null && robot.Cards >= _settings.MaxCards) return ExplorerHarvestState.StockFull;
+
+            return robot.RevealsWithoutNewGround >= BarrenRevealsBeforeKnownGround
+                ? ExplorerHarvestState.OverKnownGround
+                : ExplorerHarvestState.Harvesting;
         }
 
         /// <summary>
@@ -329,7 +469,16 @@ namespace Game.Gameplay.Exploration
                     ["heading"] = robot.HeadingDegrees,
                     ["state"] = (int)robot.State,
                     ["phase"] = robot.DriftPhase,
-                    ["sorties"] = robot.SortieCount
+                    ["sorties"] = robot.SortieCount,
+
+                    // The load and the progress towards the next card. CardsDrawnEver is what the
+                    // next threshold is drawn from, so without it a reload re-rolls the threshold the
+                    // robot is already part-way towards; alerted keeps a reloaded full robot from
+                    // announcing itself a second time for the same load.
+                    ["cards"] = robot.Cards,
+                    ["cardCells"] = robot.NewCellsSinceLastCard,
+                    ["cardsEver"] = robot.CardsDrawnEver,
+                    ["alerted"] = robot.StockAlertRaised
                 });
             }
 
@@ -351,6 +500,11 @@ namespace Game.Gameplay.Exploration
                 robot.State = ExplorerRobotState.Idle;
                 robot.DriftPhase = 0f;
                 robot.SortieCount = 0;
+                robot.Cards = 0;
+                robot.NewCellsSinceLastCard = 0f;
+                robot.CardsDrawnEver = 0;
+                robot.StockAlertRaised = false;
+                robot.RevealsWithoutNewGround = 0;
             }
 
             if (!(state?["robots"] is JArray saved)) return;
@@ -368,6 +522,13 @@ namespace Game.Gameplay.Exploration
                 robot.State = (ExplorerRobotState)(json.Value<int?>("state") ?? 0);
                 robot.DriftPhase = json.Value<float?>("phase") ?? 0f;
                 robot.SortieCount = json.Value<int?>("sorties") ?? 0;
+
+                // Absent keys restore as an empty robot that has never earned - the truthful default
+                // for a save written before cards existed.
+                robot.Cards = json.Value<int?>("cards") ?? 0;
+                robot.NewCellsSinceLastCard = json.Value<float?>("cardCells") ?? 0f;
+                robot.CardsDrawnEver = json.Value<int?>("cardsEver") ?? 0;
+                robot.StockAlertRaised = json.Value<bool?>("alerted") ?? false;
             }
         }
     }

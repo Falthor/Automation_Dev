@@ -22,5 +22,11 @@ MonoBehaviour:
   unknownTurnDegreesPerSecond: 20
   probeDistanceCells: 30
   probeAngleDegrees: 45
+  cellsPerCard: 2500
+  cardValueCu: 250
+  cardThresholdJitterFraction: 0.3
+  maxCards: 10
+  cardSprite: {fileID: 21300000, guid: 84362d4a973e08947aa4ecff433f3df8, type: 3}
+  logHarvestMeasurements: 0
   boundaryTurnDegreesPerSecond: 30
   boundaryRampCells: 40

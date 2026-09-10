@@ -738,3 +738,82 @@ lisant, avale un clic qui n'a pas bougé d'un pixel.
 
 **Une nuance laissée telle quelle :** un appui qui commence sur un panneau et se relâche sur le monde
 route maintenant vers le monde. Rare, et il faut le faire exprès.
+
+## 20. Payer le terrain neuf, et rien d'autre
+
+Le robot ramasse des datacards en errant, dépensées instantanément en CU au retour. Prototype, suite du
+§17 ; les valeurs sont posées pour tourner.
+
+**La règle est la fréquence comptée en terrain neuf**, jamais en temps ni en distance : payer au temps
+paierait l'immobilité, et un robot qui tourne dans ce qu'il a déjà ouvert doit rapporter zéro.
+
+**Et cette règle était déjà gratuite.** `DiscoveryRuntime.RevealDisc` retourne depuis toujours le nombre
+de cases qu'il a réellement changées — c'est exactement le chiffre sur lequel la récolte se paie. Aucun
+parcours supplémentaire, aucun compteur parallèle : le nombre est un sous-produit de la révélation. Un
+champ « déjà récolté » par case aurait été une seconde source de vérité, et il aurait fallu le nettoyer.
+
+**Le seuil de chaque carte est tiré à part**, ±30 % autour de 2 500. Sans ça la carte tombe à intervalle
+exact et le joueur lit un métronome au lieu d'une trouvaille. Mesuré sur quarante cartes : de 1 818 à
+3 227.
+
+**Tiré de l'ordinal de la carte, pas de l'horloge.** `CardsDrawnEver` voyage donc dans la sauvegarde :
+sans lui, un rechargement re-tire le seuil vers lequel le robot était déjà à mi-chemin. Même raison que
+la phase de dérive au §17, et même passage par `DeterministicHash`.
+
+**Au plafond, le robot arrête de récolter *et* d'accumuler.** Continuer à banquer le terrain ouvert
+pendant qu'il ne peut plus rien porter le paierait pour un travail qu'il n'a pas pu faire. Il continue
+d'errer — être plein n'est pas une raison de rentrer, c'est au joueur de décider.
+
+**La ligne la plus importante du panneau n'est pas le compteur, c'est « Récolte ».** Un robot plein et un
+robot qui repasse sur sa propre trace rapportent tous les deux zéro, mais un seul mérite d'être rappelé.
+D'où un état à quatre valeurs plutôt qu'un booléen, et aucun chiffre de rendement : un débit n'est pas
+une décision. La détection du terrain connu a une hystérésis de quatre révélations stériles — une seule
+arrive constamment au bord d'une trace, et la ligne clignoterait alors que le robot travaille visiblement.
+
+**L'alerte mène à l'action, et c'est ce qui a dicté qui la poste.** Cliquer la notification recentre la
+caméra sur le robot et ouvre son panneau, prêt pour le rappel. Le système de robots ne sait pas ce qu'est
+une caméra ni une sélection : il lève un événement, et `GameRuntime` poste la notification en refermant
+sur les deux. `Notification` a donc gagné une `Action` optionnelle — un délégué fourni par le posteur,
+ce qui laisse la couche gameplay entièrement à l'écart de la présentation.
+
+**Seule une ligne actionnable prend le pointeur.** La bannière promettait de ne jamais bloquer
+l'interaction, racine en `PickingMode.Ignore` ; cette promesse tient toujours, parce que seules les
+lignes qui mènent quelque part deviennent pickables. Une teinte les distingue, sinon la moitié des
+lignes auraient l'air cliquables sans l'être.
+
+**Une fois par remplissage, jamais deux.** Le drapeau se réarme quand le robot se vide, pas quand il
+descend sous le plafond. Répéter l'alerte serait du harcèlement pour une décision que le joueur a déjà
+prise en l'ignorant — et un robot plein rechargé ne s'annonce pas de nouveau, puisque le drapeau voyage.
+
+**Un écart connu et non corrigé :** `NotificationSystem.Active` alloue une liste à chaque appel, et la
+bannière l'appelle chaque frame. C'est antérieur à ce prototype et hors de son périmètre ; la récolte
+elle-même n'alloue rien.
+
+### Le journal de mesure — À RETIRER
+
+`ExplorerHarvestLog` est un **instrument, pas une fonctionnalité**, et il est fait pour être supprimé.
+Il répond à une seule question : le seuil de 2 500 suppose du terrain vierge à chaque pas, ce qui
+n'arrive qu'en pleine frontière — l'attirance vers l'inconnu incline le cap sans l'obliger, et le rappel
+à 330 fait longer une frontière déjà ouverte. Le rendement réel est inconnu.
+
+Un CSV à côté de la sauvegarde (`BUILD.md` §6), une ligne par minute, derrière un interrupteur désactivé
+par défaut. La colonne de distance ne compte que l'exploration : le trajet de retour ne révèle rien par
+construction, donc l'inclure ferait dépendre le rendement de la fréquence à laquelle le joueur rappelle.
+
+**Pour le retirer :** supprimer `ExplorerHarvestLog.cs`, le champ `logHarvestMeasurements` sur
+`ExplorerRobotSettings`, et les quatre lignes qui l'alimentent dans `ExplorerRobotSystem` plus sa
+construction dans `GameRuntime`. Il n'est branché à rien d'autre et documenté nulle part ailleurs.
+
+### Une leçon d'outillage, payée deux fois
+
+Mon script de compilation hors ligne couvre les huit assemblies du jeu et **pas** `Game.Tests.EditMode` —
+le NUnit livré par Unity est un build net472 qui référence `mscorlib`, inconciliable avec la façade
+netstandard contre laquelle le reste compile. « OK ×8 » ne dit donc rien des tests, et j'ai lu ça comme
+une vérification. Le symptôme est trompeur : l'assembly de tests ne compilant pas, Unity ne recharge pas,
+donc le hook `[InitializeOnLoadMethod]` ne part pas, donc la sentinelle reste en place et le rapport
+n'arrive jamais — ça ressemble à de la lenteur, c'est une erreur de compilation.
+
+La bonne boucle est : tout écrire, **puis** `AssetDatabase.Refresh`, **puis lire la console** avec
+`Unity_GetConsoleLogs` — qui rend les erreurs immédiatement — et seulement ensuite sonder le rapport. Le
+rafraîchissement lancé avant la fin des éditions ne sert à rien, et le sondage à l'aveugle transforme une
+erreur de compilation en trois minutes d'attente. La raison est maintenant écrite dans le script lui-même.

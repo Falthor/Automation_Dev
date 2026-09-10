@@ -48,6 +48,35 @@ namespace Game.Gameplay.Exploration
         /// <summary>Where the last reveal disc was written, so the system can space them a cell apart instead of writing one per frame. Presentation-free bookkeeping; not saved, because a reloaded robot stands on ground it has already uncovered.</summary>
         public Vector2 LastRevealPosition { get; set; }
 
+        /// <summary>Datacards carried, capped by <c>ExplorerRobotSettings.MaxCards</c>. Spent the instant the robot docks - never an item, never in a container - and saved, so a reloaded robot keeps what it was carrying.</summary>
+        public int Cards { get; set; }
+
+        /// <summary>
+        /// Newly discovered ground credited towards the next card, in cells.
+        ///
+        /// A float because a card's threshold is jittered and lands off a whole number. It carries
+        /// over rather than being cleared at each card, so no fraction of explored ground is ever
+        /// lost to rounding.
+        /// </summary>
+        public float NewCellsSinceLastCard { get; set; }
+
+        /// <summary>
+        /// How many cards this robot has ever earned. <b>The index the next card's jittered threshold
+        /// is drawn from</b>, which is why it is state and travels in the save: without it a reload
+        /// would re-roll the threshold the robot is already part-way towards.
+        /// </summary>
+        public int CardsDrawnEver { get; set; }
+
+        /// <summary>Whether the "stock full" alert has already been raised for the load this robot is carrying. Cleared when it unloads, so the alert is once per filling rather than once per run.</summary>
+        public bool StockAlertRaised { get; set; }
+
+        /// <summary>
+        /// Consecutive reveals that turned up no new ground at all. What lets the panel say the robot
+        /// is going back over what it already knows rather than earning - not saved, since it is
+        /// re-established within a cell or two of travel.
+        /// </summary>
+        public int RevealsWithoutNewGround { get; set; }
+
         public ExplorerRobotRuntime(int index, Vector2 homePosition)
         {
             Index = index;

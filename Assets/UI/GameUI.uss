@@ -1628,6 +1628,18 @@
     max-width: 300px;
 }
 
+/* A row that leads somewhere. Only these take the pointer, so the tint is what says the row is
+   worth clicking - a banner whose items all looked alike would hide that half of them do nothing. */
+.notification-item-actionable {
+    background-color: rgba(24, 32, 39, 0.98);
+    border-color: rgba(85, 221, 245, 0.45);
+}
+
+.notification-item-actionable:hover {
+    background-color: rgba(32, 44, 54, 0.98);
+    border-color: rgb(85, 221, 245);
+}
+
 .notification-item-warning {
     border-left-color: rgb(232, 168, 61);
 }

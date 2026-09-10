@@ -1,4 +1,6 @@
+using Game.Core;
 using Game.Data;
+using Game.Gameplay.Compute;
 using Game.Gameplay.Exploration;
 using Game.Grid;
 using Newtonsoft.Json.Linq;
@@ -40,7 +42,11 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             float probeDistance = 30f,
             float probeAngle = 45f,
             float boundaryTurn = 30f,
-            float boundaryRamp = 40f)
+            float boundaryRamp = 40f,
+            float cellsPerCard = 2500f,
+            float cardValueCu = 250f,
+            float cardJitter = 0.3f,
+            int maxCards = 10)
         {
             var settings = ScriptableObject.CreateInstance<ExplorerRobotSettings>();
             var so = new SerializedObject(settings);
@@ -56,6 +62,10 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             so.FindProperty("probeAngleDegrees").floatValue = probeAngle;
             so.FindProperty("boundaryTurnDegreesPerSecond").floatValue = boundaryTurn;
             so.FindProperty("boundaryRampCells").floatValue = boundaryRamp;
+            so.FindProperty("cellsPerCard").floatValue = cellsPerCard;
+            so.FindProperty("cardValueCu").floatValue = cardValueCu;
+            so.FindProperty("cardThresholdJitterFraction").floatValue = cardJitter;
+            so.FindProperty("maxCards").intValue = maxCards;
 
             so.ApplyModifiedPropertiesWithoutUndo();
             return settings;
@@ -65,10 +75,23 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
 
         static ExplorerRobotSystem NewSystem(out DiscoveryRuntime discovery,
             ExplorerRobotSettings settings = null, int seed = Seed)
+            => NewSystem(out discovery, out _, settings, seed);
+
+        static ExplorerRobotSystem NewSystem(out DiscoveryRuntime discovery, out ComputeSystem compute,
+            ExplorerRobotSettings settings = null, int seed = Seed)
         {
             discovery = NewDiscovery();
-            return new ExplorerRobotSystem(settings ?? NewSettings(), discovery,
+            compute = new ComputeSystem();
+            return new ExplorerRobotSystem(settings ?? NewSettings(), discovery, compute,
                 CoreCentre, CoreCentre, seed);
+        }
+
+        static void RevealWholeMap(DiscoveryRuntime discovery)
+        {
+            for (int y = 0; y < MapSize; y++)
+            {
+                for (int x = 0; x < MapSize; x++) discovery.Reveal(new GridCoord(x, y));
+            }
         }
 
         /// <summary>Runs one robot for a while and hands back the path it walked, sampled once a second.</summary>
@@ -458,7 +481,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
         {
             Vector2 EndOfSortie(int seed)
             {
-                var system = new ExplorerRobotSystem(NewSettings(), NewDiscovery(), CoreCentre, CoreCentre, seed);
+                var system = new ExplorerRobotSystem(NewSettings(), NewDiscovery(), new ComputeSystem(), CoreCentre, CoreCentre, seed);
                 ExplorerRobotRuntime robot = system.Robots[0];
                 system.Toggle(robot);
                 WalkSortie(system, robot, 120f);
@@ -504,6 +527,256 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             Assert.AreSame(robot, system.At(robot.Position), "It has to stay catchable once it is out.");
         }
 
+        // ---- The harvest ----
+
+        /// <summary>
+        /// A card costs its own jittered threshold in <b>newly discovered</b> cells, and lands as soon
+        /// as that much has been opened. Measured against the real discovery count rather than an
+        /// internal counter, and bounded above by one reveal disc - the step that crossed the line
+        /// could not have opened more than that.
+        /// </summary>
+        [Test]
+        public void ACardLandsOnceTheThresholdOfNewGroundIsOpened()
+        {
+            ExplorerRobotSystem system = NewSystem(out DiscoveryRuntime discovery);
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            float threshold = system.CardThreshold(robot);
+
+            // Sampled before the departure, not after: setting out writes a reveal disc of its own
+            // and that ground is credited like any other. Measured after the Toggle, the count misses
+            // those hundred-odd cells and the card looks as though it arrived early.
+            int atDeparture = discovery.DiscoveredCount();
+            system.Toggle(robot);
+
+            // Enough travel to be sure of one card at any jitter, and it stops the moment one lands.
+            for (int i = 0; i < Mathf.RoundToInt(900f / Frame) && robot.Cards == 0; i++) system.Tick(Frame);
+
+            int opened = discovery.DiscoveredCount() - atDeparture;
+            TestContext.WriteLine("threshold " + threshold.ToString("0") + ", first card after " + opened + " new cells");
+
+            Assert.AreEqual(1, robot.Cards, "One card, and not two.");
+            Assert.GreaterOrEqual(opened, Mathf.FloorToInt(threshold),
+                "It cannot be paid before the ground is opened.");
+            Assert.Less(opened, threshold + 200f,
+                "Nor long after - the reveal that crossed the line opens a disc, not a region.");
+        }
+
+        /// <summary>The rule the whole feature rests on: paying for time or distance would pay for standing still.</summary>
+        [Test]
+        public void GoingBackOverKnownGroundEarnsNothing()
+        {
+            ExplorerRobotSystem system = NewSystem(out DiscoveryRuntime discovery);
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            RevealWholeMap(discovery);
+            int discovered = discovery.DiscoveredCount();
+
+            system.Toggle(robot);
+            WalkSortie(system, robot, 600f);
+
+            Assert.AreEqual(0, robot.Cards, "Nothing new was opened, so nothing was earned.");
+            Assert.AreEqual(discovered, discovery.DiscoveredCount(), "And nothing new was opened.");
+            Assert.AreEqual(ExplorerHarvestState.OverKnownGround, system.HarvestStateOf(robot),
+                "And the panel has to say so, or a robot earning nothing looks like one at work.");
+        }
+
+        [Test]
+        public void TheStockStopsAtTheCap_AndTheRobotKeepsWandering()
+        {
+            // A cheap card, so ten of them arrive inside a reasonable walk.
+            ExplorerRobotSystem system = NewSystem(out _, NewSettings(cellsPerCard: 60f, maxCards: 10));
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            system.Toggle(robot);
+            Vector2[] path = WalkSortie(system, robot, 600f);
+
+            Assert.AreEqual(10, robot.Cards, "Ten and no more.");
+            Assert.AreEqual(ExplorerRobotState.Exploring, robot.State,
+                "Full is not a reason to come home - that is the player's call.");
+            Assert.AreEqual(ExplorerHarvestState.StockFull, system.HarvestStateOf(robot));
+            Assert.Greater(PathLength(path), 100f, "And it went on wandering.");
+        }
+
+        [Test]
+        public void AFullRobotBanksNoFurtherProgress()
+        {
+            ExplorerRobotSystem system = NewSystem(out _, NewSettings(cellsPerCard: 60f, maxCards: 2));
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            system.Toggle(robot);
+            WalkSortie(system, robot, 150f);
+            Assert.AreEqual(2, robot.Cards);
+
+            float bankedWhenFull = robot.NewCellsSinceLastCard;
+            WalkSortie(system, robot, 300f);
+
+            Assert.AreEqual(bankedWhenFull, robot.NewCellsSinceLastCard,
+                "A full robot stops accumulating - otherwise it banks ground it could not carry.");
+        }
+
+        [Test]
+        public void DockingCashesEveryCardAndEmptiesTheRobot()
+        {
+            ExplorerRobotSystem system = NewSystem(out _, out ComputeSystem compute,
+                NewSettings(cellsPerCard: 60f, cardValueCu: 250f, maxCards: 10));
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            system.Toggle(robot);
+            WalkSortie(system, robot, 200f);
+
+            int cards = robot.Cards;
+            Assert.Greater(cards, 0, "It has to have earned something for this to mean anything.");
+
+            // Room to be granted into: the reserve starts at its cap.
+            compute.Spend(10000f);
+            float before = compute.Reserve;
+
+            system.Toggle(robot);   // recall
+            for (int i = 0; i < Mathf.RoundToInt(900f / Frame) && robot.State != ExplorerRobotState.Idle; i++)
+            {
+                system.Tick(Frame);
+            }
+
+            Assert.AreEqual(ExplorerRobotState.Idle, robot.State, "It should have got home.");
+            Assert.AreEqual(0, robot.Cards, "Spent the instant it docks - cards are never an item.");
+            Assert.AreEqual(before + cards * 250f, compute.Reserve, 0.01f, cards + " cards at 250 CU.");
+        }
+
+        [Test]
+        public void ADockedRobotWithNoCardsGrantsNothing()
+        {
+            ExplorerRobotSystem system = NewSystem(out _, out ComputeSystem compute);
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            compute.Spend(10000f);
+            float before = compute.Reserve;
+
+            robot.Position = CoreCentre + new Vector2(10f, 0f);
+            robot.State = ExplorerRobotState.Returning;
+            for (int i = 0; i < Mathf.RoundToInt(30f / Frame); i++) system.Tick(Frame);
+
+            Assert.AreEqual(ExplorerRobotState.Idle, robot.State);
+            Assert.AreEqual(before, compute.Reserve, 0.01f);
+        }
+
+        // ---- The alert ----
+
+        [Test]
+        public void TheStockFullAlertFiresOncePerFilling()
+        {
+            ExplorerRobotSystem system = NewSystem(out _, NewSettings(cellsPerCard: 60f, maxCards: 3));
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            int alerts = 0;
+            system.StockFilled += _ => alerts++;
+
+            system.Toggle(robot);
+            WalkSortie(system, robot, 200f);
+            Assert.AreEqual(3, robot.Cards);
+            Assert.AreEqual(1, alerts, "Once when it filled.");
+
+            // Kept wandering, full, for a long time: the alert must not come back.
+            WalkSortie(system, robot, 400f);
+            Assert.AreEqual(1, alerts, "Repeating it would be nagging about a decision already made.");
+
+            // Home, unloaded, and out again: the next load may announce itself in turn.
+            system.Toggle(robot);
+            for (int i = 0; i < Mathf.RoundToInt(1200f / Frame) && robot.State != ExplorerRobotState.Idle; i++)
+            {
+                system.Tick(Frame);
+            }
+            Assert.AreEqual(0, robot.Cards, "It got home and unloaded.");
+
+            system.Toggle(robot);
+            WalkSortie(system, robot, 400f);
+
+            Assert.AreEqual(3, robot.Cards);
+            Assert.AreEqual(2, alerts, "A second filling is a second decision.");
+        }
+
+        [Test]
+        public void TheAlertNamesTheRobotThatFilled()
+        {
+            ExplorerRobotSystem system = NewSystem(out _, NewSettings(robotCount: 2, cellsPerCard: 60f, maxCards: 2));
+
+            ExplorerRobotRuntime announced = null;
+            system.StockFilled += robot => announced = robot;
+
+            system.Toggle(system.Robots[1]);
+            WalkSortie(system, system.Robots[1], 300f);
+
+            Assert.AreSame(system.Robots[1], announced, "There are two of them, so the alert has to say which.");
+        }
+
+        // ---- The threshold and its jitter ----
+
+        [Test]
+        public void EachCardDrawsItsOwnThreshold_WithinTheConfiguredBand()
+        {
+            ExplorerRobotSystem system = NewSystem(out _, NewSettings(cellsPerCard: 2500f, cardJitter: 0.3f));
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            float lowest = float.MaxValue;
+            float highest = float.MinValue;
+            float first = system.CardThreshold(robot);
+            bool varied = false;
+
+            for (int i = 0; i < 40; i++)
+            {
+                robot.CardsDrawnEver = i;
+                float threshold = system.CardThreshold(robot);
+
+                lowest = Mathf.Min(lowest, threshold);
+                highest = Mathf.Max(highest, threshold);
+                if (!Mathf.Approximately(threshold, first)) varied = true;
+            }
+
+            TestContext.WriteLine("forty cards: thresholds from " + lowest.ToString("0")
+                + " to " + highest.ToString("0") + " around 2500");
+
+            Assert.IsTrue(varied, "A fixed threshold is a metronome, which is what the jitter exists to break.");
+            Assert.GreaterOrEqual(lowest, 2500f * 0.7f - 0.5f, "Never below the band.");
+            Assert.LessOrEqual(highest, 2500f * 1.3f + 0.5f, "Never above it.");
+        }
+
+        [Test]
+        public void AThresholdIsDrawnFromTheCardsOrdinal_SoAReloadDoesNotReRollIt()
+        {
+            ExplorerRobotSystem system = NewSystem(out _);
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            robot.CardsDrawnEver = 7;
+            float before = system.CardThreshold(robot);
+
+            ExplorerRobotSystem reloaded = NewSystem(out _);
+            reloaded.Robots[0].CardsDrawnEver = 7;
+
+            Assert.AreEqual(before, reloaded.CardThreshold(reloaded.Robots[0]), 0.0001f);
+        }
+
+        // ---- What the panel reads ----
+
+        [Test]
+        public void TheHarvestStateTellsRestAndReturnApartFromWorking()
+        {
+            ExplorerRobotSystem system = NewSystem(out _);
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            Assert.AreEqual(ExplorerHarvestState.AtBase, system.HarvestStateOf(robot));
+
+            system.Toggle(robot);
+            WalkSortie(system, robot, 10f);
+            Assert.AreEqual(ExplorerHarvestState.Harvesting, system.HarvestStateOf(robot),
+                "Fresh out over virgin ground.");
+
+            system.Toggle(robot);
+            Assert.AreEqual(ExplorerHarvestState.Returning, system.HarvestStateOf(robot));
+
+            Assert.AreEqual(ExplorerHarvestState.AtBase, system.HarvestStateOf(null),
+                "A null robot answers rather than throwing - the panel asks before a selection exists.");
+        }
+
         // ---- Save / Restore ----
 
         [Test]
@@ -534,6 +807,52 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             Assert.AreEqual(phase, restored.DriftPhase, 0.001f,
                 "The drift has to carry on the bend it was in the middle of.");
             Assert.AreEqual(sorties, restored.SortieCount);
+        }
+
+        [Test]
+        public void AReloadedRobotKeepsItsCardsAndItsProgressTowardsTheNext()
+        {
+            ExplorerRobotSystem system = NewSystem(out _, NewSettings(cellsPerCard: 60f, maxCards: 10));
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            system.Toggle(robot);
+            WalkSortie(system, robot, 150f);
+
+            int cards = robot.Cards;
+            float banked = robot.NewCellsSinceLastCard;
+            int drawn = robot.CardsDrawnEver;
+            Assert.Greater(cards, 0, "It has to be carrying something for this to mean anything.");
+
+            ExplorerRobotSystem reloaded = NewSystem(out _, NewSettings(cellsPerCard: 60f, maxCards: 10));
+            reloaded.RestoreState(system.CaptureState());
+            ExplorerRobotRuntime restored = reloaded.Robots[0];
+
+            Assert.AreEqual(cards, restored.Cards, "A reloaded robot keeps its cards.");
+            Assert.AreEqual(banked, restored.NewCellsSinceLastCard, 0.01f,
+                "And the ground it had already opened towards the next one.");
+            Assert.AreEqual(drawn, restored.CardsDrawnEver,
+                "And the ordinal its next threshold is drawn from, or the reload re-rolls it.");
+        }
+
+        [Test]
+        public void AFullRobotReloadedDoesNotAnnounceItselfAgain()
+        {
+            ExplorerRobotSystem system = NewSystem(out _, NewSettings(cellsPerCard: 60f, maxCards: 2));
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            system.Toggle(robot);
+            WalkSortie(system, robot, 300f);
+            Assert.AreEqual(2, robot.Cards);
+
+            ExplorerRobotSystem reloaded = NewSystem(out _, NewSettings(cellsPerCard: 60f, maxCards: 2));
+            int alerts = 0;
+            reloaded.StockFilled += _ => alerts++;
+            reloaded.RestoreState(system.CaptureState());
+
+            WalkSortie(reloaded, reloaded.Robots[0], 200f);
+
+            Assert.IsTrue(reloaded.Robots[0].StockAlertRaised, "It is still full and still announced.");
+            Assert.AreEqual(0, alerts, "The decision was already put to the player before the save.");
         }
 
         [Test]
@@ -597,7 +916,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
         [Test]
         public void NoSettingsMeansNoRobots_NotACrash()
         {
-            var system = new ExplorerRobotSystem(null, NewDiscovery(), CoreCentre, CoreCentre, Seed);
+            var system = new ExplorerRobotSystem(null, NewDiscovery(), new ComputeSystem(), CoreCentre, CoreCentre, Seed);
 
             Assert.AreEqual(0, system.Robots.Count);
             Assert.DoesNotThrow(() => system.Tick(Frame));

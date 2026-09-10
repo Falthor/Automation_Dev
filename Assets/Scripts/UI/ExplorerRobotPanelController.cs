@@ -26,10 +26,15 @@ namespace Game.UI
         [SerializeField] VisualTreeAsset visualTree;
         [SerializeField] GameRuntime gameRuntime;
 
+        /// <summary>The datacard's art. Serialized here rather than read off the settings asset, which is the project's pattern for panel icons - see ConstructionSitePanelController's robotIcon.</summary>
+        [SerializeField] Sprite cardIcon;
+
         VisualElement _root;
         Label _state;
         Label _distance;
-        Label _sorties;
+        Label _harvest;
+        Label _cards;
+        VisualElement _cardIcon;
         Label _hint;
         Button _action;
 
@@ -45,13 +50,18 @@ namespace Game.UI
             _root = panelRoot.Q<VisualElement>("ExplorerRobotPanelRoot");
             _state = panelRoot.Q<Label>("ExplorerRobotState");
             _distance = panelRoot.Q<Label>("ExplorerRobotDistance");
-            _sorties = panelRoot.Q<Label>("ExplorerRobotSorties");
+            _harvest = panelRoot.Q<Label>("ExplorerRobotHarvest");
+            _cards = panelRoot.Q<Label>("ExplorerRobotCards");
+            _cardIcon = panelRoot.Q<VisualElement>("ExplorerRobotCardIcon");
             _hint = panelRoot.Q<Label>("ExplorerRobotHint");
 
             _action = panelRoot.Q<Button>("ExplorerRobotActionButton");
             _action.clicked += Toggle;
 
             panelRoot.Q<Button>("ExplorerRobotCloseButton").clicked += Close;
+
+            // Set once: the art never changes, so there is nothing for Render to do with it.
+            if (cardIcon != null) _cardIcon.style.backgroundImage = new StyleBackground(cardIcon);
 
             _root.EnableInClassList("hidden", true);
             gameRuntime.Selection.ExplorerRobotSelectionChanged += OnSelectionChanged;
@@ -101,7 +111,10 @@ namespace Game.UI
         {
             _state.text = StateText(_selected.State);
             _distance.text = $"{DistanceFromCore():0} cases";
-            _sorties.text = _selected.SortieCount.ToString();
+
+            ExplorerRobotSystem robots = gameRuntime.ExplorerRobots;
+            _harvest.text = HarvestText(robots != null ? robots.HarvestStateOf(_selected) : ExplorerHarvestState.AtBase);
+            _cards.text = robots != null ? $"{_selected.Cards}/{robots.MaxCards}" : _selected.Cards.ToString();
 
             // Relabelled, never rebuilt - see the class summary.
             _action.text = ExplorerRobotSystem.ActionLabel(_selected.State);
@@ -119,6 +132,23 @@ namespace Game.UI
             ExplorerRobotState.Exploring => "En exploration",
             ExplorerRobotState.Returning => "En retour",
             _ => "Au repos"
+        };
+
+        /// <summary>
+        /// Whether the robot is still earning, in words.
+        ///
+        /// <b>The most important line on the panel</b>, and the reason it says why rather than yes or
+        /// no: a full robot and one circling its own trail both earn nothing, but only one of them is
+        /// worth recalling. No rate and no cells-per-minute - that is what the measurement log is for,
+        /// and a throughput figure is not a decision.
+        /// </summary>
+        static string HarvestText(ExplorerHarvestState state) => state switch
+        {
+            ExplorerHarvestState.Harvesting => "En cours",
+            ExplorerHarvestState.OverKnownGround => "Terrain déjà connu",
+            ExplorerHarvestState.StockFull => "Plein",
+            ExplorerHarvestState.Returning => "Rentre",
+            _ => "À la base"
         };
 
         /// <summary>What the button will do, said once under it. A label alone reads as a state on a panel that is already showing one.</summary>
