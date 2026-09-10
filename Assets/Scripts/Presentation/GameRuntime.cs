@@ -637,6 +637,29 @@ namespace Game.Presentation
 
         ResearchDefinition FindResearchDefinition(string id) => researchDatabase != null ? researchDatabase.Get(id) : null;
 
+        /// <summary>
+        /// The catalogue's own conveyor definition for a shape, or null if it carries none.
+        ///
+        /// Derived rather than wired: the two definitions are already in <c>buildingCatalog</c>, and
+        /// a second serialized field for the same two assets is a second thing to keep in agreement.
+        /// Only a definition that actually carries art qualifies - one without an override sprite
+        /// would send the spawner back to the placeholder it is trying to avoid.
+        /// </summary>
+        ConveyorDefinition ConveyorArt(ConveyorShapeKind shape)
+        {
+            foreach (BuildingDefinition definition in buildingCatalog)
+            {
+                if (definition is ConveyorDefinition conveyor
+                    && conveyor.DefaultShape == shape
+                    && conveyor.OverrideSprite != null)
+                {
+                    return conveyor;
+                }
+            }
+
+            return null;
+        }
+
         List<string> BuildResearchQueueIds()
         {
             var ids = new List<string>();
@@ -1185,12 +1208,21 @@ namespace Game.Presentation
                 }
             }
 
+            // The two canonical conveyor definitions, read out of the catalogue rather than wired a
+            // second time: they are already in it. BuildingSpawner needs them to draw a belt whose
+            // shape no longer matches the definition that placed it - a straight drag-turned into a
+            // corner keeps the straight definition forever and would otherwise fall back to the
+            // procedural placeholder. The placement path has always passed them; the restore path
+            // did not, which is the same omission the comment below already records for the slab
+            // and the shadow.
             if (_restoredBuildings.Count > 0)
             {
                 // Passed the same presentation settings as the placement path, which it was not:
                 // a building coming back from a save has to look like the one that was placed, and
                 // this spawner was giving it neither a concrete slab nor a shadow.
-                var spawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings, DepthSort);
+                var spawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(),
+                    ConveyorArt(ConveyorShapeKind.Straight), ConveyorArt(ConveyorShapeKind.Corner),
+                    GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings, DepthSort);
                 foreach (BuildingRuntime building in _restoredBuildings)
                 {
                     spawner.SpawnView(building);
