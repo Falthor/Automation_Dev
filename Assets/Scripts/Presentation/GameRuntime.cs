@@ -414,7 +414,14 @@ namespace Game.Presentation
             // function of Terrain.Seed. Nothing here is restored from the save, and nothing here needs
             // to be - the seed is, and everything else follows from it.
             Sectors = new SectorGrid(Terrain.Size, sectorSettings.SectorSizeCells);
-            SectorCatalog = new SectorCatalog(Sectors, Terrain.Seed);
+            // Assembled here because this is the one place that holds all three: the sector
+            // settings' cluster figures, the Core's furthest reach, and how far a robot wanders.
+            // Each figure stays owned by its own system - nothing is copied.
+            SectorCatalog = new SectorCatalog(Sectors, Terrain.Seed,
+                World?.CoreCenterCells ?? Vector2.zero,
+                sectorSettings.ClusterProfile(
+                    CoreRuntime.ExtendedActionRadiusCells,
+                    explorerRobotSettings != null ? explorerRobotSettings.MaxRadiusCells : CoreRuntime.ExtendedActionRadiusCells * 10f));
 
             SectorMap = new SectorMapImage(Sectors, Discovery);
 
@@ -445,7 +452,13 @@ namespace Game.Presentation
                         worldGenerationSettings.IronOreDefinition,
                         worldGenerationSettings.CopperOreDefinition,
                         worldGenerationSettings.CoalOreDefinition
-                    }, World);
+                    },
+                    World,
+                    World?.CoreCenterCells ?? Vector2.zero,
+                    // The Core's furthest reach, not its current one: derived ore must not appear in
+                    // ground the Core will eventually cover, or extending the radius would swallow a
+                    // cluster the player had already built around.
+                    CoreRuntime.ExtendedActionRadiusCells);
                 }
 
                 ExplorerRobots.RestoreState(loadedSave?.ExplorerRobots);

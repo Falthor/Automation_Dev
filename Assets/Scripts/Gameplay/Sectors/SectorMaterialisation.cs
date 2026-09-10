@@ -2,6 +2,7 @@ using Game.Core;
 using Game.Data;
 using Game.Gameplay.WorldGeneration;
 using Game.Grid;
+using UnityEngine;
 
 namespace Game.Gameplay.Sectors
 {
@@ -20,6 +21,13 @@ namespace Game.Gameplay.Sectors
     /// `WorldGenerator` places its clusters during `Awake`, and nothing materialises until a mission
     /// lands or the Core's own disc is walked, both of which happen later. This class does not rely on
     /// that: it checks the grid at the moment it writes.
+    ///
+    /// <b>Nothing derived lands inside the Core's reach.</b> The ground within
+    /// <c>CoreRuntime.ExtendedActionRadiusCells</c> is the starting territory: its ore is placed by
+    /// hand, at chosen distances, because the introduction depends on it. Derived ore appearing there
+    /// is not a near miss, it is a different game - so a sector is skipped when <b>any part of it</b>
+    /// falls within that radius, rather than clipping the cells that do. A clipped cluster would be a
+    /// patch of two cells against a wall, which is worse than none.
     ///
     /// <b>A deposit is registered, not merely written.</b> It goes in through
     /// <see cref="WorldGenerator.AddDeposit"/>, which is what puts it in the list the view and the
@@ -46,6 +54,21 @@ namespace Game.Gameplay.Sectors
         /// </summary>
         readonly WorldGenerator _world;
 
+        /// <summary>
+        /// How close to the Core derived ore may not come, in cells. Handed in rather than read from
+        /// CoreRuntime here, so there is one figure and this class can be asked about a radius it
+        /// does not have to own.
+        /// </summary>
+        readonly float _exclusionRadiusCells;
+
+        /// <summary>
+        /// What the exclusion is measured from. Taken as a value rather than read back off the world
+        /// each time, for a reason worth stating: <c>WorldGenerator.CoreCenterCells</c> answers
+        /// <c>Vector2.zero</c> when there is no Core, so a class deriving it would guard the map's
+        /// origin without anything looking wrong. The same value ExplorerRobotSystem is handed.
+        /// </summary>
+        readonly Vector2 _coreCentreCells;
+
         /// <summary>How many sectors have actually written something. For tests and reporting.</summary>
         public int MaterialisedSectorCount { get; private set; }
 
@@ -57,14 +80,38 @@ namespace Game.Gameplay.Sectors
         /// rather than read from a settings asset, so the catalog never has to know what an ore is.
         /// </summary>
         public SectorMaterialisation(SectorGrid grid, GridRuntime cells, SectorCatalog catalog,
-            OreDepositDefinition[] resources, WorldGenerator world)
+            OreDepositDefinition[] resources, WorldGenerator world,
+            Vector2 coreCentreCells, float exclusionRadiusCells)
         {
             _grid = grid;
             _cells = cells;
             _catalog = catalog;
             _resources = resources ?? System.Array.Empty<OreDepositDefinition>();
             _world = world;
+            _coreCentreCells = coreCentreCells;
+            _exclusionRadiusCells = Mathf.Max(0f, exclusionRadiusCells);
         }
+
+        /// <summary>
+        /// Whether any part of the sector falls within the Core's reach. The nearest point of the
+        /// sector's square, not its centre: a centre test would let a sector's near edge sit well
+        /// inside the radius.
+        /// </summary>
+        public bool ReachesIntoTheCoresGround(int sectorIndex)
+        {
+            if (_exclusionRadiusCells <= 0f) return false;
+            if (!_grid.ContainsIndex(sectorIndex)) return false;
+
+            GridCoord origin = _grid.OriginOf(sectorIndex);
+
+            float nearestX = Mathf.Clamp(_coreCentreCells.x, origin.X, origin.X + _grid.SectorSizeCells);
+            float nearestY = Mathf.Clamp(_coreCentreCells.y, origin.Y, origin.Y + _grid.SectorSizeCells);
+
+            return Vector2.Distance(_coreCentreCells, new Vector2(nearestX, nearestY)) < _exclusionRadiusCells;
+        }
+
+        /// <summary>How many sectors were left alone for sitting inside the Core's reach. For tests and reporting.</summary>
+        public int SkippedForCoreGroundCount { get; private set; }
 
         /// <summary>
         /// Writes a sector's derived deposits into the grid, and answers how many it placed.
@@ -80,6 +127,12 @@ namespace Game.Gameplay.Sectors
 
             SectorContents contents = _catalog.ContentsOf(sectorIndex);
             if (contents.DepositCells.Length == 0) return 0;
+
+            if (ReachesIntoTheCoresGround(sectorIndex))
+            {
+                SkippedForCoreGroundCount++;
+                return 0;
+            }
 
             OreDepositDefinition definition = ResourceFor(contents.ResourceIndex);
             if (definition == null) return 0;

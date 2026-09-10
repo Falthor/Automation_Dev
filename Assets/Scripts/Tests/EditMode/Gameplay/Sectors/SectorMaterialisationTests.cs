@@ -24,6 +24,19 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
         const int SectorSize = 16;
         const int Seed = 20260907;
 
+        // The shipped cluster figures, restated rather than read from the asset: a test that followed
+        // the setting could not fail when the setting is wrong.
+        const int OneSectorIn = 12;
+
+        /// <summary>The shipped bands and the two radii the ramp runs between - see OreClusterProfile.</summary>
+        static OreClusterProfile Profile => new OreClusterProfile(OneSectorIn, 6, 10, 10, 15, 32f, 330f);
+
+        /// <summary>The middle of the fixture map, where a generated world puts its Core.</summary>
+        static readonly Vector2 CoreCentre = new Vector2(MapSize / 2f, MapSize / 2f);
+
+        /// <summary>CoreRuntime.ExtendedActionRadiusCells - the Core's furthest reach, which is what derived ore must stay out of.</summary>
+        const float ExclusionRadius = 32f;
+
 
         readonly List<Object> _created = new List<Object>();
 
@@ -68,9 +81,12 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
                 World = new WorldGenerator()
             };
 
-            fixture.Catalog = new SectorCatalog(fixture.Sectors, Seed);
+            fixture.Catalog = new SectorCatalog(fixture.Sectors, Seed, CoreCentre, Profile);
+            // No exclusion in the fixture: its sectors sit at index 1000+ on a 10 000 map and its
+            // WorldGenerator has no Core, so a radius here would carve a hole at the origin and
+            // measure nothing. The exclusion has its own tests below.
             fixture.Materialisation = new SectorMaterialisation(
-                fixture.Sectors, fixture.Cells, fixture.Catalog, fixture.Ores, fixture.World);
+                fixture.Sectors, fixture.Cells, fixture.Catalog, fixture.Ores, fixture.World, Vector2.zero, 0f);
 
             return fixture;
         }
@@ -212,7 +228,7 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
             Fixture a = NewFixture();
 
             var otherGrid = new SectorGrid(MapSize, SectorSize);
-            var other = new SectorCatalog(otherGrid, Seed + 1);
+            var other = new SectorCatalog(otherGrid, Seed + 1, CoreCentre, Profile);
 
             int same = 0;
             for (int index = 1000; index < 1100; index++)
@@ -240,7 +256,7 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
         public void WithNoOreDefinitions_NothingIsWritten()
         {
             Fixture fixture = NewFixture();
-            var barren = new SectorMaterialisation(fixture.Sectors, fixture.Cells, fixture.Catalog, null, fixture.World);
+            var barren = new SectorMaterialisation(fixture.Sectors, fixture.Cells, fixture.Catalog, null, fixture.World, Vector2.zero, 0f);
 
             Assert.AreEqual(0, barren.Materialise(SectorWithDeposits(fixture)));
         }
@@ -288,13 +304,83 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
             Fixture fixture = NewFixture();
             int sector = SectorWithDeposits(fixture);
 
-            var worldless = new SectorMaterialisation(fixture.Sectors, fixture.Cells, fixture.Catalog, fixture.Ores, null);
+            var worldless = new SectorMaterialisation(fixture.Sectors, fixture.Cells, fixture.Catalog, fixture.Ores, null, Vector2.zero, 0f);
 
             Assert.AreEqual(0, worldless.Materialise(sector));
             foreach (GridCoord cell in fixture.Catalog.ContentsOf(sector).DepositCells)
             {
                 Assert.IsNull(fixture.Cells.GetOccupant(cell));
             }
+        }
+
+        // ---- The Core's own ground ----
+
+        /// <summary>
+        /// <b>Derived ore may not appear inside the Core's furthest reach.</b> That ground is placed
+        /// by hand, at chosen distances, because the introduction depends on it - and the first
+        /// sortie of a fresh run put random ore a few cells from the base, which is a different game
+        /// rather than a near miss.
+        ///
+        /// A sector is skipped when <b>any part of it</b> falls inside the radius, not when its
+        /// centre does: a 16-cell sector whose centre clears the radius still has a near edge well
+        /// inside it, and a clipped cluster would be two cells against a wall.
+        /// </summary>
+        [Test]
+        public void NoDerivedOreLandsInsideTheCoresReach()
+        {
+            Fixture fixture = NewFixture();
+
+            var centre = new Vector2(MapSize / 2f, MapSize / 2f);
+
+            var guarded = new SectorMaterialisation(
+                fixture.Sectors, fixture.Cells, fixture.Catalog, fixture.Ores, fixture.World,
+                centre, ExclusionRadius);
+
+            int coreSector = fixture.Sectors.IndexAt(new GridCoord((int)centre.x, (int)centre.y));
+            Assert.IsTrue(guarded.ReachesIntoTheCoresGround(coreSector), "the Core's own sector, obviously");
+
+            // Every sector of the 5x5 block around the Core: the exclusion is 32 cells and a sector
+            // is 16, so two rings out is where it can start clearing.
+            int column = fixture.Sectors.ColumnOf(coreSector);
+            int row = fixture.Sectors.RowOf(coreSector);
+
+            for (int dx = -3; dx <= 3; dx++)
+            {
+                for (int dy = -3; dy <= 3; dy++)
+                {
+                    int index = fixture.Sectors.IndexAt(column + dx, row + dy);
+                    if (index < 0) continue;
+
+                    guarded.Materialise(index);
+                }
+            }
+
+            foreach (DepositRuntime deposit in fixture.World.OreDeposits)
+            {
+                float distance = Vector2.Distance(
+                    new Vector2(deposit.Origin.X + 0.5f, deposit.Origin.Y + 0.5f), centre);
+
+                Assert.GreaterOrEqual(distance, ExclusionRadius,
+                    $"a derived deposit landed {distance:F1} cells from the Core, inside its {ExclusionRadius}-cell reach");
+            }
+        }
+
+        /// <summary>
+        /// And it does clear: the exclusion is a ring, not a ban. A sector far from the Core is
+        /// materialised normally, or the rule would have quietly turned the derivation off.
+        /// </summary>
+        [Test]
+        public void FarFromTheCore_TheExclusionDoesNothing()
+        {
+            Fixture fixture = NewFixture();
+
+            var guarded = new SectorMaterialisation(
+                fixture.Sectors, fixture.Cells, fixture.Catalog, fixture.Ores, fixture.World,
+                new Vector2(MapSize / 2f, MapSize / 2f), ExclusionRadius);
+
+            int far = SectorWithDeposits(fixture);
+            Assert.IsFalse(guarded.ReachesIntoTheCoresGround(far));
+            Assert.Greater(guarded.Materialise(far), 0);
         }
     }
 }

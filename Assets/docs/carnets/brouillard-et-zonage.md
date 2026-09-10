@@ -270,3 +270,52 @@ plus tard.
 **Et sans monde, on n'écrit rien.** Une scène sans génération de monde n'a nulle part où enregistrer
 un gisement : `Materialise` retourne 0 plutôt que d'écrire dans la grille ce que personne ne
 possède - ce qui est exactement la forme du défaut d'origine.
+
+## 9. Sept taches de minerai, et pourquoi
+
+Le correctif du 8 a rendu les gisements visibles, et c'est là qu'on a vu le vrai problème : une
+première sortie en faisait apparaître des dizaines, éparpillés, à quelques cases de la base.
+
+**Le calcul, une fois écrit, ne laissait aucun doute.** Le tirage était `% 8` avec 0 = rien, 1-4 =
+minerai, 5-6 = épave, 7 = nid - et le nombre de gisements était `feature != None ? 2 + hash%4 : 0`.
+Donc une épave et un nid produisaient du minerai aussi : **sept secteurs sur huit** en portaient, 2 à
+5 tuiles chacun, tirées **indépendamment** n'importe où dans le carré de 256 cases. Multiplié par le
+bloc de 3×3 secteurs que le robot matérialise à chaque franchissement, ça donne des dizaines de
+tuiles isolées. Ce n'est pas une trouvaille, c'est du décor.
+
+Trois choses étaient fausses en même temps, et une seule était visible.
+
+**La fréquence.** Un secteur sur douze, et le réglage dit exactement ça. Les épaves et les nids ne
+sont plus tirés du tout : rien ne les dessine, la matérialisation ignore la cellule de la
+caractéristique, et leur seul effet était de diviser le taux de minerai par trois - donc de faire
+mentir le réglage.
+
+**La forme.** Une grappe est **poussée**, pas semée : on prend une cellule déjà dans la grappe, on
+tire une direction, et la voisine rejoint si elle est libre et encore dans le secteur. Mesuré sur
+1591 grappes : **zéro cellule sans voisine**. Les formes sont compactes et toutes différentes.
+
+**La distance.** La taille monte avec l'éloignement : 6-10 tuiles à la sortie du rayon du Noyau,
+10-15 à la limite d'errance. C'est la seule chose que l'exploration coûte, donc c'est ce qui doit
+payer — une taille plate fait de la moitié lointaine de la carte la moitié proche avec plus de
+marche. Mesuré sur la carte livrée : **8,0 tuiles en moyenne en dedans de 100 cases, 12,3 au-delà de
+260**, et aucune grappe à l'étroit dans son secteur même à 15 tuiles.
+
+**Et l'exclusion.** Rien de dérivé à moins de 32 cases du Noyau. Un secteur est sauté dès qu'une
+partie de lui tombe dans le rayon, pas quand son centre y tombe : un secteur de 16 dont le centre
+dégage a encore un bord bien dedans, et une grappe rognée serait deux tuiles contre un mur.
+
+**Le catalogue reconnaît le Noyau, et cette fois il le mérite.** Il portait un centre pour un
+gradient de risque que personne ne lisait, et ce centre a été supprimé avec le reste du code mort. Une
+grappe qui grandit avec la distance en a un besoin réel. Il reste une fonction pure du monde : la
+position du Noyau est fixée à la génération et restaurée avec la sauvegarde.
+
+**Le profil est un objet plutôt que sept paramètres.** L'alternative était un constructeur à neuf
+arguments sur le catalogue avec la formule enterrée dans une méthode privée. Groupé, la formule a un
+nom et un test peut la conduire sans construire un monde — et les deux bouts de la rampe sont
+épinglés en littéraux une seule fois, là où la décision vit.
+
+**Deux erreurs d'arithmétique de ma part en chemin**, toutes deux attrapées en mesurant plutôt qu'en
+supposant. `% (taux × 3)` donnait du minerai une fois sur 48 et non sur 16 — une demi-grappe par
+sortie, trop rare. Et `Mathf.RoundToInt(12.5f)` arrondit au **pair** : le milieu de 10-15 est 12, pas
+13. La deuxième est dans un test, en littéral, avec la raison écrite à côté : c'est exactement le
+genre de détail qu'une attente recalculée aurait validé en étant fausse avec le code.

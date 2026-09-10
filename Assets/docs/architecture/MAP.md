@@ -255,12 +255,32 @@ out: `System.Random` and `string.GetHashCode` are barred from anything derived, 
 guaranteed stable across runtime versions and a change would move every unmaterialised deposit in
 every existing world. Frozen by tests with hard-coded features, centres and deposit cells.
 
-**A sector holds one point of interest and a handful of deposits.** The point of interest sits at the
-sector's centre, so a robot crossing the middle of the square cannot miss it. The deposits scatter
-anywhere in the square — including the corners a path misses, which is what makes wandering back over
-the same neighbourhood at a different angle worth something. The scatter respects the sector's real
-extent: edge sectors are clipped where the map does not divide evenly. `SectorMaterialisation` (§2.1)
-is what reads all of it.
+**One sector in `SectorSettings.oreClusterOneSectorIn` (12) holds an ore cluster. The rest hold
+nothing.** Measured on the shipped seed: 27 of 361 sectors on a 300-cell map, one in 13.4.
+
+**A cluster is one contiguous patch, not a handful of scattered cells.** It is *grown* rather than
+stamped — a cell already in the patch is picked, a direction is drawn, and the neighbour joins if it
+is free and still inside the sector — so no two look alike and every cell touches another. The seed
+cell can be anywhere in the square, corners included, which is what makes coming back over the same
+neighbourhood at a different angle worth something. The growth respects the sector's real extent, so
+edge sectors are clipped where the map does not divide evenly.
+
+**Its size grows with distance from the Core** (`OreClusterProfile`): six to ten tiles just outside
+the Core's furthest reach, ten to fifteen at the limit a robot wanders to (330), interpolated
+between and clamped at both ends. Distance is the only thing exploring costs, so it has to be the
+thing that pays — a flat size makes the far half of the map the near half with a longer walk.
+Measured on the shipped map: 8.0 tiles on average inside 100 cells, 12.3 past 260.
+
+**Nothing derived lands inside `CoreRuntime.ExtendedActionRadiusCells` (32).** That ground is placed
+by hand, at chosen distances, because the introduction depends on it. A sector is skipped when *any
+part of it* falls inside the radius rather than having its cells clipped — a clipped cluster would be
+two tiles against a wall, which is worse than none.
+
+**A wreck and a nest are not drawn yet.** The enum members exist and the derivation no longer picks
+them: nothing renders one, materialisation ignores the feature cell, and their only effect was to
+divide the ore rate by three. One will be drawn again when there is one to draw (§6).
+
+`SectorMaterialisation` (§2.1) is what reads all of it.
 
 **A sector's only other property is its geometry**, and that is arithmetic: `SectorGrid` answers
 which square a cell falls in, where that square starts, where its middle is, and which cells it
