@@ -17,8 +17,8 @@ MonoBehaviour:
   speedCellsPerSecond: 2
   maxRadiusCells: 330
   revealRadiusCells: 6
-  driftDegreesPerSecond: 6
-  driftCyclesPerSecond: 0.08
+  driftDegreesPerSecond: 20
+  driftCyclesPerSecond: 0.25
   unknownTurnDegreesPerSecond: 20
   probeDistanceCells: 30
   probeAngleDegrees: 45

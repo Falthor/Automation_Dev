@@ -73,45 +73,12 @@ namespace Game.Save
         public string DecorRemoved;
 
         /// <summary>
-        /// The expedition system: missions in flight with their clock and their already-drawn outcome,
-        /// the charges left on each probe, and the sites already recovered
-        /// (<c>MissionSystem.CaptureState</c>).
-        ///
-        /// <b>The outcome is stored, not a seed.</b> A mission saved in flight has to come back
-        /// identical - neither redrawn nor lost - and carrying the result is what makes that
-        /// structural: there is nothing left to decide at landing, so nothing a reload can decide
-        /// differently.
-        ///
-        /// Reports waiting to be read are deliberately absent: an unread one is delivered again on the
-        /// next landing rather than lost. No <c>Version</c> bump - an additive field with a per-field
-        /// fallback, which restores as a game whose probes have not yet arrived.
-        /// </summary>
-        public JObject Missions;
-
-        /// <summary>
-        /// The expedition zones: which one the player chose, the radius the six were laid out from, and
-        /// the sites whose state has moved off what the derivation gives
-        /// (<c>ExpeditionZoneSystem.CaptureState</c>).
-        ///
-        /// <b>Almost nothing, deliberately.</b> A zone's bounds, its sites and their positions are pure
-        /// functions of the world seed, so they come back on their own - what cannot be re-derived is
-        /// the choice, the ground the layout started from, and which sites the player has turned up or
-        /// spent. The inner radius travels because the layout was frozen against it: re-reading the
-        /// Core's radius at load would re-cut the zones under a run already half mapped.
-        ///
-        /// No <c>Version</c> bump - an additive field with a per-field fallback, which restores as a run
-        /// with the six zones still on offer and nothing touched.
-        /// </summary>
-        public JObject ExpeditionZones;
-
-        /// <summary>
-        /// Every explorer robot on free exploration: position, heading, state, where its drift had
-        /// got to and how many times it has been out. An opaque blob owned by
+        /// Every explorer robot: position, heading, state, the datacards it carries and its progress
+        /// towards the next, plus whether the fleet has arrived at all. An opaque blob owned by
         /// Game.Gameplay.Exploration.ExplorerRobotSystem's own Capture/Restore pair.
         ///
-        /// No <c>Version</c> bump - an additive field with a per-field fallback, which restores as a
-        /// fleet standing at the base. That is the truthful default rather than a convenient one: a
-        /// robot nobody has sent anywhere is at home.
+        /// Absent restores as a fleet that has not arrived, standing at the base with nothing - the
+        /// truthful default rather than a convenient one.
         /// </summary>
         public JObject ExplorerRobots;
 

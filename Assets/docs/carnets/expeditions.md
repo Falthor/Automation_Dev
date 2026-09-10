@@ -817,3 +817,67 @@ La bonne boucle est : tout écrire, **puis** `AssetDatabase.Refresh`, **puis lir
 `Unity_GetConsoleLogs` — qui rend les erreurs immédiatement — et seulement ensuite sonder le rapport. Le
 rafraîchissement lancé avant la fin des éditions ne sert à rien, et le sondage à l'aveugle transforme une
 erreur de compilation en trois minutes d'attente. La raison est maintenant écrite dans le script lui-même.
+
+## 21. Les missions supprimées — et le trou qu'elles laissaient
+
+`MissionSystem`, `ExpeditionZoneSystem`, `SectorMissionRange`, les cinq `MissionKind`, les six zones de
+60°, tous les sites, l'écran de désignation et **93 tests** sont supprimés. Ce qui reste est l'errance :
+des robots qu'on envoie vagabonder, qui ouvrent le sol, ramassent des datacards et matérialisent les
+gisements qu'ils croisent. L'état courant est dans `MAP.md`.
+
+**Le trou n'était pas dans les missions, il était dans les gisements.** C'est la seule question qui
+valait d'être posée avant de couper : `SectorMaterialisation` transforme les gisements *dérivés* d'un
+secteur en gisements réels **quand quelque chose rapporte sur ce secteur**, et l'unique appelant était
+`MissionSystem.Deliver`. Supprimer les missions sans déplacer cet appel aurait donné un monde où plus
+aucun gisement hors zone de départ ne devient réel, quelle que soit la distance explorée — le robot
+aurait ouvert une carte vide, et rien n'aurait échoué bruyamment. Une suppression se juge à ce qu'elle
+débranche, pas à ce qu'elle enlève.
+
+**Ce sont donc les robots qui trouvent les gisements**, et ça a demandé de choisir *quand*. Une
+matérialisation à chaque révélation coûte ~256 lectures de grille par secteur, deux fois par seconde et
+par robot. Elle se déclenche donc quand le robot **change de secteur**, et elle matérialise le **bloc
+3×3** autour de lui — le bloc, parce qu'un disque de révélation de 12 cases chevauche jusqu'à quatre
+secteurs de 16 : ne matérialiser que celui du dessous laisserait du minerai manquant sur du sol que le
+robot a manifestement découvert. Un bloc de 48 cases de côté couvre tout ce que le disque peut toucher
+pendant que le robot est dans la case centrale.
+
+**Le retour révèle maintenant comme l'aller**, et l'ancienne règle était fausse pour une raison
+géométrique que seul l'écran montre : l'aller serpente, le retour est une **ligne droite**. La droite
+coupe donc à travers les vides entre les méandres, et on voyait le robot traverser du noir. « Le retour
+repasse sur du sol déjà foulé » était vrai de l'intention et faux du tracé. Les deux jambes passent
+maintenant par un seul point d'appel — deux copies auraient rediverge.
+
+**La carte a perdu tout ce qui désignait quelque chose.** Plus de fil d'Ariane, plus de volet droit,
+plus de survol, plus de sélection, plus de séparateurs, plus de ronds de sites. Il reste le terrain
+révélé, la base, le Noyau, l'anneau des 330 et **les robots** — qui deviennent la raison d'ouvrir
+l'écran, puisqu'un robot errant est quelque part que le joueur n'a pas choisi. Une conséquence agréable :
+sans clic à interpréter, il n'y a plus de seuil ni d'arbitrage clic/glisser dans l'élément, le pointeur
+ne fait que déplacer.
+
+**Deux réglages sont devenus orphelins et sont partis avec.** `SectorSettings.maxCoreRadiusCells` (80)
+et `territorySpacingCells` (90) n'existaient que pour dériver le seuil d'exploration dans
+`SectorMissionRange` — celui-là même qu'on avait corrigé au §15. Les laisser aurait été garder deux
+chiffres que rien ne lit, dans le fichier qui se présente comme « le seul endroit où ces nombres
+existent ». La seule portée qui reste est `ExplorerRobotSettings.maxRadiusCells`.
+
+**L'ouverture de la carte a changé de source, pas de règle.** Le bouton CARTE apparaissait sur
+`Missions.RobotsHaveAppeared` ; il apparaît sur `ExplorerRobots.RobotsHaveAppeared`, avec le même
+déclencheur — la réserve de CU **retombée** à 25 000. Une chute et non une montée : l'introduction
+consomme du CU, et la chose qui paie qui arrive quand le joueur s'assèche est une sortie, pas une
+récompense.
+
+**La notification a gagné une action, et c'est resté propre parce que le délégué appartient au
+posteur.** Cliquer l'alerte de stock plein recentre la caméra et ouvre le panneau ; le système de robots
+ne sait ni ce qu'est une caméra ni ce qu'est une sélection, donc il lève un événement et `GameRuntime`
+referme sur les deux. Seules les lignes actionnables prennent le pointeur, donc la bannière tient
+toujours sa promesse de ne rien bloquer.
+
+### Une leçon d'outillage, payée une troisième fois
+
+Une coupe par « chercher le membre, remonter au commentaire, couper jusqu'au suivant » a emporté
+`SaveData.ExplorerRobots` **avec** `Missions` et `ExpeditionZones` : il était entre les deux et la
+borne de fin. Le compilateur l'a dit tout de suite, mais la leçon tient — une suppression par bornes
+textuelles doit énumérer ce qu'elle garde, pas seulement ce qu'elle vise.
+
+Et le rappel du §20 vaut toujours : mon script hors ligne ne compile pas `Game.Tests.EditMode`, donc
+« OK ×8 » ne dit rien des tests. La vérification passe par Unity — rafraîchir, puis **lire la console**.

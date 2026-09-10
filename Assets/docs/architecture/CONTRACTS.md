@@ -451,7 +451,7 @@ public void Restore(float? elapsedSeconds)                              // PlayC
 
 **`ObservationRuntime` has no `Capture`/`Restore` pair, and that absence is the contract** (`MAP.md` §2). Which cells are being observed is recomputed every frame from where the observers are, so there is nothing to round-trip: a loaded game rebuilds the whole field on its first frame from the Core and the robots the load put back. Adding a save field for it would create a second source of truth able to contradict the observers' real positions - and it would need clearing, which is the defect that shape of code always produces. `ObservationRuntimeTests` pins the half that could break silently: what discovery captures is byte-identical whether anything is watching or not.
 
-`SaveData.ExplorerRobots` is a fourth `JObject` blob of the same kind, owned by `Game.Gameplay.Exploration.ExplorerRobotSystem` (`MAP.md` §2.1): per robot its position, heading, state, drift phase and sortie count. No `Version` bump - additive with a per-field fallback, and an absent key restores as a fleet standing at the base, which is the truthful default rather than a convenient one: a robot nobody has sent anywhere is at home. A blob listing fewer robots than the configured fleet restores the rest at home too.
+`SaveData.ExplorerRobots` is a `JObject` blob of the same kind, owned by `Game.Gameplay.Exploration.ExplorerRobotSystem` (`MAP.md` §2.1): per robot its position, heading, state, drift phase and sortie count. No `Version` bump - additive with a per-field fallback, and an absent key restores as a fleet standing at the base, which is the truthful default rather than a convenient one: a robot nobody has sent anywhere is at home. A blob listing fewer robots than the configured fleet restores the rest at home too.
 
 `CoreRuntime`'s own `CaptureState`/`RestoreState` (TASK_04_PLAFOND_RAYON.md §6) now also round-trips `actionRadiusCells` alongside `cuTimer`/`contents` - absent falls back to `CoreDefinition.ActionRadiusCells`, never to 0. `SaveData.BuildingCap` (nullable) is the matching top-level field for `ConstructionService.BuildingCap`, restored via `RestoreBuildingCap`; absent falls back to `ConstructionService.DefaultBuildingCap` (40). Neither addition bumped `SaveData.Version` - both are simple additive fields with a per-field fallback, not the kind of structural reshaping the Version gate exists for. `SaveData.PlayTimeSeconds` (nullable, `Game.Gameplay.Session.PlayClock`) is a third of the same kind: how long the run has been played, in simulated seconds; absent restores as a run starting its count, never as one that lasted zero seconds. `DepositSaveData` lost its `RemainingQuantity` for the opposite reason: a deposit never runs out (ALIGNEMENT_PROJET.md §8), so it holds no mutable state and there is nothing to round-trip - only where it is and what it is. No `Version` bump either: an older save's key is simply ignored, which is exactly right now that the answer is "infinite" whatever number it carried.
 
@@ -472,12 +472,6 @@ Trigger points (both in `GameRuntime`, `Game.Presentation`):
 Restore is tolerant like every other: a null, an empty string or a malformed run leaves the rest of the map unknown rather than throwing, and a run past the end of the map is ignored. A save predating the field therefore loads as an undiscovered map and the Core's radius writes its own disc back on the first tick. No `Version` bump - an additive field with a per-field fallback.
 
 `SaveData.DecorRemoved` round-trips what the player has cleared of the wild decor (`DecorRuntime.CaptureState()`/`RestoreState(string)`), as a comma-separated list of cell indices. A string, for the same `Game.Grid` dependency reason as `Discovered`. **Only the removals are stored**: what grows is a pure function of the seed and re-derives itself at load, so storing it would be storing what the seed already says — but the seed cannot say that a rock was cleared to make room for a building, and without the delta set that rock returns the moment the camera's decor window leaves and comes back. Nothing is recorded for ground that grew nothing, and nothing is recorded for a cell an ore deposit covers (that is filtered live, so the ground comes back when the deposit is mined out). Restore is tolerant; a save predating the field loads as a world nobody has cleared anything in, which is exactly what it recorded. No `Version` bump — an additive field with a per-field fallback. See [`TERRAIN.md`](TERRAIN.md) §4.
-
-`SaveData.Missions` (a `JObject`) round-trips the expedition system: missions in flight with their clock and their **already-drawn outcome**, the charges left on each probe, the sites already recovered, and the introduction's reward budgets (`MissionSystem.CaptureState()`/`RestoreState(JObject)`).
-
-**The outcome is stored, not a seed.** A mission saved in flight has to land identically — neither redrawn, which would let a reload buy a better result, nor lost. Carrying the drawn outcome makes that structural: there is nothing left to decide at landing, so nothing a reload can decide differently. A seed drawn at arrival would instead depend on the state of the world at that moment, and a reload moves that moment relative to everything else.
-
-Reports waiting to be read are deliberately absent from the save: an unread one is delivered again at the next landing rather than lost. No `Version` bump — an additive field with a per-field fallback, which restores as a game whose probes have not yet arrived. See [`../expeditions.md`](../expeditions.md).
 
 `SaveData`'s four terrain fields (`TerrainSeed`, `TerrainSize`, `TerrainScale`, `TerrainProportion`) are captured from the **running world** (`GameRuntime.Terrain`), never from the settings asset. The two agree on a fresh game and diverge on a loaded one, which runs on the values its save carried. Terrain is not stored anywhere - it is re-derived from exactly these four numbers - so writing the asset's values back would re-stamp a save with whatever the asset happens to say today, and regenerate a different world underneath buildings already placed.
 
@@ -534,67 +528,3 @@ A dispatched robot's claim moves out of the site's reservations and into its own
 **Demolition and its overflow.** The building disappears immediately; its construction cost becomes a repatriation job a robot carries back - Core chest first, then any Storage with room for the whole cargo. If no container anywhere can take it, the robot keeps the cargo, a notification names the cause and the parade, and after 20 seconds **the cargo is destroyed**. This loss is a deliberate, documented simplification, punitive and silent by design: it is the anti-deadlock that keeps a permanently loaded robot from making construction impossible (and the reason there are two robots - one can still build a Storage while the other is stuck). It is a decision, not an oversight: the day it should change, the alternatives are dropping the cargo on the ground or refusing the demolition outright.
 
 **Notifications.** `NotificationSystem` (`Game.Gameplay.Notifications`) is a generic queue - severity, message, display duration, optional countdown - read by a left-edge banner. A blocked robot and a chantier missing materials are its first two callers, not its purpose; it never blocks interaction and no gameplay decision ever reads it.
-
-## 16. Expedition zones
-
-Implemented by `ExpeditionZoneSystem` (`Game.Gameplay.Expeditions`), owned by `GameRuntime` and built **before** `MissionSystem`, which is gated on it. Tuned by `ExpeditionZoneSettings` (`Game.Data`, `Assets/Data/World/ExpeditionZoneSettings.asset`). See [`MAP.md`](MAP.md) §5 for the subsystem's own description.
-
-```csharp
-public int ZoneCount { get; }
-public float SliceDegrees { get; }          // 360 / count, derived
-public float InnerRadiusCells { get; }      // frozen at layout, restored from the save
-public float OuterRadiusCells { get; }      // threshold + one max Core radius, derived
-public ExpeditionZone ZoneOf(int index)
-public int ZoneAt(Vector2 cellPosition)     // -1 for ground no zone covers
-public int ZoneOfSector(int sectorIndex)
-
-public int ChosenZone { get; }              // -1 while the six are on offer
-public bool IsAvailable(int zoneIndex, DiscoveryRuntime discovery)
-public bool ChosenZoneIsMapped(DiscoveryRuntime discovery)   // cartography >= ZoneReleaseRatio
-public bool IsComposed(int zoneIndex)       // the first chosen zone carries an authored content
-public ZoneChoiceRefusal Choose(int zoneIndex, DiscoveryRuntime discovery)
-public ExpeditionZoneRefusal MayTarget(int sectorIndex)
-public bool WouldChoose(int sectorIndex)    // true while none is chosen and the sector is in a zone
-public void ChooseByLaunch(int sectorIndex, DiscoveryRuntime discovery)
-public void UseDiscovery(DiscoveryRuntime discovery)         // what MayTarget measures against
-public int EntrySectorOf(int zoneIndex)     // what a first mission into it is aimed at
-
-public bool IsSurveyed(int zoneIndex)       // a robot has reported from it
-public void MarkSurveyed(int zoneIndex)     // called from MissionSystem's delivery
-
-public IReadOnlyList<ExpeditionZoneSite> SitesOf(int zoneIndex)
-public int HiddenSitesLeft(int zoneIndex)
-public ExpeditionZoneSite RevealNextHiddenSite(int zoneIndex)   // null once the stock is spent
-public bool Consume(int zoneIndex, int indexInZone)
-public ExpeditionZoneCartography CartographyOf(int zoneIndex, DiscoveryRuntime discovery)
-
-public JObject CaptureState()
-public void RestoreState(JObject state)
-```
-
-**Nothing derived is settable.** The slice angle comes off the count; the outer edge comes off `SectorMissionRange.ExplorationMinimumCells` plus its `MaxCoreRadiusCells`. Both terms of the threshold live on `SectorSettings` — `maxCoreRadiusCells` (80, the design ceiling, **not** `CoreRuntime.ExtendedActionRadiusCells` which is what research grants today) and `territorySpacingCells` (90) — giving a threshold of 250 and an outer edge of 330. `SiteToleranceCells` (20, the placement's slack on a secondary Core site) moves the boundary the two bands meet at to `BandBoundaryCells` = 230, and `ExpeditionZoneSystem` reads that tolerance back off the range so the placement and the band cannot drift apart. Both are properties, never fields: entering either beside the figure it is derived from makes a second copy able to contradict it.
-
-**The choice is applied on the real launch path, and the launch is what makes it.** `MissionSystem.CanLaunch` calls `MayTarget` **before** any kind's own rules, and adds one refusal, `LaunchRefusal.OutsideChosenZone`. It is a required constructor argument of `MissionSystem` (nullable in value, not omissible in code) so that no caller can quietly ship a game where the rule exists and is never asked.
-
-**While no zone is chosen every zone is a legal target**, and sending the first robot into one is what picks that direction and shuts the other five until it is mapped. There is deliberately no "no zone chosen" refusal: one gesture rather than two, no second meaning for a click on a map where a click is otherwise a framing shortcut, and no state where the map is readable but nothing can be launched. `MayTarget` therefore answers `None` for any sector inside a zone while `ChosenZone` is -1, and refuses only ground no zone covers.
-
-- **`ChooseByLaunch` is called from `TryLaunch` after the refusal check, never inside it.** A refused mission must not cost the player the five other directions.
-- **The lock is a wait, not a forfeit.** The other five reopen once the chosen zone is mapped: `IsAvailable`/`MayTarget` answer through `ChosenZoneIsMapped`, which is `CartographyOf(...).Ratio >= ExpeditionZoneSettings.ZoneReleaseRatio` — a setting, shipped at 1. The introduction is not meant to reach it, so in play the five stay shut for its whole length **without the rule being a lie**. Measured in surface like everything else about a zone.
-- **The discovery is handed to the system once** (`UseDiscovery`, from `GameRuntime`) rather than threaded through the launch path: `MayTarget` is asked by `CanLaunch`, which has no business knowing about cartography.
-- **`MissionKind.Decouverte` is the mission a zone takes before anybody has been there**, and there is exactly one per zone. It obeys **no band** — it is not a choice among several missions but the only one on offer — and it is refused with `LaunchRefusal.ZoneAlreadySurveyed` once its zone has reported. Its duration is `MissionSettings.DiscoverySeconds` **flat**, the one duration distance does not add to: it only ever goes to an entry sector, and the six sit at the same distance by construction, so a travel term would contribute nothing but the spread that rounding a cell into a sector produces. It draws on the introduction's reconnaissance budget like the prospection it used to be — a first mission with a payout of its own would move the introduction's economy while nothing about it was meant to change.
-
-  **Appended to the enum, never inserted.** A mission in flight saves its kind as `(int)Kind`, so inserting a member would turn every saved mission into another kind.
-
-  **A discovery reveals no ground** — no arrival disc and no trail, the only mission with neither. It reports the zone's list of sites and nothing else; terrain is opened by the missions sent to those sites, each on its own completion.
-
-- **`HighlightedSite` is derived, `SpendHighlight` is the only state.** The chosen zone's first standing recovery, once the zone is surveyed and while the highlight has not been spent. `TryLaunch` spends it after a successful launch, and `SpendHighlight` only bites while one is actually showing — the discovery is a launch too, and it lands before the survey, so an unconditional spend would put out a highlight that had never been lit. Saved as `highlightSpent`; absent restores as not yet spent, since a run from before the key was never shown one.
-
-- **`IsSurveyed` is what a zone's content is shown through.** Choosing a direction derives its content; it does not reveal it. The first mission to report from a zone marks it surveyed (`MissionSystem` delivery, any kind), and only then does the screen draw its sites. Per zone, so moving on to another one starts that one unsurveyed and coming back never un-knows a visited one.
-- **`WouldChoose` exists so the screen can say what the click is about to cost** before it is made. A lock met as the unannounced side effect of pressing a button would be the worst way to learn the rule.
-- **`EntrySectorOf` is what a first mission is aimed at**: on the zone's own bearing, one sector past the inner edge. The six zones are one wedge turned six times, so their entry sectors sit at the same distance and a mission to any of them takes the same time - which is what lets the first screen claim that what it shows is true and identical everywhere.
-
-**Cartography is surface, never sites** (`ExpeditionZoneCartography` is `DiscoveredCells` / `TotalCells`). Field studies add sites, so a site count would go backwards; over a fixed cell set with append-only discovery, monotonic is structural. Measured on demand in one walk for all zones and cached against `DiscoveryRuntime.Version`; allocates nothing.
-
-**Save:** `SaveData.ExpeditionZones` (a `JObject`) round-trips the chosen zone, the frozen inner radius, which zones have been surveyed, and only the sites whose state has moved off what the derivation gives.
-
-- **`surveyed` is the one key whose absence does not restore as "nothing has happened".** A save without it was written by a build where choosing a zone showed its sites at once, so restoring it as unvisited would take back what that run already had and ask for an exploration it had already made. Absent, the chosen zone counts as surveyed; a run that chose nothing still surveys nothing. Everything else - bounds, sites, their positions and findings - is a pure function of `SaveData.TerrainSeed` and re-derives at load, exactly like a sector's identity (§14). No `Version` bump: an additive field with a per-field fallback, restoring as a run with the six zones still on offer.

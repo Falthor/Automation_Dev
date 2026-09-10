@@ -9,11 +9,6 @@ namespace Game.Presentation
     /// <summary>
     /// Draws the explorer robots wherever they are - parked at the base or out wandering.
     ///
-    /// <b>It replaced a park.</b> The markers used to be spawned once, on fixed cells beside the
-    /// Core, because a robot was a charge in <c>MissionSystem</c> with no position of its own and
-    /// nothing to draw between launch and return. A wandering robot has a position every frame, so
-    /// the view follows it instead of standing where it was left.
-    ///
     /// <b>Not a MonoBehaviour</b>, like the park before it: <c>GameRuntime</c> owns it and refreshes
     /// it from the one central Update, so there is nothing to wire into a scene and no per-robot
     /// <c>Update</c>. The runtime is authoritative for position and heading - this converts grid

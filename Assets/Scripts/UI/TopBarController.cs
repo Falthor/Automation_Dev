@@ -3,7 +3,6 @@ using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Directives;
-using Game.Gameplay.Missions;
 using Game.Gameplay.Session;
 using Game.Presentation;
 using UnityEngine;
@@ -64,9 +63,6 @@ namespace Game.UI
         Card _researchCard;
         Card _buildingCard;
 
-        /// <summary>The permanent missions counter (SPEC_EXPEDITIONS.md §5.3). Hidden until the fleet exists, because before that there is nothing to count.</summary>
-        Card _missionsCard;
-
         /// <summary>One built card's live widgets, plus the responsive-width bounds it was configured with.</summary>
         sealed class Card
         {
@@ -108,7 +104,6 @@ namespace Game.UI
             _directiveCard = BuildDirectiveCard();
             _researchCard = BuildCard(researchIcon, ResearchPanelController.PanelName, 170f, 130f, 210f, 56f, 2, "top-bar-card-bar-fill-research");
             _buildingCard = BuildCard(buildingIcon, BuildingMenuController.PanelName, 150f, 115f, 190f, 40f, 1, "top-bar-card-bar-fill-buildings");
-            _missionsCard = BuildMissionsCard();
 
             if (constructionInputAdapter != null) constructionInputAdapter.PlacementRefused += ShowRefusalMessage;
         }
@@ -220,76 +215,6 @@ namespace Game.UI
             return card;
         }
 
-        /// <summary>
-        /// The missions counter, which SPEC_EXPEDITIONS.md §5.3 requires be permanent: slots used out
-        /// of slots available, and the time left on each one that is out.
-        ///
-        /// Permanent is the whole point. A player who has to open the map to learn whether a robot is
-        /// still out will open it constantly, and the two-slot limit - the thing the spec makes the
-        /// real cost of an expedition - stops being felt while it is out of sight.
-        ///
-        /// Absent, not empty, until the fleet exists: before that there is nothing to count.
-        /// </summary>
-        Card BuildMissionsCard()
-        {
-            var card = new Card { RefWidth = 190f, MinWidth = 150f, MaxWidth = 230f, DetailHeight = 0f };
-
-            var root = new VisualElement();
-            root.AddToClassList("top-bar-card");
-            card.Root = root;
-
-            var header = new VisualElement();
-            header.AddToClassList("top-bar-card-header");
-
-            var value = new Label();
-            value.AddToClassList("top-bar-directive-number");
-            header.Add(value);
-            card.Value = value;
-
-            var detail = new VisualElement();
-            detail.AddToClassList("top-bar-directive-requirements");
-            header.Add(detail);
-            card.Requirements = detail;
-
-            root.Add(header);
-            root.AddToClassList("top-bar-card-clickable");
-            root.RegisterCallback<ClickEvent>(_ => gameRuntime.Selection.OpenGlobalPanel(SectorMapPanelController.PanelName));
-
-            _cardsRow.Add(root);
-            return card;
-        }
-
-        void RefreshMissions()
-        {
-            MissionSystem missions = gameRuntime.Missions;
-            bool available = missions != null && missions.RobotsHaveAppeared;
-            _missionsCard.Root.EnableInClassList("hidden", !available);
-            if (!available) return;
-
-            _missionsCard.Value.text = $"Missions {missions.InFlight.Count}/{missions.MaxConcurrentMissions}";
-
-            _missionsCard.Requirements.Clear();
-            foreach (MissionRuntime mission in missions.InFlight)
-            {
-                var chip = new Label(FormatRemaining(mission.RemainingSeconds));
-                chip.AddToClassList("top-bar-mission-chip");
-                _missionsCard.Requirements.Add(chip);
-            }
-
-            if (missions.InFlight.Count != 0) return;
-
-            var idle = new Label($"{missions.TotalChargesLeft} charges");
-            idle.AddToClassList("top-bar-mission-chip");
-            _missionsCard.Requirements.Add(idle);
-        }
-
-        /// <summary>Minutes and seconds. A mission runs for minutes, and a bare second count stops being readable past a hundred or so.</summary>
-        static string FormatRemaining(float seconds)
-        {
-            int whole = Mathf.Max(0, Mathf.RoundToInt(seconds));
-            return whole < 60 ? $"{whole} s" : $"{whole / 60}:{whole % 60:00}";
-        }
-
         /// <summary>Selects the Core, which is what CorePanelController listens for - the same route a click on the Core itself takes, so there is one way in and not two.</summary>
         void OpenCorePanel()
         {
@@ -335,7 +260,6 @@ namespace Game.UI
             RefreshDirective();
             RefreshResearch();
             RefreshBuildings();
-            RefreshMissions();
 
             if (_refusalMessageHideAt >= 0f && Time.unscaledTime >= _refusalMessageHideAt)
             {

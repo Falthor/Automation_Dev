@@ -47,47 +47,18 @@ namespace Game.Data
         [Header("Risque, en cases depuis le Noyau")]
 
         /// <summary>
-        /// Up to here, a sector reads as the player's own ground. Defaults to the Core's initial
-        /// radius, because that is where the player starts - but it is a <b>balance</b> value, not a
-        /// derived one: deriving it from the radius would couple danger to how far a Core happens to
-        /// reach, which is a different idea entirely and would still be there if radius extension
-        /// were removed tomorrow.
+        /// Up to here, a sector reads as the player's own ground. Near the Core's initial radius,
+        /// because that is where the player starts - but it is a <b>balance</b> value, not a derived
+        /// one: deriving it from the radius would couple danger to how far a Core happens to reach,
+        /// which is a different idea entirely.
         /// </summary>
         [SerializeField, Min(0f)] float lowRiskWithinCells = 40f;
 
-        /// <summary>The mining ring - far enough to need a mission, close enough to be routine. Defaults to the exploration range.</summary>
+        /// <summary>The middle band: ground a robot reaches routinely.</summary>
         [SerializeField, Min(0f)] float moderateRiskWithinCells = 250f;
 
         /// <summary>As far out as a secondary Core's own territory reaches. Past this, everything is Critical.</summary>
         [SerializeField, Min(0f)] float highRiskWithinCells = 330f;
-
-        [Header("Missions")]
-
-        /// <summary>
-        /// The empty ground wanted between two Cores' maximum radii, in cells.
-        ///
-        /// <b>This is the only figure of the exploration threshold that is a choice.</b> The threshold
-        /// itself - where mining stops and exploration starts - is two maximum Core radii back to back
-        /// plus this gap, and it is derived in SectorMissionRange rather than written down anywhere.
-        /// Entering the resulting distance as a setting would make it a second copy that stops
-        /// agreeing the day a Core's maximum radius moves.
-        /// </summary>
-        [SerializeField, Min(0f)] float territorySpacingCells = 90f;
-
-        /// <summary>
-        /// The largest radius any Core will ever reach, in cells — <b>the design ceiling, not what
-        /// research grants today</b>.
-        ///
-        /// The two are different numbers and conflating them was a defect: the threshold was built on
-        /// <c>CoreRuntime.ExtendedActionRadiusCells</c> (32), which is what <c>extended_bandwidth</c>
-        /// currently extends the Core to. The ceiling is 80. A secondary Core standing at the threshold
-        /// must be able to grow to 80 without its territory ever touching the first one's, which is why
-        /// this figure and not the current extension belongs in the threshold.
-        ///
-        /// It lives here beside the gap because the two are one statement — how far apart two
-        /// territories must be — and neither means anything without the other.
-        /// </summary>
-        [SerializeField, Min(0f)] float maxCoreRadiusCells = 80f;
 
         public int ChunkSizeCells => chunkSizeCells;
         public int SectorSizeCells => sectorSizeCells;
@@ -96,8 +67,6 @@ namespace Game.Data
         public float LowRiskWithinCells => lowRiskWithinCells;
         public float ModerateRiskWithinCells => moderateRiskWithinCells;
         public float HighRiskWithinCells => highRiskWithinCells;
-        public float TerritorySpacingCells => territorySpacingCells;
-        public float MaxCoreRadiusCells => maxCoreRadiusCells;
 
         /// <summary>How many sectors tile a chunk along one axis. 4 at the defaults.</summary>
         public int SectorsPerChunkAxis => Mathf.Max(1, chunkSizeCells / Mathf.Max(1, sectorSizeCells));

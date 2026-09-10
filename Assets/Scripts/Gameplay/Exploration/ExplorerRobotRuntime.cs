@@ -71,6 +71,13 @@ namespace Game.Gameplay.Exploration
         public bool StockAlertRaised { get; set; }
 
         /// <summary>
+        /// The sector this robot last materialised the ground around, or -1. What makes the
+        /// materialisation fire once per sector entered rather than once per reveal - not saved,
+        /// because re-materialising a block is idempotent and costs one pass.
+        /// </summary>
+        public int LastMaterialisedSector { get; set; } = -1;
+
+        /// <summary>
         /// Consecutive reveals that turned up no new ground at all. What lets the panel say the robot
         /// is going back over what it already knows rather than earning - not saved, since it is
         /// re-established within a cell or two of travel.

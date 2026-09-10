@@ -3,6 +3,7 @@ using Game.Construction;
 using Game.Core;
 using Game.Data;
 using Game.Gameplay.Buildings;
+using Game.Gameplay.Exploration;
 using Game.Gameplay.Sites;
 using Game.Grid;
 using UnityEngine;
@@ -186,6 +187,19 @@ namespace Game.Presentation
             if (inspected != null)
             {
                 hoverHighlightView?.Show(inspected.Cell, inspected.Definition.FootprintSize);
+                depositHoverGlowView?.Hide();
+                return;
+            }
+
+            // A robot under inspection gets the same halo a building does - the player selected a
+            // thing and expects to see which. Asked for by centre rather than by cell because it
+            // stands between cells and keeps moving: the outline follows it instead of jumping a
+            // cell at a time.
+            ExplorerRobotRuntime inspectedRobot = gameRuntime.Selection.SelectedExplorerRobot;
+            if (inspectedRobot != null)
+            {
+                float cellSize = gameRuntime.Grid.CellSize;
+                hoverHighlightView?.ShowAt(inspectedRobot.Position * cellSize, cellSize);
                 depositHoverGlowView?.Hide();
                 return;
             }

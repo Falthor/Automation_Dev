@@ -47,16 +47,31 @@ namespace Game.Presentation
 
         public void Show(GridCoord footprintOrigin, Vector2Int footprintSize)
         {
+            Vector3 min = _grid.CellToWorld(footprintOrigin);
+            ShowRect(min.x, min.y, footprintSize.x * _grid.CellSize, footprintSize.y * _grid.CellSize);
+        }
+
+        /// <summary>
+        /// A halo around something that is not a grid occupant: an explorer robot, which stands
+        /// <b>between</b> cells because its position is continuous.
+        ///
+        /// Snapping it to the cell underneath would be simpler and visibly wrong - the outline would
+        /// jump a whole cell at a time while the robot slid smoothly inside it. Given a centre and a
+        /// size in world units, it follows exactly.
+        /// </summary>
+        public void ShowAt(Vector2 centreWorld, float sizeWorld)
+        {
+            ShowRect(centreWorld.x - sizeWorld * 0.5f, centreWorld.y - sizeWorld * 0.5f, sizeWorld, sizeWorld);
+        }
+
+        void ShowRect(float minX, float minY, float width, float height)
+        {
             gameObject.SetActive(true);
 
-            Vector3 min = _grid.CellToWorld(footprintOrigin);
-            float width = footprintSize.x * _grid.CellSize;
-            float height = footprintSize.y * _grid.CellSize;
-
-            PlaceBar(_bottom, min.x + width * 0.5f, min.y + lineThickness * 0.5f, width, lineThickness);
-            PlaceBar(_top, min.x + width * 0.5f, min.y + height - lineThickness * 0.5f, width, lineThickness);
-            PlaceBar(_left, min.x + lineThickness * 0.5f, min.y + height * 0.5f, lineThickness, height);
-            PlaceBar(_right, min.x + width - lineThickness * 0.5f, min.y + height * 0.5f, lineThickness, height);
+            PlaceBar(_bottom, minX + width * 0.5f, minY + lineThickness * 0.5f, width, lineThickness);
+            PlaceBar(_top, minX + width * 0.5f, minY + height - lineThickness * 0.5f, width, lineThickness);
+            PlaceBar(_left, minX + lineThickness * 0.5f, minY + height * 0.5f, lineThickness, height);
+            PlaceBar(_right, minX + width - lineThickness * 0.5f, minY + height * 0.5f, lineThickness, height);
         }
 
         static void PlaceBar(SpriteRenderer bar, float x, float y, float width, float height)

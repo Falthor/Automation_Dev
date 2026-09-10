@@ -17,5 +17,3 @@ MonoBehaviour:
   lowRiskWithinCells: 40
   moderateRiskWithinCells: 250
   highRiskWithinCells: 330
-  territorySpacingCells: 90
-  maxCoreRadiusCells: 80

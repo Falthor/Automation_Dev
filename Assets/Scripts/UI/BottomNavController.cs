@@ -133,8 +133,8 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// The map exists once the robots do: before that there is nowhere to send anything, and §9
-        /// makes their arrival what opens it.
+        /// The map exists once the robots do: before that there is nothing out there to look at, and
+        /// their arrival - the CU reserve having fallen far enough - is what opens it.
         ///
         /// The whole slot goes, not just the button inside it. Hiding only the button left its empty
         /// frame drawn in the corner for the entire opening - a control-shaped hole announcing a
@@ -147,7 +147,7 @@ namespace Game.UI
         {
             if (_mapButton == null) return;
 
-            bool available = gameRuntime.Missions != null && gameRuntime.Missions.RobotsHaveAppeared;
+            bool available = gameRuntime.ExplorerRobots != null && gameRuntime.ExplorerRobots.RobotsHaveAppeared;
             _mapSlot?.EnableInClassList("hidden", !available);
             _mapButton.EnableInClassList("hidden", !available);
 

@@ -5,9 +5,7 @@ using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Directives;
-using Game.Gameplay.Expeditions;
 using Game.Gameplay.Exploration;
-using Game.Gameplay.Missions;
 using Game.Gameplay.Notifications;
 using Game.Gameplay.Power;
 using Game.Gameplay.Research;
@@ -89,16 +87,6 @@ namespace Game.Presentation
         /// </summary>
         [SerializeField] SectorSettings sectorSettings;
 
-        /// <summary>How the expedition system is tuned. Optional: null means a world without expeditions.</summary>
-        [SerializeField] MissionSettings missionSettings;
-
-        /// <summary>
-        /// How the ground around the Core is cut into expedition zones, and what one holds. Optional:
-        /// null means a world where a mission may be aimed anywhere its band allows, which is what the
-        /// game did before the zones existed.
-        /// </summary>
-        [SerializeField] ExpeditionZoneSettings expeditionZoneSettings;
-
         /// <summary>
         /// How an explorer robot wanders when the player sends it out freely. Optional: null means a
         /// world with no explorer robots on the ground at all, which is a world without free
@@ -176,17 +164,11 @@ namespace Game.Presentation
         public SectorCatalog SectorCatalog { get; private set; }
 
         /// <summary>Which sectors are currently within mission reach. Reads the Core's radius at call time, so extending it moves the ring on its own.</summary>
-        public SectorMissionRange MissionRange { get; private set; }
-
         /// <summary>
-        /// The six expedition zones, their derived content, and which one the player is working. Null
-        /// when no zone settings are configured, which is a world where a mission may go anywhere its
-        /// band allows.
+        /// How far a robot will wander from the Core, in cells. What the map draws as its outer ring,
+        /// and the only reach figure left in the game now the mission bands are gone.
         /// </summary>
-        public ExpeditionZoneSystem ExpeditionZones { get; private set; }
-
-        /// <summary>The expedition process: probes, missions in flight, reports. Null when no mission settings are configured, which is a world without expeditions rather than a broken one.</summary>
-        public MissionSystem Missions { get; private set; }
+        public float ExplorerRangeCells => explorerRobotSettings != null ? explorerRobotSettings.MaxRadiusCells : 0f;
 
         /// <summary>One texel per sector, for the whole map - what the zoomed-out map draws. Rebuilds only the chunks discovery actually moved, so a still frame costs one comparison.</summary>
         public SectorMapImage SectorMap { get; private set; }
@@ -195,8 +177,8 @@ namespace Game.Presentation
         /// Free exploration: robots the player sends out to wander, which uncover ground as they go.
         /// Null when no explorer settings are configured.
         ///
-        /// <b>Beside MissionSystem, never through it.</b> Nothing here spends a mission charge or
-        /// produces a report - see ExplorerRobotSystem.
+        /// The only thing in the game that goes anywhere, and what turns derived deposits into real
+        /// ones - see ExplorerRobotSystem.
         /// </summary>
         public ExplorerRobotSystem ExplorerRobots { get; private set; }
 
@@ -420,31 +402,19 @@ namespace Game.Presentation
             Observation = new ObservationRuntime();
             RebuildObservers();
 
-            // Built here rather than in either branch because both need it and neither owns it. All
-            // three are stateless views over the map: SectorGrid is arithmetic, SectorCatalog is a
-            // pure function of Terrain.Seed, and SectorMissionRange reads the radius it is handed.
-            // Nothing here is restored from the save, and nothing here needs to be - the seed is,
-            // and everything else follows from it.
+            // Built here rather than in either branch because both need it and neither owns it. Both
+            // are stateless views over the map: SectorGrid is arithmetic and SectorCatalog is a pure
+            // function of Terrain.Seed. Nothing here is restored from the save, and nothing here needs
+            // to be - the seed is, and everything else follows from it.
             Sectors = new SectorGrid(Terrain.Size, sectorSettings.SectorSizeCells);
             SectorCatalog = new SectorCatalog(Sectors, Terrain.Seed, World?.CoreCenterCells ?? Vector2.zero,
                 sectorSettings.LowRiskWithinCells, sectorSettings.ModerateRiskWithinCells, sectorSettings.HighRiskWithinCells,
                 sectorSettings.PreferredRegionSizeCells);
 
-            // <b>The ceiling, not what research grants today.</b> This used to read
-            // CoreRuntime.ExtendedActionRadiusCells (32) - the radius extended_bandwidth extends the
-            // Core to - which put the threshold at 154. The figure the threshold needs is how far a Core
-            // will ever reach (80): a secondary Core standing at the threshold has to be able to grow to
-            // its own maximum without the two territories ever meeting. Both terms now sit together in
-            // SectorSettings, and the threshold stays derived: 2 x 80 + 90 = 250.
-            MissionRange = new SectorMissionRange(sectorSettings.MaxCoreRadiusCells, sectorSettings.TerritorySpacingCells,
-                expeditionZoneSettings != null ? expeditionZoneSettings.RadiusJitterCells : 0f);
-            // The zones read that tolerance back off the range, so the band and the placement cannot
-            // drift apart - see ExpeditionZoneSystem.SecondaryCoreToleranceCells.
             SectorMap = new SectorMapImage(Sectors, Discovery);
 
-            // Free exploration, built from its own settings and gated on nothing: it is not the
-            // mission fleet under another name, so it does not wait on the CU threshold that brings
-            // the probes out. The robots stand at the base from the first frame.
+            // Free exploration, and since the missions were removed it is the only thing that goes
+            // anywhere: it opens ground, it finds the deposits, and the map screen is about it.
             if (explorerRobotSettings != null)
             {
                 // The measurement log only exists when its switch is on, which it is not by default.
@@ -454,7 +424,25 @@ namespace Game.Presentation
                     : null;
 
                 ExplorerRobots = new ExplorerRobotSystem(explorerRobotSettings, Discovery, Compute,
-                    World?.CoreCenterCells ?? Vector2.zero, ExplorerParkOrigin(), Terrain.Seed, harvestLog);
+                    World?.CoreCenterCells ?? Vector2.zero, ExplorerParkOrigin(), Terrain.Seed,
+                    Sectors, harvestLog);
+
+                // Set after construction because it needs the ore definitions world generation owns.
+                // Placed content wins over the derivation, and World has already run - which is the
+                // ordering constraint that keeps the starting area from being overwritten.
+                //
+                // <b>The robots are the only caller.</b> Nothing else reports on a sector, so without
+                // this a world's derived ore would never become real however far anything explored.
+                if (worldGenerationSettings != null)
+                {
+                    ExplorerRobots.Materialisation = new SectorMaterialisation(Sectors, Grid, SectorCatalog, new[]
+                    {
+                        worldGenerationSettings.IronOreDefinition,
+                        worldGenerationSettings.CopperOreDefinition,
+                        worldGenerationSettings.CoalOreDefinition
+                    });
+                }
+
                 ExplorerRobots.RestoreState(loadedSave?.ExplorerRobots);
                 ExplorerRobots.StockFilled += AnnounceFullStock;
 
@@ -463,44 +451,11 @@ namespace Game.Presentation
                 if (harvestLog != null) Debug.Log($"ExplorerHarvestLog: measuring to {harvestLog.Path}");
             }
 
-            // Before the missions, which are gated on it. The inner edge is read off the Core once, here,
-            // and then travels in the save: the zones are cut against the ground the Core already owned
-            // when they were laid out, and re-cutting them later would move a run's map underneath it.
-            if (expeditionZoneSettings != null)
-            {
-                ExpeditionZones = new ExpeditionZoneSystem(expeditionZoneSettings, Sectors, MissionRange,
-                    World?.CoreCenterCells ?? Vector2.zero, World?.ActionRadiusCells ?? 0, Terrain.Seed);
-                // The release condition reads cartography, so the system needs the discovery it measures
-                // against - handed over once here rather than threaded through the launch path.
-                ExpeditionZones.UseDiscovery(Discovery);
-                ExpeditionZones.RestoreState(loadedSave?.ExpeditionZones);
-            }
-
-            if (missionSettings != null)
-            {
-                Missions = new MissionSystem(missionSettings, Sectors, Discovery, SectorCatalog, Compute,
-                    MissionRange, ExpeditionZones, Terrain.Seed);
-
-                // Set after construction because it needs the ore definitions world generation owns.
-                // Placed content wins over the derivation, and World has already run - which is the
-                // ordering constraint that keeps the starting area from being overwritten.
-                if (worldGenerationSettings != null)
-                {
-                    Missions.Materialisation = new SectorMaterialisation(Sectors, Grid, SectorCatalog, new[]
-                    {
-                        worldGenerationSettings.IronOreDefinition,
-                        worldGenerationSettings.CopperOreDefinition,
-                        worldGenerationSettings.CoalOreDefinition
-                    });
-                }
-                Missions.RestoreState(loadedSave?.Missions);
-            }
-
             // Last, so it applies to the restored state rather than being overwritten by it: a save
             // written before the switch was on still opens, and a save written after loses nothing.
             if (startWithEverythingUnlocked)
             {
-                Missions?.MakeRobotsAppear();
+                ExplorerRobots?.MakeRobotsAppear();
                 if (CoreDirectives != null) CoreDirectives.ResearchMenuForcedOpen = true;
             }
 
@@ -643,8 +598,6 @@ namespace Game.Presentation
                 // Only what the player cleared. What grows re-derives itself from the seed, so
                 // storing it would be storing what the seed already says.
                 DecorRemoved = Decor?.CaptureState(),
-                Missions = Missions?.CaptureState(),
-                ExpeditionZones = ExpeditionZones?.CaptureState(),
                 ExplorerRobots = ExplorerRobots?.CaptureState(),
                 ComputeReserve = Compute.Reserve,
                 ResearchActiveId = Research.ActiveResearch != null ? Research.ActiveResearch.Id : null,
@@ -997,11 +950,6 @@ namespace Game.Presentation
             // After Research, which is what extends the radius: the widened disc is written the same
             // frame it is granted rather than one frame later.
             RevealDiscoveredByCore();
-
-            // After the Core's disc, so a mission landing this frame reveals on top of an up-to-date
-            // map rather than under it. The reserve and its cap are handed over rather than read,
-            // because the probe threshold is a fraction of the cap - see MissionSettings.
-            Missions?.Tick(Time.deltaTime, Compute.Reserve, ComputeSystem.ReserveCap);
 
             // Free exploration, after the Core's disc for the same reason a mission is: a robot
             // uncovering ground this frame writes on top of an up-to-date map rather than under it.

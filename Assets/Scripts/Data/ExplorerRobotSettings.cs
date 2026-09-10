@@ -23,15 +23,24 @@ namespace Game.Data
     {
         [Header("La flotte")]
 
-        /// <summary>
-        /// How many robots stand at the base. <b>Its own count, not the mission fleet's.</b> Free
-        /// exploration runs beside the mission system rather than through it, so it does not read
-        /// <c>MissionSettings.explorerRobotCount</c> - and a robot here spends no mission charge.
-        /// </summary>
+        /// <summary>How many robots stand at the base.</summary>
         [SerializeField, Min(0)] int robotCount = 2;
 
         /// <summary>What a robot looks like. Optional: null falls back to a plain coloured square, so a scene with no art still shows something moving.</summary>
         [SerializeField] Sprite robotSprite;
+
+        /// <summary>
+        /// The CU reserve the run has to have fallen to before the robots arrive.
+        ///
+        /// <b>A fall, not a rise.</b> The introduction drains CU, and the fleet turning up when the
+        /// reserve gets low is what makes it a way out rather than a reward: at the point the player
+        /// is running dry, the thing that pays is exploring.
+        ///
+        /// The prototype does not wait for it: <c>GameRuntime.startWithEverythingUnlocked</c> brings
+        /// them out at once, because an introduction that has to be played through before the map
+        /// opens is a tax on every test of what the map does.
+        /// </summary>
+        [SerializeField, Min(0f)] float appearAtReserveCu = 25000f;
 
         [Header("Déplacement")]
 
@@ -121,6 +130,7 @@ namespace Game.Data
         [SerializeField, Min(1f)] float boundaryRampCells = 40f;
 
         public int RobotCount => robotCount;
+        public float AppearAtReserveCu => appearAtReserveCu;
         public Sprite RobotSprite => robotSprite;
         public float SpeedCellsPerSecond => speedCellsPerSecond;
         public float MaxRadiusCells => maxRadiusCells;

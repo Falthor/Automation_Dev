@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Game.Presentation;
 using UnityEngine;
@@ -7,8 +6,13 @@ using UnityEngine.UIElements;
 namespace Game.UI
 {
     /// <summary>
-    /// The zoomed-out map: one quad per discovered chunk, zoomable and pannable, with the Core and its
-    /// action radius drawn over it.
+    /// The zoomed-out map: one quad per discovered chunk, zoomable and pannable, with the Core, its
+    /// action radius, the base, the explorer robots and the limit of their range drawn over it.
+    ///
+    /// <b>It is a map and nothing else.</b> Nothing here is aimed at, hovered or selected: the sector
+    /// division is how the world is cut up internally and was never something the player should point
+    /// at. What it answers is "what have I opened, and where are my robots" - and that is the whole
+    /// job.
     ///
     /// <b>There is no map underneath the tiles.</b> Nothing is drawn where nothing is discovered, so
     /// the black is the panel showing through - the absence of a map rather than a dark surface
@@ -17,34 +21,26 @@ namespace Game.UI
     ///
     /// <b>The tiles are the whole terrain layer, and only the view moves.</b> Each holds one texel per
     /// cell of one chunk (16 KB), created when that chunk is first discovered; zooming and panning cost
-    /// a rectangle per tile - a handful during the introduction - and no re-upload.
+    /// a rectangle per tile and no re-upload.
     ///
     /// <b>Zoom is not a nicety here, it is what makes the map readable at all.</b> Showing 10 000
     /// cells at once in a 900-pixel panel is 11 cells per pixel: the Core's radius would be under
-    /// three pixels and the whole area a mission can reach about twenty-five. The player would look
-    /// at a screen of fog with a speck in it. So the panel opens on the Core's neighbourhood and zooms
-    /// out to the whole world only if asked.
+    /// three pixels. So the panel opens on the robots' range and zooms out to the whole world only if
+    /// asked.
     ///
-    /// The Core marker and the radius ring are drawn in Painter2D rather than imported — the same
-    /// gesture as `HatchFillElement` and `ClockGlyphElement`, and for the same reasons: exact at any
-    /// size, no texture to maintain, no lifetime to manage.
+    /// The marks are drawn in Painter2D rather than imported — the same gesture as `HatchFillElement`
+    /// and `ClockGlyphElement`, and for the same reasons: exact at any size, no texture to maintain,
+    /// no lifetime to manage.
     /// </summary>
     public sealed class SectorMapElement : VisualElement
     {
-        /// <summary>
-        /// Pixels per sector at the closest zoom.
-        ///
-        /// Three times what it was. A sector is not decoration on this map, it is the thing a mission
-        /// is aimed at, and the scale has to be set by what stays comfortably clickable rather than by
-        /// how much world fits. At the old sizes a sector shrank to a few pixels well before the map
-        /// stopped being useful to read, so the two purposes fought each other.
-        /// </summary>
+        /// <summary>Pixels per sector at the closest zoom.</summary>
         public const float MaxPixelsPerSector = 144f;
 
-        /// <summary>Pixels per sector when the whole world is asked for. Three pixels is the floor because a target has to be hittable, not because there is nothing left to draw.</summary>
+        /// <summary>Pixels per sector when the whole world is asked for.</summary>
         public const float MinPixelsPerSector = 3f;
 
-        /// <summary>What the panel opens on: close enough that the mission-reachable ring fills a good part of the view.</summary>
+        /// <summary>What the panel opens on: close enough that the robots' range fills a good part of the view.</summary>
         public const float DefaultPixelsPerSector = 48f;
 
         /// <summary>
@@ -59,18 +55,7 @@ namespace Game.UI
 
         static readonly Color CoreColour = new Color(0.85f, 0.45f, 0.95f, 1f);
         static readonly Color RadiusColour = new Color(0.333f, 0.867f, 0.961f, 0.85f);
-        static readonly Color HoverColour = new Color(1f, 1f, 1f, 0.9f);
 
-        /// <summary>The aimed sector. The panel's accent, and thicker than the hover: one is a glance, the other a decision.</summary>
-        static readonly Color SelectionColour = new Color(0.333f, 0.867f, 0.961f, 1f);
-
-        /// <summary>A sector a robot is on its way to. The amber this project already uses for "under way" - the research row in progress wears the same.</summary>
-        static readonly Color MissionColour = new Color(0.937f, 0.624f, 0.153f, 1f);
-
-        /// <summary>
-        /// The zone separators. Deliberately dim: their job is to show that five other directions exist,
-        /// not to compete with the one being worked.
-        /// </summary>
         /// <summary>The base's own colours: everything that transforms or holds in blue, everything that carries in white.</summary>
         static readonly Color BuildingColour = new Color(0.30f, 0.52f, 0.93f, 1f);
         static readonly Color BeltColour = new Color(0.92f, 0.94f, 0.97f, 1f);
@@ -78,25 +63,24 @@ namespace Game.UI
         /// <summary>Below this the base is not drawn at all - see DrawBuildings. One pixel per cell is the point at which a footprint is a shape rather than a speck.</summary>
         const float MinPixelsPerCellForBuildings = 1f;
 
-        static readonly Color SeparatorColour = new Color(1f, 1f, 1f, 0.13f);
+        /// <summary>The limit of where a robot will wander. Dim: it states where the ground the player can reach ends, it does not offer anything.</summary>
+        static readonly Color OuterRingColour = new Color(1f, 1f, 1f, 0.16f);
 
-        /// <summary>The chosen zone's own two separators, a shade up from the rest so the worked slice reads without being announced.</summary>
-        static readonly Color ChosenSeparatorColour = new Color(0.333f, 0.867f, 0.961f, 0.35f);
+        /// <summary>A robot out working. Amber, the colour this project already uses for "under way".</summary>
+        static readonly Color RobotColour = new Color(0.937f, 0.624f, 0.153f, 1f);
 
-        /// <summary>A zone under the pointer while none has been chosen. Faint: it answers "this one", not "take this one".</summary>
-        static readonly Color ZoneHoverFill = new Color(1f, 1f, 1f, 0.05f);
+        /// <summary>A robot parked at the base. Muted, because it is not doing anything.</summary>
+        static readonly Color RobotRestingColour = new Color(0.55f, 0.58f, 0.62f, 1f);
 
-        /// <summary>The zone picked. The panel's own accent, because this is a decision rather than a glance.</summary>
-        static readonly Color ZoneSelectedFill = new Color(0.333f, 0.867f, 0.961f, 0.10f);
+        /// <summary>The ring on the robot whose panel is open - the map's half of the halo the world draws on it.</summary>
+        static readonly Color RobotSelectedColour = new Color(0.333f, 0.867f, 0.961f, 1f);
 
-        /// <summary>A site that has given what it held. The palette's "acquired" green - the same one the research panel uses - because it is a thing the player did, not a thing that failed.</summary>
-        static readonly Color DoneColour = new Color(0.39f, 0.82f, 0.51f, 1f);
-
-        /// <summary>The tick drawn inside a done site. Dark rather than white, so it reads as cut into the disc rather than laid on it.</summary>
-        static readonly Color TickColour = new Color(0.06f, 0.09f, 0.11f, 1f);
-
-        /// <summary>A site needing units. An empty circle: it promises rather than offers.</summary>
-        static readonly Color LockedColour = new Color(0.45f, 0.48f, 0.53f, 0.75f);
+        /// <summary>
+        /// How big a robot's mark is. <b>Fixed in pixels, not in cells</b>: a robot is a thing to find
+        /// on this map, not a thing with a size on the ground, and one that shrank with the zoom would
+        /// vanish at exactly the scale where the player is looking for it.
+        /// </summary>
+        const float RobotRadiusPixels = 5f;
 
         /// <summary>
         /// Holds one child per discovered chunk. <b>There is no map underneath them</b> - the black is
@@ -111,109 +95,18 @@ namespace Game.UI
         readonly VisualElement _overlay = new VisualElement();
 
         SectorMapImage _image;
-        int _sizeSectors = 1;
         int _sectorSizeCells = 16;
 
         Vector2 _coreCentreCells;
         float _coreRadiusCells;
 
-        /// <summary>Which sector the pointer is over, or -1. Read by the panel to fill its tooltip.</summary>
-        public int HoveredSector { get; private set; } = -1;
-
-        /// <summary>The sector a mission would be aimed at, or -1. Survives the pointer leaving, unlike the hover: it is a decision, not a glance.</summary>
-        public int SelectedSector { get; private set; } = -1;
-
-        /// <summary>Sectors a robot is currently on its way to. Marked so the player can see at a glance where the fleet already is, without reading a list.</summary>
-        readonly List<int> _missionTargets = new List<int>();
-
-        /// <summary>What the zones look like on the ground. Handed in rather than computed, so the one partition lives in ExpeditionZoneSystem and the map only draws it.</summary>
-        float _zoneInnerRadiusCells;
-        float _zoneOuterRadiusCells;
-        int _zoneCount;
-        int _chosenZone = -1;
-
-        readonly List<MapSiteMarker> _sites = new List<MapSiteMarker>();
+        /// <summary>How far a robot will go from the Core. Handed in rather than computed - the figure belongs to ExplorerRobotSettings and this only draws it.</summary>
+        float _outerRingRadiusCells;
 
         /// <summary>Every cell the player's base stands on. The one thing on this map that is already theirs.</summary>
         readonly List<MapBuildingCell> _buildings = new List<MapBuildingCell>();
 
-        /// <summary>The one label shown without hovering, for the site put forward. Painter2D draws no text, so it is a child element parked over the mark.</summary>
-        readonly Label _highlightLabel = new Label();
-
-        /// <summary>The site under the pointer, or -1. An index into the list the panel handed over.</summary>
-        public int HoveredSite { get; private set; } = -1;
-
-        /// <summary>The site aimed at, or -1. Survives the pointer leaving: it is a decision, not a glance.</summary>
-        public int SelectedSite { get; private set; } = -1;
-
-        public event Action<int> SelectedSiteChanged;
-
-        /// <summary>
-        /// How near the pointer has to be to a site's mark, in pixels, to be pointing at it.
-        ///
-        /// A little wider than the mark itself: the marks are small at every scale the map reaches, and
-        /// a target that has to be hit exactly is a target the player fights.
-        /// </summary>
-        const float SitePickRadiusPixels = 16f;
-
-        /// <summary>
-        /// How big a site's mark is. <b>Fixed in pixels, not in cells</b>: a site is a place to send a
-        /// mission, not a thing with a size on the ground, and one that shrank with the zoom would vanish
-        /// at exactly the scale where the player is choosing between several.
-        /// </summary>
-        const float SiteRadiusPixels = 11f;
-
-        public event Action<int> HoveredSectorChanged;
-
-        public event Action<int> SelectedSectorChanged;
-
-        /// <summary>
-        /// A click at the whole-world scale, in cell space. <b>A shortcut for framing, never a change of
-        /// screen</b> - the panel turns it into a zone and reframes on it. The element does not decide
-        /// which zone: the partition belongs to <c>ExpeditionZoneSystem</c> and a second copy of it here
-        /// is exactly the kind of duplicate that stops agreeing.
-        /// </summary>
-        public event Action<Vector2> ZoneFramingRequested;
-
-        /// <summary>The zone the pointer is over while none has been chosen, or -1.</summary>
-        public int HoveredZone { get; private set; } = -1;
-
-        /// <summary>The zone aimed at while none has been chosen, or -1. What the side pane offers its first mission for.</summary>
-        public int SelectedZone { get; private set; } = -1;
-
-        /// <summary>Whether a direction has been clicked. Until then the pane follows the pointer; afterwards only another click moves it - see OnPointerMove.</summary>
-        bool _zoneFixed;
-
-        public event Action<int> SelectedZoneChanged;
-
-        /// <summary>
-        /// Answers which zone a point in cell space falls in. Set by the panel, because the partition
-        /// belongs to <c>ExpeditionZoneSystem</c> - a second copy here is the duplicate that stops
-        /// agreeing.
-        /// </summary>
-        public Func<Vector2, int> ZoneResolver { get; set; }
-
-        /// <summary>
-        /// Whether the map is aiming at whole zones rather than at squares inside one.
-        ///
-        /// <b>True until a zone has been chosen.</b> At that stage the player is picking a direction,
-        /// not a destination: there is nothing to tell one sector from another, and asking them to click
-        /// a 16-cell square would be asking a question the map cannot answer yet.
-        /// </summary>
-        public bool AimsAtZones => _chosenZone < 0 && _zoneCount > 0 && ZoneResolver != null;
-
-        /// <summary>
-        /// Whether the view currently shows the whole ring of zones - the scale the design calls
-        /// "monde", and the only one the separators are drawn at.
-        ///
-        /// Derived from what actually fits rather than from a pixel threshold: the world scale is the
-        /// one where a zone's whole depth is on screen, so it follows the zones if they ever move.
-        /// </summary>
-        public bool ShowsWholeRing =>
-            _zoneOuterRadiusCells > 0f && VisibleHalfWidthCells >= _zoneOuterRadiusCells;
-
-        /// <summary>Half the viewport's width, in cells. The one conversion between what is on screen and what the world measures in.</summary>
-        float VisibleHalfWidthCells => contentRect.size.x * 0.5f / PixelsPerSector * _sectorSizeCells;
+        readonly List<MapRobotMark> _robots = new List<MapRobotMark>();
 
         /// <summary>Pixels per sector. The one number that says how zoomed in the map is.</summary>
         public float PixelsPerSector { get; private set; } = DefaultPixelsPerSector;
@@ -222,12 +115,8 @@ namespace Game.UI
         public Vector2 ViewCentreSectors { get; private set; }
 
         bool _dragging;
-        bool _dragMoved;
         Vector2 _dragStart;
         Vector2 _dragCentreAtStart;
-
-        /// <summary>How far the pointer may travel between press and release and still count as a click rather than a pan.</summary>
-        const float ClickSlopPixels = 4f;
 
         public SectorMapElement()
         {
@@ -251,25 +140,17 @@ namespace Game.UI
             _overlay.generateVisualContent += DrawOverlay;
             Add(_overlay);
 
-            _highlightLabel.pickingMode = PickingMode.Ignore;
-            _highlightLabel.style.position = Position.Absolute;
-            _highlightLabel.AddToClassList("sector-map-site-label");
-            _highlightLabel.style.display = DisplayStyle.None;
-            Add(_highlightLabel);
-
             RegisterCallback<WheelEvent>(OnWheel);
             RegisterCallback<PointerDownEvent>(OnPointerDown);
             RegisterCallback<PointerMoveEvent>(OnPointerMove);
             RegisterCallback<PointerUpEvent>(OnPointerUp);
-            RegisterCallback<PointerLeaveEvent>(_ => SetHovered(-1));
             RegisterCallback<GeometryChangedEvent>(_ => OnGeometryChanged());
         }
 
         /// <summary>Hands the element what it draws. Called once the world exists; safe to call again if the map is rebuilt.</summary>
-        public void Bind(SectorMapImage image, int sizeSectors, int sectorSizeCells, Vector2 coreCentreCells)
+        public void Bind(SectorMapImage image, int sectorSizeCells, Vector2 coreCentreCells)
         {
             _image = image;
-            _sizeSectors = Mathf.Max(1, sizeSectors);
             _sectorSizeCells = Mathf.Max(1, sectorSizeCells);
             _coreCentreCells = coreCentreCells;
 
@@ -281,7 +162,7 @@ namespace Game.UI
 
         /// <summary>
         /// Matches the child elements to the discovered chunks. Called when the image reports it
-        /// rebuilt - twice per mission rather than every frame.
+        /// rebuilt rather than every frame.
         ///
         /// Children are only ever added, because a chunk once discovered is never undiscovered. The
         /// texture reference is re-set each time because a tile's pixels change while its identity does
@@ -313,6 +194,15 @@ namespace Game.UI
             if (Mathf.Approximately(_coreRadiusCells, radiusCells)) return;
 
             _coreRadiusCells = radiusCells;
+            _overlay.MarkDirtyRepaint();
+        }
+
+        /// <summary>How far the robots will wander, drawn as the map's outer limit.</summary>
+        public void SetOuterRingRadius(float radiusCells)
+        {
+            if (Mathf.Approximately(_outerRingRadiusCells, radiusCells)) return;
+
+            _outerRingRadiusCells = radiusCells;
             _overlay.MarkDirtyRepaint();
         }
 
@@ -373,153 +263,34 @@ namespace Game.UI
         void OnPointerDown(PointerDownEvent evt)
         {
             _dragging = true;
-            _dragMoved = false;
             _dragStart = evt.localPosition;
             _dragCentreAtStart = ViewCentreSectors;
             this.CapturePointer(evt.pointerId);
         }
 
+        /// <summary>
+        /// Dragging pans, and that is the only thing a pointer does here. There is no click behaviour
+        /// left to tell a drag apart from, so no slop and no click/drag arbitration.
+        /// </summary>
         void OnPointerMove(PointerMoveEvent evt)
         {
-            if (AimsAtZones)
-            {
-                int zone = ZoneResolver(CellAt(evt.localPosition));
-                SetHoveredZone(zone);
-
-                // <b>Hovering reads, clicking fixes.</b> Until a direction has been clicked the pane
-                // follows the pointer, which is how the six are compared; after that it stays on the
-                // one that was picked, and passing over another says nothing about it. The aim also
-                // survives the pointer leaving the map, because the pane carries the button that acts
-                // on it and reaching for that button must not blank what it acts on.
-                if (zone >= 0 && !_zoneFixed) SetSelectedZone(zone);
-            }
-            else
-            {
-                SetHoveredSite(SiteAt(evt.localPosition));
-                SetHovered(SectorIndexAt(evt.localPosition));
-            }
-
             if (!_dragging) return;
 
-            Vector2 movedPixels = (Vector2)evt.localPosition - _dragStart;
-
-            // A drag and a click arrive as the same pair of events; only the distance between them
-            // tells the two apart. Without this, panning the map also re-aimed the mission at
-            // whatever sector the button happened to come up over.
-            if (movedPixels.sqrMagnitude > ClickSlopPixels * ClickSlopPixels) _dragMoved = true;
-
-            ViewCentreSectors = _dragCentreAtStart - movedPixels / PixelsPerSector;
+            ViewCentreSectors = _dragCentreAtStart - ((Vector2)evt.localPosition - _dragStart) / PixelsPerSector;
             Layout();
         }
 
         void OnPointerUp(PointerUpEvent evt)
         {
-            bool wasClick = _dragging && !_dragMoved;
-
             _dragging = false;
             this.ReleasePointer(evt.pointerId);
-
-            if (!wasClick) return;
-
-            // While no zone has been chosen, a click aims at the whole wedge - and fixes it there. The
-            // view is not moved: the player is picking a direction, and jumping the camera under the
-            // click they just made would answer a question they did not ask.
-            if (AimsAtZones)
-            {
-                int zone = ZoneResolver(CellAt(evt.localPosition));
-                if (zone < 0) return;
-
-                _zoneFixed = true;
-                SetSelectedZone(zone);
-                return;
-            }
-
-            // Afterwards, at the whole-world scale, a click frames the zone it fell in rather than
-            // aiming at a sector: sectors are a few pixels across there, so a click could only ever
-            // mean "take me closer". Nothing is stacked and nothing is left to quit.
-            if (ShowsWholeRing)
-            {
-                ZoneFramingRequested?.Invoke(CellAt(evt.localPosition));
-                return;
-            }
-
-            // A site, or nothing. There is no square to select: the sector division is how a mission is
-            // aimed, never something the player points at.
-            int site = SiteAt(evt.localPosition);
-            if (site >= 0)
-            {
-                SetSelectedSite(site);
-
-                // <b>The site's own sector, never the one under the cursor.</b> A mark is picked from up
-                // to SitePickRadiusPixels away, which at the zone scale is a good fraction of a sector -
-                // so a click on the edge of a mark could aim the mission at the square next door and
-                // send the robots somewhere the player never pointed at.
-                SetSelected(SectorOfCell(_sites[site].CellPosition));
-            }
         }
 
-        /// <summary>Aims at a sector, or at nothing when the click fell off the map. Clicking the sector already aimed at leaves it aimed at - only the panel's own close clears it.</summary>
-        void SetSelected(int sector)
-        {
-            if (sector == SelectedSector) return;
-
-            SelectedSector = sector;
-            _overlay.MarkDirtyRepaint();
-            SelectedSectorChanged?.Invoke(sector);
-        }
-
-        /// <summary>Drops the aim, for the panel to call when it opens on a new session of looking.</summary>
-        public void ClearSelection() => SetSelected(-1);
+        // ---- What is drawn ----
 
         /// <summary>
-        /// Tells the map where the fleet currently is. Safe to call every frame: it repaints only
-        /// when the set actually changes, which is twice per mission - once on launch, once on
-        /// landing.
-        /// </summary>
-        public void SetMissionTargets(IReadOnlyList<int> targets)
-        {
-            if (SameAsCurrent(targets)) return;
-
-            _missionTargets.Clear();
-            if (targets != null) _missionTargets.AddRange(targets);
-            _overlay.MarkDirtyRepaint();
-        }
-
-        bool SameAsCurrent(IReadOnlyList<int> targets)
-        {
-            int count = targets?.Count ?? 0;
-            if (count != _missionTargets.Count) return false;
-
-            for (int i = 0; i < count; i++)
-            {
-                if (targets[i] != _missionTargets[i]) return false;
-            }
-            return true;
-        }
-
-        /// <summary>Whether a robot is on its way to this sector. Read by the panel so the side pane can say so in words as well.</summary>
-        public bool HasMissionTo(int sector) => _missionTargets.Contains(sector);
-
-        /// <summary>
-        /// The ring the zones occupy, and which one is being worked. Cells, like everything else the map
-        /// is told - the geometry is <c>ExpeditionZoneSystem</c>'s and this only draws it.
-        /// </summary>
-        public void SetZoneRing(float innerRadiusCells, float outerRadiusCells, int zoneCount, int chosenZone)
-        {
-            if (Mathf.Approximately(_zoneInnerRadiusCells, innerRadiusCells)
-                && Mathf.Approximately(_zoneOuterRadiusCells, outerRadiusCells)
-                && _zoneCount == zoneCount && _chosenZone == chosenZone) return;
-
-            _zoneInnerRadiusCells = innerRadiusCells;
-            _zoneOuterRadiusCells = outerRadiusCells;
-            _zoneCount = zoneCount;
-            _chosenZone = chosenZone;
-            _overlay.MarkDirtyRepaint();
-        }
-
-        /// <summary>
-        /// The cells the player's own base occupies. Safe to call every frame, on the same terms as the
-        /// sites: it repaints only when the base has actually changed shape.
+        /// The cells the player's own base occupies. Safe to call every frame: it repaints only when
+        /// the base has actually changed shape.
         /// </summary>
         public void SetBuildings(IReadOnlyList<MapBuildingCell> buildings)
         {
@@ -547,40 +318,39 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// The sites to draw. Safe to call every frame: it repaints only when one has actually moved or
-        /// changed state, which happens when a mission lands rather than when a frame is drawn.
+        /// Where the robots are. Safe to call every frame: it repaints only when one has actually moved
+        /// a tenth of a cell, which is what keeps a walking robot from repainting the overlay sixty
+        /// times a second for movement nobody can see.
         /// </summary>
-        public void SetSites(IReadOnlyList<MapSiteMarker> sites)
+        public void SetRobots(IReadOnlyList<MapRobotMark> robots)
         {
-            if (SameSites(sites)) return;
+            if (SameRobots(robots)) return;
 
-            _sites.Clear();
-            if (sites != null)
+            _robots.Clear();
+            if (robots != null)
             {
-                for (int i = 0; i < sites.Count; i++) _sites.Add(sites[i]);
+                for (int i = 0; i < robots.Count; i++) _robots.Add(robots[i]);
             }
 
-            RefreshHighlightLabel();
             _overlay.MarkDirtyRepaint();
         }
 
-        bool SameSites(IReadOnlyList<MapSiteMarker> sites)
+        bool SameRobots(IReadOnlyList<MapRobotMark> robots)
         {
-            int count = sites?.Count ?? 0;
-            if (count != _sites.Count) return false;
+            int count = robots?.Count ?? 0;
+            if (count != _robots.Count) return false;
 
             for (int i = 0; i < count; i++)
             {
-                if (!sites[i].SameAs(_sites[i])) return false;
+                if (!robots[i].SameAs(_robots[i])) return false;
             }
             return true;
         }
 
         /// <summary>
-        /// Puts the view on a disc of ground: what the three scales are, expressed as what each has to
-        /// fit rather than as a zoom level. The panel supplies the centre and the radius from real
-        /// quantities - the Core's own ground, the exploration threshold, a zone's extent - so no scale
-        /// is a number somebody chose.
+        /// Puts the view on a disc of ground: a scale expressed as what it has to fit rather than as a
+        /// zoom level. The panel supplies the centre and the radius from real quantities - the Core's
+        /// own ground, the robots' range - so no scale is a number somebody chose.
         /// </summary>
         public void FrameCells(Vector2 centreCells, float radiusCells)
         {
@@ -597,7 +367,7 @@ namespace Game.UI
             else
             {
                 // <b>Asked for before the panel has been laid out.</b> Opening the map frames the whole
-                // ring, but that happens on the frame the panel becomes visible, when contentRect is
+                // range, but that happens on the frame the panel becomes visible, when contentRect is
                 // still zero - so the zoom was computed against nothing and quietly dropped, and the map
                 // opened at whatever scale it was last left at. Kept and applied on the first geometry.
                 _pendingFrameCentreCells = centreCells;
@@ -622,116 +392,12 @@ namespace Game.UI
             Layout();
         }
 
-        /// <summary>The cell coordinate under a point in this element - what a framing click is asked about.</summary>
-        public Vector2 CellAt(Vector2 localPoint) => SectorAt(localPoint) * _sectorSizeCells;
-
-        void SetHovered(int sector)
-        {
-            if (sector == HoveredSector) return;
-
-            HoveredSector = sector;
-            _overlay.MarkDirtyRepaint();
-            HoveredSectorChanged?.Invoke(sector);
-        }
-
-        /// <summary>
-        /// The site whose mark is nearest the pointer and within reach of it, or -1.
-        ///
-        /// Nearest rather than first, so two marks close together resolve to the one actually being
-        /// pointed at. A done site is skipped: it is not clickable, and letting it take the pick would
-        /// shadow a live one behind it.
-        /// </summary>
-        int SiteAt(Vector2 localPoint)
-        {
-            int nearest = -1;
-            float nearestDistance = SitePickRadiusPixels * SitePickRadiusPixels;
-
-            for (int i = 0; i < _sites.Count; i++)
-            {
-                if (_sites[i].State == MapSiteState.Done) continue;
-
-                float distance = (PointAt(_sites[i].CellPosition) - localPoint).sqrMagnitude;
-                if (distance > nearestDistance) continue;
-
-                nearestDistance = distance;
-                nearest = i;
-            }
-
-            return nearest;
-        }
-
-        void SetHoveredSite(int site)
-        {
-            if (site == HoveredSite) return;
-
-            HoveredSite = site;
-            _overlay.MarkDirtyRepaint();
-        }
-
-        void SetSelectedSite(int site)
-        {
-            if (site == SelectedSite) return;
-
-            SelectedSite = site;
-            _overlay.MarkDirtyRepaint();
-            SelectedSiteChanged?.Invoke(site);
-        }
-
-        void SetHoveredZone(int zone)
-        {
-            if (zone == HoveredZone) return;
-
-            HoveredZone = zone;
-            _overlay.MarkDirtyRepaint();
-        }
-
-        void SetSelectedZone(int zone)
-        {
-            if (zone == SelectedZone) return;
-
-            SelectedZone = zone;
-            _overlay.MarkDirtyRepaint();
-            SelectedZoneChanged?.Invoke(zone);
-        }
-
-        /// <summary>Drops the aim on both slots, for the panel to call when it opens on a new session of looking.</summary>
-        public void ClearZoneSelection()
-        {
-            _zoneFixed = false;
-            SetSelectedZone(-1);
-        }
-
         // ---- Geometry ----
 
         void Layout()
         {
             LayoutTiles();
-            RefreshHighlightLabel();
             _overlay.MarkDirtyRepaint();
-        }
-
-        /// <summary>
-        /// Parks the one permanent label over the site put forward, or hides it.
-        ///
-        /// <b>One label, and only one.</b> Everything else waits to be hovered - which is what lets a
-        /// suggestion be visible without blinking, and what stops a zone full of names from reading as
-        /// a list rather than a map.
-        /// </summary>
-        void RefreshHighlightLabel()
-        {
-            for (int i = 0; i < _sites.Count; i++)
-            {
-                if (_sites[i].State != MapSiteState.Highlighted || string.IsNullOrEmpty(_sites[i].Label)) continue;
-
-                Vector2 point = PointAt(_sites[i].CellPosition);
-                _highlightLabel.text = _sites[i].Label;
-                _highlightLabel.style.display = DisplayStyle.Flex;
-                _highlightLabel.style.left = point.x + 12f;
-                _highlightLabel.style.top = point.y - 9f;
-                return;
-            }
-
-            _highlightLabel.style.display = DisplayStyle.None;
         }
 
         /// <summary>
@@ -773,34 +439,13 @@ namespace Game.UI
             }
         }
 
-        /// <summary>The sector coordinate under a point in this element, in fractional sectors.</summary>
-        public Vector2 SectorAt(Vector2 localPoint)
+        /// <summary>The sector coordinate under a point in this element, in fractional sectors. Used by the zoom to hold a point under the pointer, and by nothing else.</summary>
+        Vector2 SectorAt(Vector2 localPoint)
         {
             Vector2 fromCentre = localPoint - contentRect.size * 0.5f;
             return new Vector2(
                 ViewCentreSectors.x + fromCentre.x / PixelsPerSector,
                 ViewCentreSectors.y - fromCentre.y / PixelsPerSector);
-        }
-
-        /// <summary>The sector index under a point, or -1 when it falls outside the map.</summary>
-        public int SectorIndexAt(Vector2 localPoint)
-        {
-            Vector2 sector = SectorAt(localPoint);
-            int column = Mathf.FloorToInt(sector.x);
-            int row = Mathf.FloorToInt(sector.y);
-
-            if (column < 0 || row < 0 || column >= _sizeSectors || row >= _sizeSectors) return -1;
-            return row * _sizeSectors + column;
-        }
-
-        /// <summary>The sector a cell coordinate belongs to, or -1 off the map.</summary>
-        int SectorOfCell(Vector2 cells)
-        {
-            int column = Mathf.FloorToInt(cells.x / _sectorSizeCells);
-            int row = Mathf.FloorToInt(cells.y / _sectorSizeCells);
-
-            if (column < 0 || row < 0 || column >= _sizeSectors || row >= _sizeSectors) return -1;
-            return row * _sizeSectors + column;
         }
 
         /// <summary>Where a cell coordinate lands in this element, in pixels.</summary>
@@ -822,73 +467,12 @@ namespace Game.UI
 
             Painter2D painter = context.painter2D;
 
-            // Bottom to top, and the order is the design's: the ground's own marks first, then what the
-            // player can act on, then what they are pointing at.
+            // Bottom to top: the ground's own marks, then the boundaries, then the things that move.
             DrawBuildings(painter);
-            DrawZoneSeparators(painter);
-            DrawMissionTargets(painter);
-            DrawSites(painter);
+            DrawOuterRing(painter);
             DrawRadius(painter);
             DrawCore(painter);
-        }
-
-        /// <summary>
-        /// Where the fleet already is.
-        /// </summary>
-        /// <remarks>
-        /// Drawn as an outline <b>and</b> a centre mark, because the two answer at different scales:
-        /// zoomed in, the outline says which square; zoomed out to the whole world, a sector is a few
-        /// pixels across and only a mark of its own remains visible. Without either, the one thing a
-        /// player most needs from this map - is a robot already handling that? - could only be
-        /// answered by reading a list somewhere else.
-        /// </remarks>
-        void DrawMissionTargets(Painter2D painter)
-        {
-            if (_missionTargets.Count == 0) return;
-
-            foreach (int sector in _missionTargets)
-            {
-                if (sector < 0 || sector >= _sizeSectors * _sizeSectors) continue;
-
-                int column = sector % _sizeSectors;
-                int row = sector / _sizeSectors;
-                Vector2 centre = PointAt(new Vector2(
-                    (column + 0.5f) * _sectorSizeCells,
-                    (row + 0.5f) * _sectorSizeCells));
-
-                // A ring and a dot rather than the sector's square. Nothing on this map is square: the
-                // division is how a mission is aimed, not something the player should ever have to see.
-                painter.strokeColor = MissionColour;
-                painter.lineWidth = 2f;
-                painter.BeginPath();
-                painter.Arc(centre, 11f, 0f, 360f);
-                painter.Stroke();
-
-                painter.fillColor = MissionColour;
-                painter.BeginPath();
-                painter.Arc(centre, 3.5f, 0f, 360f);
-                painter.Fill();
-            }
-        }
-
-        /// <summary>
-        /// A tick inside a mark: two strokes, sized off the mark's own radius so it follows it.
-        ///
-        /// Painter2D rather than a glyph - the same gesture as the Core and the radius ring, and for the
-        /// same reason: exact at any size, no texture to keep, and nothing to load.
-        /// </summary>
-        static void DrawTick(Painter2D painter, Vector2 centre, float radius)
-        {
-            painter.strokeColor = TickColour;
-            painter.lineWidth = Mathf.Max(1.5f, radius * 0.22f);
-            painter.lineJoin = LineJoin.Round;
-            painter.lineCap = LineCap.Round;
-
-            painter.BeginPath();
-            painter.MoveTo(centre + new Vector2(-0.45f, 0.02f) * radius);
-            painter.LineTo(centre + new Vector2(-0.12f, 0.38f) * radius);
-            painter.LineTo(centre + new Vector2(0.48f, -0.36f) * radius);
-            painter.Stroke();
+            DrawRobots(painter);
         }
 
         /// <summary>
@@ -926,182 +510,24 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// Six lines from the edge of the Core's ground outward, and the ring that closes them.
+        /// The limit of where a robot will go, as one ring.
         ///
-        /// <b>Drawn at every scale.</b> They were the whole-world view's alone, which meant a zone's own
-        /// edges disappeared the moment the player zoomed in to work inside it - exactly when knowing
-        /// where it ends matters most, since everything outside is refused. Zoomed in they simply leave
-        /// the screen, which is the correct way for a boundary to be far away.
-        ///
-        /// <b>They are dim on purpose.</b> Their job is to show that other directions exist, not to
-        /// offer them - the five that are not being worked have no terrain to show and must not ask the
-        /// player for anything. Drawn from the inner edge rather than the Core, so the Core's own disc
-        /// stays undivided: it belongs to no zone.
+        /// <b>Drawn at every scale.</b> Zoomed in it simply leaves the screen, which is the correct way
+        /// for a boundary to be far away - and it is dim, because it states where the reachable ground
+        /// ends rather than offering anything.
         /// </summary>
-        void DrawZoneSeparators(Painter2D painter)
+        void DrawOuterRing(Painter2D painter)
         {
-            if (_zoneCount <= 0) return;
+            if (_outerRingRadiusCells <= 0f) return;
 
-            Vector2 centre = PointAt(_coreCentreCells);
-            float pixelsPerCell = PixelsPerSector / _sectorSizeCells;
-            float inner = _zoneInnerRadiusCells * pixelsPerCell;
-            float outer = _zoneOuterRadiusCells * pixelsPerCell;
-            if (outer - inner < 2f) return;
+            float radius = _outerRingRadiusCells / _sectorSizeCells * PixelsPerSector;
+            if (radius < 4f) return;   // below this it is a smudge around the Core's own mark
 
-            // The zone being pointed at or picked, filled behind everything else so the wedge reads as
-            // one place rather than as two lines with something between them.
-            if (AimsAtZones)
-            {
-                if (HoveredZone >= 0 && HoveredZone != SelectedZone) FillWedge(painter, HoveredZone, inner, outer, ZoneHoverFill);
-                if (SelectedZone >= 0) FillWedge(painter, SelectedZone, inner, outer, ZoneSelectedFill);
-            }
-
-            // <b>The ring closes the zones.</b> Six lines that simply stop leave the eye to guess where
-            // the reachable ground ends - and that edge is the whole reason a zone is finite. Drawn
-            // before the separators so they cross it rather than being cut by it.
-            painter.strokeColor = SeparatorColour;
+            painter.strokeColor = OuterRingColour;
             painter.lineWidth = 1f;
             painter.BeginPath();
-            painter.Arc(centre, outer, 0f, 360f);
+            painter.Arc(PointAt(_coreCentreCells), radius, 0f, 360f);
             painter.Stroke();
-
-            float slice = 360f / _zoneCount;
-            painter.lineWidth = 1f;
-
-            for (int i = 0; i < _zoneCount; i++)
-            {
-                // A separator sits between two zones, so it is half a slice off a zone's centre. Both
-                // of the chosen zone's own edges therefore light up, which is what draws the wedge.
-                float degrees = i * slice + slice * 0.5f;
-                bool bordersChosen = _chosenZone >= 0 && (i == _chosenZone || (i + 1) % _zoneCount == _chosenZone);
-
-                Vector2 direction = Bearing(degrees);
-
-                painter.strokeColor = bordersChosen ? ChosenSeparatorColour : SeparatorColour;
-                painter.BeginPath();
-                painter.MoveTo(centre + direction * inner);
-                painter.LineTo(centre + direction * outer);
-                painter.Stroke();
-            }
-        }
-
-        /// <summary>
-        /// One zone's wedge, filled.
-        ///
-        /// Built from line segments along both arcs rather than from <c>Painter2D.Arc</c>: the screen's
-        /// Y grows downward while the world's grows north, so an arc's sweep direction is mirrored here
-        /// and the two edges would have to be swept opposite ways. Sampling the arc sidesteps the whole
-        /// question and is exact enough at any zoom the map reaches.
-        /// </summary>
-        void FillWedge(Painter2D painter, int zone, float inner, float outer, Color colour)
-        {
-            const int Steps = 24;
-
-            Vector2 centre = PointAt(_coreCentreCells);
-            float slice = 360f / _zoneCount;
-            float from = zone * slice - slice * 0.5f;
-            float to = zone * slice + slice * 0.5f;
-
-            painter.fillColor = colour;
-            painter.BeginPath();
-
-            for (int i = 0; i <= Steps; i++)
-            {
-                Vector2 point = centre + Bearing(Mathf.Lerp(from, to, i / (float)Steps)) * outer;
-                if (i == 0) painter.MoveTo(point);
-                else painter.LineTo(point);
-            }
-
-            for (int i = Steps; i >= 0; i--)
-            {
-                painter.LineTo(centre + Bearing(Mathf.Lerp(from, to, i / (float)Steps)) * inner);
-            }
-
-            painter.ClosePath();
-            painter.Fill();
-        }
-
-        /// <summary>A unit vector for a world bearing, in screen space - where Y grows downward and the world's grows north.</summary>
-        static Vector2 Bearing(float degrees)
-        {
-            float radians = degrees * Mathf.Deg2Rad;
-            return new Vector2(Mathf.Cos(radians), -Mathf.Sin(radians));
-        }
-
-        /// <summary>
-        /// The four states of a site, each readable without a word: filled for available, a wide ring
-        /// for the one put forward, muted for done, hollow for what needs units.
-        /// </summary>
-        void DrawSites(Painter2D painter)
-        {
-            for (int i = 0; i < _sites.Count; i++)
-            {
-                MapSiteMarker site = _sites[i];
-                Vector2 point = PointAt(site.CellPosition);
-
-                switch (site.State)
-                {
-                    case MapSiteState.Available:
-                        painter.fillColor = site.Tint;
-                        painter.BeginPath();
-                        painter.Arc(point, SiteRadiusPixels, 0f, 360f);
-                        painter.Fill();
-                        break;
-
-                    case MapSiteState.Highlighted:
-                        painter.fillColor = site.Tint;
-                        painter.BeginPath();
-                        painter.Arc(point, SiteRadiusPixels, 0f, 360f);
-                        painter.Fill();
-
-                        painter.strokeColor = site.Tint;
-                        painter.lineWidth = 2f;
-                        painter.BeginPath();
-                        painter.Arc(point, SiteRadiusPixels * 1.8f, 0f, 360f);
-                        painter.Stroke();
-                        break;
-
-                    case MapSiteState.Done:
-                        // <b>Green and ticked.</b> A site that has given what it held is not a muted
-                        // version of an available one - it is the record of something the player did, and
-                        // the map is where that record lives. Green is this project's "acquired", and a
-                        // tick is read without a legend.
-                        painter.fillColor = DoneColour;
-                        painter.BeginPath();
-                        painter.Arc(point, SiteRadiusPixels, 0f, 360f);
-                        painter.Fill();
-
-                        DrawTick(painter, point, SiteRadiusPixels);
-                        break;
-
-                    default:
-                        painter.strokeColor = LockedColour;
-                        painter.lineWidth = 1.5f;
-                        painter.BeginPath();
-                        painter.Arc(point, SiteRadiusPixels, 0f, 360f);
-                        painter.Stroke();
-                        break;
-                }
-
-                // The glance and the decision, both as rings around the mark - never as a square. The
-                // selection is thicker and in the panel's accent, the hover thin and white.
-                if (i == SelectedSite)
-                {
-                    painter.strokeColor = SelectionColour;
-                    painter.lineWidth = 2.5f;
-                    painter.BeginPath();
-                    painter.Arc(point, SiteRadiusPixels * 2f, 0f, 360f);
-                    painter.Stroke();
-                }
-                else if (i == HoveredSite)
-                {
-                    painter.strokeColor = HoverColour;
-                    painter.lineWidth = 1.5f;
-                    painter.BeginPath();
-                    painter.Arc(point, SiteRadiusPixels * 1.7f, 0f, 360f);
-                    painter.Stroke();
-                }
-            }
         }
 
         /// <summary>The Core's reach, dashed - a boundary the player owns rather than a wall.</summary>
@@ -1136,6 +562,36 @@ namespace Game.UI
             painter.BeginPath();
             painter.Arc(centre, 4f, 0f, 360f);
             painter.Fill();
+        }
+
+        /// <summary>
+        /// The robots. <b>The one thing on this map that moves</b>, and now the main reason to open it:
+        /// a wandering robot is somewhere the player did not choose, so the map is the only way to find
+        /// out where.
+        ///
+        /// A parked robot is muted rather than hidden - "the fleet is home" is an answer too, and
+        /// hiding it would leave the player wondering whether the map had simply lost them.
+        /// </summary>
+        void DrawRobots(Painter2D painter)
+        {
+            for (int i = 0; i < _robots.Count; i++)
+            {
+                MapRobotMark robot = _robots[i];
+                Vector2 point = PointAt(robot.CellPosition);
+
+                painter.fillColor = robot.IsOut ? RobotColour : RobotRestingColour;
+                painter.BeginPath();
+                painter.Arc(point, RobotRadiusPixels, 0f, 360f);
+                painter.Fill();
+
+                if (!robot.Selected) continue;
+
+                painter.strokeColor = RobotSelectedColour;
+                painter.lineWidth = 2f;
+                painter.BeginPath();
+                painter.Arc(point, RobotRadiusPixels * 2.2f, 0f, 360f);
+                painter.Stroke();
+            }
         }
     }
 }

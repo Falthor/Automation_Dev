@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Core;
 using Game.Data;
 using Game.Gameplay.Compute;
+using Game.Gameplay.Sectors;
 using Game.Grid;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
@@ -13,12 +14,10 @@ namespace Game.Gameplay.Exploration
     /// Free exploration: robots the player sends out to wander, which uncover ground as they go and
     /// come back when told to.
     ///
-    /// <b>Beside the mission system, not part of it.</b> Nothing here reads or writes
-    /// <c>MissionSystem</c> or <c>ExpeditionZoneSystem</c>: no charge is spent, no report is
-    /// produced, no zone is chosen and no site is involved. The two answer different questions - a
-    /// mission is aimed and resolves, this is an action that is started and interrupted - and a
-    /// robot out here is visible the whole time it is working, which is the opposite of a mission's
-    /// "nothing reaches the Core while a robot is out".
+    /// <b>The only thing in the game that goes anywhere.</b> It opens the ground, it is what turns
+    /// derived deposits into real ones, and the map screen is about it. Exploration is an action the
+    /// player starts and interrupts rather than a trip that is aimed and resolves - so there is no
+    /// launch, no duration and no report - and a robot is visible the whole time it is working.
     ///
     /// <b>There is no destination, and that is the design rather than a gap.</b> A destination plus
     /// straight-line travel would uncover a radius: three sorties would draw three spokes out of the
@@ -43,7 +42,7 @@ namespace Game.Gameplay.Exploration
         /// <summary>1/phi. Consecutive sorties step by this fraction of a turn - about 137.5 degrees - which is what stops two of them ever leaving on nearly the same bearing.</summary>
         const float GoldenRatioConjugate = 0.6180339887f;
 
-        /// <summary>How far the robot moves between two reveal discs. One cell against a reveal radius of six means they overlap heavily, so the trail is a band rather than a row of beads - the same reasoning MissionSystem.RevealTrail uses for its own step.</summary>
+        /// <summary>How far the robot moves between two reveal discs. One cell against a reveal radius of six means they overlap heavily, so the trail is a band rather than a row of beads instead of a row of them.</summary>
         const float RevealStepCells = 1f;
 
         /// <summary>How close a click has to land to catch a robot, in cells. A little wider than the sprite, because the target is moving.</summary>
@@ -78,6 +77,18 @@ namespace Game.Gameplay.Exploration
         /// <summary>The measurement instrument, or null when it is switched off - which it is by default. To be deleted with the rest of it; see ExplorerHarvestLog.</summary>
         readonly ExplorerHarvestLog _log;
 
+        /// <summary>Which sector a position falls in. Optional: null means nothing is materialised, which is what a headless test of the wander itself wants.</summary>
+        readonly SectorGrid _sectors;
+
+        /// <summary>
+        /// Turns a sector's derived deposits into real ones. Set after construction rather than
+        /// injected, because it needs the ore definitions world generation owns and this system is
+        /// built before them.
+        ///
+        /// Optional: null means a robot reveals ground and materialises nothing.
+        /// </summary>
+        public SectorMaterialisation Materialisation { get; set; }
+
         /// <summary>
         /// Raised the moment a robot's card stock fills, and <b>once per filling</b>: the alert it
         /// drives is a decision put to the player, and repeating it would be nagging about a choice
@@ -87,13 +98,14 @@ namespace Game.Gameplay.Exploration
 
         public ExplorerRobotSystem(ExplorerRobotSettings settings, DiscoveryRuntime discovery,
             ComputeSystem compute, Vector2 coreCentreCells, Vector2 parkOrigin, int seed,
-            ExplorerHarvestLog log = null)
+            SectorGrid sectors = null, ExplorerHarvestLog log = null)
         {
             _settings = settings;
             _discovery = discovery;
             _compute = compute;
             _coreCentreCells = coreCentreCells;
             _seed = seed;
+            _sectors = sectors;
             _log = log;
 
             int count = settings != null ? settings.RobotCount : 0;
@@ -204,6 +216,9 @@ namespace Game.Gameplay.Exploration
         {
             if (_settings == null || deltaSeconds <= 0f) return;
 
+            AppearIfReserveHasFallen();
+            if (!RobotsHaveAppeared) return;
+
             float step = _settings.SpeedCellsPerSecond * deltaSeconds;
 
             for (int i = 0; i < _robots.Count; i++)
@@ -218,16 +233,51 @@ namespace Game.Gameplay.Exploration
                         break;
 
                     case ExplorerRobotState.Returning:
-                        // Straight home, and it uncovers nothing: the way back is ground the robot
-                        // has already walked, and a return leg that revealed would draw a second
-                        // corridor across a map the outward leg has already answered for.
-                        if (robot.StepTowards(robot.HomePosition, step)) Dock(robot);
+                        // <b>The way back uncovers exactly like the way out.</b> It used to reveal
+                        // nothing, on the reasoning that the return crosses ground already walked -
+                        // which is wrong, and visibly so: the outward leg meanders while the return
+                        // is a straight line, so it cuts across the gaps between the meanders and the
+                        // robot was seen travelling through pure black. Ground under a robot is ground
+                        // it can see.
+                        bool arrived = robot.StepTowards(robot.HomePosition, step);
+                        RevealIfMoved(robot);
+                        _log?.RecordDistance(step);
+
+                        if (arrived) Dock(robot);
                         break;
                 }
             }
 
             _log?.Tick(deltaSeconds);
         }
+
+        // ---- The fleet arriving ----
+
+        /// <summary>Whether the robots exist yet. Once true it never goes back: a robot that has appeared has appeared - and it travels in the save.</summary>
+        public bool RobotsHaveAppeared { get; private set; }
+
+        /// <summary>
+        /// Brings the robots out the moment the CU reserve has fallen far enough.
+        ///
+        /// <b>A fall, not a rise.</b> The introduction drains CU, and the fleet turning up when the
+        /// reserve gets low is what makes it a way out rather than a reward.
+        /// </summary>
+        void AppearIfReserveHasFallen()
+        {
+            if (RobotsHaveAppeared || _compute == null) return;
+            if (_compute.Reserve > _settings.AppearAtReserveCu) return;
+
+            RobotsHaveAppeared = true;
+        }
+
+        /// <summary>
+        /// Brings them out now, whatever the reserve holds - the one bypass of the threshold, and it
+        /// exists for development: an introduction that has to be played through before the map opens
+        /// is a tax on every test of what the map does.
+        ///
+        /// Idempotent, and it only ever grants: a run whose fleet has already arrived is untouched.
+        /// </summary>
+        public void MakeRobotsAppear() => RobotsHaveAppeared = true;
 
         /// <summary>
         /// The robot is home. <b>Cards are spent here and instantly</b> - they are never an item and
@@ -253,11 +303,19 @@ namespace Game.Gameplay.Exploration
             robot.HeadingDegrees = Mathf.Repeat(Steer(robot, deltaSeconds), 360f);
 
             robot.StepForward(stepCells);
+            RevealIfMoved(robot);
+        }
 
-            if ((robot.Position - robot.LastRevealPosition).sqrMagnitude >= RevealStepCells * RevealStepCells)
-            {
-                RevealAround(robot);
-            }
+        /// <summary>
+        /// Writes a reveal disc once the robot has travelled a cell since the last one. Shared by both
+        /// legs, so "the return reveals like the outward leg" is one call site rather than two copies
+        /// that can drift.
+        /// </summary>
+        void RevealIfMoved(ExplorerRobotRuntime robot)
+        {
+            if ((robot.Position - robot.LastRevealPosition).sqrMagnitude < RevealStepCells * RevealStepCells) return;
+
+            RevealAround(robot);
         }
 
         /// <summary>
@@ -346,7 +404,46 @@ namespace Game.Gameplay.Exploration
             robot.RevealsWithoutNewGround = newCells > 0 ? 0 : robot.RevealsWithoutNewGround + 1;
             _log?.RecordNewCells(newCells);
 
+            MaterialiseAround(robot);
             Harvest(robot, newCells);
+        }
+
+        /// <summary>
+        /// Turns the derived deposits of the ground around the robot into real ones.
+        ///
+        /// <b>The robots are what finds new deposits</b> - there is nothing else left that could.
+        /// Sectors carry derived contents that only become real when something reports on them, and
+        /// with the missions gone this is the one caller; without it a robot would open a map with
+        /// nothing on it however far it went.
+        ///
+        /// <b>Fired when the robot crosses into a new sector, and it materialises the 3x3 block
+        /// around it.</b> The block matters: the reveal disc straddles up to four sectors, so
+        /// materialising only the one under the robot would leave ore missing from ground it plainly
+        /// uncovered. A block 48 cells across covers everything a 12-cell disc can touch while the
+        /// robot is anywhere in the middle sector. Once per sector entered rather than once per
+        /// reveal, because each call walks a sector's cells to check for placed content.
+        /// </summary>
+        void MaterialiseAround(ExplorerRobotRuntime robot)
+        {
+            if (Materialisation == null || _sectors == null) return;
+
+            int sector = _sectors.IndexAt(new GridCoord(
+                Mathf.FloorToInt(robot.Position.x), Mathf.FloorToInt(robot.Position.y)));
+
+            if (sector < 0 || sector == robot.LastMaterialisedSector) return;
+            robot.LastMaterialisedSector = sector;
+
+            int column = _sectors.ColumnOf(sector);
+            int row = _sectors.RowOf(sector);
+
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    int neighbour = _sectors.IndexAt(column + dx, row + dy);
+                    if (neighbour >= 0) Materialisation.Materialise(neighbour);
+                }
+            }
         }
 
         /// <summary>
@@ -482,7 +579,11 @@ namespace Game.Gameplay.Exploration
                 });
             }
 
-            return new JObject { ["robots"] = robots };
+            return new JObject
+            {
+                ["appeared"] = RobotsHaveAppeared,
+                ["robots"] = robots
+            };
         }
 
         /// <summary>
@@ -492,6 +593,8 @@ namespace Game.Gameplay.Exploration
         /// </summary>
         public void RestoreState(JObject state)
         {
+            RobotsHaveAppeared = false;
+
             foreach (ExplorerRobotRuntime robot in _robots)
             {
                 robot.Position = robot.HomePosition;
@@ -505,9 +608,14 @@ namespace Game.Gameplay.Exploration
                 robot.CardsDrawnEver = 0;
                 robot.StockAlertRaised = false;
                 robot.RevealsWithoutNewGround = 0;
+                robot.LastMaterialisedSector = -1;
             }
 
-            if (!(state?["robots"] is JArray saved)) return;
+            if (state == null) return;
+
+            RobotsHaveAppeared = state.Value<bool?>("appeared") ?? false;
+
+            if (!(state["robots"] is JArray saved)) return;
 
             int count = Mathf.Min(saved.Count, _robots.Count);
             for (int i = 0; i < count; i++)

@@ -8,67 +8,14 @@
                 <ui:Button name="SectorMapCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
 
-            <!-- Says where one is and offers the way out, in one line. A back button alone would say
-                 less, and would need explaining. -->
-            <ui:VisualElement name="SectorMapCrumbs" class="sector-map-crumbs" />
-
-            <ui:VisualElement class="sector-map-body">
-                <ui:VisualElement name="SectorMapViewport" class="sector-map-viewport" />
-
-                <!-- What the aimed sector is, and what may be sent to it. Beside the map rather than
-                     under it: choosing a target and choosing what to do with it are one gesture, and
-                     the answer must not move the map. -->
-                <ui:VisualElement class="sector-map-aside">
-                    <!-- Before a zone is chosen there is one direction to read and one thing to send
-                         into it. The sections below answer questions that only exist afterwards -
-                         how much is mapped, what kind of sites are left - so they are not shown
-                         empty beside a screen that has none of those answers yet. -->
-                    <ui:VisualElement name="SectorMapZoneCard" class="sector-map-zone-card hidden">
-                        <ui:VisualElement name="SectorMapZoneImage" class="sector-map-zone-image" />
-                        <ui:Label name="SectorMapZoneCardName" text="" class="sector-map-zone-card-name" />
-                        <ui:Label name="SectorMapZoneCardMapped" text="" class="sector-map-zone-card-line" />
-                        <ui:Label name="SectorMapZoneCardStatus" text="" class="sector-map-zone-card-line" />
-                        <ui:Label name="SectorMapZoneCardMission" text="" class="sector-map-zone-card-mission" />
-
-                        <!-- Only while the discovery is out. A bar that sat at zero before the launch
-                             would be a progress bar for something nobody has started. -->
-                        <ui:VisualElement name="SectorMapZoneCardProgress" class="sector-map-zone-card-progress hidden">
-                            <ui:VisualElement class="sector-map-progress-track">
-                                <ui:VisualElement name="SectorMapZoneCardProgressFill" class="sector-map-progress-fill" />
-                            </ui:VisualElement>
-                            <ui:Label name="SectorMapZoneCardProgressValue" text="" class="sector-map-figure mono-value" />
-                        </ui:VisualElement>
-
-                        <ui:Label name="SectorMapZoneCardWarning" text="Lancer ici choisit la zone et verrouille les cinq autres jusqu'à sa complétion."
-                                  class="sector-map-lock-warning" />
-                        <ui:Button name="SectorMapExploreButton" text="Explorer" class="sector-map-explore-button" />
-                    </ui:VisualElement>
-
-                    <ui:VisualElement name="SectorMapSections" class="sector-map-sections">
-                        <ui:Label text="CARTOGRAPHIE" class="extractor-section-label" />
-                        <ui:Label name="SectorMapZoneName" text="" class="sector-map-zone-name" />
-                        <ui:VisualElement class="sector-map-progress-track">
-                            <ui:VisualElement name="SectorMapProgressFill" class="sector-map-progress-fill" />
-                        </ui:VisualElement>
-                        <ui:Label name="SectorMapProgress" text="" class="sector-map-figure mono-value" />
-
-                        <ui:Label name="SectorMapCountsTitle" text="SITES CONNUS" class="extractor-section-label section-label-spaced" />
-                        <ui:VisualElement name="SectorMapSiteCounts" class="sector-map-counts" />
-
-                        <ui:Label text="MISSIONS" class="extractor-section-label section-label-spaced" />
-                        <ui:Label name="SectorMapTargetName" text="" class="sector-map-target-name" />
-                        <ui:Label name="SectorMapTargetState" text="" class="sector-map-target-detail" />
-                        <ui:VisualElement name="SectorMapMissionList" class="sector-map-mission-list" />
-                    </ui:VisualElement>
-
-                    <ui:Label name="SectorMapFleet" text="" class="sector-map-fleet" />
-                </ui:VisualElement>
-            </ui:VisualElement>
+            <!-- The map, and nothing beside it. There is no target to designate and nothing to
+                 describe: what this screen answers is what has been opened and where the robots
+                 are, and both of those are drawn rather than written. -->
+            <ui:VisualElement name="SectorMapViewport" class="sector-map-viewport" />
 
             <ui:VisualElement class="sector-map-footer">
-                <ui:Label name="SectorMapHoverName" text="" class="sector-map-hover-name" />
-                <ui:Label name="SectorMapHoverDetail" text="" class="sector-map-hover-detail" />
-                <ui:Label name="SectorMapHint" text="molette pour zoomer · glisser pour déplacer · cliquer une zone pour la cadrer"
+                <ui:Label name="SectorMapFleet" text="" class="sector-map-hover-name" />
+                <ui:Label name="SectorMapHint" text="molette pour zoomer · glisser pour déplacer"
                           class="sector-map-hint" />
             </ui:VisualElement>
         </ui:VisualElement>
