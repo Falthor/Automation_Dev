@@ -26,7 +26,14 @@ namespace Game.Tests.EditMode.UI
     public class ShortcutsPanelTests
     {
         const string OverlayName = "ShortcutsOverlay";
+
+        /// <summary>
+        /// The two screens that instantiate the shortcuts template. Both are exercised, because the
+        /// markup being shared is the whole point: one list opened from two places rather than two
+        /// that can drift.
+        /// </summary>
         const string MainMenuUxml = "Assets/UI/MainMenu.uxml";
+        const string TopBarUxml = "Assets/UI/TopBar.uxml";
 
         string _overridesAsFound;
 
@@ -44,16 +51,20 @@ namespace Game.Tests.EditMode.UI
 
             table.RemoveAllBindingOverrides();
             if (!string.IsNullOrEmpty(_overridesAsFound)) table.LoadBindingOverridesFromJson(_overridesAsFound);
+
+            // Show() suspends every action and only Hide() puts them back, so a test that opened the
+            // screen and did not close it would leave the editor session with dead shortcuts.
+            table.Enable();
         }
 
-        static VisualElement BuildOverlay(out ShortcutsPanel panel)
+        static VisualElement BuildOverlay(out ShortcutsPanel panel, string hostUxml = MainMenuUxml)
         {
-            var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(MainMenuUxml);
-            Assert.IsNotNull(tree, MainMenuUxml + " is missing - the shortcuts markup lives in it.");
+            var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(hostUxml);
+            Assert.IsNotNull(tree, hostUxml + " is missing.");
 
             VisualElement root = tree.CloneTree();
             VisualElement overlay = root.Q<VisualElement>(OverlayName);
-            Assert.IsNotNull(overlay, $"'{OverlayName}' is not in {MainMenuUxml}");
+            Assert.IsNotNull(overlay, $"'{OverlayName}' is not in {hostUxml} - the Shortcuts template is not instantiated there");
 
             panel = new ShortcutsPanel(overlay);
             return overlay;
@@ -76,10 +87,11 @@ namespace Game.Tests.EditMode.UI
 
         // ---- The shape of the list ----
 
-        [Test]
-        public void EveryCatalogueAction_GetsARow()
+        [TestCase(MainMenuUxml)]
+        [TestCase(TopBarUxml)]
+        public void EveryCatalogueAction_GetsARow(string hostUxml)
         {
-            VisualElement overlay = BuildOverlay(out _);
+            VisualElement overlay = BuildOverlay(out _, hostUxml);
 
             var labelled = new List<string>();
             foreach (VisualElement child in ListOf(overlay).Children())
@@ -88,7 +100,8 @@ namespace Game.Tests.EditMode.UI
                 if (rowLabel != null) labelled.Add(rowLabel.text);
             }
 
-            Assert.AreEqual(InputActionCatalogue.All.Count, labelled.Count, "one row per action, no more and no fewer");
+            Assert.AreEqual(InputActionCatalogue.All.Count, labelled.Count,
+                $"in {hostUxml}: one row per action, no more and no fewer");
 
             for (int i = 0; i < InputActionCatalogue.All.Count; i++)
             {
@@ -179,6 +192,27 @@ namespace Game.Tests.EditMode.UI
             panel.Show();
 
             Assert.AreEqual("non assigné", KeyButtonFor(overlay, "Tourner le bâtiment").text);
+        }
+
+        /// <summary>
+        /// <b>Every action is off for as long as the screen is up.</b> Opened in game it sits over a
+        /// running world: left live, B would open the building menu behind it and Space would pause
+        /// underneath. Closing is the only thing that gives them back, which is also why Escape does
+        /// not close this screen - Escape is an action, and it is off with the rest.
+        /// </summary>
+        [Test]
+        public void WhileTheScreenIsUp_NoActionAnswers()
+        {
+            BuildOverlay(out ShortcutsPanel panel);
+            InputActionMap first = InputSystem.actions.actionMaps[0];
+
+            Assert.IsTrue(first.enabled, "the table starts enabled");
+
+            panel.Show();
+            Assert.IsFalse(first.enabled, "opening the screen has to silence the shortcuts under it");
+
+            panel.Hide();
+            Assert.IsTrue(first.enabled, "closing it has to give them back");
         }
 
         // ---- The conflict rule ----

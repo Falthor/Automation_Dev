@@ -1,0 +1,35 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <!-- Self-contained on purpose: this template is instantiated from two screens (MainMenu.uxml and
+         TopBar.uxml), so it carries its own stylesheet rather than borrowing classes from either
+         one. Nothing in here depends on MainMenu.uss or GameUI.uss. -->
+
+    <ui:VisualElement name="ShortcutsOverlay" class="shortcuts-overlay hidden">
+        <!-- Attached to the overlay and not to the template root, so the stylesheet travels with it.
+             TopBarController reparents this element onto the document root to get it above every
+             other controller's tree; declared one level up, the styles would have stayed behind and
+             the screen would have rendered bare in game and styled in the main menu. -->
+        <Style src="Shortcuts.uss" />
+
+        <ui:VisualElement class="shortcuts-dialog">
+            <ui:Label text="RACCOURCIS" class="shortcuts-title" />
+            <ui:Label name="ShortcutsHint" text="Cliquez une touche pour la réassigner, puis appuyez sur la nouvelle. Échap annule la saisie." class="shortcuts-hint" />
+
+            <ui:ScrollView name="ShortcutsList" class="shortcuts-list" />
+
+            <ui:VisualElement class="shortcuts-footer">
+                <ui:Button name="ShortcutsResetAllButton" text="TOUT RÉINITIALISER" class="shortcuts-button shortcuts-footer-button" />
+                <ui:Button name="ShortcutsCloseButton" text="FERMER" class="shortcuts-button shortcuts-footer-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="ShortcutsConflictOverlay" class="shortcuts-overlay hidden">
+            <ui:VisualElement class="shortcuts-conflict-dialog">
+                <ui:Label name="ShortcutsConflictMessage" class="shortcuts-conflict-message" />
+                <ui:VisualElement class="shortcuts-conflict-row">
+                    <ui:Button name="ShortcutsConflictCancelButton" text="ANNULER" class="shortcuts-button shortcuts-conflict-button" />
+                    <ui:Button name="ShortcutsConflictAcceptButton" text="ECRASER" class="shortcuts-button shortcuts-conflict-button shortcuts-conflict-button-danger" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

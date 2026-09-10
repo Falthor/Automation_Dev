@@ -225,3 +225,43 @@ qui est épinglé, c'est qu'elle n'est ni le chemin, ni le nom interne de l'acti
 **Et les tests remettent la table où ils l'ont trouvée.** Le rechargement de domaine désactivé fait
 que l'instance de l'asset est partagée avec la session d'éditeur : un test qui laisserait une
 surcharge derrière lui changerait ce que lit la partie suivante.
+
+## 7. Le même écran depuis deux endroits
+
+Le menu devait s'ouvrir aussi en jeu, par le bouton Menu du Top Bar - que la spec importée décrit
+comme un emplacement réservé sans fonction. Lui en donner une est un écart assumé, noté dans le bloc
+d'état Unity de `GLOBAL_UI.md`.
+
+**Le balisage devient un template plutôt qu'une copie.** `Shortcuts.uxml` est instancié par
+`MainMenu.uxml` et par `TopBar.uxml` : un `<ui:Template>` plus un `<ui:Instance>`, résolus à
+l'import, donc aucun champ sérialisé et **aucune édition de scène**. La deuxième copie du balisage
+aurait été le même problème que les deux copies du cluster ZQSD, en plus gros.
+
+**Il porte sa propre feuille de style.** Les styles empruntaient `.main-menu-button` et `.confirm-*`
+a `MainMenu.uss`, ce qui marchait dans un écran et aurait rendu des boîtes nues dans l'autre. Tout ce
+dont il a besoin est désormais dans `Shortcuts.uss`.
+
+**Et cette feuille est attachée à l'overlay, pas a la racine du template.** Une feuille déclarée en
+UXML s'attache à l'élément où elle est déclarée. `TopBarController` reparente l'overlay sur la racine
+du document - pour passer au-dessus des arbres de tous les autres contrôleurs, dont l'ordre dépend
+seulement de l'ordre dans lequel Unity a lancé leurs `Start`. Déclarée un niveau plus haut, la
+feuille serait restée derrière : l'écran se serait affiché **stylé dans le menu principal et nu en
+jeu**. C'est le genre d'écart qui ne se voit pas à la compilation et qui ne se voit pas non plus dans
+l'écran où on l'a testé.
+
+`BringToFront()` à l'ouverture plutôt qu'une confiance dans l'ordre des `Start` : le même
+raisonnement, dit à l'endroit où il s'applique.
+
+**Les actions sont éteintes tout le temps que l'écran est ouvert, pas seulement pendant une saisie.**
+En jeu il se pose au-dessus d'un monde qui tourne : laisser les raccourcis vivants voudrait dire que
+B ouvre le menu des bâtiments derrière, et qu'Espace met en pause dessous.
+
+Ce choix a **une conséquence qu'il faut assumer et dire** : Échap ne ferme pas cet écran. Échap est
+une action comme les autres et elle est éteinte avec le reste. Échap annule une *saisie*, parce que
+l'opération de rebinding écoute sous la couche des actions. La sortie est FERMER, dans les deux
+écrans pareillement - et c'est déjà le comportement qu'avait le menu principal, donc les deux hôtes
+se ressemblent au lieu d'avoir chacun sa sortie.
+
+Le corollaire côté code : `EndCapture` **ne** réactive pas, il ré-affirme la suspension. Réactiver là
+aurait rendu les touches de jeu vivantes sous l'overlay dès la première réassignation — un défaut qui
+n'apparaît qu'à la deuxième manipulation, donc jamais pendant qu'on écrit le code.

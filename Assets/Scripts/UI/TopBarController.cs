@@ -15,8 +15,9 @@ namespace Game.UI
     /// Global Top Bar (GLOBAL_UI.md §2-4): three compact status cards (Power/Compute/Research),
     /// each a pure view over an existing runtime system - no duplicated state, no new
     /// simulation. Hover expands a card in place to reveal its detail block; click opens the
-    /// matching global panel through the same Selection routing every other panel uses. Menu is
-    /// a reserved, non-functional icon (per spec); Pause freezes simulation via Time.timeScale,
+    /// matching global panel through the same Selection routing every other panel uses. Menu opens
+    /// the shortcuts screen (<see cref="ShortcutsPanel"/>) - a deliberate deviation from the imported
+    /// spec, where it is a reserved placeholder; Pause freezes simulation via Time.timeScale,
     /// which every deltaTime-scaled system (Transport/Research/Power/Compute) already respects
     /// with no new per-system pause flag needed.
     /// </summary>
@@ -81,6 +82,16 @@ namespace Game.UI
 
         InputAction _pause;
 
+        /// <summary>
+        /// The shortcuts screen, opened by the Menu button. The same template the main menu
+        /// instantiates, so there is one list rather than two that can drift.
+        ///
+        /// Moved out of the Top Bar's own tree and onto the document root: it is a full-screen
+        /// overlay, and left inside a bar that other controllers draw over it would have opened
+        /// underneath them.
+        /// </summary>
+        ShortcutsPanel _shortcuts;
+
         void Start()
         {
             _pause = InputBindings.Find(InputActionCatalogue.Pause);
@@ -95,7 +106,6 @@ namespace Game.UI
             _pauseOverlay = panelRoot.Q<Label>("TopBarPauseOverlay");
             _refusalMessage = panelRoot.Q<Label>("TopBarRefusalMessage");
 
-            // Menu is a reserved, non-functional placeholder (GLOBAL_UI.md §3) - no handler.
             panelRoot.Q<Button>("TopBarPauseButton").clicked += TogglePause;
 
             ReleaseFocusAfterAClick();
@@ -112,6 +122,36 @@ namespace Game.UI
             _buildingCard = BuildCard(buildingIcon, BuildingMenuController.PanelName, 150f, 115f, 190f, 40f, 1, "top-bar-card-bar-fill-buildings");
 
             if (constructionInputAdapter != null) constructionInputAdapter.PlacementRefused += ShowRefusalMessage;
+
+            BuildShortcutsScreen(panelRoot);
+        }
+
+        /// <summary>
+        /// Hands the Menu button the shortcuts screen.
+        ///
+        /// <b>Last in Start, and guarded.</b> The overlay is reparented onto the document root, and
+        /// an <c>Add(null)</c> in the middle of this method would have thrown before the cards were
+        /// built - costing the clock, the five status cards and Pause for a missing element that only
+        /// the options screen needs. A screen that cannot be opened is the right price; a Top Bar that
+        /// does not exist is not.
+        /// </summary>
+        void BuildShortcutsScreen(VisualElement panelRoot)
+        {
+            VisualElement overlay = panelRoot.Q<VisualElement>("ShortcutsOverlay");
+            var menuButton = panelRoot.Q<Button>("TopBarMenuButton");
+
+            if (overlay == null || menuButton == null)
+            {
+                Debug.LogError("TopBar.uxml no longer instantiates the Shortcuts template - the Menu button has nothing to open.", this);
+                return;
+            }
+
+            // Moved out of the Top Bar's own tree: it is a full-screen overlay, and left inside a bar
+            // that every other controller draws over, it would have opened underneath them.
+            uiDocument.rootVisualElement.Add(overlay);
+
+            _shortcuts = new ShortcutsPanel(overlay);
+            menuButton.clicked += _shortcuts.Show;
         }
 
         /// <summary>Flashes an explicit refusal reason (e.g. the building cap) near the cards row for RefusalMessageSeconds, then auto-hides (TASK_04_PLAFOND_RAYON.md §3.2). Re-showing while already visible just resets the timer.</summary>

@@ -1,5 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="MainMenu.uss" />
+    <ui:Template name="Shortcuts" src="Shortcuts.uxml" />
 
     <ui:VisualElement name="MainMenuRoot" class="main-menu-root">
         <ui:VisualElement name="MainMenuBackground" class="main-menu-background" picking-mode="Ignore" />
@@ -11,29 +12,7 @@
             <ui:Button name="ShortcutsButton" text="RACCOURCIS" class="main-menu-button" />
         </ui:VisualElement>
 
-        <ui:VisualElement name="ShortcutsOverlay" class="confirm-overlay hidden">
-            <ui:VisualElement class="shortcuts-dialog">
-                <ui:Label text="RACCOURCIS" class="shortcuts-title" />
-                <ui:Label name="ShortcutsHint" text="Cliquez une touche pour la réassigner, puis appuyez sur la nouvelle. Échap annule la saisie." class="shortcuts-hint" />
-
-                <ui:ScrollView name="ShortcutsList" class="shortcuts-list" />
-
-                <ui:VisualElement class="shortcuts-footer">
-                    <ui:Button name="ShortcutsResetAllButton" text="TOUT RÉINITIALISER" class="main-menu-button shortcuts-footer-button" />
-                    <ui:Button name="ShortcutsCloseButton" text="FERMER" class="main-menu-button shortcuts-footer-button" />
-                </ui:VisualElement>
-            </ui:VisualElement>
-
-            <ui:VisualElement name="ShortcutsConflictOverlay" class="confirm-overlay hidden">
-                <ui:VisualElement class="confirm-dialog">
-                    <ui:Label name="ShortcutsConflictMessage" class="confirm-message" />
-                    <ui:VisualElement class="confirm-button-row">
-                        <ui:Button name="ShortcutsConflictCancelButton" text="ANNULER" class="main-menu-button confirm-button" />
-                        <ui:Button name="ShortcutsConflictAcceptButton" text="ECRASER" class="main-menu-button confirm-button confirm-button-danger" />
-                    </ui:VisualElement>
-                </ui:VisualElement>
-            </ui:VisualElement>
-        </ui:VisualElement>
+        <ui:Instance template="Shortcuts" name="ShortcutsHost" />
 
         <ui:VisualElement name="ConfirmOverlay" class="confirm-overlay hidden">
             <ui:VisualElement class="confirm-dialog">

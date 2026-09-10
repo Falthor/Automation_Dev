@@ -28,6 +28,20 @@ namespace Game.UI
     /// <b>Escape cancels the capture rather than becoming the shortcut.</b> Built into the rebinding
     /// operation, which is also why nothing can ever be bound to Escape: a row opened by accident has
     /// to have a way out, and that matters more than being able to put Escape somewhere else.
+    ///
+    /// <b>It owns one screen from two places.</b> The markup is a template (Shortcuts.uxml) that both
+    /// MainMenu.uxml and TopBar.uxml instantiate, so the main menu and the Top Bar's Menu button open
+    /// the same list rather than two that can drift. The template carries its own stylesheet for the
+    /// same reason.
+    ///
+    /// <b>Every action is off for as long as the screen is up, not only during a capture.</b> Opened
+    /// in game, it sits over a running world: leaving the shortcuts live would let B open the building
+    /// menu behind it, or Space pause underneath. So <see cref="Show"/> suspends and
+    /// <see cref="Hide"/> resumes, and a capture re-asserts the suspension afterwards because the
+    /// rebinding operation restores whatever enabled state it found. The consequence to know is that
+    /// <b>Escape does not close this screen</b> - it is an action like any other and it is off. Escape
+    /// cancels a capture, because the rebinding operation listens below the action layer; FERMER is
+    /// the way out, in both screens alike.
     /// </summary>
     public sealed class ShortcutsPanel
     {
@@ -84,18 +98,28 @@ namespace Game.UI
 
         public void Show()
         {
+            // Every controller clones its tree into the same document root, so what draws on top is
+            // decided by the order Unity happened to run their Start methods. Asked for explicitly
+            // here rather than depending on it.
+            _overlay.BringToFront();
+
+            InputBindings.Suspend();
+
             RefreshEveryRow();
             _overlay.RemoveFromClassList("hidden");
         }
 
         public void Hide()
         {
-            // A capture left running would keep every action disabled for the rest of the session and
-            // swallow the next key pressed anywhere.
+            // A capture left running would swallow the next key pressed anywhere.
             CancelCapture();
 
             _conflictOverlay.AddToClassList("hidden");
             _overlay.AddToClassList("hidden");
+
+            // The one place the actions come back. Closing is the only way out of this screen, so
+            // this is the only path that can restore them.
+            InputBindings.Resume();
         }
 
         // ---- The list ----
@@ -205,8 +229,8 @@ namespace Game.UI
             // player deliberately left this unassigned".
             _pendingPreviousOverride = row.Action.bindings[0].overridePath;
 
-            // Both the operation and the shortcuts themselves need the actions off - see
-            // InputBindings.Suspend.
+            // Already suspended by Show; re-asserted because the rebinding operation refuses to
+            // run on an enabled action and this is the call that guarantees it is not.
             InputBindings.Suspend();
 
             _capture = row.Action.PerformInteractiveRebinding(0)
@@ -223,7 +247,11 @@ namespace Game.UI
         void EndCapture(Row row, bool cancelled)
         {
             DisposeCapture();
-            InputBindings.Resume();
+
+            // Not Resume: the screen is still up, and the rebinding operation puts back whatever
+            // enabled state it found before it started - which was disabled, but saying so here is
+            // what makes it true rather than hoped for.
+            InputBindings.Suspend();
 
             if (cancelled)
             {
@@ -324,7 +352,6 @@ namespace Game.UI
 
             _capture.Cancel();
             DisposeCapture();
-            InputBindings.Resume();
             RefreshEveryRow();
         }
 
