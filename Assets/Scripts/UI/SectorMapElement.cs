@@ -76,6 +76,24 @@ namespace Game.UI
         /// </summary>
         static readonly Color WreckColour = new Color(0.78f, 0.74f, 0.68f, 1f);
 
+        // The ore colours, which are the ore's own and not the map's: a player learns them from the
+        // items and the extractors, and the map has no business teaching them a second set.
+        static readonly Color IronColour = new Color(0.72f, 0.74f, 0.76f, 1f);
+        static readonly Color CopperColour = new Color(0.85f, 0.49f, 0.19f, 1f);
+
+        /// <summary>Coal. Not pure black: the undiscovered map is black, and a deposit has to be visible against the ground rather than read as a hole in it.</summary>
+        static readonly Color CoalColour = new Color(0.13f, 0.13f, 0.14f, 1f);
+
+        /// <summary>An ore the map has no colour for - drawn rather than skipped, so a deposit is never on the ground and off the map.</summary>
+        static readonly Color UnknownOreColour = new Color(0.6f, 0.35f, 0.7f, 1f);
+
+        /// <summary>
+        /// Below this a deposit is not drawn. One pixel per cell is where a cell stops being a shape,
+        /// and the same threshold the base already uses - two different answers to "is this too small
+        /// to draw" would make the map lose its ore and its buildings at different zooms.
+        /// </summary>
+        const float MinPixelsPerCellForDeposits = MinPixelsPerCellForBuildings;
+
         /// <summary>
         /// How big a wreck's mark is. <b>Fixed in pixels, like a robot's</b>: at three cells across it
         /// would be under a pixel at the zoomed-out end, and a mark that vanishes at the scale you use
@@ -124,6 +142,9 @@ namespace Game.UI
 
         /// <summary>Only the wrecks the player has found - see MapWreckMark.</summary>
         readonly List<MapWreckMark> _wrecks = new List<MapWreckMark>();
+
+        /// <summary>Every deposit cell that has been materialised - one mark per cell, so a cluster reads as a patch.</summary>
+        readonly List<MapDepositMark> _deposits = new List<MapDepositMark>();
 
         /// <summary>Pixels per sector. The one number that says how zoomed in the map is.</summary>
         public float PixelsPerSector { get; private set; } = DefaultPixelsPerSector;
@@ -289,9 +310,26 @@ namespace Game.UI
         /// It is also deliberately not reassignable, so there is no binding to keep in step - the
         /// constant below is the whole declaration.
         /// </summary>
+        /// <summary>
+        /// Where a double click asked to be taken, in cells. The panel listens, closes itself and
+        /// moves the camera - the element knows where the player pointed and nothing about cameras.
+        /// </summary>
+        public event System.Action<Vector2> TravelRequested;
+
         void OnPointerDown(PointerDownEvent evt)
         {
             if (evt.button != LeftMouseButton) return;
+
+            // A double click asks to go there. Read before the drag starts, because the second press
+            // of a double click is also the first press of a drag, and answering both would pan the
+            // map a pixel or two on the way out.
+            if (evt.clickCount >= 2)
+            {
+                _dragging = false;
+                // SectorAt answers in sectors; everything outside this element speaks cells.
+                TravelRequested?.Invoke(SectorAt(evt.localPosition) * _sectorSizeCells);
+                return;
+            }
 
             _dragging = true;
             _dragStart = evt.localPosition;
@@ -369,6 +407,36 @@ namespace Game.UI
         /// a tenth of a cell, which is what keeps a walking robot from repainting the overlay sixty
         /// times a second for movement nobody can see.
         /// </summary>
+        /// <summary>
+        /// The deposits on the map. Safe to call every frame: it repaints only when the set has
+        /// actually changed, which for deposits means a robot opened new ground.
+        /// </summary>
+        public void SetDeposits(IReadOnlyList<MapDepositMark> deposits)
+        {
+            if (SameDeposits(deposits)) return;
+
+            _deposits.Clear();
+            if (deposits != null)
+            {
+                for (int i = 0; i < deposits.Count; i++) _deposits.Add(deposits[i]);
+            }
+
+            _overlay.MarkDirtyRepaint();
+        }
+
+        bool SameDeposits(IReadOnlyList<MapDepositMark> deposits)
+        {
+            int count = deposits?.Count ?? 0;
+            if (count != _deposits.Count) return false;
+
+            for (int i = 0; i < count; i++)
+            {
+                if (!_deposits[i].SameAs(deposits[i])) return false;
+            }
+
+            return true;
+        }
+
         /// <summary>
         /// The wrecks found so far. Safe to call every frame: it repaints only when the set has
         /// actually changed, which for wrecks means one more was found.
@@ -549,6 +617,10 @@ namespace Game.UI
             DrawOuterRing(painter);
             DrawRadius(painter);
             DrawCore(painter);
+            // Under everything placed: ore is ground, and the base standing on it has to read as
+            // standing on it.
+            DrawDeposits(painter);
+
             // Under the robots: a robot moves and is what the player is following, so it must never
             // be hidden by a mark that never moves.
             DrawWrecks(painter);
@@ -652,6 +724,59 @@ namespace Game.UI
         /// A parked robot is muted rather than hidden - "the fleet is home" is an answer too, and
         /// hiding it would leave the player wondering whether the map had simply lost them.
         /// </summary>
+        /// <summary>
+        /// The deposits, one filled cell each, in the ore's own colour.
+        ///
+        /// <b>Grouped by colour rather than drawn cell by cell.</b> Painter2D carries one fill colour
+        /// at a time, so a mixed order would mean a path per cell; three passes over a few hundred
+        /// cells is one path per ore instead. The order is fixed rather than by whatever the list
+        /// happens to hold, so two neighbouring clusters of different ores always overlap the same
+        /// way.
+        /// </summary>
+        void DrawDeposits(Painter2D painter)
+        {
+            if (_deposits.Count == 0) return;
+
+            float pixelsPerCell = PixelsPerSector / _sectorSizeCells;
+            if (pixelsPerCell < MinPixelsPerCellForDeposits) return;
+
+            DrawDepositsOfOne(painter, MapOreKind.Coal, CoalColour, pixelsPerCell);
+            DrawDepositsOfOne(painter, MapOreKind.Iron, IronColour, pixelsPerCell);
+            DrawDepositsOfOne(painter, MapOreKind.Copper, CopperColour, pixelsPerCell);
+            DrawDepositsOfOne(painter, MapOreKind.Unknown, UnknownOreColour, pixelsPerCell);
+        }
+
+        void DrawDepositsOfOne(Painter2D painter, MapOreKind ore, Color colour, float pixelsPerCell)
+        {
+            bool any = false;
+
+            for (int i = 0; i < _deposits.Count; i++)
+            {
+                MapDepositMark deposit = _deposits[i];
+                if (deposit.Ore != ore) continue;
+
+                if (!any)
+                {
+                    painter.fillColor = colour;
+                    painter.BeginPath();
+                    any = true;
+                }
+
+                // The cell's north-west corner, in cells - PointAt divides by the sector size itself.
+                // The same convention DrawBuildings uses: the world's Y grows north and the screen's
+                // grows down, so the top edge is the cell above.
+                Vector2 corner = PointAt(new Vector2(deposit.CellX, deposit.CellY + 1));
+
+                painter.MoveTo(corner);
+                painter.LineTo(corner + new Vector2(pixelsPerCell, 0f));
+                painter.LineTo(corner + new Vector2(pixelsPerCell, pixelsPerCell));
+                painter.LineTo(corner + new Vector2(0f, pixelsPerCell));
+                painter.ClosePath();
+            }
+
+            if (any) painter.Fill();
+        }
+
         /// <summary>
         /// The wrecks, as small squares. A square rather than a disc so it is not read as a robot,
         /// and the same size at every zoom for the reason WreckHalfSizePixels gives.

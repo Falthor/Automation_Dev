@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Exploration;
+using Game.Grid;
 using Game.Gameplay.Wrecks;
 using Game.Presentation;
 using UnityEngine;
@@ -37,6 +38,13 @@ namespace Game.UI
         readonly List<MapBuildingCell> _buildingCells = new List<MapBuildingCell>();
         readonly List<MapRobotMark> _robotMarks = new List<MapRobotMark>();
         readonly List<MapWreckMark> _wreckMarks = new List<MapWreckMark>();
+        readonly List<MapDepositMark> _depositMarks = new List<MapDepositMark>();
+
+        /// <summary>How many deposits were on the map last time it was built. A deposit never moves and is never removed until mined out, so a count is enough to notice new ground.</summary>
+        int _depositCount = -1;
+
+        /// <summary>Found rather than wired, following the camera controllers' own precedent: there is one of each in the scene, and a missing one only means a double click cannot travel.</summary>
+        CameraPanController _cameraPan;
 
         /// <summary>How many wrecks were on the map last time it was built. Rebuilt only when one more is found - a wreck never moves.</summary>
         int _wreckCount = -1;
@@ -72,7 +80,10 @@ namespace Game.UI
             _fleet = panelRoot.Q<Label>("SectorMapFleet");
             panelRoot.Q<Button>("SectorMapCloseButton").clicked += Hide;
 
+            _cameraPan = FindAnyObjectByType<CameraPanController>();
+
             _map = new SectorMapElement();
+            _map.TravelRequested += TravelTo;
             panelRoot.Q<VisualElement>("SectorMapViewport").Add(_map);
 
             _root.EnableInClassList("hidden", true);
@@ -148,6 +159,7 @@ namespace Game.UI
             _map.SetOuterRingRadius(gameRuntime.ExplorerRangeCells);
 
             RenderBuildings();
+            RenderDeposits();
             RenderWrecks();
             RenderRobots();
         }
@@ -185,6 +197,36 @@ namespace Game.UI
         /// <summary>What carries rather than transforms. The same three types the building cap exempts, and for the same reason: they are the network, not the works.</summary>
         static bool IsBelt(BuildingRuntime building)
             => building is ConveyorRuntime || building is SplitterRuntime || building is CrossroadRuntime;
+
+        /// <summary>
+        /// Every deposit that has been materialised, one mark per cell so a cluster reads as a patch.
+        ///
+        /// Rebuilt on a count rather than every frame: a deposit never moves, so the only thing that
+        /// can change is that a robot opened ground with more of them.
+        /// </summary>
+        void RenderDeposits()
+        {
+            IReadOnlyList<DepositRuntime> deposits = gameRuntime.World?.OreDeposits;
+            int count = deposits?.Count ?? 0;
+            if (count == _depositCount) return;
+
+            _depositCount = count;
+            _depositMarks.Clear();
+
+            for (int i = 0; i < count; i++)
+            {
+                DepositRuntime deposit = deposits[i];
+                MapOreKind ore = MapDepositMark.OreFor(deposit.ItemId);
+
+                foreach (Vector2Int offset in deposit.Definition.FootprintCells)
+                {
+                    _depositMarks.Add(new MapDepositMark(
+                        deposit.Origin.X + offset.x, deposit.Origin.Y + offset.y, ore));
+                }
+            }
+
+            _map.SetDeposits(_depositMarks);
+        }
 
         /// <summary>
         /// The wrecks the player has found.
@@ -258,6 +300,20 @@ namespace Game.UI
         /// same actions. The two used to hold separate literal copies of one cluster, which is the
         /// duplication the binding table exists to end.
         /// </summary>
+        /// <summary>
+        /// Takes the player where they double-clicked, and closes the map.
+        ///
+        /// Closing is the point as much as the move: a map left open over the place it just took you
+        /// to is a map you have to dismiss before you can see what you asked for.
+        /// </summary>
+        void TravelTo(Vector2 cellPosition)
+        {
+            if (_cameraPan == null) return;
+
+            _cameraPan.CentreOnCell(cellPosition);
+            Hide();
+        }
+
         Vector2 PanDirection()
         {
             var move = Vector2.zero;

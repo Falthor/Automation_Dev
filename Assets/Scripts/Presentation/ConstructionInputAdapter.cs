@@ -407,10 +407,7 @@ namespace Game.Presentation
 
             buildingGhostView.Show(sprite, worldSize, worldCenter, previewRotation, valid,
                 outputArrowSprite, outputArrowWorldPos, BuildingSpawner.ArrowWorldSize(gameRuntime.Grid.CellSize),
-                inputArrowSprite, inputArrows, rotateSprite, artNativeDirection,
-                // The ghost has to be sized the way the built view will be, or it previews the
-                // wrong height - see BuildingSpawner.FitArt.
-                stretchArt: selected.StretchArtToBox);
+                inputArrowSprite, inputArrows, rotateSprite, artNativeDirection);
         }
 
         Sprite ResolveGhostSprite(BuildingDefinition definition)

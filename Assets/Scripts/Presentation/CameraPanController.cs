@@ -120,6 +120,25 @@ namespace Game.Presentation
             PanWithMouse();
         }
 
+        /// <summary>
+        /// Puts the camera over a cell, keeping its zoom.
+        ///
+        /// <b>Instant rather than travelled.</b> This answers a double click on the map, which is a
+        /// request to be somewhere else - a glide across ten thousand cells would be a wait, and the
+        /// map closing at the same moment already tells the player what happened.
+        ///
+        /// Only the position, like everything else in this component: the zoom belongs to
+        /// CameraZoomController and is left exactly as the player set it.
+        /// </summary>
+        public void CentreOnCell(Vector2 cellPosition)
+        {
+            if (_gameRuntime?.Grid == null) return;
+
+            float cellSize = _gameRuntime.Grid.CellSize;
+            Vector3 position = transform.position;
+            transform.position = new Vector3(cellPosition.x * cellSize, cellPosition.y * cellSize, position.z);
+        }
+
         void PanWithKeyboard()
         {
             // A panel that navigates with the keyboard takes ZQSD for itself. Without this the map

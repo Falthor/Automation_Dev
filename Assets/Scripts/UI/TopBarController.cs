@@ -223,14 +223,20 @@ namespace Game.UI
         /// is already fully said in the collapsed header, so there would be nothing behind the
         /// expansion but the same numbers written out again.
         ///
-        /// Not a Button either: every other card opens a global panel, and a directive lives in the
-        /// Core's own inspector, reached by clicking the Core in the world.
+        /// <b>A Button, like the other four cards.</b> It used to be a plain VisualElement with a
+        /// ClickEvent callback, and clicking it did nothing: a Button carries the Clickable
+        /// manipulator that captures the pointer between press and release, which is what the four
+        /// working cards rely on. Written as the same thing they are, rather than as a second way of
+        /// being clickable that only looks equivalent.
         /// </summary>
         Card BuildDirectiveCard()
         {
             var card = new Card { RefWidth = 200f, MinWidth = 150f, MaxWidth = 250f, DetailHeight = 0f };
 
-            var root = new VisualElement();
+            // The card states a bill; the Core panel is where it is read in full and accepted. The
+            // player who reads "0/40" on the bar is already asking about the directive, and having to
+            // go find the Core on the map to answer that is a detour the bar can spare them.
+            var root = new Button(OpenCorePanel) { text = string.Empty };
             root.AddToClassList("top-bar-card");
             card.Root = root;
 
@@ -250,22 +256,27 @@ namespace Game.UI
             card.Requirements = requirements;
 
             root.Add(header);
-
-            // The card states a bill; the Core panel is where it is read in full and accepted. The
-            // player who reads "0/40" on the bar is already asking about the directive, and having
-            // to go find the Core on the map to answer that is a detour the bar can spare them.
             root.AddToClassList("top-bar-card-clickable");
-            root.RegisterCallback<ClickEvent>(_ => OpenCorePanel());
 
             _cardsRow.Add(root);
             return card;
         }
 
-        /// <summary>Selects the Core, which is what CorePanelController listens for - the same route a click on the Core itself takes, so there is one way in and not two.</summary>
+        /// <summary>
+        /// Selects the Core, which is what CorePanelController listens for - the same route a click on
+        /// the Core itself takes, so there is one way in and not two.
+        ///
+        /// A missing Core is logged rather than shrugged off: this is reached by a deliberate click,
+        /// and a click that silently does nothing is the hardest kind of defect to report.
+        /// </summary>
         void OpenCorePanel()
         {
             CoreRuntime core = gameRuntime.World?.Core;
-            if (core == null) return;
+            if (core == null)
+            {
+                Debug.LogError("The Top Bar's directive card was clicked with no Core in the world - nothing to open.", this);
+                return;
+            }
 
             gameRuntime.Selection.Select(core);
         }

@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c066c336084ad324aa88241708a951b1, type: 3}
-  m_Name: Screw_Recipe
+  m_Name: copper_plate_Recipe
   m_EditorClassIdentifier: Game.Data::Game.Data.RecipeDefinition
-  id: Screw
+  id: copper_plate
   ingredients:
-  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+  - item: {fileID: 11400000, guid: 65d78e7c331fda945b089ab7a130f97c, type: 2}
     amount: 1
-  outputAmount: 2
+  outputAmount: 1
   timeSeconds: 4
   computeCost: 4
   unlockResearch: {fileID: 0}

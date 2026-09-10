@@ -237,7 +237,7 @@ namespace Game.Presentation
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
-            FitArt(renderer, sprite, ArtWorldSize(definition, _grid.CellSize), definition.StretchArtToBox);
+            FitSpriteUniform(renderer, sprite, ArtWorldSize(definition, _grid.CellSize));
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
@@ -343,7 +343,7 @@ namespace Game.Presentation
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
-            FitArt(renderer, sprite, ArtWorldSize(definition, _grid.CellSize), definition.StretchArtToBox);
+            FitSpriteUniform(renderer, sprite, ArtWorldSize(definition, _grid.CellSize));
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
@@ -457,9 +457,10 @@ namespace Game.Presentation
         ///
         /// <b>ArtCellSize rather than FootprintSize</b>, which are the same thing for every building
         /// whose art is the shape of its ground and differ for one that is taller than it - see
-        /// BuildingDefinition.ArtCellSize. <see cref="FitArt"/> then lands exactly on this box when
-        /// it carries the art's own aspect ratio, rather than covering it and overflowing sideways -
-        /// or draws to it per axis for the one definition that asks.
+        /// BuildingDefinition.ArtCellSize. <see cref="FitSpriteUniform"/> then lands exactly on this
+        /// box when it carries the art's own aspect ratio, rather than covering it and overflowing
+        /// sideways - which is what makes the box a statement about the art rather than a decision
+        /// about how the building should look.
         /// </summary>
         public static Vector2 ArtWorldSize(BuildingDefinition definition, float cellSize, bool overscanned = true)
             => new Vector2(cellSize, cellSize) * definition.ArtCellSize * (overscanned ? definition.RenderOverscan : 1f);
@@ -485,22 +486,12 @@ namespace Game.Presentation
         /// corner's chirality) re-apply the flip after fitting.
         /// </summary>
         /// <summary>
-        /// Sizes a building's art against its box - <b>the one place that choice is made</b>, so the
-        /// real view, the placement ghost and the construction silhouette cannot disagree about how
-        /// tall a building is.
-        ///
-        /// Uniform by default, which lands exactly on the box when the box carries the art's own
-        /// proportion. Per axis when the definition says so
-        /// (<see cref="BuildingDefinition.StretchArtToBox"/>), which is one building and is meant to
-        /// stay that way - see that property for why.
+        /// Public rather than internal because it is the one entry point for sizing a building's art -
+        /// four production paths call it, and the test that pins its arithmetic has to reach it. It
+        /// used to be internal behind a public wrapper; the wrapper existed only to choose between two
+        /// fits, and there is only one now.
         /// </summary>
-        public static void FitArt(SpriteRenderer renderer, Sprite sprite, Vector2 artBox, bool stretch)
-        {
-            if (stretch) SetSpriteToWorldSize(renderer, sprite, artBox);
-            else FitSpriteUniform(renderer, sprite, artBox);
-        }
-
-        internal static void FitSpriteUniform(SpriteRenderer renderer, Sprite sprite, Vector2 desiredWorldSize)
+        public static void FitSpriteUniform(SpriteRenderer renderer, Sprite sprite, Vector2 desiredWorldSize)
         {
             renderer.sprite = sprite;
             Vector2 nativeSize = sprite.bounds.size;

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Usine
   footprintSize: {x: 3, y: 3}
   placeholderColor: {r: 0.5, g: 0.5, b: 0.55, a: 1}
-  unlockResearch: {fileID: 0}
+  unlockResearch: {fileID: 11400000, guid: 0721463195b3a847344c2f36587a0123, type: 2}
   sprite: {fileID: -6622863259242664493, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
   animationFrames:
   - {fileID: -6622863259242664493, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
@@ -39,15 +39,11 @@ MonoBehaviour:
     amount: 5
   powerDemandKw: 3
   recipeIds:
-  - Iron_Plate
-  - copper_wire
   - Gear
-  - Screw
+  - bolted_iron_plate
   - Printed_Circuit_Board
   - Memory_MK1
   acceptedItemIds:
-  - Iron_Ingot
-  - copper_Ingot
   - Iron_Plate
   - copper_wire
   - Screw

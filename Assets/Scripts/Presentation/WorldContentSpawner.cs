@@ -98,8 +98,8 @@ namespace Game.Presentation
             // extra cell overhang upward, which is what the sprite's own pivot is placed for -
             // it sits at the footprint's centre, 2/5 up the art, so the base lands on the cells the
             // Core actually occupies. The concrete slab above stays on footprintWorldSize.
-            BuildingSpawner.FitArt(renderer, sprite,
-                BuildingSpawner.ArtWorldSize(definition, _grid.CellSize), definition.StretchArtToBox);
+            BuildingSpawner.FitSpriteUniform(renderer, sprite,
+                BuildingSpawner.ArtWorldSize(definition, _grid.CellSize));
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {

@@ -38,12 +38,16 @@ MonoBehaviour:
     amount: 8
   - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
     amount: 5
-  artCellSize: {x: 2, y: 3}
+  artCellSize: {x: 0, y: 0}
   powerDemandKw: 3
   recipeIds:
   - Iron_Plate
   - copper_wire
   - Screw
+  - copper_plate
+  - Cable
   acceptedItemIds:
   - Iron_Ingot
   - copper_Ingot
+  - Iron_Plate
+  - copper_wire

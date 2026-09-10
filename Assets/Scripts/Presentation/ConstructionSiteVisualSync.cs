@@ -464,9 +464,8 @@ namespace Game.Presentation
         {
             bool overscanned = !(segment is ConveyorRuntime) || UsesOwnConveyorArt(segment, definition);
 
-            BuildingSpawner.FitArt(renderer, sprite,
-                BuildingSpawner.ArtWorldSize(definition, _grid.CellSize, overscanned),
-                definition.StretchArtToBox);
+            BuildingSpawner.FitSpriteUniform(renderer, sprite,
+                BuildingSpawner.ArtWorldSize(definition, _grid.CellSize, overscanned));
         }
 
         /// <summary>
