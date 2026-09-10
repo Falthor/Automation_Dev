@@ -95,20 +95,32 @@ namespace Game.Tests.EditMode.Presentation
         // ---- The Constructor ----
 
         /// <summary>
-        /// The Constructor's own numbers. Its frames are square, so no override is needed and its art
-        /// is exactly its footprint - which is the normal case, and the case worth pinning now that
-        /// there is no stretch to fall back on.
+        /// The Constructor's own numbers, and the reason its box is bigger than its ground.
+        ///
+        /// <b>A frame is not a building.</b> Its frames are square and the building inside them is
+        /// 410x390 of a 512x512 frame, centred. Drawn at the 2x2 footprint the frame lands exactly on
+        /// it - and the building itself comes out 51x49 px in a 64x64 box, visibly smaller than the
+        /// ground it stands on. So the box is 2.5 cells: 512/410 of two, which is what makes the
+        /// <i>building</i> fill the footprint rather than the frame.
+        ///
+        /// Pinned as a literal because it is the kind of number that reads like a mistake. It is not
+        /// - it is a statement about where the art sits inside its own frame, and it has to change
+        /// when the art is re-exported with different margins.
         /// </summary>
         [Test]
-        public void TheConstructorsArtIsExactlyItsFootprint()
+        public void TheConstructorsBoxMakesTheBuildingFillItsFootprint()
         {
             var constructor = AssetDatabase.LoadAssetAtPath<BuildingDefinition>("Assets/Data/Buildings/ConstructorDefinition.asset");
             Assert.IsNotNull(constructor, "the Constructor definition is missing");
 
             Assert.AreEqual(new Vector2Int(2, 2), constructor.FootprintSize, "the footprint stays 2x2");
-            Assert.AreEqual(new Vector2(2f, 2f), constructor.ArtCellSize,
-                "square frames need no override: ArtCellSize falls back to the footprint, and the sprite lands exactly on it");
+            Assert.AreEqual(new Vector2(2.5f, 2.5f), constructor.ArtCellSize);
             Assert.AreEqual(12, constructor.AnimationFrames.Length, "twelve frames, and the re-slice has to have kept every reference");
+
+            // Square box over square frames, so the fit is exact rather than covering: the frame
+            // lands on the box and the building lands on the footprint.
+            Assert.AreEqual(constructor.ArtCellSize.x, constructor.ArtCellSize.y,
+                "a non-square box over a square frame would overflow one axis - see the fit tests above");
         }
     }
 }
