@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e31b0f730f8a99e47bb8f0daf2fec2f4, type: 3}
-  m_Name: magnet
+  m_Name: electrical_mechanism
   m_EditorClassIdentifier: Game.Data::Game.Data.ItemDefinition
-  id: magnet
+  id: electrical_mechanism
   type: 2
-  displayName: Électroaimant
-  icon: {fileID: 21300000, guid: 1a3b5c7d9e0f2143658709afbdc1e3f5, type: 3}
-  fallbackColor: {r: 0.55, g: 0.2, b: 0.22, a: 1}
+  displayName: Mécanisme électrique
+  icon: {fileID: 21300000, guid: 40a020ca157f3dd42bd27d53fffd60c2, type: 3}
+  fallbackColor: {r: 0.45, g: 0.52, b: 0.58, a: 1}
   cuOutput: 0
   powerKw: 0
   nominalLifetimeSeconds: 0

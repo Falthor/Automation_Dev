@@ -10,15 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72c3c39fefc96e1488e1fdd7ff1eb525, type: 3}
-  m_Name: memory_allocation
+  m_Name: core_directive_3
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
-  id: memory_allocation
-  displayName: Allocation memoire
-  description: Releve le plafond de batiments de 30 a 52.
+  id: core_directive_3
+  displayName: Directive 3 du Noyau
+  description: Accordee par le Noyau a la directive 3. Ouvre Moteur electrique et Module de controle.
   icon: {fileID: 0}
-  cuCost: 2500
-  prerequisites:
-  - {fileID: 11400000, guid: c6029416385a70ce8294b6d8f375ac74, type: 2}
-  revealedBy: {fileID: 11400000, guid: c6029416385a70ce8294b6d8f375ac74, type: 2}
-  absorptionRatePerSecond: 60
-  tier: 4
+  cuCost: 0
+  prerequisites: []
+  revealedBy: {fileID: 0}
+  absorptionRatePerSecond: 0
+  tier: 0

@@ -12,13 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 768dc22d07d6a804d8d86da88ec6e9d4, type: 3}
   m_Name: ThirdDirective
   m_EditorClassIdentifier: Game.Data::Game.Data.CoreDirectiveDefinition
-  id: third_components
+  id: third_mechanisms
   requirements:
-  - item: {fileID: 11400000, guid: 66ad6bf5a674bc443af836a21b003c70, type: 2}
-    amount: 10
-  - item: {fileID: 11400000, guid: b82ad7bebf2efd84898c65e6b86fffd9, type: 2}
-    amount: 20
+  - item: {fileID: 11400000, guid: 2b4c6d8e0f1a3254769810b0ced2f406, type: 2}
+    amount: 18
+  - item: {fileID: 11400000, guid: 60ac3eb5d7f41a682c3e50729d1f4618, type: 2}
+    amount: 18
   rewardItem: {fileID: 0}
-  grants: {fileID: 11400000, guid: 5a2d93c7e18b46f0ab74c2e91d6f38b5, type: 2}
+  grants: {fileID: 11400000, guid: b5f183052c496fbd7183a5c7e2649b63, type: 2}
   unlocksResearchMenu: 0
-  rewardLabel: Deverrouille Datacenter
+  rewardLabel: Deverrouille Moteur electrique et Module de controle

@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 768dc22d07d6a804d8d86da88ec6e9d4, type: 3}
-  m_Name: SecondDirective
+  m_Name: FourthDirective
   m_EditorClassIdentifier: Game.Data::Game.Data.CoreDirectiveDefinition
-  id: second_coils
+  id: fourth_motors
   requirements:
-  - item: {fileID: 11400000, guid: d5be11fa9d151e345a38f4254d3f1430, type: 2}
-    amount: 30
-  - item: {fileID: 11400000, guid: 5f8b2da4c6e309571b2d4f6180c3e507, type: 2}
-    amount: 30
+  - item: {fileID: 11400000, guid: 71bd4fc6e8052b793d4f6183ae205729, type: 2}
+    amount: 12
+  - item: {fileID: 11400000, guid: 82ce50d7f9163c8a4e507294bf316830, type: 2}
+    amount: 12
   rewardItem: {fileID: 0}
-  grants: {fileID: 11400000, guid: a4e072f91b385eac607294b6d1538a52, type: 2}
+  grants: {fileID: 11400000, guid: c6029416385a70ce8294b6d8f375ac74, type: 2}
   unlocksResearchMenu: 0
-  rewardLabel: Deverrouille Electroaimant et Mecanisme electrique
+  rewardLabel: Deverrouille CPU, Memoire et Datacenter

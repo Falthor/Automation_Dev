@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e31b0f730f8a99e47bb8f0daf2fec2f4, type: 3}
-  m_Name: magnet
+  m_Name: copper_coil
   m_EditorClassIdentifier: Game.Data::Game.Data.ItemDefinition
-  id: magnet
+  id: copper_coil
   type: 2
-  displayName: Électroaimant
-  icon: {fileID: 21300000, guid: 1a3b5c7d9e0f2143658709afbdc1e3f5, type: 3}
-  fallbackColor: {r: 0.55, g: 0.2, b: 0.22, a: 1}
+  displayName: Bobine de cuivre
+  icon: {fileID: 21300000, guid: 5d1f3a7b9c2e4086b1d4f7a0c3e6b9d2, type: 3}
+  fallbackColor: {r: 0.8, g: 0.44, b: 0.18, a: 1}
   cuOutput: 0
   powerKw: 0
   nominalLifetimeSeconds: 0
