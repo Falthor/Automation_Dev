@@ -12,6 +12,7 @@ using Game.Gameplay.Research;
 using Game.Gameplay.Session;
 using Game.Gameplay.Sectors;
 using Game.Gameplay.Selection;
+using Game.Gameplay.Wrecks;
 using Game.Gameplay.Sites;
 using Game.Gameplay.Transport;
 using Game.Gameplay.WorldGeneration;
@@ -215,6 +216,13 @@ namespace Game.Presentation
         public SelectionRuntime Selection { get; private set; }
 
         /// <summary>
+        /// The wrecks in the disc around the Core. Derived from the terrain seed like the sector
+        /// contents, so a loaded world finds them in the same places; only which ones have been found
+        /// is restored.
+        /// </summary>
+        public WreckField Wrecks { get; private set; }
+
+        /// <summary>
         /// Who Escape belongs to this frame. The one reader of the key, and the one place the
         /// priority between an armed tool, a contextual panel and a global panel is written down -
         /// see <see cref="EscapeArbiter"/> for why fourteen independent readers could not hold it.
@@ -354,6 +362,7 @@ namespace Game.Presentation
                 Discovery = new DiscoveryRuntime(Terrain.Size, sectorSettings.ChunkSizeCells);
                 Discovery.RestoreState(loadedSave.Discovered);
                 _pendingDecorRemoved = loadedSave.DecorRemoved;
+                _pendingWrecksDiscovered = loadedSave.WrecksDiscovered;
                 Compute.RestoreReserve(loadedSave.ComputeReserve);
 
                 var restoredQueue = new List<ResearchDefinition>();
@@ -438,6 +447,30 @@ namespace Game.Presentation
                 ExplorerRobots = new ExplorerRobotSystem(explorerRobotSettings, Discovery, Compute,
                     World?.CoreCenterCells ?? Vector2.zero, ExplorerParkOrigin(), Terrain.Seed,
                     Sectors, harvestLog);
+
+                if (worldGenerationSettings != null)
+                {
+                    // Terrain.Seed, not the resource seed: it is the one a save restores, so the
+                    // wrecks are in the same places in a loaded world - the same reason SectorCatalog
+                    // uses it.
+                    Wrecks = new WreckField(Terrain.Seed, World?.CoreCenterCells ?? Vector2.zero,
+                        worldGenerationSettings.WreckProfile);
+
+                    ExplorerRobots.Wrecks = Wrecks;
+
+                    // Restored before the instrument below and before anything can be drawn, so a
+                    // loaded world starts with exactly the set it saved.
+                    Wrecks.RestoreState(_pendingWrecksDiscovered);
+                    _pendingWrecksDiscovered = null;
+
+                    // A development instrument - see WorldGenerationSettings, and delete this with it.
+                    if (worldGenerationSettings.DiscoverEveryWreckAtStart) Wrecks.DiscoverEverything();
+
+                    if (harvestLog != null)
+                    {
+                        Wrecks.Discovered += site => harvestLog.RecordWreck(site.DistanceFromCoreCells);
+                    }
+                }
 
                 // Set after construction because it needs the ore definitions world generation owns.
                 // Placed content wins over the derivation, and World has already run - which is the
@@ -624,6 +657,10 @@ namespace Game.Presentation
                 // Only what the player cleared. What grows re-derives itself from the seed, so
                 // storing it would be storing what the seed already says.
                 DecorRemoved = Decor?.CaptureState(),
+
+                // Only what has been found. Where a wreck is and which of the three it is are pure
+                // functions of the seed - the same boundary as the decor above.
+                WrecksDiscovered = Wrecks?.CaptureState(),
                 ExplorerRobots = ExplorerRobots?.CaptureState(),
                 ComputeReserve = Compute.Reserve,
                 ResearchActiveId = Research.ActiveResearch != null ? Research.ActiveResearch.Id : null,
@@ -697,6 +734,13 @@ namespace Game.Presentation
         /// applied where the runtime can exist.
         /// </summary>
         string _pendingDecorRemoved;
+
+        /// <summary>
+        /// Which wrecks a loaded save had found, held until the field exists. Read in Awake and
+        /// applied once WreckField is built, for the same reason the decor's set is: the save is read
+        /// before the thing it describes has been made.
+        /// </summary>
+        string _pendingWrecksDiscovered;
 
         /// <summary>The radius last written into the discovery state, so a repeat pass costs one comparison. NaN until the first pass, which no real radius equals.</summary>
         float _lastRevealedCoreRadius = float.NaN;
@@ -1009,6 +1053,18 @@ namespace Game.Presentation
             if (gridLineView != null) gridLineView.SetVisible(Construction.Selected != null);
         }
 
+        /// <summary>
+        /// Which of the three sprites a wreck draws. Modulo rather than a bounds check: a settings
+        /// asset with two sprites should draw two kinds of wreck, not throw on the third.
+        /// </summary>
+        Sprite WreckSpriteFor(WreckSite site)
+        {
+            Sprite[] sprites = worldGenerationSettings?.WreckSprites;
+            if (sprites == null || sprites.Length == 0) return null;
+
+            return sprites[site.TypeIndex % sprites.Length];
+        }
+
         void Start()
         {
             // Cross-object wiring in Start(), not Awake(): see ConstructionInputAdapter for why.
@@ -1058,6 +1114,19 @@ namespace Game.Presentation
                 // into a run, long after this loop has run once - without this the deposit was in the
                 // grid and on no screen.
                 World.DepositAppeared += contentSpawner.SpawnOreDeposit;
+
+                if (Wrecks != null)
+                {
+                    // Already-found wrecks first (a loaded game), then every one found from here on.
+                    // Both go through one call, so a restored wreck and a freshly found one can never
+                    // be drawn differently.
+                    foreach (WreckSite site in Wrecks.Sites)
+                    {
+                        if (site.Discovered) contentSpawner.SpawnWreck(site, WreckSpriteFor(site));
+                    }
+
+                    Wrecks.Discovered += site => contentSpawner.SpawnWreck(site, WreckSpriteFor(site));
+                }
 
                 Vector3 coreCenter = Grid.FootprintCenterToWorld(World.CoreOrigin, worldGenerationSettings.CoreDefinition.FootprintSize);
 

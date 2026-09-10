@@ -319,3 +319,46 @@ supposant. `% (taux × 3)` donnait du minerai une fois sur 48 et non sur 16 — 
 sortie, trop rare. Et `Mathf.RoundToInt(12.5f)` arrondit au **pair** : le milieu de 10-15 est 12, pas
 13. La deuxième est dans un test, en littéral, avec la raison écrite à côté : c'est exactement le
 genre de détail qu'une attente recalculée aurait validé en étant fausse avec le code.
+
+## 10. Huit débris, et pourquoi ce n'est pas une densité
+
+Une densité uniforme sur le disque de 330 cases ne peut pas répondre aux deux questions à la fois.
+Le chiffre qui fait trouver un débris dans les premières minutes en met une centaine sur la carte ;
+celui qui rend huit débris rares place le premier trois quarts d'heure plus tard. Ce ne sont pas deux
+réglages d'un même curseur, ce sont deux exigences contradictoires pour un seul nombre.
+
+**Les anneaux découplent les deux.** L'anneau intérieur est resserré exprès — le robot y commence
+forcément, donc il en croise un presque tout de suite — et la bande extérieure est large au point
+que ses quatre sont une perspective lointaine.
+
+**La structure fait le travail qu'une boucle de rejet ferait plus mal.** Les anneaux séparent
+radialement. L'angle d'un débris est la part du cercle de son rang plus une gigue bornée au tiers de
+cette part : c'est la borne qui sépare angulairement, par construction. Aucun test de proximité,
+aucun registre de ce qui est déjà posé, aucune boucle de rejet — une boucle aurait fait dépendre le
+résultat de l'ordre des tirages, ce qui est exactement ce qu'une dérivation ne doit jamais faire.
+
+**La séparation minimale est dérivée et délibérément pas un réglage.** Elle vaut la part du cercle
+moins deux fois la gigue : 60° pour un anneau de deux, 30° pour un anneau de quatre. L'exposer
+aussi permettrait trois nombres qui se contredisent — et c'est le genre de contradiction qui ne se
+voit qu'en jouant.
+
+**Ce que la mesure a dit, et que l'intention ne disait pas.** Sur la graine livrée, les rayons tirés
+se groupent vers l'extérieur de chaque anneau : les deux premiers débris sont à 57 et 58 cases, pas
+à 40 ; les deux suivants à 152 et 152, pas à 75. Le tirage du rayon est uniforme entre les bornes,
+donc rien n'est cassé — mais la distance effective du premier débris est de 57 cases et non de 40, et
+l'estimation de quatre minutes se lit contre 57.
+
+**Un débris est trouvé en révélant le sol qu'il occupe**, sur le même battement et contre le même
+rayon que la révélation. Une portée de proximité séparée aurait été une deuxième règle, libre de
+laisser un robot passer sur un débris sans le voir, ou de lui en faire repérer un à travers le
+brouillard.
+
+**Seul l'ensemble découvert se stocke.** La position et le type se redérivent : c'est la frontière
+habituelle du projet, et elle a une conséquence utile — changer le nombre d'un anneau coûte les
+débris qui n'existent plus, pas la sauvegarde, parce que la restauration ignore un indice qu'elle ne
+reconnaît plus.
+
+**Et le format de sauvegarde a défendu sa forme.** Ajouter le champ a fait échouer deux tests qui
+épinglent la liste exacte des clés — exactement leur travail. Pas de bump de version : un champ
+additif avec son propre repli laisse charger les anciennes sauvegardes, alors que bumper les
+refuserait toutes pour ajouter un champ qui se lit très bien à null. Même appel que `DecorRemoved`.

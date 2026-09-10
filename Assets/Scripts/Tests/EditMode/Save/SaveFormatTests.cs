@@ -69,6 +69,11 @@ namespace Game.Tests.EditMode.Save
         {
             "Version", "SavedAtUtc",
             "TerrainSeed", "TerrainSize", "TerrainScale", "TerrainProportion", "Discovered", "DecorRemoved",
+            // Which wrecks have been found. Additive, with its own fallback - an absent key is a
+            // world nobody has found anything in - so CurrentVersion is deliberately not bumped:
+            // bumping it would refuse every existing save to add a field that reads fine as null.
+            // Same call as DecorRemoved above.
+            "WrecksDiscovered",
             "ExplorerRobots",
             "ComputeReserve",
             "ResearchActiveId", "ResearchProgress", "ResearchQueue", "ResearchUnlocked",

@@ -32,6 +32,17 @@ namespace Game.Gameplay.Exploration
         float _distanceCells;
         int _cards;
 
+        /// <summary>
+        /// The wrecks found in the current minute, and how far out each was.
+        ///
+        /// Two columns rather than one, because the question is a rhythm: a count says how often and
+        /// the distances say where, and the minute number already in the first column says when. A
+        /// StringBuilder rather than a list of floats - it is written once a minute and thrown away.
+        /// </summary>
+        int _wrecks;
+
+        readonly System.Text.StringBuilder _wreckDistances = new System.Text.StringBuilder();
+
         /// <summary>Minutes written so far. Watched by nothing but a test - it is what says the thing actually wrote.</summary>
         public int MinutesWritten { get; private set; }
 
@@ -60,6 +71,15 @@ namespace Game.Gameplay.Exploration
 
         public void RecordCard() => _cards++;
 
+        /// <summary>One wreck found, with how far from the Core it was. Rare enough that the string never grows past a handful of numbers.</summary>
+        public void RecordWreck(float distanceFromCoreCells)
+        {
+            _wrecks++;
+
+            if (_wreckDistances.Length > 0) _wreckDistances.Append(' ');
+            _wreckDistances.Append(distanceFromCoreCells.ToString("0.#"));
+        }
+
         /// <summary>
         /// Advances the minute and writes a line when one has passed. Accumulating into four fields
         /// and touching the disk once a minute is what keeps this off the per-frame budget entirely.
@@ -77,6 +97,8 @@ namespace Game.Gameplay.Exploration
             _newCells = 0;
             _distanceCells = 0f;
             _cards = 0;
+            _wrecks = 0;
+            _wreckDistances.Clear();
         }
 
         void Write()
@@ -90,12 +112,15 @@ namespace Game.Gameplay.Exploration
                     // distance_cells is exploring travel only: the return leg reveals nothing by
                     // design, so counting it would make the yield figure depend on how often the
                     // player recalls rather than on how the wander behaves.
-                    File.AppendAllText(_path, "play_minutes,new_cells,distance_cells,cards\n");
+                    // wreck_distances_cells is space-separated inside its own column: a wreck is an
+                    // event, not a rate, so the minute it was found in and how far out it was are
+                    // both needed to judge whether the rings are tuned right.
+                    File.AppendAllText(_path, "play_minutes,new_cells,distance_cells,cards,wrecks,wreck_distances_cells\n");
                 }
 
                 MinutesWritten++;
                 File.AppendAllText(_path,
-                    $"{MinutesWritten},{_newCells},{_distanceCells:0.#},{_cards}\n");
+                    $"{MinutesWritten},{_newCells},{_distanceCells:0.#},{_cards},{_wrecks},{_wreckDistances}\n");
             }
             catch (IOException error)
             {

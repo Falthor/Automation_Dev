@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Exploration;
+using Game.Gameplay.Wrecks;
 using Game.Presentation;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -35,6 +36,10 @@ namespace Game.UI
         /// <summary>Reused across frames so a still map allocates nothing.</summary>
         readonly List<MapBuildingCell> _buildingCells = new List<MapBuildingCell>();
         readonly List<MapRobotMark> _robotMarks = new List<MapRobotMark>();
+        readonly List<MapWreckMark> _wreckMarks = new List<MapWreckMark>();
+
+        /// <summary>How many wrecks were on the map last time it was built. Rebuilt only when one more is found - a wreck never moves.</summary>
+        int _wreckCount = -1;
 
         /// <summary>How many buildings the cell list was built from. Expanding footprints allocates, so it is only redone when the count moves.</summary>
         int _buildingCount = -1;
@@ -143,6 +148,7 @@ namespace Game.UI
             _map.SetOuterRingRadius(gameRuntime.ExplorerRangeCells);
 
             RenderBuildings();
+            RenderWrecks();
             RenderRobots();
         }
 
@@ -179,6 +185,33 @@ namespace Game.UI
         /// <summary>What carries rather than transforms. The same three types the building cap exempts, and for the same reason: they are the network, not the works.</summary>
         static bool IsBelt(BuildingRuntime building)
             => building is ConveyorRuntime || building is SplitterRuntime || building is CrossroadRuntime;
+
+        /// <summary>
+        /// The wrecks the player has found.
+        ///
+        /// Rebuilt on a count rather than every frame: a wreck never moves, so the only thing that
+        /// can change is that there is one more of them.
+        /// </summary>
+        void RenderWrecks()
+        {
+            WreckField wrecks = gameRuntime.Wrecks;
+            int found = wrecks?.DiscoveredCount ?? 0;
+            if (found == _wreckCount) return;
+
+            _wreckCount = found;
+            _wreckMarks.Clear();
+
+            if (wrecks != null)
+            {
+                IReadOnlyList<WreckSite> sites = wrecks.Sites;
+                for (int i = 0; i < sites.Count; i++)
+                {
+                    if (sites[i].Discovered) _wreckMarks.Add(new MapWreckMark(sites[i].CentreCells));
+                }
+            }
+
+            _map.SetWrecks(_wreckMarks);
+        }
 
         /// <summary>
         /// Where the robots are, and which one is being inspected. Rebuilt every frame into a reused

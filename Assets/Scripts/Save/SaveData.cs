@@ -73,6 +73,17 @@ namespace Game.Save
         public string DecorRemoved;
 
         /// <summary>
+        /// Which wrecks the player has found, comma-separated indices - the same shape
+        /// <see cref="Discovered"/> and <see cref="DecorRemoved"/> use.
+        ///
+        /// <b>Only the discovered set.</b> Where a wreck is and which of the three it is are pure
+        /// functions of the world seed, re-derived at load; storing them would be storing what the
+        /// seed already says. Absent means a world nobody has found anything in, which is what it
+        /// recorded - no Version bump, an additive field with its own fallback.
+        /// </summary>
+        public string WrecksDiscovered;
+
+        /// <summary>
         /// Every explorer robot: position, heading, state, the datacards it carries and its progress
         /// towards the next, plus whether the fleet has arrived at all. An opaque blob owned by
         /// Game.Gameplay.Exploration.ExplorerRobotSystem's own Capture/Restore pair.

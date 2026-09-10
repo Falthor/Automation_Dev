@@ -69,6 +69,20 @@ namespace Game.UI
         /// <summary>A robot out working. Amber, the colour this project already uses for "under way".</summary>
         static readonly Color RobotColour = new Color(0.937f, 0.624f, 0.153f, 1f);
 
+        /// <summary>
+        /// A wreck the player has found. Warm grey - a place, not an activity: it must read as
+        /// somewhere to go back to rather than as something happening, which is what the amber of a
+        /// working robot says.
+        /// </summary>
+        static readonly Color WreckColour = new Color(0.78f, 0.74f, 0.68f, 1f);
+
+        /// <summary>
+        /// How big a wreck's mark is. <b>Fixed in pixels, like a robot's</b>: at three cells across it
+        /// would be under a pixel at the zoomed-out end, and a mark that vanishes at the scale you use
+        /// to look for it is not a mark. Drawn as a square, so it is not mistaken for a robot.
+        /// </summary>
+        const float WreckHalfSizePixels = 4f;
+
         /// <summary>A robot parked at the base. Muted, because it is not doing anything.</summary>
         static readonly Color RobotRestingColour = new Color(0.55f, 0.58f, 0.62f, 1f);
 
@@ -107,6 +121,9 @@ namespace Game.UI
         readonly List<MapBuildingCell> _buildings = new List<MapBuildingCell>();
 
         readonly List<MapRobotMark> _robots = new List<MapRobotMark>();
+
+        /// <summary>Only the wrecks the player has found - see MapWreckMark.</summary>
+        readonly List<MapWreckMark> _wrecks = new List<MapWreckMark>();
 
         /// <summary>Pixels per sector. The one number that says how zoomed in the map is.</summary>
         public float PixelsPerSector { get; private set; } = DefaultPixelsPerSector;
@@ -352,6 +369,36 @@ namespace Game.UI
         /// a tenth of a cell, which is what keeps a walking robot from repainting the overlay sixty
         /// times a second for movement nobody can see.
         /// </summary>
+        /// <summary>
+        /// The wrecks found so far. Safe to call every frame: it repaints only when the set has
+        /// actually changed, which for wrecks means one more was found.
+        /// </summary>
+        public void SetWrecks(IReadOnlyList<MapWreckMark> wrecks)
+        {
+            if (SameWrecks(wrecks)) return;
+
+            _wrecks.Clear();
+            if (wrecks != null)
+            {
+                for (int i = 0; i < wrecks.Count; i++) _wrecks.Add(wrecks[i]);
+            }
+
+            _overlay.MarkDirtyRepaint();
+        }
+
+        bool SameWrecks(IReadOnlyList<MapWreckMark> wrecks)
+        {
+            int count = wrecks?.Count ?? 0;
+            if (count != _wrecks.Count) return false;
+
+            for (int i = 0; i < count; i++)
+            {
+                if (!_wrecks[i].SameAs(wrecks[i])) return false;
+            }
+
+            return true;
+        }
+
         public void SetRobots(IReadOnlyList<MapRobotMark> robots)
         {
             if (SameRobots(robots)) return;
@@ -502,6 +549,9 @@ namespace Game.UI
             DrawOuterRing(painter);
             DrawRadius(painter);
             DrawCore(painter);
+            // Under the robots: a robot moves and is what the player is following, so it must never
+            // be hidden by a mark that never moves.
+            DrawWrecks(painter);
             DrawRobots(painter);
         }
 
@@ -602,6 +652,30 @@ namespace Game.UI
         /// A parked robot is muted rather than hidden - "the fleet is home" is an answer too, and
         /// hiding it would leave the player wondering whether the map had simply lost them.
         /// </summary>
+        /// <summary>
+        /// The wrecks, as small squares. A square rather than a disc so it is not read as a robot,
+        /// and the same size at every zoom for the reason WreckHalfSizePixels gives.
+        /// </summary>
+        void DrawWrecks(Painter2D painter)
+        {
+            if (_wrecks.Count == 0) return;
+
+            painter.fillColor = WreckColour;
+
+            for (int i = 0; i < _wrecks.Count; i++)
+            {
+                Vector2 point = PointAt(_wrecks[i].CellPosition);
+
+                painter.BeginPath();
+                painter.MoveTo(new Vector2(point.x - WreckHalfSizePixels, point.y - WreckHalfSizePixels));
+                painter.LineTo(new Vector2(point.x + WreckHalfSizePixels, point.y - WreckHalfSizePixels));
+                painter.LineTo(new Vector2(point.x + WreckHalfSizePixels, point.y + WreckHalfSizePixels));
+                painter.LineTo(new Vector2(point.x - WreckHalfSizePixels, point.y + WreckHalfSizePixels));
+                painter.ClosePath();
+                painter.Fill();
+            }
+        }
+
         void DrawRobots(Painter2D painter)
         {
             for (int i = 0; i < _robots.Count; i++)

@@ -4,6 +4,7 @@ using Game.Core;
 using Game.Data;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Sectors;
+using Game.Gameplay.Wrecks;
 using Game.Grid;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
@@ -88,6 +89,13 @@ namespace Game.Gameplay.Exploration
         /// Optional: null means a robot reveals ground and materialises nothing.
         /// </summary>
         public SectorMaterialisation Materialisation { get; set; }
+
+        /// <summary>
+        /// The wrecks to be found, or null in a scene without them. Set after construction for the
+        /// same reason Materialisation is: the field needs the Core's centre, which world generation
+        /// owns.
+        /// </summary>
+        public WreckField Wrecks { get; set; }
 
         /// <summary>
         /// Raised the moment a robot's card stock fills, and <b>once per filling</b>: the alert it
@@ -406,6 +414,12 @@ namespace Game.Gameplay.Exploration
 
             robot.RevealsWithoutNewGround = newCells > 0 ? 0 : robot.RevealsWithoutNewGround + 1;
             _log?.RecordNewCells(newCells);
+
+            // On the same beat and against the same radius as the reveal, so a wreck is found exactly
+            // when the ground it stands on is uncovered. A separate proximity range would be a second
+            // rule, free to let a robot walk over an undiscovered wreck or spot one through the fog.
+            // Eight distance checks, no allocation, and nothing at all once they are all found.
+            Wrecks?.DiscoverWithin(robot.Position, _settings.RevealRadiusCells);
 
             MaterialiseAround(robot);
             Harvest(robot, newCells);

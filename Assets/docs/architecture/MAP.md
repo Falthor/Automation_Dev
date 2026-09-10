@@ -287,6 +287,50 @@ partition has no part in it.
 `ExplorerRobotSettings.maxRadiusCells` (**330**), which is where a wandering robot is turned back
 (§2.1) and what the map draws as its outer ring (§5).
 
+## 4a. Wrecks
+
+**Eight places in the disc around the Core, derived and never stored.** `WreckField`
+(`Game.Gameplay.Wrecks`) computes them once at construction from `TerrainRuntime.Seed` — the seed a
+save restores — so a loaded world finds them where it left them. Each is three cells across and
+draws one of three sprites, freely: the same wreck may appear more than once, which is what keeps
+eight of them from reading as a catalogue.
+
+**Rings, because a density cannot answer both questions.** Uniform over 330 cells, the figure that
+puts a wreck in the first few minutes puts a hundred on the map, and the figure that makes eight rare
+puts the first one three quarters of an hour in. The rings decouple the two:
+
+| Ring | Wrecks | One per |
+|---|---|---|
+| 40 → 75 | 2 | ~6 300 cells |
+| 75 → 160 | 2 | ~31 000 cells |
+| 160 → 330 | 4 | ~65 000 cells |
+
+The innermost is deliberately tight: a robot always starts there, so it crosses one almost at once.
+Ring bounds and counts are settings (`WorldGenerationSettings.wreckRings`).
+
+**The structure separates them, so nothing checks.** A wreck's angle is its rank's share of the
+circle plus a jitter bounded to `WreckRingProfile.AngularJitterFraction` (a third) of that share; its
+radius is drawn between its ring's bounds. Rings separate radially, the bound separates angularly.
+**The minimum angular separation is derived, not a setting** — the share less twice the jitter, so 60°
+for a ring of two and 30° for a ring of four — because exposing it as well would allow three numbers
+that contradict each other. There is no proximity test, no register of what is already placed and no
+rejection loop: a loop would do the same job worse and would make the result depend on the order
+things were drawn in.
+
+**Found by revealing the ground it stands on**, on the same beat and against the same radius as the
+reveal (`ExplorerRobotSystem.RevealAround`). One rule rather than a separate proximity range, which
+could otherwise let a robot walk over an undiscovered wreck or spot one through the fog. Eight
+distance checks, no allocation, and nothing at all once they are all found.
+
+**A found wreck stays drawn outside observation**, like a deposit and for the same reason: it is its
+own object rather than a cell, and it does not change. It also appears on the zoomed-out map (§5), as
+a fixed-size square — never a disc, which is a robot.
+
+**Only the discovered set is stored** (`SaveData.WrecksDiscovered`, comma-separated indices).
+Position and type are pure functions of the seed. Restore is tolerant: an absent value is a world
+nobody has found anything in, and an index the current rings no longer produce is ignored rather than
+throwing.
+
 ## 5. The zoomed-out map's terrain
 
 `SectorMapImage` (`Game.Presentation`) draws the revealed ground the map screen is built on: **one tile
