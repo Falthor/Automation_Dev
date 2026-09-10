@@ -13,8 +13,6 @@ MonoBehaviour:
   m_Name: ResearchDatabase
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDatabase
   researches:
-  - {fileID: 11400000, guid: 6d2e1b8c5f4a49b3c7dae1f2a3b4c5d6, type: 2}
-  - {fileID: 11400000, guid: fa419e54f5704ee1a217b98290259090, type: 2}
   - {fileID: 11400000, guid: 8e7a78127efaea543854b4afb8011b8f, type: 2}
   - {fileID: 11400000, guid: d704473798404437a30af74411d46c57, type: 2}
   - {fileID: 11400000, guid: b4504efb95934dc9b042f00ca6cff1f8, type: 2}
@@ -22,4 +20,3 @@ MonoBehaviour:
   - {fileID: 11400000, guid: d480d6f5dc814760a79619c05471ba5c, type: 2}
   - {fileID: 11400000, guid: dd8c0be5fde9f2156a424539f2b6a635, type: 2}
   - {fileID: 11400000, guid: ad3f371f2226368e8a91ba4c18f7d75c, type: 2}
-  - {fileID: 11400000, guid: 0721463195b3a847344c2f36587a0123, type: 2}

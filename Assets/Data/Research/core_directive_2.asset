@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: core_directive_2
   displayName: Directive 2 du Noyau
-  description: Accordee par le Noyau a la directive 2. Ouvre Electroaimant et Mecanisme electrique.
+  description: Accordee par le Noyau a la directive 2. Ouvre l'Usine, l'Electroaimant et le Mecanisme electrique.
   icon: {fileID: 0}
   cuCost: 0
   prerequisites: []
