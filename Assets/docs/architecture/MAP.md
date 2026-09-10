@@ -46,6 +46,43 @@ sizes: a default would be a second copy of a setting, so a caller that forgets o
 
 `DiscoveryRuntime` (`Game.Grid`) holds one `DiscoveryState` per cell and is authoritative.
 
+**Three states, and only two of them are stored.**
+
+| | | |
+|---|---|---|
+| **Unknown** | never seen | total black |
+| **Remembered** | seen before, outside every observation radius right now | veiled |
+| **Observed** | inside some observer's radius | full, and live |
+
+**Observation is computed, never stored** — `ObservationRuntime` (`Game.Grid`) holds a list of
+observer discs rebuilt from scratch every frame and nothing per cell at all. Nothing is written when a
+robot advances and nothing erased when it moves away: the cell simply stops being covered by anything
+in the list. A stored observation state would be a second source of truth, free to contradict where
+the observers actually are — and it would need clearing, which is the bug that shape of code always
+produces.
+
+It follows that **nothing of it enters the save**, and there is deliberately no `Capture`/`Restore`
+pair to forget to call: the first frame after a load rebuilds the field from the observers the load put
+back. `DiscoveryRuntime.GetState` therefore answers with the two stored values only, and
+`ObservationRuntime.StateOf` is what answers with all three.
+
+**Discovery gates observation, in that order.** A cell nobody has discovered stays Unknown with an
+observer standing on it — which cannot arise in the running game, since everything that observes also
+reveals, but it is what makes "never discovered never becomes remembered" true by construction rather
+than by everything happening to be called in the right order. The rule is applied twice on purpose:
+in `StateOf`, and again when the fog's texels are packed, so the shader is never handed the
+contradiction.
+
+**What the third state is for is the static against the living.** Terrain, vegetation and deposits stay
+drawn out of observation, because they do not move and showing them is still accurate. A nest or a unit
+would be showing information already out of date, so it freezes on its last known state or goes —
+nothing of that kind exists yet, so today the distinction is carried entirely by the veil.
+
+**Who observes** is `GameRuntime.RebuildObservers`, and adding a third kind is one line there and
+nothing anywhere else: the Core at its live action radius, and every explorer robot that is out at the
+radius it uncovers with (§2.1). A robot's observation radius is *derived* from its reveal radius — what
+it sees is what it uncovers, and two numbers would drift apart.
+
 **Per cell, not per region.** A revelation of any shape writes the cells it covers. The reverse would
 not hold: a per-region state would forbid every free-form revelation.
 
@@ -109,6 +146,11 @@ any of the three.
   travel — overlapping heavily at a radius of 6, so the trail is a band rather than a row of beads, the
   same reasoning `MissionSystem.RevealTrail` uses. The return leg writes nothing at all: it is ground
   the outward leg has already answered for.
+- **It also *observes* as it goes** (§2), at the same radius, so a moving robot drags a disc of live
+  ground behind the veil and leaves it veiled again as it passes. **A robot walking home still has
+  eyes**: `Returning` observes as much as `Exploring` even though it reveals nothing new — revealing and
+  seeing are different acts, and only the first is permanent. An idle robot at the base is skipped, its
+  disc being inside the Core's anyway.
 
 **Persistence:** `SaveData.ExplorerRobots` — position, heading, state, plus where the drift had got to
 and how many sorties have been made, so a reloaded robot carries on the bend it was in the middle of
@@ -121,7 +163,30 @@ two ends (so it is not a ruler), and over 120 s it ends more than half its path 
 ## 3. Drawing the fog
 
 `FogOfWarView` + `Custom/FogOfWar` draw one quad over a **window that follows the camera**, sampling a
-one-texel-per-cell R8 texture in `FilterMode.Bilinear`.
+one-texel-per-cell **RG16** texture in `FilterMode.Bilinear`: **R is what has ever been discovered, G
+is what is observed right now**.
+
+**Two channels of one texture rather than two textures.** The pair costs exactly the bytes two R8
+textures would and buys three things they would not: one upload instead of two, one sample instead of
+two, and a window the two fields cannot disagree about — they are read against the same origin at the
+same instant because they are the same fetch.
+
+**They change on different clocks, and the upload follows each.** Discovery moves rarely; observation
+moves whenever an observer does, so on every frame a robot is walking. A discovery change repacks both
+channels, an observation change repacks only G — which keeps the per-frame cost to a handful of squared
+distances per texel instead of 65 000 chunk lookups. A still frame with a still fleet costs two integer
+comparisons.
+
+**The veil's strength is the whole visible difference between the second and third state**
+(`rememberedVeil`, shipped at **0.55** of full fog). At 1 remembered ground reads as unknown and the map
+has two visible states instead of three; at 0 there is no veil and it has two the other way round. It
+is a screen judgement, not a derived figure.
+
+The shader carries two signed distances — one per channel, cut by the same world-space grain so the two
+boundaries share one irregularity — and takes the **stronger** of the two alphas rather than their sum:
+the unknown is already fully opaque, and adding a veil to it would only flatten the very difference the
+third state exists to draw. `clip` now needs both terms spent, so observed ground still costs nothing
+while remembered ground pays a blend.
 
 **The window's size has nothing to do with the map's.** One texel per cell over a whole world would be
 16 MB at 4 000 cells and past most GPUs' limit beyond 8 192. The zoom-out cap bounds how much world

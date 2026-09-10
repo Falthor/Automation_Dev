@@ -157,6 +157,15 @@ namespace Game.Presentation
         /// <summary>What the player has discovered, one state per cell. Written by the Core's radius (RevealDiscoveredByCore) and later by missions; read by the fog renderer, which must never recompute a distance to the Core instead.</summary>
         public DiscoveryRuntime Discovery { get; private set; }
 
+        /// <summary>
+        /// Who is looking at what, this frame. Rebuilt by <see cref="RebuildObservers"/> from the
+        /// observers' current positions and stored per cell nowhere - see ObservationRuntime.
+        ///
+        /// Nothing of it enters the save, and there is nothing to restore: the first frame after a
+        /// load rebuilds it from the Core and the robots the load put back.
+        /// </summary>
+        public ObservationRuntime Observation { get; private set; }
+
         /// <summary>What grows on the ground, derived per chunk, minus what the player has cleared. Null when no decor settings are configured.</summary>
         public DecorRuntime Decor { get; private set; }
 
@@ -403,6 +412,13 @@ namespace Game.Presentation
             // After both branches: the Core exists whether it was generated or restored, and its
             // radius has a disc to write before the first frame is drawn.
             RevealDiscoveredByCore();
+
+            // Holds nothing until it is filled, and is filled from scratch every frame - so it is
+            // built here with no argument and restored from nothing. Before the first Update it
+            // reports no observers, which reads as "the discovered map is all remembered": truthful
+            // for a frame in which nothing has yet said what it can see.
+            Observation = new ObservationRuntime();
+            RebuildObservers();
 
             // Built here rather than in either branch because both need it and neither owns it. All
             // three are stateless views over the map: SectorGrid is arithmetic, SectorCatalog is a
@@ -847,6 +863,51 @@ namespace Game.Presentation
         /// Called from the tick and idempotent: the disc is only walked when the radius has actually
         /// moved since the last pass, so repeating it every frame allocates nothing and walks nothing.
         /// </summary>
+        /// <summary>
+        /// Says what can see, and from where. The whole of the observation field: everything else
+        /// derives from this list.
+        ///
+        /// <b>Rebuilt from scratch rather than maintained.</b> Nothing is added when a robot sets out
+        /// and nothing removed when it comes home - the list is simply what it is this frame, which
+        /// is what makes it impossible for it to disagree with where the observers really are.
+        ///
+        /// <b>No allocation.</b> Indexed loops rather than <c>foreach</c>: iterating the robots
+        /// through their read-only interface would box an enumerator once a frame, and this runs
+        /// every frame for the life of the process.
+        ///
+        /// Two kinds of observer today, and adding a third is one line here and nothing anywhere
+        /// else:
+        /// <list type="bullet">
+        /// <item>the Core, at its live action radius - so a radius extended by research widens what
+        /// is observed the frame it is granted, the same way it widens what is revealed.</item>
+        /// <item>every explorer robot that is out, at the radius it uncovers with. Derived from the
+        /// reveal radius rather than given its own setting: what a robot sees is what it uncovers,
+        /// and two numbers would drift. A robot resting at the base is skipped because it is inside
+        /// the Core's disc anyway - and a robot walking home still has eyes, so Returning counts as
+        /// much as Exploring even though it reveals nothing new.</item>
+        /// </list>
+        /// </summary>
+        void RebuildObservers()
+        {
+            if (Observation == null) return;
+
+            Observation.BeginRebuild();
+
+            if (World?.Core != null) Observation.Add(World.CoreCenterCells, World.ActionRadiusCells);
+
+            if (ExplorerRobots != null && explorerRobotSettings != null)
+            {
+                IReadOnlyList<ExplorerRobotRuntime> robots = ExplorerRobots.Robots;
+                for (int i = 0; i < robots.Count; i++)
+                {
+                    if (robots[i].State == ExplorerRobotState.Idle) continue;
+                    Observation.Add(robots[i].Position, explorerRobotSettings.RevealRadiusCells);
+                }
+            }
+
+            Observation.EndRebuild();
+        }
+
         void RevealDiscoveredByCore()
         {
             if (Discovery == null || World?.Core == null) return;
@@ -894,6 +955,11 @@ namespace Game.Presentation
             // (PROJECT_ARCHITECTURE.md §17).
             ExplorerRobots?.Tick(Time.deltaTime);
             _explorerFleet?.Refresh(ExplorerRobots, Time.deltaTime);
+
+            // Last of the world's changes, so the observers match the positions this frame actually
+            // ended on rather than the ones it started from. The fog reads it in LateUpdate, after
+            // every Update has run.
+            RebuildObservers();
 
             // Scaled deltaTime, like every system above it - which is the whole of how the run
             // clock pauses and resumes. Pause sets Time.timeScale to 0, so this is fed 0 and stops
@@ -984,7 +1050,11 @@ namespace Game.Presentation
                     // follows the view rather than a copy of the map - see FogOfWarView. Same two
                     // inputs the depth ladder is built from, and for the same reason: how much world
                     // can be on screen at once is what bounds both.
-                    fogOfWarView.Initialize(Discovery, Grid, _depthSortCamera, _maxOrthographicSize);
+                    // Observation alongside discovery, and it is the same distinction: discovery is
+                    // what the fog remembers, observation is what it is being shown right now. Also
+                    // not the Core and not a radius - RebuildObservers is what turns those into
+                    // observers, once a frame, and this view still recomputes no distance of its own.
+                    fogOfWarView.Initialize(Discovery, Observation, Grid, _depthSortCamera, _maxOrthographicSize);
                 }
 
                 // Start the camera centered on the Core - otherwise its fixed scene position

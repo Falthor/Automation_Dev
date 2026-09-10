@@ -3940,6 +3940,7 @@ MonoBehaviour:
   borderSoftness: 0.114
   noiseScale: 3
   noiseWeight: 0.396
+  rememberedVeil: 0.55
   texelsPerCell: 1
   windowCells: 256
 --- !u!4 &1659034850

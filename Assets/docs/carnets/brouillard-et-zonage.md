@@ -185,3 +185,59 @@ territoire de départ, 250 l'anneau minier, 330 la portée d'un Noyau secondaire
 croît linéairement — acceptable tant que la sauvegarde est manuelle, à reprendre si une sauvegarde
 automatique arrive. Et le premier tracé de l'image de carte sur une partie bien explorée coûte
 ~170 ms, une seule fois, au chargement.
+
+## 6. Le troisième état — ce qui est observé contre ce qui est souvenu
+
+`DiscoveryState` attendait ce moment : il était enum plutôt que booléen pour lui. Il l'est maintenant —
+`Unknown`, `Remembered`, `Observed` — et l'état courant est décrit dans `MAP.md` §2.
+
+**Le point qui rend tout le reste simple : l'observation ne se stocke pas.** La découverte reste
+permanente et acquise ; l'observation est reconstruite de zéro à chaque frame depuis la position des
+observateurs, et `ObservationRuntime` ne garde rien par case. Rien à écrire quand un robot avance, rien
+à effacer quand il s'éloigne : la case sort de la liste. Un état d'observation stocké serait une seconde
+source de vérité, libre de contredire la position réelle des observateurs — et il faudrait le nettoyer,
+ce qui est le bug que cette forme de code produit toujours.
+
+**Conséquence : il n'y a pas de paire Capture/Restore, et cette absence est le contrat.** La première
+frame après un chargement reconstruit tout le champ depuis le Noyau et les robots que le chargement a
+remis. Le test qui garde ça n'assure pas « rien n'est sauvegardé » — impossible à écrire directement —
+mais que ce que la découverte capture est identique à l'octet, avec ou sans observateur.
+
+**Seulement deux des trois valeurs sont stockées.** `Remembered` garde le 1 qu'avait `Discovered`, donc
+les sauvegardes existantes se relisent sans conversion ; `Observed` n'est jamais écrit dans un chunk.
+`GetState` répond donc avec les deux valeurs stockées et `StateOf` avec les trois. Le renommage a coûté
+cinq lignes dans un seul fichier : tout le reste du projet passait déjà par `IsDiscovered()`, ce qui est
+exactement le bénéfice qu'un accesseur nommé achète.
+
+**La découverte commande l'observation, dans cet ordre.** Une case jamais découverte reste noire même
+avec un observateur dessus. Cela ne peut pas arriver en jeu — tout ce qui observe révèle aussi — mais
+c'est ce qui rend « jamais découvert ne devient jamais souvenu » vrai par construction plutôt que par
+un ordre d'appel heureux. La règle est appliquée deux fois exprès : dans `StateOf`, et de nouveau à
+l'empaquetage des texels, pour que le shader ne reçoive jamais la contradiction.
+
+**Deux canaux d'une texture, pas deux textures.** RG16 : R la découverte, G l'observation. Même nombre
+d'octets que deux R8, et trois choses en plus — un seul upload, un seul échantillonnage, et une fenêtre
+sur laquelle les deux champs ne peuvent pas être en désaccord, puisque c'est la même lecture.
+
+**Mais les deux champs ne changent pas à la même horloge, et c'est ce qui a dicté le découpage.** La
+découverte bouge rarement ; l'observation bouge dès qu'un observateur bouge, donc à chaque frame où un
+robot marche. Un repack complet demande au stockage par chunks l'état de chaque texel de la fenêtre —
+65 000 recherches de dictionnaire par frame à la taille livrée. D'où deux chemins : un changement de
+découverte repack les deux canaux, un changement d'observation ne repack que G et relit la découverte
+**dans le canal d'à côté** au lieu de la redemander. Le coût par frame retombe à quelques distances au
+carré par texel.
+
+**Le voile est le seul écart visible entre le deuxième et le troisième état**, donc c'est lui qui peut
+faire disparaître toute la fonctionnalité : à 1 le souvenu se lit comme de l'inconnu et la carte n'a
+plus que deux états, à 0 il n'y a pas de voile et elle n'en a que deux dans l'autre sens. Posé à 0,55,
+et ça se juge à l'écran.
+
+**Le shader prend le plus fort des deux alphas, jamais leur somme.** L'inconnu est déjà parfaitement
+opaque ; lui ajouter un voile ne ferait que dépasser 1 et aplatir précisément la différence que le
+troisième état existe pour dessiner. Les deux frontières sont coupées par le **même** grain en espace
+monde : deux bruits indépendants auraient donné deux ondulations sans rapport, et un grain en espace
+écran aurait fait ramper le bord de l'observation en suivant le robot.
+
+**Un coût assumé.** `clip` demande maintenant que les deux termes soient dépensés, donc le sol observé
+ne coûte toujours rien, mais le sol souvenu — c'est-à-dire l'essentiel de la carte explorée — paie un
+blend qu'il ne payait pas. C'est le prix de la fonctionnalité, pas un oubli.

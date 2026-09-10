@@ -27,6 +27,18 @@ namespace Game.Presentation
     /// One texel per cell in FilterMode.Bilinear. The interpolation between texels is what turns a
     /// per-cell binary field into a boundary the shader can cut anywhere, and the shader's noise then
     /// breaks that boundary up so it does not read as a circle.
+    ///
+    /// <b>Two fields, two channels of one texture.</b> R is what has ever been discovered, G is what
+    /// is observed right now (<see cref="ObservationRuntime"/>) - RG16, so the pair costs exactly
+    /// what two R8 textures would and buys three things they would not: one upload instead of two,
+    /// one sample instead of two, and a window the two fields cannot disagree about. They are read
+    /// against the same origin at the same instant because they are the same fetch.
+    ///
+    /// <b>They change on completely different clocks, and the upload follows each.</b> Discovery
+    /// moves rarely - a revelation - while observation moves whenever an observer does, so every
+    /// frame a robot is walking. A discovery change repacks both channels; an observation change
+    /// repacks only G, which is what keeps the per-frame cost to distance tests instead of 65 000
+    /// chunk lookups.
     /// </summary>
     public sealed class FogOfWarView : MonoBehaviour
     {
@@ -59,6 +71,16 @@ namespace Game.Presentation
         [SerializeField, Range(0f, 1f)] float noiseWeight = 0.396f;
 
         /// <summary>
+        /// How heavily remembered ground is veiled, against the full opacity of the unknown.
+        ///
+        /// <b>The main dial of the third state, and the one thing that can make it invisible.</b> Too
+        /// close to 1 and remembered ground reads as unknown, so the map has two visible states
+        /// instead of three and the whole distinction is gone; at 0 there is no veil and it has two
+        /// again, the other way round. A starting value, to be judged on screen.
+        /// </summary>
+        [SerializeField, Range(0f, 1f)] float rememberedVeil = 0.55f;
+
+        /// <summary>
         /// Texels per cell along each axis. One is enough for a border broken up by the shader's own
         /// noise; raise it if the edge still reads as too coarse. Now that the texture is a window
         /// rather than the map, the cost is bounded: at 256 cells that is 65 KB at 1 and 262 KB at 2,
@@ -75,6 +97,10 @@ namespace Game.Presentation
         [SerializeField, Min(16)] int windowCells = 256;
 
         DiscoveryRuntime _discovery;
+
+        /// <summary>Where the observers are this frame. Optional: null means nothing observes, so the whole discovered map reads as remembered - which is the truthful picture of a world with no observers rather than a broken one.</summary>
+        ObservationRuntime _observation;
+
         GridRuntime _grid;
         Camera _camera;
 
@@ -98,17 +124,22 @@ namespace Game.Presentation
         /// <summary>The discovery version already on the GPU. -1 is "nothing uploaded yet", which no real version equals.</summary>
         int _uploadedVersion = -1;
 
+        /// <summary>The observation version already on the GPU, watched separately because it moves on a different clock - see the class summary.</summary>
+        int _uploadedObservationVersion = -1;
+
         /// <summary>Window moves so far. Watched by a test: panning must not re-anchor once per frame.</summary>
         public int AnchorCount { get; private set; }
 
         /// <summary>The window's lowest-left cell - what the uploaded texels are relative to.</summary>
         public GridCoord WindowOrigin => _origin;
 
-        public void Initialize(DiscoveryRuntime discovery, GridRuntime grid, Camera worldCamera, float maxOrthographicSize)
+        public void Initialize(DiscoveryRuntime discovery, ObservationRuntime observation, GridRuntime grid,
+            Camera worldCamera, float maxOrthographicSize)
         {
             if (discovery == null || grid == null || discovery.Size <= 0) return;
 
             _discovery = discovery;
+            _observation = observation;
             _grid = grid;
             _camera = worldCamera;
 
@@ -129,16 +160,19 @@ namespace Game.Presentation
 
             if (_texture != null) Destroy(_texture);
 
-            // linear: true, like GroundCoverage's own field texture and for the same reason - an R8
-            // sampled through a gamma curve arrives at the shader as a different number than it was
-            // written, and this one is compared against a threshold.
-            _texture = new Texture2D(side, side, TextureFormat.R8, mipChain: false, linear: true)
+            // linear: true, like GroundCoverage's own field texture and for the same reason - a
+            // channel sampled through a gamma curve arrives at the shader as a different number than
+            // it was written, and both of these are compared against a threshold.
+            //
+            // RG16 rather than two R8 textures: R is discovery, G is observation. Same bytes, one
+            // upload, one sample, and the two fields can never end up describing different windows.
+            _texture = new Texture2D(side, side, TextureFormat.RG16, mipChain: false, linear: true)
             {
-                name = "FogOfWar Discovery",
-                filterMode = FilterMode.Bilinear,   // the per-cell field only reads as a boundary because of this
+                name = "FogOfWar Discovery+Observation",
+                filterMode = FilterMode.Bilinear,   // the per-cell fields only read as boundaries because of this
                 wrapMode = TextureWrapMode.Clamp
             };
-            _texels = new byte[side * side];
+            _texels = new byte[side * side * BytesPerTexel];
 
             // The quad is the window, so it always covers the view - which is the same guarantee that
             // lets the window be small. Scale is set here; position moves with each anchoring.
@@ -149,8 +183,18 @@ namespace Game.Presentation
 
             _anchored = false;
             _uploadedVersion = -1;
+            _uploadedObservationVersion = -1;
             FollowCamera();
         }
+
+        /// <summary>RG16: discovery in R, observation in G. Named rather than written as a 2 everywhere, since every index below is a multiple of it.</summary>
+        public const int BytesPerTexel = 2;
+
+        /// <summary>Offset of the discovery channel within a texel.</summary>
+        public const int DiscoveryChannel = 0;
+
+        /// <summary>Offset of the observation channel within a texel.</summary>
+        public const int ObservationChannel = 1;
 
         /// <summary>The four dials that shape the border, pushed to the material. Cheap enough to redo on any edit.</summary>
         void ApplyLook()
@@ -161,6 +205,7 @@ namespace Game.Presentation
             _material.SetFloat("_EdgeSoftness", borderSoftness);
             _material.SetFloat("_NoiseScale", noiseScale);
             _material.SetFloat("_NoiseWeight", noiseWeight);
+            _material.SetFloat("_RememberedVeil", rememberedVeil);
         }
 
         /// <summary>
@@ -181,21 +226,30 @@ namespace Game.Presentation
             }
 
             if (_grid == null) return;
-            Initialize(_discovery, _grid, _camera, _viewHalfHeight);
+            Initialize(_discovery, _observation, _grid, _camera, _viewHalfHeight);
         }
 
         /// <summary>
-        /// Two reasons to touch the GPU, and neither happens on most frames: the window moved, or the
-        /// discovery state did. Everything else is one comparison.
+        /// Three reasons to touch the GPU: the window moved, the discovery state did, or the
+        /// observers did. Everything else is two comparisons.
+        ///
+        /// The third one is the frequent one - it fires on every frame a robot is walking - so it
+        /// takes the cheaper path and repacks only the observation channel. A still frame with a
+        /// still fleet still costs nothing.
         /// </summary>
         void LateUpdate()
         {
             if (_discovery == null) return;
 
             if (FollowCamera()) return;   // an anchoring re-uploads on its own
-            if (_discovery.Version == _uploadedVersion) return;
 
-            Upload();
+            if (_discovery.Version != _uploadedVersion)
+            {
+                Upload();
+                return;
+            }
+
+            if (_observation != null && _observation.Version != _uploadedObservationVersion) UploadObservation();
         }
 
         /// <summary>
@@ -263,17 +317,41 @@ namespace Game.Presentation
                 && Mathf.Abs(cameraWorld.y - windowCenter.y) <= slackY;
         }
 
+        /// <summary>Both channels: the window moved, or something was revealed.</summary>
         void Upload()
         {
-            PackTexels(_discovery, _origin, windowCells, texelsPerCell, _texels);
-            _texture.SetPixelData(_texels, 0);
-            _texture.Apply(updateMipmaps: false);
-            _uploadedVersion = _discovery.Version;
+            PackTexels(_discovery, _observation, _origin, windowCells, texelsPerCell, _texels);
+            Push();
         }
 
         /// <summary>
-        /// Fills a texel buffer from the discovery state, row-major from the bottom row up, for the
-        /// window whose lowest-left cell is <paramref name="origin"/>.
+        /// The observation channel alone, leaving discovery as it was already packed.
+        ///
+        /// This is the path taken on most frames a robot is out, and the reason the split exists: the
+        /// full pack asks the chunk store for every texel in the window, which is 65 000 dictionary
+        /// lookups at the shipped size, while this one is a handful of squared distances per texel.
+        /// Discovery cannot have gone stale here - LateUpdate only comes this way when its version
+        /// matched what is already uploaded.
+        /// </summary>
+        void UploadObservation()
+        {
+            PackObservationChannel(_discovery, _observation, _origin, windowCells, texelsPerCell, _texels);
+            Push();
+        }
+
+        void Push()
+        {
+            _texture.SetPixelData(_texels, 0);
+            _texture.Apply(updateMipmaps: false);
+
+            _uploadedVersion = _discovery.Version;
+            _uploadedObservationVersion = _observation?.Version ?? -1;
+        }
+
+        /// <summary>
+        /// Fills a texel buffer from the discovery and observation state - R then G per texel -
+        /// row-major from the bottom row up, for the window whose lowest-left cell is
+        /// <paramref name="origin"/>.
         ///
         /// That order is not a choice: Texture2D's row 0 is the bottom one and v=0 is the bottom of
         /// the UV range, so writing the window's row y into texel row y is what makes the texture line
@@ -283,12 +361,10 @@ namespace Game.Presentation
         /// Cells outside the map read as undiscovered, which is what makes the world's edge fog over
         /// with no special case: there is nothing out there to have discovered.
         /// </summary>
-        public static void PackTexels(DiscoveryRuntime discovery, GridCoord origin, int windowCells, int texelsPerCell, byte[] texels)
+        public static void PackTexels(DiscoveryRuntime discovery, ObservationRuntime observation, GridCoord origin,
+            int windowCells, int texelsPerCell, byte[] texels)
         {
-            if (discovery == null || texels == null || texelsPerCell < 1 || windowCells < 1) return;
-
-            int side = windowCells * texelsPerCell;
-            if (texels.Length < side * side) return;
+            if (!MayPack(discovery, windowCells, texelsPerCell, texels, out int side)) return;
 
             for (int y = 0; y < side; y++)
             {
@@ -297,9 +373,63 @@ namespace Game.Presentation
 
                 for (int x = 0; x < side; x++)
                 {
-                    texels[row + x] = discovery.IsDiscovered(new GridCoord(origin.X + x / texelsPerCell, cellY)) ? (byte)255 : (byte)0;
+                    var cell = new GridCoord(origin.X + x / texelsPerCell, cellY);
+                    int texel = (row + x) * BytesPerTexel;
+
+                    bool discovered = discovery.IsDiscovered(cell);
+                    texels[texel + DiscoveryChannel] = discovered ? (byte)255 : (byte)0;
+                    texels[texel + ObservationChannel] = Observed(discovered, observation, cell);
                 }
             }
+        }
+
+        /// <summary>
+        /// Rewrites only the observation channel, leaving the discovery channel untouched.
+        ///
+        /// The frequent path, and it does no chunk lookups at all beyond the one that gates each cell
+        /// on having been discovered - see <see cref="UploadObservation"/>.
+        /// </summary>
+        public static void PackObservationChannel(DiscoveryRuntime discovery, ObservationRuntime observation,
+            GridCoord origin, int windowCells, int texelsPerCell, byte[] texels)
+        {
+            if (!MayPack(discovery, windowCells, texelsPerCell, texels, out int side)) return;
+
+            for (int y = 0; y < side; y++)
+            {
+                int cellY = origin.Y + y / texelsPerCell;
+                int row = y * side;
+
+                for (int x = 0; x < side; x++)
+                {
+                    int texel = (row + x) * BytesPerTexel;
+
+                    // Read back rather than re-asked: whether this cell is discovered is already
+                    // sitting in the channel beside it, and re-asking the chunk store is the cost
+                    // this path exists to avoid.
+                    bool discovered = texels[texel + DiscoveryChannel] != 0;
+
+                    texels[texel + ObservationChannel] =
+                        Observed(discovered, observation, new GridCoord(origin.X + x / texelsPerCell, cellY));
+                }
+            }
+        }
+
+        /// <summary>
+        /// <b>Discovery gates observation in the data, not only in the shader.</b> A cell nobody has
+        /// discovered packs as unobserved whatever stands on it, so the invariant "observed implies
+        /// discovered" holds in the texture itself and the shader is never asked a contradictory
+        /// question. Null observation means nothing observes, which reads as remembered everywhere.
+        /// </summary>
+        static byte Observed(bool discovered, ObservationRuntime observation, GridCoord cell)
+            => discovered && observation != null && observation.IsObserved(cell) ? (byte)255 : (byte)0;
+
+        static bool MayPack(DiscoveryRuntime discovery, int windowCells, int texelsPerCell, byte[] texels, out int side)
+        {
+            side = 0;
+            if (discovery == null || texels == null || texelsPerCell < 1 || windowCells < 1) return false;
+
+            side = windowCells * texelsPerCell;
+            return texels.Length >= side * side * BytesPerTexel;
         }
 
         static Sprite CreateCenteredUnitSprite()
