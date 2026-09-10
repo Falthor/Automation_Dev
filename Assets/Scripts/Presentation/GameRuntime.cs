@@ -432,7 +432,7 @@ namespace Game.Presentation
             if (explorerRobotSettings != null)
             {
                 ExplorerRobots = new ExplorerRobotSystem(explorerRobotSettings, Discovery,
-                    World?.CoreCenterCells ?? Vector2.zero, RobotParkOrigin(), Terrain.Seed);
+                    World?.CoreCenterCells ?? Vector2.zero, ExplorerParkOrigin(), Terrain.Seed);
                 ExplorerRobots.RestoreState(loadedSave?.ExplorerRobots);
                 _explorerFleet = new ExplorerRobotFleetView(Grid, explorerRobotSettings, buildingShadowSettings);
             }
@@ -562,6 +562,16 @@ namespace Game.Presentation
             Vector2Int footprint = World.Core.Definition.FootprintSize;
             return new Vector2(World.Core.Cell.X + footprint.x / 2f, World.Core.Cell.Y - 2f);
         }
+
+        /// <summary>
+        /// Where the explorer robots rest: the builder robots' park, shifted clear of it.
+        ///
+        /// Derived from the same origin rather than given coordinates of its own, so both fleets stay
+        /// at the Core's hatch if that ever moves - but shifted, because they were standing on exactly
+        /// the same cell. Two sprites in one place is not just untidy: the player cannot tell which
+        /// machine they are about to click.
+        /// </summary>
+        Vector2 ExplorerParkOrigin() => RobotParkOrigin() + new Vector2(3f, 0f);
 
         BuildingDefinition FindBuildingDefinition(string id)
         {
