@@ -36,6 +36,9 @@ namespace Game.UI
     /// copies of one number would disagree the day either is touched. Asking for a total that is held
     /// until the next press also makes the answer independent of which of the two components Unity
     /// happens to run first on the release frame.
+    ///
+    /// Both figures are pointer travel, not device travel, because that is what the camera panned by
+    /// - so the click and the pan agree about what counts as having moved.
     /// </summary>
     public sealed class BuildingSelectionInput : MonoBehaviour
     {
@@ -61,9 +64,9 @@ namespace Game.UI
             Mouse mouse = Mouse.current;
             if (mouse == null || !mouse.leftButton.wasReleasedThisFrame) return;
 
-            // Before anything reads the pointer's position: while the world is being dragged the
-            // cursor is locked, so its reported position is the parked one rather than anywhere the
-            // player pointed at.
+            // A gesture that travelled was a grab on the ground, not a click on what happened to be
+            // under the button when it went down. Asked first, so nothing below does work for a
+            // press that was never a click.
             if (GestureWasADrag()) return;
 
             Vector2 screenPos = mouse.position.ReadValue();

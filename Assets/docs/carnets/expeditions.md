@@ -678,15 +678,29 @@ la démarre depuis un fichier sentinelle (`Temp/run-tests`) au rechargement des 
 rapport dans `Temp/test-report.txt` — un fichier plutôt qu'un log parce qu'une exécution traverse un
 domain reload : celui qui l'a demandée n'est plus là pour lire la console.
 
-## 18. Attraper le sol — le curseur ne revient pas tout seul
+## 18. Attraper le sol — la souris déplace le monde, le curseur suit
 
 Glisser le monde au clic gauche maintenu : la souris déplace le sol dans son sens, donc la caméra dans
 l'autre. `CameraPanController`, qui ne touche que la position — le contrôleur de zoom ne touche que
 `orthographicSize`, et c'est ce partage qui leur permet de tourner ensemble sans se connaître.
 
 **Le facteur d'échelle n'est pas un réglage.** Pour que le sol suive le curseur au pixel à n'importe quel
-zoom, il vaut `2 × orthographicSize / Screen.height`. Et aucun `deltaTime` : l'Input System rapporte déjà
-le déplacement accumulé de la frame, et un glisser suit la souris, pas un débit.
+zoom, il vaut `2 × orthographicSize / Screen.height`. Et aucun `deltaTime` : c'est un déplacement que la
+main a déjà fait, pas un débit. Le multiplier par un temps de frame ferait que le même geste déplace le
+monde différemment selon le framerate.
+
+**Le curseur suit la souris et reste visible.** Une première version le figeait — `CursorLockMode.Locked`,
+caché, puis remis à sa position d'appui via `user32` parce que déverrouiller le gare au centre de la
+fenêtre. Ça marchait, mais ce n'est pas ce qui était voulu : un curseur qui bouge est le geste habituel
+d'une carte, et le contrat visible devient « le point du sol attrapé reste sous le curseur ». Tout
+l'appareillage a disparu avec le verrou — le P/Invoke Windows, la mémorisation de la position d'appui, le
+no-op multiplateforme.
+
+**Et ce changement impose de lire la *position* du pointeur, pas le delta du périphérique.** Les deux ne
+sont pas le même nombre : l'accélération du pointeur en met un à l'échelle et pas l'autre, et au bord de
+l'écran la position cesse de changer alors que le périphérique continue de rapporter du mouvement. Avec le
+delta brut, le sol glisserait sous le curseur au lieu d'y rester collé. Avec le curseur ancré, la question
+ne se posait pas — c'est le genre de dépendance qu'un changement d'apparence révèle.
 
 **Trois choses possèdent le bouton gauche avant la caméra**, et les oublier casse des gestes existants :
 un élément d'UI sous le curseur possède ses propres clics ; un panneau global ouvert possède le clic
@@ -695,18 +709,32 @@ possède le glisser gauche entièrement — c'est le geste qui pose une ligne de
 contextuel de bâtiment n'est délibérément pas dans la liste : il est ancré à droite et laisse voir le
 monde, donc glisser ce qui reste visible est légitime.
 
-**Le seuil de quelques pixels n'est pas du confort.** Sans lui, chaque clic déplacerait le monde d'un
-pixel ou deux et cacherait le curseur pendant une frame.
-
-**Déverrouiller un curseur ne le rend pas là où il était** — c'est le point non évident.
-`CursorLockMode.Locked` le gare au centre de la fenêtre, et c'est là qu'il est restitué : sans rien de
-plus, le pointeur saute au milieu de l'écran à la fin de chaque glisser. La position est donc demandée à
-l'OS au moment de l'appui et replacée à la relâche. Demander à l'OS des deux côtés évite toute
-conversion entre l'espace écran d'Unity et celui du bureau — et c'est la position de **l'appui** qui est
-mémorisée, pas celle du début du glisser, donc le curseur réapparaît là où le joueur a cliqué et non
-quelques pixels plus loin. Unity n'a pas d'API multiplateforme pour placer un curseur : c'est `user32`
-sous Windows, et un no-op ailleurs.
-
 **Un geste commencé va jusqu'à la relâche.** Les conditions d'autorisation ne sont pas revérifiées
-pendant le glisser : perdre le verrou en cours de route laisserait le curseur caché quelque part où il
-n'a pas demandé à être. Même raison pour `OnDisable` et la perte de focus, qui le rendent.
+pendant le glisser : un curseur qui passe au-dessus d'un panneau en chemin ne doit pas lâcher le sol en
+pleine lancée.
+
+## 19. Le glisser a cassé la sélection, et la réparation était de la décaler
+
+**Le seuil de quelques pixels n'était pas du confort.** Sans lui, chaque clic déplacerait le monde d'un
+pixel ou deux. Mais son vrai rôle est apparu après : la sélection était validée à **l'appui**, ce qui ne
+coûtait rien tant que le bouton gauche ne servait qu'à sélectionner. Dès qu'il déplace le monde, chaque
+glisser commencé sur une Fonderie, une Usine ou un coffre ouvrait aussi son panneau. Une fonctionnalité
+qui casse un comportement voisin le répare dans la foulée.
+
+Le clic se décide donc **au relâchement**, et un geste qui a voyagé est un glisser, pas un clic. Le seuil
+qui séparait déjà les deux sert exactement à ça.
+
+**Le seuil est lu, jamais recopié.** `BuildingSelectionInput` demande au contrôleur de caméra son
+`DragSlopPixels` en même temps que le trajet parcouru. Deux compteurs d'appui avec deux copies du même
+nombre auraient divergé le jour où l'un des deux bouge — et surtout : demander un total **conservé
+jusqu'à l'appui suivant** rend la réponse indépendante de l'ordre dans lequel Unity exécute les deux
+composants sur la frame de relâchement. Réinitialiser le total à la relâche aurait introduit un bug
+d'ordre invisible une fois sur deux.
+
+**Un détail qui aurait mordu :** le total doit être remis à zéro à **chaque** appui, y compris ceux que
+la caméra refuse (sur l'UI, ou avec un outil armé). Ne le remettre à zéro que dans la branche des appuis
+acceptés, et un appui refusé hérite du trajet du dernier vrai glisser — après quoi le routeur, le
+lisant, avale un clic qui n'a pas bougé d'un pixel.
+
+**Une nuance laissée telle quelle :** un appui qui commence sur un panneau et se relâche sur le monde
+route maintenant vers le monde. Rare, et il faut le faire exprès.
