@@ -14,14 +14,14 @@ namespace Game.Presentation
     /// with pixels. A tile is 64x64 cells - 16 KB - so the introduction's handful of chunks costs a few
     /// tens of kilobytes, and fifty chunks of a well-explored run cost 800 KB.
     ///
-    /// <b>It used to be one texel per sector, and that was the wrong answer to the right question.</b>
-    /// One texture for a 10 000-cell world is 400 MB per cell and 1.5 MB per sector, so the sector won
-    /// on arithmetic. But a sector is 16 cells and a mission reveals a disc of radius 8: the revelation
-    /// was smaller than the texel it was painted into, so `DiscoveryOf` returned Partial and the whole
-    /// 16-cell square took one flat colour. The map read as a grid of blocks - which is precisely what
-    /// the design wants gone, and removing the drawn gridlines would have left the blocks without even
-    /// the lines that explained them. Tiling by chunk keeps the memory bounded *and* draws the
-    /// irregular patches the revelation actually has.
+    /// <b>The chunk is the unit rather than the sector, and memory is not why.</b> One texture for a
+    /// 10 000-cell world is 400 MB per cell against 1.5 MB per sector, so the sector wins on
+    /// arithmetic - and loses on everything else. A sector is 16 cells and a robot reveals a disc of
+    /// radius 6: the revelation is smaller than the texel it would be painted into, so a whole
+    /// 16-cell square takes one flat colour and the map reads as a grid of blocks. That is precisely
+    /// what the design wants gone, and removing the drawn gridlines would have left the blocks
+    /// without even the lines that explained them. Tiling by chunk keeps the memory bounded *and*
+    /// draws the irregular patches a revelation actually has.
     ///
     /// <b>Unknown is not a colour.</b> A cell nobody has seen is transparent, so nothing is drawn there
     /// and the black behind is the absence of a map rather than a shape painted on one. An earlier

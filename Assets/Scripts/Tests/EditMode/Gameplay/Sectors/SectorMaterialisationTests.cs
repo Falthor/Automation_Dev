@@ -23,7 +23,6 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
         const int SectorSize = 16;
         const int Seed = 20260907;
 
-        static readonly Vector2 CoreCenter = new Vector2(5000f, 5000f);
 
         readonly List<Object> _created = new List<Object>();
 
@@ -64,7 +63,7 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
                 Ores = new[] { NewOre("iron"), NewOre("copper"), NewOre("coal") }
             };
 
-            fixture.Catalog = new SectorCatalog(fixture.Sectors, Seed, CoreCenter, 40f, 250f, 330f, 384);
+            fixture.Catalog = new SectorCatalog(fixture.Sectors, Seed);
             fixture.Materialisation = new SectorMaterialisation(fixture.Sectors, fixture.Cells, fixture.Catalog, fixture.Ores);
 
             return fixture;
@@ -207,7 +206,7 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
             Fixture a = NewFixture();
 
             var otherGrid = new SectorGrid(MapSize, SectorSize);
-            var other = new SectorCatalog(otherGrid, Seed + 1, CoreCenter, 40f, 250f, 330f, 384);
+            var other = new SectorCatalog(otherGrid, Seed + 1);
 
             int same = 0;
             for (int index = 1000; index < 1100; index++)

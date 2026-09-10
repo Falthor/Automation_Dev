@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Game.Core;
 using Game.Gameplay.Sectors;
 using Game.Grid;
@@ -8,64 +7,30 @@ using UnityEngine;
 namespace Game.Tests.EditMode.Gameplay
 {
     /// <summary>
-    /// A sector's identity is a pure function of the world seed and its index. The directive asks
-    /// for exactly one guarantee here and it is the one that would break silently: same seed, same
-    /// sector, same name and same risk - whatever the order of discovery, and across a save.
+    /// A sector's contents are a pure function of the world seed and its index. One guarantee
+    /// matters here and it is the one that would break silently: same seed, same sector, same
+    /// contents - whatever the order of discovery, and across a save.
     /// </summary>
     public class SectorCatalogTests
     {
         const int MapSize = 300;
         const int Seed = 20260907;
 
-        static readonly Vector2 CoreCenter = new Vector2(150f, 150f);
-
         const int SectorSize = 16;
         const int ChunkSize = 64;
 
-        // The shipped thresholds, in cells - SectorSettings' own defaults, restated so a test can
-        // fail when the asset is wrong rather than following it.
-        const float LowRiskWithin = 40f;
-        const float ModerateRiskWithin = 250f;
-        const float HighRiskWithin = 330f;
-
-        /// <summary>Wider than the fixture map, so the whole of it falls in one region - which is what a 300-cell map gets under the shipped settings too.</summary>
-        const int PreferredRegionSize = 384;
-
         static SectorCatalog NewCatalog(int seed = Seed)
-            => new SectorCatalog(new SectorGrid(MapSize, SectorSize), seed, CoreCenter,
-                LowRiskWithin, ModerateRiskWithin, HighRiskWithin, PreferredRegionSize);
+            => new SectorCatalog(new SectorGrid(MapSize, SectorSize), seed);
+
+        /// <summary>
+        /// Reveals the disc inscribed in a sector. A fixture convenience for asking "would a robot
+        /// passing through the middle of this square have seen that cell?" - not something the game
+        /// does: a robot reveals discs wherever it happens to be, and never by sector.
+        /// </summary>
+        static void RevealSector(SectorGrid grid, int index, DiscoveryRuntime discovery)
+            => discovery.RevealDisc(grid.CenterCells(index), grid.InscribedRadiusCells);
 
         // ---- Determinism ----
-
-        [Test]
-        public void TheSameSeedAndSector_GiveTheSameNameAndRisk()
-        {
-            var first = NewCatalog();
-            var second = NewCatalog();
-
-            for (int index = 0; index < 361; index += 37)
-            {
-                Assert.AreEqual(first.NameOf(index), second.NameOf(index), $"name of sector {index}");
-                Assert.AreEqual(first.RiskOf(index), second.RiskOf(index), $"risk of sector {index}");
-            }
-        }
-
-        /// <summary>Asking out of order, or asking twice, must not move anything - there is no state to advance.</summary>
-        [Test]
-        public void TheOrderSectorsAreAskedAbout_ChangesNothing()
-        {
-            var forward = NewCatalog();
-            var backward = NewCatalog();
-
-            var names = new Dictionary<int, string>();
-            for (int index = 0; index < 100; index++) names[index] = forward.NameOf(index);
-
-            for (int index = 99; index >= 0; index--)
-            {
-                Assert.AreEqual(names[index], backward.NameOf(index));
-                Assert.AreEqual(names[index], backward.NameOf(index), "and asking a second time is still the same");
-            }
-        }
 
         [Test]
         public void TheSameSectorContents_ComeBackIdentical()
@@ -80,7 +45,35 @@ namespace Game.Tests.EditMode.Gameplay
 
                 Assert.AreEqual(a.Feature, b.Feature, $"feature of sector {index}");
                 Assert.AreEqual(a.FeatureCell, b.FeatureCell, $"feature cell of sector {index}");
+                Assert.AreEqual(a.ResourceIndex, b.ResourceIndex, $"ore of sector {index}");
                 CollectionAssert.AreEqual(a.DepositCells, b.DepositCells, $"deposits of sector {index}");
+            }
+        }
+
+        /// <summary>
+        /// Asking about sectors in a different order must change nothing. Trivially true of a pure
+        /// function and worth pinning anyway: the day a cache is added here to save a hash, this is
+        /// the test that notices the cache was keyed wrong.
+        /// </summary>
+        [Test]
+        public void TheOrderSectorsAreAskedAbout_ChangesNothing()
+        {
+            var forward = NewCatalog();
+            var backward = NewCatalog();
+
+            var features = new SectorFeature[100];
+            var ores = new int[100];
+            for (int index = 0; index < 100; index++)
+            {
+                SectorContents contents = forward.ContentsOf(index);
+                features[index] = contents.Feature;
+                ores[index] = contents.ResourceIndex;
+            }
+
+            for (int index = 99; index >= 0; index--)
+            {
+                Assert.AreEqual(features[index], backward.ContentsOf(index).Feature, $"feature of sector {index}");
+                Assert.AreEqual(ores[index], backward.ContentsOf(index).ResourceIndex, $"ore of sector {index}");
             }
         }
 
@@ -90,152 +83,28 @@ namespace Game.Tests.EditMode.Gameplay
             var a = NewCatalog(Seed);
             var b = NewCatalog(Seed + 1);
 
-            int differingNames = 0;
+            int differing = 0;
             for (int index = 0; index < 200; index++)
             {
-                if (a.NameOf(index) != b.NameOf(index)) differingNames++;
+                SectorContents left = a.ContentsOf(index);
+                SectorContents right = b.ContentsOf(index);
+
+                if (left.Feature != right.Feature
+                    || left.ResourceIndex != right.ResourceIndex
+                    || left.DepositCells.Length != right.DepositCells.Length) differing++;
             }
 
-            Assert.Greater(differingNames, 150, "A new world should not read like the previous one.");
-        }
-
-        // ---- Names ----
-
-        /// <summary>
-        /// Over a fixture grid, not the shipped map: this asserts that the index-to-name mapping is
-        /// injective, which is a property of the arithmetic. Whether the vocabulary is large enough
-        /// for the map the game ships with is a different question, and it is asked in
-        /// SectorSettingsTests against the real assets.
-        /// </summary>
-        [Test]
-        public void NoTwoSectorsShareAName()
-        {
-            var catalog = NewCatalog();
-            var seen = new Dictionary<string, int>();
-
-            for (int index = 0; index < catalog.Grid.Count; index++)
-            {
-                string name = catalog.NameOf(index);
-                if (seen.TryGetValue(name, out int owner)) Assert.Fail($"\"{name}\" used by sectors {owner} and {index}.");
-                seen[name] = index;
-            }
-        }
-
-        // The guard for "are there enough names for the map the game actually ships" used to live
-        // here, and it read this file's own MapSize constant. It therefore measured a fixture and
-        // stayed green while the shipped map grew past the vocabulary. It has moved to
-        // SectorSettingsTests, which reads the real assets - see DEVELOPMENT_RULES.md §7.
-
-        [Test]
-        public void ANameIsNeverEmptyOrABareNumber()
-        {
-            var catalog = NewCatalog();
-
-            for (int index = 0; index < 361; index += 11)
-            {
-                string name = catalog.NameOf(index);
-                Assert.IsNotEmpty(name);
-                StringAssert.Contains(" ", name, "A name is a place, not a label.");
-                Assert.IsFalse(int.TryParse(name, out _));
-            }
-        }
-
-        [Test]
-        public void AnIndexOffTheMap_HasNoName()
-        {
-            var catalog = NewCatalog();
-
-            Assert.IsEmpty(catalog.NameOf(-1));
-            Assert.IsEmpty(catalog.NameOf(99999));
-        }
-
-        // ---- Risk ----
-
-        /// <summary>
-        /// On the current 300-cell map the farthest a sector centre can be from the middle is about
-        /// 212 cells, so the High and Critical bands are simply out of reach - the shipped thresholds
-        /// are calibrated for the 10 000-cell map this is heading towards. Low against Moderate is
-        /// what can be asserted here, and it is enough to pin the gradient's direction.
-        /// </summary>
-        [Test]
-        public void RiskGrowsWithDistanceFromTheCore()
-        {
-            var catalog = NewCatalog();
-
-            float near = AverageRiskAtAbout(catalog, 20f);
-            float far = AverageRiskAtAbout(catalog, 200f);
-
-            Assert.Less(near, far, "A far sector should read as a bigger bet than a near one.");
-        }
-
-        /// <summary>
-        /// The property the ring-counting version could not have, and the regression that would have
-        /// gone unnoticed: thresholds are in cells, so cutting the map differently does not move the
-        /// danger. Counting rings of sectors stretched the whole gradient by a third when the sector
-        /// size went from 12 to 16, silently and with nothing able to see it.
-        ///
-        /// Averaged, because the per-sector jitter is keyed on the index and the two grids number
-        /// their sectors differently - the gradient has to match, not each individual draw.
-        /// </summary>
-        [Test]
-        public void TheSameDistanceGivesTheSameRisk_WhateverTheSectorSize()
-        {
-            var coarse = NewCatalogWith(SectorSize, LowRiskWithin, ModerateRiskWithin, HighRiskWithin);
-            var fine = NewCatalogWith(8, LowRiskWithin, ModerateRiskWithin, HighRiskWithin);
-
-            foreach (float distance in new[] { 20f, 100f, 200f })
-            {
-                Assert.AreEqual(AverageRiskAtAbout(coarse, distance), AverageRiskAtAbout(fine, distance), 0.2f,
-                    $"at {distance} cells");
-            }
-        }
-
-        /// <summary>They are balance settings, not values derived from something else - so moving them has to move the risk, and nothing else has to be corrected alongside.</summary>
-        [Test]
-        public void TheThresholdsAreSettings_AndMovingThemMovesTheRisk()
-        {
-            var tight = NewCatalogWith(SectorSize, 10f, 20f, 30f);
-            var generous = NewCatalogWith(SectorSize, 200f, 250f, 300f);
-
-            Assert.Greater(AverageRiskAtAbout(tight, 100f), AverageRiskAtAbout(generous, 100f) + 1f,
-                "At the same distance, much tighter thresholds have to read as clearly more dangerous.");
-        }
-
-        static SectorCatalog NewCatalogWith(int sectorSize, float low, float moderate, float high)
-            => new SectorCatalog(new SectorGrid(MapSize, sectorSize), Seed, CoreCenter, low, moderate, high, PreferredRegionSize);
-
-        /// <summary>
-        /// The real risk, averaged over every sector roughly that far from the Core. Averaged on
-        /// purpose: RiskOf nudges individual sectors off the gradient by one band, so a single sector
-        /// says nothing about where the band boundaries are.
-        /// </summary>
-        static float AverageRiskAtAbout(SectorCatalog catalog, float distanceCells)
-        {
-            SectorGrid grid = catalog.Grid;
-            int total = 0;
-            int count = 0;
-
-            for (int index = 0; index < grid.Count; index++)
-            {
-                float d = Vector2.Distance(grid.CenterCells(index), CoreCenter);
-                if (Mathf.Abs(d - distanceCells) > 20f) continue;
-
-                total += (int)catalog.RiskOf(index);
-                count++;
-            }
-
-            // A handful of sectors is not an average, it is noise: the jitter moves a quarter of them
-            // by a whole band, so three samples can read 0.67 where the true value is 0.25.
-            Assert.GreaterOrEqual(count, 10,
-                $"only {count} sectors sit about {distanceCells} cells from the Core - too few to average.");
-
-            return total / (float)count;
+            Assert.Greater(differing, 120, "A new world should not read like the previous one.");
         }
 
         // ---- Contents ----
 
+        /// <summary>
+        /// The point of interest sits at the sector's centre, so a robot crossing the middle of the
+        /// square cannot miss it. The deposits are the opposite case, below.
+        /// </summary>
         [Test]
-        public void TheFeatureSitsAtTheCentre_SoAMissionAlwaysShowsIt()
+        public void TheFeatureSitsAtTheCentre_SoCrossingTheSquareShowsIt()
         {
             var catalog = NewCatalog();
 
@@ -245,9 +114,9 @@ namespace Game.Tests.EditMode.Gameplay
                 if (contents.Feature == SectorFeature.None) continue;
 
                 var fresh = new DiscoveryRuntime(MapSize, ChunkSize);
-                catalog.Grid.RevealInscribedDisc(index, fresh);
+                RevealSector(catalog.Grid, index, fresh);
 
-                Assert.IsTrue(fresh.IsDiscovered(contents.FeatureCell), $"sector {index}'s feature fell outside its own revealed disc");
+                Assert.IsTrue(fresh.IsDiscovered(contents.FeatureCell), $"sector {index}'s feature fell outside its own inscribed disc");
             }
         }
 
@@ -260,7 +129,7 @@ namespace Game.Tests.EditMode.Gameplay
             for (int index = 0; index < catalog.Grid.Count; index++)
             {
                 var disc = new DiscoveryRuntime(MapSize, ChunkSize);
-                catalog.Grid.RevealInscribedDisc(index, disc);
+                RevealSector(catalog.Grid, index, disc);
 
                 foreach (GridCoord deposit in catalog.ContentsOf(index).DepositCells)
                 {
@@ -268,7 +137,8 @@ namespace Game.Tests.EditMode.Gameplay
                 }
             }
 
-            Assert.Greater(outsideTheDisc, 0, "If every deposit landed in the disc, nothing would be left in the corners to find.");
+            Assert.Greater(outsideTheDisc, 0,
+                "If every deposit sat inside the disc, wandering back over the same ground at another angle would find nothing.");
         }
 
         [Test]
@@ -295,107 +165,69 @@ namespace Game.Tests.EditMode.Gameplay
             Assert.IsNotNull(catalog.ContentsOf(-1).DepositCells);
         }
 
-        // ---- Frozen identities ----
+        // ---- Frozen contents ----
 
         /// <summary>
-        /// Hard-coded names and risks. Two purposes, both of which need literals rather than a
-        /// recomputed expectation: they prove a refactor renamed nothing, and they catch a runtime
-        /// whose arithmetic has changed underneath a world that is derived rather than saved.
+        /// Hard-coded features, centres, deposit counts and ores. Two purposes, both of which need
+        /// literals rather than a recomputed expectation: they prove a refactor moved nothing, and
+        /// they catch a runtime whose arithmetic has changed underneath a world that is derived
+        /// rather than saved.
         ///
-        /// <b>If this fails, do not update the strings.</b> Every existing world has just been
-        /// renamed; find out what moved.
+        /// <b>If this fails, do not update the numbers.</b> Every existing world has just had its
+        /// unmaterialised deposits moved; find out what changed.
         ///
-        /// <b>The names were rewritten once, deliberately</b>, when one name per sector was abandoned:
-        /// 390 625 sectors could not have 768 distinct names, so a sector is now a region name plus
-        /// its position in that region. That was a change of scheme, decided and recorded, not a
-        /// drifting hash - which is the only kind of reason that justifies touching these literals.
-        /// The <b>risks</b> were not touched: that arithmetic did not move, and it did not have to be
-        /// taken on trust, because these same cases still assert the values they always did.
+        /// Sector 360 is the clipped corner - 300 is not a whole number of 16s - so its centre is the
+        /// middle of a 12x12 square, not of a 16x16 one. That is the case a nominal-square scatter
+        /// would have got wrong.
         /// </summary>
-        [TestCase(0, "Balise du Levant A1", SectorRisk.Moderate)]
-        [TestCase(1, "Balise du Levant B1", SectorRisk.High)]
-        [TestCase(7, "Balise du Levant H1", SectorRisk.Low)]
-        [TestCase(100, "Balise du Levant F6", SectorRisk.High)]
-        [TestCase(180, "Balise du Levant J10", SectorRisk.Low)]
-        [TestCase(360, "Balise du Levant S19", SectorRisk.Moderate)]
-        public void SectorIdentitiesAreFrozen(int index, string expectedName, SectorRisk expectedRisk)
+        [TestCase(0, SectorFeature.Nest, 8, 8, 4, 2)]
+        [TestCase(1, SectorFeature.OreCluster, 24, 8, 2, 1)]
+        [TestCase(7, SectorFeature.Nest, 120, 8, 2, 0)]
+        [TestCase(100, SectorFeature.Wreck, 88, 88, 5, 2)]
+        [TestCase(180, SectorFeature.Nest, 152, 152, 2, 1)]
+        [TestCase(360, SectorFeature.OreCluster, 294, 294, 4, 1)]
+        public void SectorContentsAreFrozen(int index, SectorFeature expectedFeature,
+            int expectedCentreX, int expectedCentreY, int expectedDeposits, int expectedResource)
         {
-            SectorCatalog catalog = NewCatalog();
+            SectorContents contents = NewCatalog().ContentsOf(index);
 
-            Assert.AreEqual(expectedName, catalog.NameOf(index));
-            Assert.AreEqual(expectedRisk, catalog.RiskOf(index));
+            Assert.AreEqual(expectedFeature, contents.Feature, $"feature of sector {index}");
+            Assert.AreEqual(new GridCoord(expectedCentreX, expectedCentreY), contents.FeatureCell, $"centre of sector {index}");
+            Assert.AreEqual(expectedDeposits, contents.DepositCells.Length, $"deposit count of sector {index}");
+            Assert.AreEqual(expectedResource, contents.ResourceIndex, $"ore of sector {index}");
         }
 
         /// <summary>
-        /// The point of the whole rework, stated as the thing that was broken: designating a mission
-        /// destination is impossible when neighbours share a name. On the shipped map, where the old
-        /// scheme collided on four sectors in five.
+        /// One sector's deposits, cell by cell. The counts above would survive a change to the
+        /// scatter that moved every deposit; this would not.
         /// </summary>
         [Test]
-        public void OnTheShippedMap_NeighbouringSectorsHaveDifferentNames()
+        public void OneSectorsDepositCells_AreFrozenExactly()
         {
-            var grid = new SectorGrid(10000, SectorSize);
-            var catalog = new SectorCatalog(grid, Seed, CoreCenter,
-                LowRiskWithin, ModerateRiskWithin, HighRiskWithin, PreferredRegionSize);
+            GridCoord[] deposits = NewCatalog().ContentsOf(100).DepositCells;
 
-            // The first sector column of the second region - rounded up, not down: a region of 371
-            // cells ends inside sector column 23, whose origin at 368 is still region 0, so the
-            // second region starts at column 24. Taking the floor would have put this whole block
-            // safely inside one region while claiming to straddle a seam.
-            int seam = Mathf.CeilToInt(catalog.RegionSizeCells / (float)grid.SectorSizeCells);
-
-            Assert.AreNotEqual(
-                catalog.NameOf(grid.IndexAt(seam - 1, seam)).Split(' ')[0],
-                catalog.NameOf(grid.IndexAt(seam, seam)).Split(' ')[0],
-                "the fixture is supposed to straddle a region boundary, and these two columns are in the same region");
-
-            var seen = new Dictionary<string, int>();
-
-            for (int row = seam - 4; row <= seam + 4; row++)
-            {
-                for (int column = seam - 4; column <= seam + 4; column++)
+            CollectionAssert.AreEqual(
+                new[]
                 {
-                    int index = grid.IndexAt(column, row);
-                    Assert.GreaterOrEqual(index, 0);
-
-                    string name = catalog.NameOf(index);
-                    if (seen.TryGetValue(name, out int owner))
-                        Assert.Fail($"\"{name}\" is worn by both sector {owner} and sector {index}, which are neighbours.");
-
-                    seen[name] = index;
-                }
-            }
+                    new GridCoord(82, 85),
+                    new GridCoord(81, 95),
+                    new GridCoord(85, 88),
+                    new GridCoord(93, 88),
+                    new GridCoord(80, 81)
+                },
+                deposits);
         }
 
-        /// <summary>Neighbours share their region name - that is the point of a region, and it is what makes the map readable rather than fifty unrelated nouns.</summary>
+        /// <summary>
+        /// The mixer moved to <see cref="DeterministicHash"/> when the terrain came to need the same
+        /// guarantee. Restated here because the sectors are the other caller: a hash that drifts
+        /// recomposes a derived world under buildings that were saved, and the two callers must be
+        /// able to fail independently.
+        /// </summary>
         [Test]
-        public void NeighboursShareTheirRegionName()
+        public void TheSharedMixerStillAnswersTheSame()
         {
-            var grid = new SectorGrid(10000, SectorSize);
-            var catalog = new SectorCatalog(grid, Seed, CoreCenter,
-                LowRiskWithin, ModerateRiskWithin, HighRiskWithin, PreferredRegionSize);
-
-            int centre = grid.IndexAt(grid.Columns / 2, grid.Columns / 2);
-
-            string here = catalog.NameOf(centre);
-            string next = catalog.NameOf(centre + 1);
-
-            string regionHere = here.Substring(0, here.LastIndexOf(' '));
-            string regionNext = next.Substring(0, next.LastIndexOf(' '));
-
-            Assert.AreEqual(regionHere, regionNext, "two adjacent sectors in mid-region should be in the same region");
-            Assert.AreNotEqual(here, next, "and still be told apart by their suffix");
+            Assert.AreEqual(3553548991u, DeterministicHash.Mix(20260907, 0, 0xC2B2AE35));
         }
-
-        [Test]
-        public void ColumnLettersRunPastZ()
-        {
-            Assert.AreEqual("A", SectorCatalog.ColumnLetters(0));
-            Assert.AreEqual("Z", SectorCatalog.ColumnLetters(25));
-            Assert.AreEqual("AA", SectorCatalog.ColumnLetters(26));
-            Assert.AreEqual("AB", SectorCatalog.ColumnLetters(27));
-            Assert.AreEqual("BA", SectorCatalog.ColumnLetters(52));
-        }
-
     }
 }

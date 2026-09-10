@@ -8,18 +8,15 @@ using UnityEngine;
 namespace Game.Tests.EditMode.Grid
 {
     /// <summary>
-    /// The sector partition, and what a mission actually reveals.
+    /// The sector partition: pure arithmetic on a coordinate.
     ///
-    /// The disc is the part worth pinning hardest: revealing the square instead would work, look
-    /// fine on one sector, and only show itself much later as a visible grid across the map once
-    /// several had been opened.
+    /// Nothing here touches discovery. A sector is not what reveals ground - a robot's disc is
+    /// (DiscoveryRuntime.RevealDisc, pinned in DiscoveryRuntimeTests), and the partition only has to
+    /// answer which square a cell falls in and where that square sits.
     /// </summary>
     public class SectorGridTests
     {
         const int MapSize = 300;
-
-        /// <summary>The shipped chunk size - discovery storage is per chunk.</summary>
-        const int ChunkSize = 64;
 
         /// <summary>The game's sector size, from SectorSettings. Restated here rather than read from the asset: a test that follows the setting could not fail when the setting is wrong.</summary>
         const int SectorSize = 16;
@@ -86,120 +83,6 @@ namespace Game.Tests.EditMode.Grid
             Assert.AreEqual(new Vector2(8f, 24f), grid.CenterCells(grid.Columns));
         }
 
-        // ---- The inscribed disc ----
-
-        [Test]
-        public void RevealingASector_LeavesItsFourCornersHidden()
-        {
-            var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
-
-            grid.RevealInscribedDisc(0, discovery);
-
-            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(0, 0)), "Bottom-left corner.");
-            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(15, 0)), "Bottom-right corner.");
-            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(0, 15)), "Top-left corner.");
-            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(15, 15)), "Top-right corner.");
-        }
-
-        /// <summary>The disc touches the middle of each side - that is what "inscribed" means here, and it is what makes two revealed neighbours leave a fringe rather than meeting.</summary>
-        [Test]
-        public void RevealingASector_ReachesTheMiddleOfEachSide()
-        {
-            var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
-
-            grid.RevealInscribedDisc(0, discovery);
-
-            Assert.IsTrue(discovery.IsDiscovered(new GridCoord(7, 0)), "Bottom edge, middle.");
-            Assert.IsTrue(discovery.IsDiscovered(new GridCoord(7, 15)), "Top edge, middle.");
-            Assert.IsTrue(discovery.IsDiscovered(new GridCoord(0, 7)), "Left edge, middle.");
-            Assert.IsTrue(discovery.IsDiscovered(new GridCoord(15, 7)), "Right edge, middle.");
-        }
-
-        [Test]
-        public void RevealingASector_TouchesNoCellOutsideIt()
-        {
-            var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
-            int sector = grid.IndexAt(new GridCoord(150, 150));
-
-            grid.RevealInscribedDisc(sector, discovery);
-
-            var owned = new HashSet<GridCoord>(grid.CellsOf(sector));
-            for (int y = 0; y < MapSize; y++)
-            {
-                for (int x = 0; x < MapSize; x++)
-                {
-                    var cell = new GridCoord(x, y);
-                    if (discovery.IsDiscovered(cell)) Assert.IsTrue(owned.Contains(cell), $"{cell} is outside sector {sector}.");
-                }
-            }
-        }
-
-        [Test]
-        public void TwoRevealedNeighbours_LeaveAnUndiscoveredFringeBetweenThem()
-        {
-            var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
-
-            grid.RevealInscribedDisc(0, discovery);
-            grid.RevealInscribedDisc(1, discovery);
-
-            // The corners they share, on the seam at x = 15/16.
-            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(15, 0)));
-            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(16, 0)));
-            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(15, 15)));
-            Assert.IsFalse(discovery.IsDiscovered(new GridCoord(16, 15)));
-        }
-
-        [Test]
-        public void RevealingTheSameSectorTwice_ChangesNothingTheSecondTime()
-        {
-            var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
-
-            int first = grid.RevealInscribedDisc(3, discovery);
-            int version = discovery.Version;
-            int second = grid.RevealInscribedDisc(3, discovery);
-
-            Assert.Greater(first, 0);
-            Assert.AreEqual(0, second);
-            Assert.AreEqual(version, discovery.Version, "A repeat must not force the fog texture to re-upload.");
-        }
-
-        // ---- Derived discovery ----
-
-        [Test]
-        public void AnUntouchedSector_IsUnknown()
-        {
-            var grid = NewGrid();
-            Assert.AreEqual(SectorDiscovery.Unknown, grid.DiscoveryOf(0, new DiscoveryRuntime(MapSize, ChunkSize)));
-        }
-
-        /// <summary>Partial is where a mission-revealed sector stays: the disc can never cover the corners.</summary>
-        [Test]
-        public void ASectorOpenedByAMission_StaysPartialForever()
-        {
-            var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
-
-            grid.RevealInscribedDisc(0, discovery);
-
-            Assert.AreEqual(SectorDiscovery.Partial, grid.DiscoveryOf(0, discovery));
-        }
-
-        [Test]
-        public void ASectorWhoseEveryCellIsSeen_IsDiscovered()
-        {
-            var grid = NewGrid();
-            var discovery = new DiscoveryRuntime(MapSize, ChunkSize);
-
-            discovery.RevealCells(grid.CellsOf(0));
-
-            Assert.AreEqual(SectorDiscovery.Discovered, grid.DiscoveryOf(0, discovery));
-        }
-
         // ---- Edges and bad arguments ----
 
         [Test]
@@ -215,14 +98,13 @@ namespace Game.Tests.EditMode.Grid
         }
 
         [Test]
-        public void ABadIndexOrANullState_IsIgnoredRatherThanThrowing()
+        public void ABadIndex_IsAnsweredRatherThanThrowing()
         {
             var grid = NewGrid();
 
-            Assert.DoesNotThrow(() => grid.RevealInscribedDisc(-1, new DiscoveryRuntime(MapSize, ChunkSize)));
-            Assert.DoesNotThrow(() => grid.RevealInscribedDisc(99999, new DiscoveryRuntime(MapSize, ChunkSize)));
-            Assert.DoesNotThrow(() => grid.RevealInscribedDisc(0, null));
-            Assert.AreEqual(SectorDiscovery.Unknown, grid.DiscoveryOf(0, null));
+            Assert.AreEqual(-1, grid.IndexAt(new GridCoord(-1, 0)));
+            Assert.AreEqual(-1, grid.IndexAt(99999, 0));
+            Assert.AreEqual(new GridCoord(0, 0), grid.OriginOf(-1), "A bad index answers rather than throwing.");
             CollectionAssert.IsEmpty(grid.CellsOf(-1).ToList());
         }
     }

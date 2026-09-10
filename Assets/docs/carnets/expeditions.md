@@ -471,7 +471,8 @@ prédicat jamais appelé et un contrat écrit à l'envers du code. Celle-ci ne s
 
 Il affichait « aucune donnée, les six directions se valent tant qu'aucun robot n'y est allé », et
 listait dessous trois missions avec leurs durées et un refus fondé sur le risque — pour un secteur où
-personne n'était allé. `directive-ecran-carte.md` §8 l'interdit explicitement. La contradiction ne
+personne n'était allé. La directive de l'écran carte, depuis supprimée avec le reste du zonage,
+l'interdisait explicitement en son §8. La contradiction ne
 venait pas d'une négligence de texte : la méthode qui rend les missions d'un secteur était réutilisée
 telle quelle pour une direction, et une direction n'est pas un secteur.
 

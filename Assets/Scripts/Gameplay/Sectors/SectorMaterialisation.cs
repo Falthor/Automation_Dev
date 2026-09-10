@@ -97,9 +97,9 @@ namespace Game.Gameplay.Sectors
         /// <summary>
         /// Whether anything already stands in this sector - the test that makes placed content win.
         ///
-        /// Walks the sector's cells with plain loops rather than the iterator, for the reason
-        /// `IsWhollyUnknown` gives: this is asked once per sector opened, and an enumerator per sector
-        /// would be an allocation per mission.
+        /// Walks the sector's cells with plain loops rather than `SectorGrid.CellsOf`: this is asked
+        /// once per sector a robot opens, and an enumerator per sector would be an allocation per
+        /// sector opened.
         /// </summary>
         public bool CarriesPlacedContent(int sectorIndex)
         {

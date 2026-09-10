@@ -31,7 +31,7 @@ Everything region-shaped aligns on **one** division, from `SectorSettings`
 | | default | what it divides |
 |---|---|---|
 | chunk | 64 cells | discovery storage, and every future per-region rule (terrain generation, map image, ore-density block) |
-| sector | 16 cells | name, risk and derived content; the unit materialisation writes in — 4×4 tile a chunk exactly |
+| sector | 16 cells | derived content; the unit materialisation writes in — 4×4 tile a chunk exactly |
 
 **Sectors must tile chunks exactly.** Two divisions that disagree about where their boundaries are
 would misalign permanently; that is the whole reason for choosing one. `SectorSettings` warns on
@@ -227,54 +227,37 @@ The fog sits above every band in the draw-order ladder (`PROJECT_ARCHITECTURE.md
 
 ## 4. Sectors
 
-A sector is the internal unit a name, a risk and a derived set of deposits hang off, and the unit
-`SectorMaterialisation` writes in. **Nothing is aimed at one and the player never points at one.**
-Called a *sector*, never a *zone*: "zone" is already the Core's and the AI agents' signal zones, which
-are a different thing.
+A sector is the internal unit a derived set of contents hangs off, and the unit
+`SectorMaterialisation` writes in. **Nothing is aimed at one, no screen names one, and the player
+never points at one.** Called a *sector*, never a *zone*: "zone" is already the Core's and the AI
+agents' signal zones, which are a different thing.
 
 **A regular tiling, computed and never stored.** `SectorGrid` turns a coordinate into an index,
 origin, centre and cells by arithmetic — nothing is walked, there is no list of sectors anywhere. The
 same choice terrain makes: derive rather than materialise, so that nothing has to be generated and no
 order can matter.
 
-**Identity is derived, never materialised.** `SectorCatalog` computes a sector's name, risk and
-contents as pure functions of the world seed and the sector index, when asked. The seed is the
-terrain's (`TerrainRuntime.Seed`) — the only one a save restores — so the same sector answers the same
-thing in a loaded game.
+**Contents are derived, never materialised.** `SectorCatalog` computes what a sector holds as a
+pure function of the world seed and the sector index, when asked. The seed is the terrain's
+(`TerrainRuntime.Seed`) — the only one a save restores — so the same sector answers the same thing in
+a loaded game, and nothing about a sector enters the save.
 
 The mixing goes through `Game.Core.DeterministicHash`, shared with the terrain and explicitly written
 out: `System.Random` and `string.GetHashCode` are barred from anything derived, because neither is
-guaranteed stable across runtime versions and a change would rename every sector in every existing
-world. Frozen by tests with hard-coded names.
+guaranteed stable across runtime versions and a change would move every unmaterialised deposit in
+every existing world. Frozen by tests with hard-coded features, centres and deposit cells.
 
-- **A name is a region plus a position in it** — "Cratère de Suie H12". Sectors are not named one by
-  one: 390 625 of them against 768 vocabulary combinations is 80 % collisions, and neighbours sharing
-  a name would make two places indistinguishable. Widening the vocabulary is not an
-  answer — 390 625 distinct generated names would all read alike anyway — so uniqueness moved off the
-  name and onto the pair. It also reads better: a player learns one region instead of fifty unrelated
-  nouns.
+**A sector holds one point of interest and a handful of deposits.** The point of interest sits at the
+sector's centre, so a robot crossing the middle of the square cannot miss it. The deposits scatter
+anywhere in the square — including the corners a path misses, which is what makes wandering back over
+the same neighbourhood at a different angle worth something. The scatter respects the sector's real
+extent: edge sectors are clipped where the map does not divide evenly. `SectorMaterialisation` (§2.1)
+is what reads all of it.
 
-  **Collision is now structurally impossible rather than tested for.** The region count per axis is
-  derived and capped at `SectorCatalog.MaxRegionsPerAxis` (27, since 27² = 729 fits in 768 and 28²
-  does not), so no map size can produce more regions than there are names; the region name comes from
-  the same injective index-to-vocabulary mapping the sectors used to use, and the suffix is the
-  sector's own position inside its region. `SectorSettings.preferredRegionSizeCells` says how much
-  ground should carry one name — an intent, not the answer: a map large enough to need more regions
-  than the cap allows gets wider ones instead. At the shipped 10 000 that is 27 regions of 371 cells,
-  24 sectors across.
-- **Risk is measured in cells from the Core**, against thresholds that are exposed balance settings on
-  `SectorSettings` — not in sectors crossed, which would tie a property of the world to a division of
-  it and move the whole gradient whenever the division changed. The defaults read as the geometry of
-  expansion: the starting territory, the mining ring, as far as a secondary Core reaches, beyond.
-- **Contents** place the point of interest at the sector's centre and scatter deposits anywhere in the
-  square — including the corners a robot's path misses, which is what makes wandering back over the
-  same neighbourhood at a different angle worth something. The scatter respects the sector's real
-  extent: edge sectors are clipped where the map does not divide evenly. This is the half of a
-  sector's identity that is actually read, by `SectorMaterialisation` (§2.1).
-
-**Nothing is aimed at a sector.** It is purely internal — the unit a name, a risk and a derived set of
-deposits hang off, and the unit `SectorMaterialisation` writes in. The player never points at one, and
-no screen names one.
+**A sector's only other property is its geometry**, and that is arithmetic: `SectorGrid` answers
+which square a cell falls in, where that square starts, where its middle is, and which cells it
+holds. It knows nothing about discovery — a robot reveals a disc wherever it happens to be, and the
+partition has no part in it.
 
 **How far the world extends is one figure**, and it belongs to the robots:
 `ExplorerRobotSettings.maxRadiusCells` (**330**), which is where a wandering robot is turned back

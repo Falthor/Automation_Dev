@@ -175,12 +175,12 @@ the subsystem:
 - **Discovery is written, never derived.** The Core's action radius is one writer among others, and a
   discovered cell stays discovered whatever the radius later does. `DiscoveryRuntime` holds no
   reference to the Core, so no read path can recompute a distance and undo that.
-- **Sector identity is derived, never stored.** Name, risk and contents are pure functions of the
-  world seed and the sector index. Nothing is materialised for a sector nobody has reached, and
-  nothing about a sector enters the save.
-- **Sizes come from `SectorSettings` and from nowhere else.** `SectorGrid` and `SectorCatalog` take
-  theirs as required constructor arguments with no defaults, so a caller that forgets one fails to
-  compile rather than silently disagreeing with the asset.
+- **Sector contents are derived, never stored.** What a sector holds is a pure function of the world
+  seed and the sector index. Nothing is materialised for a sector nobody has reached, and nothing
+  about a sector enters the save.
+- **Sizes come from `SectorSettings` and from nowhere else.** `SectorGrid` takes the map size and the
+  sector size as required constructor arguments with no defaults, so a caller that forgets one fails
+  to compile rather than silently disagreeing with the asset.
 
 ### Grid versus Tilemap
 

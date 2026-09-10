@@ -27,6 +27,15 @@ namespace Game.Tests.EditMode.Presentation
         static DiscoveryRuntime NewDiscovery(int mapSize = MapSize) => new DiscoveryRuntime(mapSize, ChunkSize);
 
         /// <summary>
+        /// Reveals the disc inscribed in one sector. Purely a fixture convenience: it puts a patch of
+        /// known size on a known chunk boundary, which is what these tests need to arrange. The game
+        /// itself never reveals by sector - a wandering robot reveals a disc wherever it happens to
+        /// be, and the sector grid has nothing to do with it.
+        /// </summary>
+        static int RevealSector(SectorGrid grid, int index, DiscoveryRuntime discovery)
+            => discovery.RevealDisc(grid.CenterCells(index), grid.InscribedRadiusCells);
+
+        /// <summary>
         /// The rewrite's whole point. One texture for a 10 000-cell world is 400 MB per cell; one tile
         /// per discovered chunk is 16 KB each, and only for chunks that exist.
         /// </summary>
@@ -39,7 +48,7 @@ namespace Game.Tests.EditMode.Presentation
 
             Assert.AreEqual(0, image.Tiles.Count, "an untouched world has no tiles at all");
 
-            grid.RevealInscribedDisc(grid.IndexAt(312, 312), discovery);
+            RevealSector(grid, grid.IndexAt(312, 312), discovery);
             image.Refresh();
 
             Assert.AreEqual(1, image.Tiles.Count);
@@ -90,7 +99,7 @@ namespace Game.Tests.EditMode.Presentation
             var image = new SectorMapImage(grid, discovery);
 
             int sector = grid.IndexAt(312, 312);
-            grid.RevealInscribedDisc(sector, discovery);
+            RevealSector(grid, sector, discovery);
             image.Refresh();
 
             int drawn = 0;
@@ -118,7 +127,7 @@ namespace Game.Tests.EditMode.Presentation
             DiscoveryRuntime discovery = NewDiscovery();
             var image = new SectorMapImage(grid, discovery);
 
-            for (int i = 0; i < 400; i++) grid.RevealInscribedDisc(grid.IndexAt(200 + i % 20, 200 + i / 20), discovery);
+            for (int i = 0; i < 400; i++) RevealSector(grid, grid.IndexAt(200 + i % 20, 200 + i / 20), discovery);
             image.Refresh();
 
             int cellsForEverything = image.LastVisitedCellCount;
@@ -126,7 +135,7 @@ namespace Game.Tests.EditMode.Presentation
             Assert.Greater(tilesForEverything, 1, "the fixture needs several chunks to be worth anything");
 
             // One more sector, far from the rest so it lands in a chunk of its own.
-            grid.RevealInscribedDisc(grid.IndexAt(500, 500), discovery);
+            RevealSector(grid, grid.IndexAt(500, 500), discovery);
             Assert.IsTrue(image.Refresh());
 
             Assert.AreEqual(ChunkSize * ChunkSize, image.LastVisitedCellCount,
@@ -178,7 +187,7 @@ namespace Game.Tests.EditMode.Presentation
             SectorGrid grid = NewGrid();
             DiscoveryRuntime discovery = NewDiscovery();
 
-            grid.RevealInscribedDisc(grid.IndexAt(312, 312), discovery);
+            RevealSector(grid, grid.IndexAt(312, 312), discovery);
             string saved = discovery.CaptureState();
 
             var fresh = new DiscoveryRuntime(MapSize, ChunkSize);
@@ -200,7 +209,7 @@ namespace Game.Tests.EditMode.Presentation
             DiscoveryRuntime discovery = NewDiscovery();
             var image = new SectorMapImage(grid, discovery);
 
-            grid.RevealInscribedDisc(grid.IndexAt(312, 312), discovery);
+            RevealSector(grid, grid.IndexAt(312, 312), discovery);
             Assert.IsTrue(image.Refresh());
 
             int uploads = image.UploadCount;
@@ -219,11 +228,11 @@ namespace Game.Tests.EditMode.Presentation
             DiscoveryRuntime discovery = NewDiscovery();
             var image = new SectorMapImage(grid, discovery);
 
-            grid.RevealInscribedDisc(grid.IndexAt(312, 312), discovery);
+            RevealSector(grid, grid.IndexAt(312, 312), discovery);
             image.Refresh();
             int uploads = image.UploadCount;
 
-            grid.RevealInscribedDisc(grid.IndexAt(320, 312), discovery);
+            RevealSector(grid, grid.IndexAt(320, 312), discovery);
 
             Assert.IsTrue(image.Refresh());
             Assert.AreEqual(uploads + 1, image.UploadCount);
@@ -242,7 +251,7 @@ namespace Game.Tests.EditMode.Presentation
             var image = new SectorMapImage(grid, discovery);
 
             int last = grid.Columns - 1;
-            grid.RevealInscribedDisc(grid.IndexAt(last, last), discovery);
+            RevealSector(grid, grid.IndexAt(last, last), discovery);
 
             Assert.DoesNotThrow(() => image.Refresh());
             Assert.AreEqual(1, image.Tiles.Count);

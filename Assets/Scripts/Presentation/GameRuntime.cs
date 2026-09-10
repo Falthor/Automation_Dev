@@ -407,9 +407,7 @@ namespace Game.Presentation
             // function of Terrain.Seed. Nothing here is restored from the save, and nothing here needs
             // to be - the seed is, and everything else follows from it.
             Sectors = new SectorGrid(Terrain.Size, sectorSettings.SectorSizeCells);
-            SectorCatalog = new SectorCatalog(Sectors, Terrain.Seed, World?.CoreCenterCells ?? Vector2.zero,
-                sectorSettings.LowRiskWithinCells, sectorSettings.ModerateRiskWithinCells, sectorSettings.HighRiskWithinCells,
-                sectorSettings.PreferredRegionSizeCells);
+            SectorCatalog = new SectorCatalog(Sectors, Terrain.Seed);
 
             SectorMap = new SectorMapImage(Sectors, Discovery);
 

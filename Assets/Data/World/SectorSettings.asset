@@ -14,6 +14,3 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.SectorSettings
   chunkSizeCells: 64
   sectorSizeCells: 16
-  lowRiskWithinCells: 40
-  moderateRiskWithinCells: 250
-  highRiskWithinCells: 330
