@@ -271,12 +271,26 @@ namespace Game.UI
         /// <summary>
         /// Dragging pans, and that is the only thing a pointer does here. There is no click behaviour
         /// left to tell a drag apart from, so no slop and no click/drag arbitration.
+        ///
+        /// <b>The drag grabs the map, not the view</b> - the same gesture CameraPanController gives the
+        /// world: the ground follows the hand, so the view centre travels the opposite way, and the
+        /// point grabbed stays under the cursor for the whole drag.
+        ///
+        /// <b>The two axes need opposite signs, and subtracting the travel as a vector gives them the
+        /// same one.</b> Screen Y grows downward while sector Y grows north, so a single subtraction
+        /// reads as "grab" horizontally and "push" vertically: dragging right did move the map with
+        /// the hand, and dragging up moved it against - the map went north where the world screen
+        /// goes south. This inverts SectorAt per axis instead, which is the same asymmetry OnWheel
+        /// already has to spell out.
         /// </summary>
         void OnPointerMove(PointerMoveEvent evt)
         {
             if (!_dragging) return;
 
-            ViewCentreSectors = _dragCentreAtStart - ((Vector2)evt.localPosition - _dragStart) / PixelsPerSector;
+            Vector2 travel = ((Vector2)evt.localPosition - _dragStart) / PixelsPerSector;
+            ViewCentreSectors = new Vector2(
+                _dragCentreAtStart.x - travel.x,
+                _dragCentreAtStart.y + travel.y);
             Layout();
         }
 
