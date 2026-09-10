@@ -5,7 +5,8 @@ namespace Game.Data
     /// accepts (iron_ore/copper_ore) - Coal_ore is deliberately Component despite
     /// being a raw material, so Foundry (which filters strictly by Type == Ore) can never accept
     /// it; AdvancedFoundry filters by its own explicit accepted-item list instead, independent
-    /// of this type. Ingot is Iron_Ingot/copper_Ingot/Steel. Everything else is Component.
+    /// of this type. Ingot is Steel alone now that ore smelts straight to plates, and nothing in
+    /// the gameplay branches on it - it is a label, not a filter. Everything else is Component.
     /// </summary>
     public enum ItemType
     {
