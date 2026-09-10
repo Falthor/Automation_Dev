@@ -1,5 +1,6 @@
 using Game.Core;
 using Game.Data;
+using Game.Gameplay.WorldGeneration;
 using Game.Grid;
 
 namespace Game.Gameplay.Sectors
@@ -20,6 +21,12 @@ namespace Game.Gameplay.Sectors
     /// lands or the Core's own disc is walked, both of which happen later. This class does not rely on
     /// that: it checks the grid at the moment it writes.
     ///
+    /// <b>A deposit is registered, not merely written.</b> It goes in through
+    /// <see cref="WorldGenerator.AddDeposit"/>, which is what puts it in the list the view and the
+    /// save both read. Writing straight to <see cref="GridRuntime.PlaceDeposit"/> - which this used
+    /// to do - produced ore that the grid knew about and nothing else did: it could be hovered and
+    /// mined, it was never drawn, and it vanished on reload.
+    ///
     /// <b>Idempotent without bookkeeping.</b> Nothing records which sectors have been materialised,
     /// because nothing needs to: an occupied cell is skipped, and deposits are saved, so a reloaded
     /// world finds its own deposits already standing and writes nothing. A set of materialised sectors
@@ -32,6 +39,13 @@ namespace Game.Gameplay.Sectors
         readonly SectorCatalog _catalog;
         readonly OreDepositDefinition[] _resources;
 
+        /// <summary>
+        /// Where a new deposit is registered. Null means a scene with no generated world, and
+        /// therefore nothing to add a deposit to - so nothing is written at all, rather than written
+        /// somewhere nobody owns.
+        /// </summary>
+        readonly WorldGenerator _world;
+
         /// <summary>How many sectors have actually written something. For tests and reporting.</summary>
         public int MaterialisedSectorCount { get; private set; }
 
@@ -43,12 +57,13 @@ namespace Game.Gameplay.Sectors
         /// rather than read from a settings asset, so the catalog never has to know what an ore is.
         /// </summary>
         public SectorMaterialisation(SectorGrid grid, GridRuntime cells, SectorCatalog catalog,
-            OreDepositDefinition[] resources)
+            OreDepositDefinition[] resources, WorldGenerator world)
         {
             _grid = grid;
             _cells = cells;
             _catalog = catalog;
             _resources = resources ?? System.Array.Empty<OreDepositDefinition>();
+            _world = world;
         }
 
         /// <summary>
@@ -60,7 +75,7 @@ namespace Game.Gameplay.Sectors
         /// </summary>
         public int Materialise(int sectorIndex)
         {
-            if (_grid == null || _cells == null || _catalog == null) return 0;
+            if (_grid == null || _cells == null || _catalog == null || _world == null) return 0;
             if (!_grid.ContainsIndex(sectorIndex)) return 0;
 
             SectorContents contents = _catalog.ContentsOf(sectorIndex);
@@ -86,7 +101,8 @@ namespace Game.Gameplay.Sectors
                 if (cell.X < 0 || cell.Y < 0 || cell.X >= _grid.MapSizeCells || cell.Y >= _grid.MapSizeCells) continue;
                 if (_cells.GetOccupant(cell) != null) continue;   // a building or an earlier deposit
 
-                _cells.PlaceDeposit(cell, definition);
+                // Through the world, never straight into the grid - see the class summary.
+                _world.AddDeposit(_cells, cell, definition);
                 placed++;
             }
 

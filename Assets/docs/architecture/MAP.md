@@ -163,6 +163,14 @@ any of the three.
   16-cell sectors and materialising only the one underneath would leave ore missing from ground the
   robot plainly uncovered. See `MATERIALISATION.md` and §4.
 
+  **A materialised deposit goes in through `WorldGenerator.AddDeposit`, never straight into the
+  grid.** That call is what puts it in `WorldGenerator.OreDeposits` and raises `DepositAppeared` —
+  and those two are what the view and the save read. A deposit written only into `Game.Grid` is real
+  to everything that asks the grid (the hover glow lights up, an Extractor can be placed on it) and
+  invisible to everything else: undrawn, and gone on the next load. `GridRuntime.PlaceDeposit`
+  returns the runtime it creates for exactly this reason, and dropping that return value is the whole
+  defect.
+
 **Persistence:** `SaveData.ExplorerRobots` — position, heading, state, plus where the drift had got to
 and how many sorties have been made, so a reloaded robot carries on the bend it was in the middle of
 rather than snapping onto a fresh one. No destination, because there is none to have.

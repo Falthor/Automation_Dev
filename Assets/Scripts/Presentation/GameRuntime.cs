@@ -445,7 +445,7 @@ namespace Game.Presentation
                         worldGenerationSettings.IronOreDefinition,
                         worldGenerationSettings.CopperOreDefinition,
                         worldGenerationSettings.CoalOreDefinition
-                    });
+                    }, World);
                 }
 
                 ExplorerRobots.RestoreState(loadedSave?.ExplorerRobots);
@@ -1040,6 +1040,11 @@ namespace Game.Presentation
                 {
                     contentSpawner.SpawnOreDeposit(deposit);
                 }
+
+                // And every one that turns up later. A robot opening a sector materialises ore hours
+                // into a run, long after this loop has run once - without this the deposit was in the
+                // grid and on no screen.
+                World.DepositAppeared += contentSpawner.SpawnOreDeposit;
 
                 Vector3 coreCenter = Grid.FootprintCenterToWorld(World.CoreOrigin, worldGenerationSettings.CoreDefinition.FootprintSize);
 

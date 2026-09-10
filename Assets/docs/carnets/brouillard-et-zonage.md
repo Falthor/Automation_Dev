@@ -241,3 +241,32 @@ monde : deux bruits indépendants auraient donné deux ondulations sans rapport,
 **Un coût assumé.** `clip` demande maintenant que les deux termes soient dépensés, donc le sol observé
 ne coûte toujours rien, mais le sol souvenu — c'est-à-dire l'essentiel de la carte explorée — paie un
 blend qu'il ne payait pas. C'est le prix de la fonctionnalité, pas un oubli.
+
+## 8. Un gisement qui existait sans appartenir à personne
+
+Les robots ouvraient bien des gisements : la surbrillance jaune au survol se déclenchait. Mais rien
+n'était dessiné, et — ce que le symptôme ne disait pas — rien n'était sauvegardé.
+
+`SectorMaterialisation` appelait `GridRuntime.PlaceDeposit` et **jetait la valeur de retour**. Or
+`PlaceDeposit` crée le `DepositRuntime` et le rend ; c'est `WorldGenerator.OreDeposits` qui est lu par
+les deux seuls consommateurs qui comptent : la boucle de `GameRuntime.Start` qui instancie les vues, et
+la capture de sauvegarde.
+
+Donc le gisement était **réel pour tout ce qui interroge la grille** - le survol le trouvait, un
+extracteur aurait pu être posé dessus - et **inexistant pour tout le reste**. Aucune exception, aucun
+log, aucun test rouge. Le seul indice visible était une surbrillance sur du vide.
+
+**Le correctif ne rajoute pas un appel, il déplace la frontière.** `WorldGenerator.AddDeposit` place
+et enregistre en un seul appel, puis annonce par `DepositAppeared`. Un appelant n'a plus le droit
+d'atteindre `PlaceDeposit` : la seule façon de faire naître un gisement passe par son propriétaire.
+Ajouter un `_oreDeposits.Add(...)` à côté de l'appel existant aurait marché aujourd'hui et laissé la
+même porte ouverte au suivant.
+
+**Deux assertions, pas une.** Le test vérifie le compte dans la liste *et* le nombre d'annonces,
+parce que la vue est pilotée par l'événement et la sauvegarde par la liste : n'en tenir qu'une aurait
+corrigé la moitié du défaut, et la moitié restante se serait vue au rechargement suivant, des heures
+plus tard.
+
+**Et sans monde, on n'écrit rien.** Une scène sans génération de monde n'a nulle part où enregistrer
+un gisement : `Materialise` retourne 0 plutôt que d'écrire dans la grille ce que personne ne
+possède - ce qui est exactement la forme du défaut d'origine.

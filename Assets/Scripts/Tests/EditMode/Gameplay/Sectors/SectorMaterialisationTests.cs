@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Game.Core;
 using Game.Data;
 using Game.Gameplay.Sectors;
+using Game.Gameplay.WorldGeneration;
 using Game.Grid;
 using NUnit.Framework;
 using UnityEditor;
@@ -52,6 +53,9 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
             public SectorCatalog Catalog;
             public SectorMaterialisation Materialisation;
             public OreDepositDefinition[] Ores;
+
+            /// <summary>Where a materialised deposit has to end up. The grid is not enough - see WhatIsMaterialised_IsRegistered.</summary>
+            public WorldGenerator World;
         }
 
         Fixture NewFixture()
@@ -60,11 +64,13 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
             {
                 Sectors = new SectorGrid(MapSize, SectorSize),
                 Cells = new GridRuntime(1f),
-                Ores = new[] { NewOre("iron"), NewOre("copper"), NewOre("coal") }
+                Ores = new[] { NewOre("iron"), NewOre("copper"), NewOre("coal") },
+                World = new WorldGenerator()
             };
 
             fixture.Catalog = new SectorCatalog(fixture.Sectors, Seed);
-            fixture.Materialisation = new SectorMaterialisation(fixture.Sectors, fixture.Cells, fixture.Catalog, fixture.Ores);
+            fixture.Materialisation = new SectorMaterialisation(
+                fixture.Sectors, fixture.Cells, fixture.Catalog, fixture.Ores, fixture.World);
 
             return fixture;
         }
@@ -234,9 +240,61 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
         public void WithNoOreDefinitions_NothingIsWritten()
         {
             Fixture fixture = NewFixture();
-            var barren = new SectorMaterialisation(fixture.Sectors, fixture.Cells, fixture.Catalog, null);
+            var barren = new SectorMaterialisation(fixture.Sectors, fixture.Cells, fixture.Catalog, null, fixture.World);
 
             Assert.AreEqual(0, barren.Materialise(SectorWithDeposits(fixture)));
+        }
+
+        /// <summary>
+        /// <b>A materialised deposit is registered, not only written into the grid.</b>
+        ///
+        /// This is the defect that shipped: the deposit went straight into GridRuntime, so the grid
+        /// knew about it - the hover glow lit up, an Extractor could have been placed on it - and the
+        /// two things that read WorldGenerator.OreDeposits did not. Those two are the view and the
+        /// save, so the ore was invisible and did not survive a reload. Nothing failed anywhere.
+        ///
+        /// Asserted on the count and on the event, because the view is driven by the event and the
+        /// save by the list: one without the other would have fixed half of it.
+        /// </summary>
+        [Test]
+        public void WhatIsMaterialised_IsRegistered()
+        {
+            Fixture fixture = NewFixture();
+            int sector = SectorWithDeposits(fixture);
+
+            var announced = new List<DepositRuntime>();
+            fixture.World.DepositAppeared += announced.Add;
+
+            int placed = fixture.Materialisation.Materialise(sector);
+
+            Assert.Greater(placed, 0, "the fixture sector was supposed to derive deposits");
+            Assert.AreEqual(placed, fixture.World.OreDeposits.Count, "every placed deposit has to be in the list the save reads");
+            Assert.AreEqual(placed, announced.Count, "every placed deposit has to be announced, or nothing draws it");
+
+            foreach (DepositRuntime deposit in announced)
+            {
+                Assert.AreSame(deposit, fixture.Cells.GetOccupant(deposit.Origin),
+                    "the runtime that was announced has to be the one standing in the grid");
+            }
+        }
+
+        /// <summary>
+        /// Without a world there is nowhere to register a deposit, so none is written at all - rather
+        /// than written into the grid where nothing owns it, which is the shape of the defect above.
+        /// </summary>
+        [Test]
+        public void WithNoWorld_NothingIsWritten()
+        {
+            Fixture fixture = NewFixture();
+            int sector = SectorWithDeposits(fixture);
+
+            var worldless = new SectorMaterialisation(fixture.Sectors, fixture.Cells, fixture.Catalog, fixture.Ores, null);
+
+            Assert.AreEqual(0, worldless.Materialise(sector));
+            foreach (GridCoord cell in fixture.Catalog.ContentsOf(sector).DepositCells)
+            {
+                Assert.IsNull(fixture.Cells.GetOccupant(cell));
+            }
         }
     }
 }
