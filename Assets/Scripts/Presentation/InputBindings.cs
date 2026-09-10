@@ -93,6 +93,29 @@ namespace Game.Presentation
         }
 
         /// <summary>
+        /// Turns every action off, which a key capture needs for two separate reasons.
+        ///
+        /// <see cref="InputActionRebindingExtensions.PerformInteractiveRebinding"/> refuses to run on
+        /// an enabled action. And while the player is pressing a key to assign it, that key must not
+        /// also <i>do</i> its old job - press B to reassign something and the building menu would
+        /// open behind the dialog.
+        ///
+        /// <b>This, and not the text-field guard, is what protects a capture.</b> The digit shortcuts
+        /// refuse to fire while a text field has focus, which is the right rule for typing and no
+        /// help at all here: a capture is not a text field and focuses nothing.
+        /// </summary>
+        public static void Suspend() => InputSystem.actions?.Disable();
+
+        public static void Resume() => InputSystem.actions?.Enable();
+
+        /// <summary>Puts every action back on the key the asset gives it, and forgets the stored reassignments rather than keeping the last non-default set.</summary>
+        public static void ResetAllToDefaults()
+        {
+            InputSystem.actions?.RemoveAllBindingOverrides();
+            StoreOverrides();
+        }
+
+        /// <summary>
         /// Writes the current reassignments to <c>preferences.json</c>. Called after a change rather
         /// than on quit: a key the player just reassigned has to survive a crash, and it is one small
         /// file.

@@ -282,7 +282,7 @@ namespace Game.UI
             RefreshResearchAvailability();
             RefreshMapAvailability();
 
-            if (IsTextFieldFocused()) return;
+            if (UIFocus.IsTypingInAField(uiDocument)) return;
 
             for (int i = 0; i < _slotShortcuts.Length; i++)
             {
@@ -291,11 +291,6 @@ namespace Game.UI
             }
         }
 
-        bool IsTextFieldFocused()
-        {
-            VisualElement focused = uiDocument.rootVisualElement.panel?.focusController?.focusedElement as VisualElement;
-            return focused is TextField;
-        }
 
     }
 }

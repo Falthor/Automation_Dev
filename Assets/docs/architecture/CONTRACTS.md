@@ -439,6 +439,8 @@ Two consequences a new consumer has to know. A contextual and a global panel can
 
 `Game.Save.PreferencesService` owns `preferences.json`, **beside `save.json` and never inside it**: a keyboard layout belongs to the person playing, not to the run, so it has to survive starting a new game and must not travel with a save file. One JSON object, one key per concern (`inputBindings` holds the Input System's own override blob, opaque here). An absent or unreadable file means "no preferences", which is the truthful default; writing an empty override set **erases** the key rather than keeping the last non-default value.
 
+**Reassigning goes through `ShortcutsPanel`** (`Game.UI`), and two of its pieces are public surface. `ActionSharingTheKeyWith(actionName)` names the other catalogue action currently on that key, or null - it compares **effective** paths, so two actions agreeing only on their asset defaults are a clash while one whose override moved it away is not, and several unbound actions do not clash with each other. `InputBindings.Suspend`/`Resume` turn the whole table off for the duration of a capture: `PerformInteractiveRebinding` refuses to run on an enabled action, and the key being assigned must not also do its old job. An **empty override path** is how an action is left with no key, which is what overwriting a shortcut does to the row that held it.
+
 **`InputBindings.ApplyStoredOverrides` clears every override before applying.** Domain Reload is disabled (`DEVELOPMENT_RULES.md` §5), so the actions asset instance survives Play sessions - applying on top of what was left would let a session's unsaved reassignment leak into the next one. Idempotence is the requirement, not a nicety.
 
 ## 13. Contract evolution

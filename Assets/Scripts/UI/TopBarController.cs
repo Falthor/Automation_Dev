@@ -275,7 +275,7 @@ namespace Game.UI
         /// <b>It asks what holds the focus, not what was clicked.</b> A Top Bar card is a Button
         /// containing an icon and labels, and those children take the click for themselves - so the
         /// event's own target is usually not the Button that ended up focused. Reading the focus
-        /// controller is the same question the digit shortcuts already ask (IsTextFieldFocused), and
+        /// controller is the same question the digit shortcuts already ask (UIFocus), and
         /// it is the only form of the question that survives a button with children.
         /// </summary>
         void ReleaseFocusAfterAClick()

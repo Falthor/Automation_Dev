@@ -316,7 +316,7 @@ namespace Game.UI
                 if (HoveredCardDefinition != null) PopulateDetails(HoveredCardDefinition);
             }
 
-            if (IsTextFieldFocused()) return;
+            if (UIFocus.IsTypingInAField(uiDocument)) return;
 
             if (InputBindings.WasPressedThisFrame(_openMenu))
             {
@@ -484,11 +484,6 @@ namespace Game.UI
             return row;
         }
 
-        bool IsTextFieldFocused()
-        {
-            VisualElement focused = uiDocument.rootVisualElement.panel?.focusController?.focusedElement as VisualElement;
-            return focused is TextField;
-        }
 
         void Toggle()
         {

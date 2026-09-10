@@ -168,3 +168,60 @@ script exclut délibérément cet assembly (le NUnit d'Unity est net472 et ne se
 netstandard). Huit lignes vertes ne disent rien des tests. Et une seconde fois dans la même heure :
 `[RuntimeInitializeOnLoadMethod]` tire un `[Preserve]` interne qui vit dans `Unity.Scripting.dll`,
 que la liste de références du script ne ramassait pas — une erreur qui n'existait que hors ligne.
+
+## 6. Le menu : trois comportements et un garde qui ne gardait rien
+
+**`IsTextFieldFocused` ne pouvait pas fonctionner.** Les deux copies demandaient
+`focusedElement is TextField`, ce qui ne répond jamais vrai. Un `TextField` est un
+`BaseField<string>` et il **délègue son focus** : l'élément qui se retrouve focalisé est le champ de
+saisie *à l'intérieur*, pas le champ lui-même. Le garde se lisait juste, compilait, et ne pouvait pas
+partir. C'est le genre de défaut qui n'apparaît que le jour où quelque chose a vraiment du texte à
+taper - sous la forme d'une touche qui écrit un caractère *et* déclenche un raccourci.
+
+La question se pose donc a l'ascendance, pas a l'élément focalise seul. Une seule copie
+(`UIFocus.IsTypingInAField`) pour les deux appelants.
+
+**Et il ne protégeait de toute façon pas la capture.** On m'avait dit que le menu de raccourcis
+serait le premier vrai cas de saisie du projet. Il ne l'est pas : une capture de touche n'est pas un
+champ de texte et ne focalise rien. Ce qui protège la capture est autre chose - les action maps sont
+éteintes le temps de la saisie (`InputBindings.Suspend`), pour deux raisons cumulées :
+`PerformInteractiveRebinding` refuse de tourner sur une action activée, et la touche qu'on est en
+train d'assigner ne doit pas *faire* son ancien travail. Appuyer sur B pour le réassigner ouvrirait
+le menu des bâtiments derrière la boîte de dialogue.
+
+**Le focus revient mordre une seconde fois, ailleurs.** Le clic qui lance une capture laisse le
+bouton focalisé, et UI Toolkit active un `Button` focalisé sur Espace **et** sur Entrée. Assigner
+l'une des deux aurait terminé la capture et, sur la même frappe, resoumis le bouton qui l'avait
+ouverte — donc rouvert la capture que le joueur venait de fermer. Le bouton se défocalise lui-même
+au démarrage de la capture. Le correctif du commit 1 ne couvrait pas ce cas : il vit sur
+`TopBarController`, qui n'est que dans la scène de jeu.
+
+**Le conflit s'annonce, il ne se refuse pas.** Refuser une touche que le joueur a choisie le laisse
+deviner laquelle des dix-huit lignes la détient déjà. Donc la touche prise est acceptée, la ligne qui
+la détenait est **nommée**, et l'écrasement la laisse *visiblement* « non assigné » - un trou dans la
+liste qu'il peut combler, plutôt qu'un échange silencieux.
+
+Deux détails qui font que ça marche : refuser est un **annuler**, pas un non-événement, parce que
+l'operation de rebinding a déjà appliqué la nouvelle touche - il faut remettre l'état d'avant, et
+`null` (pas de surcharge) et `""` (délibérément non assigné) sont deux réponses différentes qu'on ne
+peut pas confondre. Et la règle compare les chemins **effectifs**, pas ceux de l'asset : deux actions
+qui ne se rejoignent que par leurs défauts sont bien en conflit, une que sa surcharge a déplacée ne
+l'est plus.
+
+**Échap annule au lieu de se faire assigner**, via `WithCancelingThrough` - ce qui a pour
+conséquence que rien ne pourra jamais être assigné à Échap. C'est le bon arbitrage : une ligne ouverte
+par erreur doit avoir une sortie, et ça compte plus que de pouvoir mettre Échap ailleurs.
+
+**Ce que le test peut tenir ici.** La capture demande une frappe, et un test EditMode n'a pas de
+clavier - donc « Échap annule », la ligne ambre qui écoute et la boîte de conflit ne sont pas
+assertables. Ce qui l'est, c'est tout ce qui entoure la frappe : la liste se construit depuis le
+catalogue dans son ordre, une section n'imprime son en-tête qu'une fois, la règle de conflit est une
+fonction nommée qu'on interroge sur la vraie table, et une action sans touche se lit comme telle.
+
+La chaîne affichée, elle, **ne peut pas être assertée** : elle dépend de la disposition de qui fait
+tourner la suite, ce qui est exactement la raison pour laquelle il ne faut pas imprimer le chemin. Ce
+qui est épinglé, c'est qu'elle n'est ni le chemin, ni le nom interne de l'action.
+
+**Et les tests remettent la table où ils l'ont trouvée.** Le rechargement de domaine désactivé fait
+que l'instance de l'asset est partagée avec la session d'éditeur : un test qui laisserait une
+surcharge derrière lui changerait ce que lit la partie suivante.
