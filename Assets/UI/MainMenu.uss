@@ -106,3 +106,47 @@
     border-color: rgb(242, 83, 83);
     color: rgb(242, 83, 83);
 }
+
+/* The save name, typed. Monospace like every other value in the game: a save name is a value the
+   player will read back in a list, not prose. */
+.save-name-field {
+    margin-top: 14px;
+    margin-bottom: 4px;
+    min-height: 30px;
+    font-size: 14px;
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.save-name-field > TextInput {
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-radius: 0;
+    border-color: rgb(48, 59, 66);
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+/* Bounded rather than growing with the number of saves: twenty runs must not push the buttons off
+   the dialog. */
+.save-list {
+    margin-top: 14px;
+    margin-bottom: 4px;
+    max-height: 260px;
+    min-height: 60px;
+}
+
+.save-row {
+    margin-bottom: 6px;
+    height: 32px;
+    font-size: 13px;
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+    -unity-text-align: middle-left;
+    padding-left: 10px;
+}
+
+.save-list-empty {
+    font-size: 12px;
+    color: rgb(150, 158, 165);
+    -unity-font-style: italic;
+    white-space: normal;
+}

@@ -16,8 +16,10 @@ namespace Game.UI
     /// each a pure view over an existing runtime system - no duplicated state, no new
     /// simulation. Hover expands a card in place to reveal its detail block; click opens the
     /// matching global panel through the same Selection routing every other panel uses. Menu opens
-    /// the shortcuts screen (<see cref="ShortcutsPanel"/>) - a deliberate deviation from the imported
-    /// spec, where it is a reserved placeholder; Pause freezes simulation via Time.timeScale,
+    /// the in-game menu (<see cref="GameMenuPanel"/>: save, load, options, quit), whose Options
+    /// entry hands over to the shortcuts screen (<see cref="ShortcutsPanel"/>) - a deliberate
+    /// deviation from the imported spec, where Menu is a reserved placeholder; Pause freezes
+    /// simulation via Time.timeScale,
     /// which every deltaTime-scaled system (Transport/Research/Power/Compute) already respects
     /// with no new per-system pause flag needed.
     /// </summary>
@@ -92,6 +94,9 @@ namespace Game.UI
         /// </summary>
         ShortcutsPanel _shortcuts;
 
+        /// <summary>The menu the button actually opens; Options inside it is what reaches the shortcuts screen.</summary>
+        GameMenuPanel _gameMenu;
+
         void Start()
         {
             _pause = InputBindings.Find(InputActionCatalogue.Pause);
@@ -151,7 +156,20 @@ namespace Game.UI
             uiDocument.rootVisualElement.Add(overlay);
 
             _shortcuts = new ShortcutsPanel(overlay);
-            menuButton.clicked += _shortcuts.Show;
+
+            VisualElement menuOverlay = panelRoot.Q<VisualElement>("GameMenuOverlay");
+            if (menuOverlay == null)
+            {
+                // Same trade as above: without the menu the button falls back to what it used to
+                // do, rather than the Top Bar losing its button.
+                Debug.LogError("TopBar.uxml no longer instantiates the GameMenu template - the Menu button falls back to the shortcuts screen.", this);
+                menuButton.clicked += _shortcuts.Show;
+                return;
+            }
+
+            uiDocument.rootVisualElement.Add(menuOverlay);
+            _gameMenu = new GameMenuPanel(menuOverlay, gameRuntime, _shortcuts);
+            menuButton.clicked += _gameMenu.Show;
         }
 
         /// <summary>Flashes an explicit refusal reason (e.g. the building cap) near the cards row for RefusalMessageSeconds, then auto-hides (TASK_04_PLAFOND_RAYON.md §3.2). Re-showing while already visible just resets the timer.</summary>
@@ -343,7 +361,11 @@ namespace Game.UI
             // Same gesture as the Pause button (GLOBAL_UI.md's Top Bar) - not gated on
             // IsUIBlockingInput, since pausing/resuming from behind an open panel is expected.
             // A clicked button no longer competes for this key - see ReleaseFocusAfterAClick.
-            if (InputBindings.WasPressedThisFrame(_pause))
+            //
+            // Typing is the one thing that does gate it. Pause is bound to Space, and the save
+            // name field is the project's first in-game text field: without this, naming a save
+            // "avant le datacenter" would pause and unpause the game three times.
+            if (InputBindings.WasPressedThisFrame(_pause) && !UIFocus.IsTypingInAField(uiDocument))
             {
                 TogglePause();
             }

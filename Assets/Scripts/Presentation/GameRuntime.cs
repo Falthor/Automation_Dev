@@ -239,6 +239,17 @@ namespace Game.Presentation
         /// to be told here or not at all.
         /// </summary>
         public bool StartedFromNewGame { get; private set; }
+
+        /// <summary>
+        /// The named save this session writes to - one folder per name under the persistent data
+        /// path (<see cref="Game.Save.SaveService"/>).
+        ///
+        /// Taken from <c>PendingGameStart</c> in Awake and kept, because that carrier is consumed
+        /// there and nothing downstream could recover it. <see cref="SaveAs"/> moves it when the
+        /// player saves under a different name, so an autosave that follows goes to the same place
+        /// the player last chose rather than back to where the session started.
+        /// </summary>
+        public string CurrentSaveName { get; private set; }
         public ItemVisualSync ItemVisuals => itemVisuals;
         public ConstructionSiteVisualSync ConstructionSiteVisuals => constructionSiteVisuals;
         public ItemDatabase Items => itemDatabase;
@@ -365,7 +376,8 @@ namespace Game.Presentation
             _depthSortCamera = Camera.main;
 
             SaveData loadedSave = PendingGameStart.LoadedSave;
-            PendingGameStart.RequestNewGame(); // consume immediately - never read a second time this session
+            CurrentSaveName = PendingGameStart.SaveName;
+            PendingGameStart.RequestNewGame(CurrentSaveName); // consume immediately - never read a second time this session
             StartedFromNewGame = loadedSave == null;
 
             if (loadedSave != null)
@@ -671,6 +683,20 @@ namespace Game.Presentation
         }
 
         /// <summary>Captures every system's current state into a SaveData and writes it to the single save file (CONTRACTS.md §14). Called by New Game (initial state) and OnApplicationQuit (current progress).</summary>
+        /// <summary>
+        /// Writes the session to a named save and adopts that name for everything after.
+        ///
+        /// Adopting it is the point: a player who saves as "avant le datacenter" expects the next
+        /// autosave to go there too, not back to the folder the session was launched from. Returns
+        /// whether the write landed, so the caller can say so instead of assuming.
+        /// </summary>
+        public bool SaveAs(string name)
+        {
+            CurrentSaveName = Game.Save.SaveService.Sanitise(name);
+            SaveCurrentGame();
+            return Game.Save.SaveService.Exists(CurrentSaveName);
+        }
+
         void SaveCurrentGame()
         {
             var data = new SaveData
@@ -744,7 +770,7 @@ namespace Game.Presentation
                 });
             }
 
-            SaveService.Save(data);
+            SaveService.Save(data, CurrentSaveName);
         }
 
         /// <summary>The map image owns a Texture2D, which Unity does not collect on its own.</summary>

@@ -2381,3 +2381,83 @@
     border-color: rgb(48, 59, 66);
     color: rgb(90, 96, 102);
 }
+
+/* ---- In-game menu (Top Bar's Menu button) ------------------------------------------------
+   Full-screen so a click anywhere outside the panel has nowhere else to land, and dark enough
+   that the game behind reads as suspended without being hidden. */
+
+.game-menu-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(6, 8, 10, 0.82);
+    align-items: center;
+    justify-content: center;
+}
+
+.game-menu-dialog {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(6, 8, 10, 0.9);
+    align-items: center;
+    justify-content: center;
+}
+
+.game-menu-panel {
+    width: 340px;
+    padding: 24px;
+    background-color: rgba(16, 20, 25, 0.98);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+}
+
+.game-menu-title {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgb(150, 158, 165);
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+}
+
+.game-menu-button {
+    height: 36px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 1px;
+    border-radius: 0;
+    border-color: rgb(48, 59, 66);
+    color: rgb(215, 224, 229);
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.game-menu-button:hover {
+    border-color: rgb(85, 221, 245);
+    color: rgb(85, 221, 245);
+    background-color: rgb(26, 34, 40);
+}
+
+/* Quitting is the one entry that cannot be undone, so it carries the red the rest of the
+   interface keeps for something actually going wrong. */
+.game-menu-button-danger:hover {
+    border-color: rgb(220, 105, 95);
+    color: rgb(220, 105, 95);
+}
+
+.game-menu-button-quiet {
+    color: rgb(150, 158, 165);
+    margin-top: 8px;
+    margin-bottom: 0;
+}
+
+.game-menu-notice {
+    font-size: 11px;
+    color: rgb(150, 158, 165);
+    white-space: normal;
+    margin-bottom: 12px;
+}
