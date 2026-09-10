@@ -1,5 +1,6 @@
 using Game.Core;
 using Game.Gameplay.Buildings;
+using Game.Gameplay.Exploration;
 using Game.Gameplay.Sites;
 using Game.Presentation;
 using UnityEngine;
@@ -94,14 +95,16 @@ namespace Game.UI
 
             if (TryShowPanelFor(occupant)) return;
 
-            // The parked fleet is not a grid occupant - it is a view standing on free ground - so it
-            // is asked for separately, after the occupant lookup came back with nothing. Clicking a
-            // robot opens the map, which is the only thing there is to do with one: a mission is
-            // designated out there, not here.
-            if (gameRuntime.ExplorerRobotStandsOn(cell))
+            // An explorer robot is not a grid occupant - it is a continuous position on free ground,
+            // and occupying a cell would stop a building being placed wherever it happened to be
+            // standing - so it is asked for separately, after the occupant lookup came back with
+            // nothing. Clicking one opens its own panel, where the single action is to send it
+            // wandering or call it home.
+            ExplorerRobotRuntime robot = gameRuntime.ExplorerRobotAt(cell);
+            if (robot != null)
             {
                 storagePanel.Hide();
-                gameRuntime.Selection.OpenGlobalPanel(SectorMapPanelController.PanelName);
+                gameRuntime.Selection.SelectExplorerRobot(robot);
                 return;
             }
 

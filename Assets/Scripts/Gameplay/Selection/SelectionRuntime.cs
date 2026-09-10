@@ -1,5 +1,6 @@
 using System;
 using Game.Gameplay.Buildings;
+using Game.Gameplay.Exploration;
 using Game.Gameplay.Sites;
 
 namespace Game.Gameplay.Selection
@@ -21,6 +22,15 @@ namespace Game.Gameplay.Selection
     {
         public BuildingRuntime SelectedBuilding { get; private set; }
         public ConstructionSiteRuntime SelectedSite { get; private set; }
+
+        /// <summary>
+        /// The explorer robot being inspected. Its own slot for the same reason a site has one: it
+        /// is not a building, so every per-building panel keying off <see cref="SelectionChanged"/>
+        /// with an <c>as</c> cast would have had to learn to ignore it, and a robot occupies no cell
+        /// for the world to mark.
+        /// </summary>
+        public ExplorerRobotRuntime SelectedExplorerRobot { get; private set; }
+
         public string ActiveGlobalPanel { get; private set; }
 
         /// <summary>
@@ -37,15 +47,28 @@ namespace Game.Gameplay.Selection
 
         public event Action<BuildingRuntime> SelectionChanged;
         public event Action<ConstructionSiteRuntime> SiteSelectionChanged;
+        public event Action<ExplorerRobotRuntime> ExplorerRobotSelectionChanged;
         public event Action<string> GlobalPanelChanged;
 
         public void Select(BuildingRuntime building)
         {
             if (ActiveGlobalPanel != null) CloseGlobalPanel();
             ClearSite();
+            ClearExplorerRobot();
 
             SelectedBuilding = building;
             SelectionChanged?.Invoke(building);
+        }
+
+        /// <summary>Inspects an explorer robot - what it is doing and the one action it offers, rather than anything about the ground it is standing on.</summary>
+        public void SelectExplorerRobot(ExplorerRobotRuntime robot)
+        {
+            if (ActiveGlobalPanel != null) CloseGlobalPanel();
+            ClearBuilding();
+            ClearSite();
+
+            SelectedExplorerRobot = robot;
+            ExplorerRobotSelectionChanged?.Invoke(robot);
         }
 
         /// <summary>Inspects a construction site - its bill of materials rather than a building's production.</summary>
@@ -53,6 +76,7 @@ namespace Game.Gameplay.Selection
         {
             if (ActiveGlobalPanel != null) CloseGlobalPanel();
             ClearBuilding();
+            ClearExplorerRobot();
 
             SelectedSite = site;
             SiteSelectionChanged?.Invoke(site);
@@ -63,6 +87,7 @@ namespace Game.Gameplay.Selection
         {
             ClearBuilding();
             ClearSite();
+            ClearExplorerRobot();
         }
 
         void ClearBuilding()
@@ -79,6 +104,14 @@ namespace Game.Gameplay.Selection
 
             SelectedSite = null;
             SiteSelectionChanged?.Invoke(null);
+        }
+
+        void ClearExplorerRobot()
+        {
+            if (SelectedExplorerRobot == null) return;
+
+            SelectedExplorerRobot = null;
+            ExplorerRobotSelectionChanged?.Invoke(null);
         }
 
         public BuildingRuntime GetSelectedBuilding() => SelectedBuilding;

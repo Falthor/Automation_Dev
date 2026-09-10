@@ -206,6 +206,7 @@ Research
 Inventory
 Selection
 Sites (construction sites + builder robots)
+Exploration (free-roaming explorer robots)
 Notifications
 ```
 

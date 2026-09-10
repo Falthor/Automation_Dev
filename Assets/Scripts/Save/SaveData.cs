@@ -104,6 +104,17 @@ namespace Game.Save
         /// </summary>
         public JObject ExpeditionZones;
 
+        /// <summary>
+        /// Every explorer robot on free exploration: position, heading, state, where its drift had
+        /// got to and how many times it has been out. An opaque blob owned by
+        /// Game.Gameplay.Exploration.ExplorerRobotSystem's own Capture/Restore pair.
+        ///
+        /// No <c>Version</c> bump - an additive field with a per-field fallback, which restores as a
+        /// fleet standing at the base. That is the truthful default rather than a convenient one: a
+        /// robot nobody has sent anywhere is at home.
+        /// </summary>
+        public JObject ExplorerRobots;
+
         public float ComputeReserve;
 
         public string ResearchActiveId;

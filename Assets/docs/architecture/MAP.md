@@ -50,7 +50,8 @@ sizes: a default would be a second copy of a setting, so a caller that forgets o
 not hold: a per-region state would forbid every free-form revelation.
 
 **The radius writes, it does not define.** The Core's action radius is one writer among others — a
-mission is another — and a discovered cell stays discovered whatever the radius later does.
+mission is another, a wandering explorer robot a third (§2.1) — and a discovered cell stays
+discovered whatever the radius later does.
 `DiscoveryRuntime` knows nothing about the Core: it takes a centre and a radius, not a building, so no
 read path can recompute a distance and collapse the fog back into a disc. `GameRuntime` is the writer,
 after `Research.Tick`, so a widened radius is written the frame it is granted.
@@ -65,6 +66,57 @@ and the captured save string is unchanged.
 against what it last uploaded, which is the whole of "re-upload only when the state changed".
 
 **Persistence:** `SaveData.Discovered`, run-length encoded — see `CONTRACTS.md` §14.
+
+### 2.1 Free exploration
+
+`ExplorerRobotSystem` (`Game.Gameplay.Exploration`), owned by `GameRuntime` and ticked from its one
+central `Update`. **A prototype**, and the values on `ExplorerRobotSettings`
+(`Assets/Data/World/ExplorerRobotSettings.asset`) are placed to make it run rather than balanced.
+
+**Beside the mission system, never through it.** No charge is spent, no report is produced, no zone is
+chosen and no site is involved; the robots are built from their own settings and wait on nothing, so
+they stand at the base from the first frame. The two answer different questions — a mission is aimed
+and resolves, this is an action the player starts and interrupts — and a robot out here is **visible
+the whole time it is working**, which is the opposite of a mission's "nothing reaches the Core while a
+robot is out".
+
+Three states, and no more: `Idle` at the base, `Exploring`, `Returning`. Clicking a robot in the world
+opens its panel; the one button there sends an idle one out and turns a wandering one round.
+
+**There is no destination, and that is the design rather than a gap.** A destination plus straight-line
+travel uncovers a radius: three sorties would draw three spokes out of the Core and the map would fill
+in as a star. So a robot carries a *heading* that changes continuously, and three things bend it, in
+this order:
+
+| | |
+|---|---|
+| a **drift** | a value noise sampled over a phase that advances with time, never a fresh draw per frame — independent draws average to nothing over a second and leave the robot shivering along a straight line. This is what makes the trace serpentine |
+| a **pull towards the unknown** | two probes off the current heading (±45°, 30 cells out), each reading a robot-sized patch; the robot leans towards whichever side has less behind it, scaled by the difference rather than its sign. Enough to follow the edge of what it has opened instead of crossing back over it, with nothing that resembles an objective |
+| a **recall** | past `maxRadiusCells` (**330**, the same figure the expedition zones use for their outer edge) the heading bends inwards, ramped over the next 40 cells. Not a wall and not a stop — it turns |
+
+**A turn rate is a curve radius, read against the speed**: at `v` cells per second and `w` degrees per
+second the robot turns on a circle of radius `v / (w · π/180)`. At the shipped 2 and 6 that is a
+19-cell arc, which reads as a wide meander; at 30°/s it would be 3.8 cells, which reads as a robot
+spinning on the spot. That is why the drift is small, and it is the first thing to know before moving
+any of the three.
+
+- **The pull reads off-map as discovered.** There is nothing out there to find, so the world's edge
+  repels exactly like ground already walked. Read as unknown it would draw every robot at the border.
+- **Departure bearings step by the golden ratio**, not by a draw: consecutive sorties leave about 137.5°
+  apart, so two of them never uncover the same ground. A fair draw is perfectly free to put two five
+  degrees apart, which is the one thing this prototype is watched for.
+- **It uncovers while it advances, not on its return.** A disc of `revealRadiusCells` every cell of
+  travel — overlapping heavily at a radius of 6, so the trail is a band rather than a row of beads, the
+  same reasoning `MissionSystem.RevealTrail` uses. The return leg writes nothing at all: it is ground
+  the outward leg has already answered for.
+
+**Persistence:** `SaveData.ExplorerRobots` — position, heading, state, plus where the drift had got to
+and how many sorties have been made, so a reloaded robot carries on the bend it was in the middle of
+rather than snapping onto a fresh one. No destination, because there is none to have.
+
+Measured on the shipped values: over a 240 s sortie the path strays well off the line between its own
+two ends (so it is not a ruler), and over 120 s it ends more than half its path length from the base
+(so it is not circling). `ExplorerRobotSystemTests` holds both, and prints the figures.
 
 ## 3. Drawing the fog
 

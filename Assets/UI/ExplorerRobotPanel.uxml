@@ -1,0 +1,33 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="GameUI.uss" />
+
+    <ui:VisualElement name="ExplorerRobotPanelRoot" class="overlay-root overlay-root-right hidden" picking-mode="Ignore">
+        <ui:VisualElement class="panel panel-accent" picking-mode="Position">
+            <ui:VisualElement class="header-row">
+                <ui:Label name="ExplorerRobotTitle" text="Robot explorateur" class="title title-name" />
+                <ui:Button name="ExplorerRobotCloseButton" text="&#215;" class="close-button" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="extractor-body">
+                <ui:Label text="ÉTAT" class="extractor-section-label section-label-spaced" />
+                <ui:VisualElement class="production-rate-row">
+                    <ui:Label text="ACTIVITÉ" class="production-rate-caption" />
+                    <ui:Label name="ExplorerRobotState" text="" class="production-rate-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="production-rate-row">
+                    <ui:Label text="DISTANCE" class="production-rate-caption" />
+                    <ui:Label name="ExplorerRobotDistance" text="" class="production-rate-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="production-rate-row">
+                    <ui:Label text="SORTIES" class="production-rate-caption" />
+                    <ui:Label name="ExplorerRobotSorties" text="" class="production-rate-value" />
+                </ui:VisualElement>
+
+                <!-- One button, whose label is the state read back: a robot at rest is offered the
+                     way out, one that is out is offered the way home. -->
+                <ui:Button name="ExplorerRobotActionButton" text="Exploration" class="recipe-action-button" />
+                <ui:Label name="ExplorerRobotHint" text="" class="production-time-label" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

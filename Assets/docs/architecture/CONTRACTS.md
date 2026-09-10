@@ -233,13 +233,14 @@ Extractor does not need to implement this player-selected-recipe contract - its 
 
 ## 7. Selection
 
-Selection owns what is currently inspected and the global UI-panel selection state. Three slots - an inspected **building**, an inspected **construction site**, and a named **global panel** - of which at most one is ever set: opening any of them closes the other two.
+Selection owns what is currently inspected and the global UI-panel selection state. Four slots - an inspected **building**, an inspected **construction site**, an inspected **explorer robot**, and a named **global panel** - of which at most one is ever set: opening any of them closes the others.
 
 The public API must support the equivalent behavior of:
 
 ```text
 Select(building)
 SelectSite(site)
+SelectExplorerRobot(robot)
 Clear()
 GetSelectedBuilding()
 OpenGlobalPanel(name) / CloseGlobalPanel()
@@ -251,7 +252,9 @@ and one observable changed-notification per inspection slot.
 
 A construction site gets a slot of its own rather than being carried in the building slot. Its segments *are* `BuildingRuntime`s, and are what the grid returns for those cells, so routing one through `Select` would open the panel of the building it is going to become - a production panel over a machine that does not exist yet. What a site is waiting for and what a building is doing are different questions about the same cell.
 
-`GameRuntime.IsUIBlockingInput` is true while any of the three slots is set.
+An explorer robot gets one for the same reason read the other way round: it is **not** a `BuildingRuntime` at all, and every per-building panel keys off the building slot's notification with an `as` cast - so riding that slot would have needed each of them to learn to ignore it. It is also not a grid occupant, so unlike the other two slots there is no cell for the world to mark: a robot is found by distance from the click, not by lookup (`MAP.md` §2.1).
+
+`GameRuntime.IsUIBlockingInput` is true while any of the four slots is set.
 
 **Routing a world click to a panel** is one map, owned by whichever component resolves clicks, and reused rather than copied - notably by the construction site panel's handover (§15). Only building types that actually have a panel may become the selection: selecting one that has none would block world input with nothing able to clear it.
 
@@ -445,6 +448,8 @@ public BuildingRuntime CreateForRestore(BuildingDefinition definition,
 public void RestoreBuildingCap(int? cap)                                // ConstructionService
 public void Restore(float? elapsedSeconds)                              // PlayClock
 ```
+
+`SaveData.ExplorerRobots` is a fourth `JObject` blob of the same kind, owned by `Game.Gameplay.Exploration.ExplorerRobotSystem` (`MAP.md` §2.1): per robot its position, heading, state, drift phase and sortie count. No `Version` bump - additive with a per-field fallback, and an absent key restores as a fleet standing at the base, which is the truthful default rather than a convenient one: a robot nobody has sent anywhere is at home. A blob listing fewer robots than the configured fleet restores the rest at home too.
 
 `CoreRuntime`'s own `CaptureState`/`RestoreState` (TASK_04_PLAFOND_RAYON.md §6) now also round-trips `actionRadiusCells` alongside `cuTimer`/`contents` - absent falls back to `CoreDefinition.ActionRadiusCells`, never to 0. `SaveData.BuildingCap` (nullable) is the matching top-level field for `ConstructionService.BuildingCap`, restored via `RestoreBuildingCap`; absent falls back to `ConstructionService.DefaultBuildingCap` (40). Neither addition bumped `SaveData.Version` - both are simple additive fields with a per-field fallback, not the kind of structural reshaping the Version gate exists for. `SaveData.PlayTimeSeconds` (nullable, `Game.Gameplay.Session.PlayClock`) is a third of the same kind: how long the run has been played, in simulated seconds; absent restores as a run starting its count, never as one that lasted zero seconds. `DepositSaveData` lost its `RemainingQuantity` for the opposite reason: a deposit never runs out (ALIGNEMENT_PROJET.md §8), so it holds no mutable state and there is nothing to round-trip - only where it is and what it is. No `Version` bump either: an older save's key is simply ignored, which is exactly right now that the answer is "infinite" whatever number it carried.
 

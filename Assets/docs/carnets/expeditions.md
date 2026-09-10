@@ -628,3 +628,52 @@ site du Noyau secondaire — qui dispose de deux rangs de 20° — donnait dix d
 proches, qui se partagent des rangs de moins de trois : la paire la plus proche retombait de 8,5 à 2,0
 cases. Borné à une fraction de son propre rang, un site lointain garde ses ±10° et un site proche prend
 ce que sa part permet.
+
+## 17. Errer, prototype — pourquoi un cap et non une destination
+
+Un prototype, posé à côté du système de missions et branché sur rien de lui : aucune charge dépensée,
+aucun rapport, aucune zone choisie, aucun site. `ExplorerRobotSystem` (`Game.Gameplay.Exploration`),
+état courant décrit dans `MAP.md` §2.1. Les valeurs sont posées pour que ça tourne.
+
+**La destination était le piège, et elle était tentante.** Un robot avec une cible et un déplacement
+rectiligne révèle un rayon. Trois sorties donnent trois traits partant du Noyau, et la carte se remplit
+en étoile — exactement ce que les traînées de mission font déjà, en plus lent. Le robot n'a donc pas de
+cible : il a un **cap**, que trois choses courbent en continu.
+
+**Un bruit tiré à chaque frame ne fait rien du tout.** C'est le point non évident de la dérive. Des
+tirages indépendants s'annulent sur une seconde : le robot tremble et avance droit. Il faut un bruit qui
+**évolue** — une valeur échantillonnée sur une phase qui avance avec le temps, lissée par un smoothstep
+pour que la *vitesse de rotation* soit continue elle aussi. Une interpolation linéaire mettrait un
+angle dans la trajectoire à chaque phase entière, ce qui se lit comme un tressaillement une fois par
+cycle.
+
+**Un taux de rotation est un rayon de courbure, lu contre la vitesse.** À `v` cases/s et `w` degrés/s le
+robot tourne sur un cercle de rayon `v / (w · π/180)`. C'est la chose à savoir avant de toucher aux trois
+forces : à 2 et 6, c'est un arc de 19 cases, un méandre large ; à 30 degrés/s ce serait 3,8 cases, un
+robot qui tourne sur lui-même près de la base. La dérive est petite pour cette raison, et pour aucune
+autre.
+
+**Le bord du monde devait repousser.** L'attirance vers l'inconnu lit deux sondes à ±45°, et hors carte
+compte comme **découvert** : il n'y a rien à trouver là-bas, donc la bordure repousse comme du sol déjà
+foulé. Lue comme inconnue, elle serait la chose la plus attirante de la carte et tous les robots
+partiraient droit dessus.
+
+**Le nombre d'or plutôt qu'un tirage, pour la même raison que les sites.** « Deux sorties successives ne
+doivent pas se superposer » est ce qu'on regarde ; un tirage équitable est parfaitement libre de placer
+deux caps à cinq degrés l'un de l'autre. Le pas de 1/φ donne 137,5° entre deux sorties consécutives.
+Sur six sorties le minimum par paires descend nécessairement à 32° — le théorème des trois distances —
+et c'est encore ample : le robot ouvre une bande de 12 cases de large, donc deux traces à 32° cessent de
+se recouvrir à une vingtaine de cases de la base. Ce que le pas achète, c'est que ce plancher **existe**.
+
+**Mesuré, parce que la forme de la trace est le livrable.** Sur 480 cases parcourues la trajectoire
+s'écarte de 62,8 cases de la corde entre ses deux extrémités : ce n'est pas une règle. Sur 240 cases elle
+finit à 179 du départ, soit 0,75 du chemin : elle ne tourne pas en rond. Partie de 360 cases, elle culmine
+à 364 et revient à 254 en une minute : la limite est un virage, pas un mur. Ces trois chiffres sont dans
+`ExplorerRobotSystemTests`, qui les imprime — un test qui surveille une forme doit rendre ses mesures
+lisibles, sinon un passage vert ne dit rien de ce qui a été vérifié.
+
+**Une note d'outillage.** Le pont d'automatisation de l'éditeur refuse désormais `TestRunnerApi.Execute`
+comme appel interactif, donc la suite ne peut plus être lancée par là. `Assets/Editor/RunEditModeTests.cs`
+la démarre depuis un fichier sentinelle (`Temp/run-tests`) au rechargement des scripts, et écrit son
+rapport dans `Temp/test-report.txt` — un fichier plutôt qu'un log parce qu'une exécution traverse un
+domain reload : celui qui l'a demandée n'est plus là pour lire la console.

@@ -36,6 +36,7 @@ namespace Game.Tests.EditMode.Save
             DecorRemoved = "4096,4097,131072",
             Missions = new JObject { ["nextId"] = 4, ["appeared"] = true },
             ExpeditionZones = new JObject { ["chosen"] = 2, ["inner"] = 22f },
+            ExplorerRobots = new JObject { ["robots"] = new JArray { new JObject { ["x"] = 40f, ["state"] = 1 } } },
             ComputeReserve = 12.5f,
             ResearchActiveId = "automation",
             ResearchProgress = 0.75f,
@@ -70,7 +71,7 @@ namespace Game.Tests.EditMode.Save
         {
             "Version", "SavedAtUtc",
             "TerrainSeed", "TerrainSize", "TerrainScale", "TerrainProportion", "Discovered", "DecorRemoved",
-            "Missions", "ExpeditionZones",
+            "Missions", "ExpeditionZones", "ExplorerRobots",
             "ComputeReserve",
             "ResearchActiveId", "ResearchProgress", "ResearchQueue", "ResearchUnlocked",
             "ConstructionSites", "CoreDirectives",

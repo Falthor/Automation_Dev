@@ -421,6 +421,7 @@ GameObject:
   - component: {fileID: 60635903}
   - component: {fileID: 60635904}
   - component: {fileID: 60635905}
+  - component: {fileID: 60635906}
   m_Layer: 0
   m_Name: GameUI
   m_TagString: Untagged
@@ -768,6 +769,21 @@ MonoBehaviour:
   - {fileID: 2800000, guid: a38c9a4c699d16649a3f3e5c1b724659, type: 3}
   - {fileID: 2800000, guid: c6890d3d2f57f6f4791e008b793b0a07, type: 3}
   - {fileID: 2800000, guid: eb2866969ab870c4292af0e657a730db, type: 3}
+--- !u!114 &60635906
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 60635885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47b7b293ecd19e440a0968b7fda81e49, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.UI::Game.UI.ExplorerRobotPanelController
+  uiDocument: {fileID: 60635889}
+  visualTree: {fileID: 9197481963319205126, guid: 1b74ea3bc17a7264985f484150f238ed, type: 3}
+  gameRuntime: {fileID: 2103112250}
 --- !u!1 &134080686
 GameObject:
   m_ObjectHideFlags: 0
@@ -4818,6 +4834,7 @@ MonoBehaviour:
   sectorSettings: {fileID: 11400000, guid: 35ccf0ce1e8048249b013fdd367d6d15, type: 2}
   missionSettings: {fileID: 11400000, guid: e280420ccc8a4fe4fba222361cae2e75, type: 2}
   expeditionZoneSettings: {fileID: 11400000, guid: 3718a48d7269cca4187570368ee8ace1, type: 2}
+  explorerRobotSettings: {fileID: 11400000, guid: e2d3a5506d040a740ae3e8954cf7dbe0, type: 2}
   decorSettings: {fileID: 11400000, guid: 649c04cc3933e334e9e691e297317a73, type: 2}
   decorVisuals: {fileID: 696337366}
   worldGenerationSettings: {fileID: 11400000, guid: 592ff7fb40a07364995fc0c9a5f6d49b, type: 2}

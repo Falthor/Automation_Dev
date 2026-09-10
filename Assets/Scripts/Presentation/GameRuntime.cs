@@ -6,6 +6,7 @@ using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Directives;
 using Game.Gameplay.Expeditions;
+using Game.Gameplay.Exploration;
 using Game.Gameplay.Missions;
 using Game.Gameplay.Notifications;
 using Game.Gameplay.Power;
@@ -98,6 +99,13 @@ namespace Game.Presentation
         /// </summary>
         [SerializeField] ExpeditionZoneSettings expeditionZoneSettings;
 
+        /// <summary>
+        /// How an explorer robot wanders when the player sends it out freely. Optional: null means a
+        /// world with no explorer robots on the ground at all, which is a world without free
+        /// exploration rather than a broken one.
+        /// </summary>
+        [SerializeField] ExplorerRobotSettings explorerRobotSettings;
+
         /// <summary>What grows on the ground and how thickly. Optional: null means a world with no decor, which is a plain world rather than a broken one.</summary>
         [SerializeField] DecorSettings decorSettings;
 
@@ -174,11 +182,27 @@ namespace Game.Presentation
         /// <summary>One texel per sector, for the whole map - what the zoomed-out map draws. Rebuilds only the chunks discovery actually moved, so a still frame costs one comparison.</summary>
         public SectorMapImage SectorMap { get; private set; }
 
-        /// <summary>Where the explorer robots stand between missions. A view, driven from the tick below; the fleet's real state is charges in MissionSystem.</summary>
-        ExplorerRobotParkView _explorerPark;
+        /// <summary>
+        /// Free exploration: robots the player sends out to wander, which uncover ground as they go.
+        /// Null when no explorer settings are configured.
+        ///
+        /// <b>Beside MissionSystem, never through it.</b> Nothing here spends a mission charge or
+        /// produces a report - see ExplorerRobotSystem.
+        /// </summary>
+        public ExplorerRobotSystem ExplorerRobots { get; private set; }
 
-        /// <summary>Whether a parked explorer robot stands on this cell. What lets a click on the fleet open the map instead of falling through to empty ground.</summary>
-        public bool ExplorerRobotStandsOn(GridCoord cell) => _explorerPark != null && _explorerPark.StandsOn(cell);
+        /// <summary>Draws the explorer robots wherever they are. A view over ExplorerRobots, refreshed from the tick below and authoritative for nothing.</summary>
+        ExplorerRobotFleetView _explorerFleet;
+
+        /// <summary>
+        /// The explorer robot under a cell, or null. What lets a click on one open its panel instead
+        /// of falling through to empty ground.
+        ///
+        /// The cell's centre is what is asked for, because a wandering robot stands between cells -
+        /// it is a continuous position, not a grid occupant.
+        /// </summary>
+        public ExplorerRobotRuntime ExplorerRobotAt(GridCoord cell)
+            => ExplorerRobots?.At(new Vector2(cell.X + 0.5f, cell.Y + 0.5f));
 
         /// <summary>
         /// The scene's one depth ladder - every sorted-band rank comes from it. There must be
@@ -291,7 +315,8 @@ namespace Game.Presentation
         /// </summary>
         public bool IsUIBlockingInput => Selection.ActiveGlobalPanel != null
             || Selection.SelectedBuilding != null
-            || Selection.SelectedSite != null;
+            || Selection.SelectedSite != null
+            || Selection.SelectedExplorerRobot != null;
 
         /// <summary>
         /// The frame a UI panel last closed. World input adapters also skip their click handling
@@ -400,7 +425,17 @@ namespace Game.Presentation
             // The zones read that tolerance back off the range, so the band and the placement cannot
             // drift apart - see ExpeditionZoneSystem.SecondaryCoreToleranceCells.
             SectorMap = new SectorMapImage(Sectors, Discovery);
-            _explorerPark = new ExplorerRobotParkView(Grid, missionSettings, DepthSort);
+
+            // Free exploration, built from its own settings and gated on nothing: it is not the
+            // mission fleet under another name, so it does not wait on the CU threshold that brings
+            // the probes out. The robots stand at the base from the first frame.
+            if (explorerRobotSettings != null)
+            {
+                ExplorerRobots = new ExplorerRobotSystem(explorerRobotSettings, Discovery,
+                    World?.CoreCenterCells ?? Vector2.zero, RobotParkOrigin(), Terrain.Seed);
+                ExplorerRobots.RestoreState(loadedSave?.ExplorerRobots);
+                _explorerFleet = new ExplorerRobotFleetView(Grid, explorerRobotSettings, buildingShadowSettings);
+            }
 
             // Before the missions, which are gated on it. The inner edge is read off the Core once, here,
             // and then travels in the save: the zones are cut against the ground the Core already owned
@@ -574,6 +609,7 @@ namespace Game.Presentation
                 DecorRemoved = Decor?.CaptureState(),
                 Missions = Missions?.CaptureState(),
                 ExpeditionZones = ExpeditionZones?.CaptureState(),
+                ExplorerRobots = ExplorerRobots?.CaptureState(),
                 ComputeReserve = Compute.Reserve,
                 ResearchActiveId = Research.ActiveResearch != null ? Research.ActiveResearch.Id : null,
                 ResearchProgress = Research.AbsorbedCu,
@@ -842,10 +878,12 @@ namespace Game.Presentation
             // because the probe threshold is a fraction of the cap - see MissionSettings.
             Missions?.Tick(Time.deltaTime, Compute.Reserve, ComputeSystem.ReserveCap);
 
-            // Immediately after, so the frame the fleet exists is the frame it is on the ground.
-            // Does nothing at all until then, and nothing again once it has spawned. Parked at the
-            // Core's hatch, falling back to the Core itself if a game somehow has no reserve.
-            _explorerPark?.Refresh(Missions, (BuildingRuntime)World?.CoreStorage ?? World?.Core);
+            // Free exploration, after the Core's disc for the same reason a mission is: a robot
+            // uncovering ground this frame writes on top of an up-to-date map rather than under it.
+            // Driven from here and only from here - no robot has an Update of its own
+            // (PROJECT_ARCHITECTURE.md §17).
+            ExplorerRobots?.Tick(Time.deltaTime);
+            _explorerFleet?.Refresh(ExplorerRobots, Time.deltaTime);
 
             // Scaled deltaTime, like every system above it - which is the whole of how the run
             // clock pauses and resumes. Pause sets Time.timeScale to 0, so this is fed 0 and stops
