@@ -21,4 +21,7 @@ MonoBehaviour:
   rewardItem: {fileID: 0}
   grants: {fileID: 11400000, guid: c6029416385a70ce8294b6d8f375ac74, type: 2}
   unlocksResearchMenu: 0
-  rewardLabel: Deverrouille CPU, Memoire et Datacenter
+  rewardLabels:
+  - CPU Mk.I
+  - Memoire Mk.I
+  - Datacenter

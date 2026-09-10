@@ -32,8 +32,8 @@ namespace Game.Data
         [Tooltip("Also hands the player the Research menu itself (Top Bar card + Bottom Nav icon). Not a research id: what it opens is a menu, and no research can be its own prerequisite.")]
         [SerializeField] bool unlocksResearchMenu;
 
-        [Tooltip("What the REWARD line says when there is no reward item - e.g. \"Deverrouille Datacenter\". Left empty, a directive that grants an unlock says so in general terms.")]
-        [SerializeField] string rewardLabel;
+        [Tooltip("What this directive opens, one entry per line of the REWARD block. Left empty, a directive that grants an unlock says so in general terms.")]
+        [SerializeField] string[] rewardLabels = System.Array.Empty<string>();
 
         public string Id => id;
         public RecipeIngredient[] Requirements => requirements;
@@ -49,14 +49,15 @@ namespace Game.Data
         public bool UnlocksResearchMenu => unlocksResearchMenu;
 
         /// <summary>
-        /// How to word this directive's reward when no item stands for it, or empty to let the panel
-        /// word it generically.
+        /// What this directive opens, one entry per line, or empty to let the panel word it
+        /// generically.
         ///
-        /// Written here rather than taken from the granted unlock's own name, because the two are not
-        /// the same sentence: one directive opens three researches at once and can only be described
-        /// in general, another opens exactly one and should name it. The unlock's name has its own
-        /// job - it is what the research tree prints as a missing prerequisite.
+        /// <b>A list rather than a sentence.</b> A directive grants one unlock id but that id can
+        /// open several things at once, and naming them in one string ran off the edge of the panel
+        /// as soon as it opened more than two. Written here rather than taken from the granted
+        /// unlock's own name: the unlock's name has its own job - it is what the research tree
+        /// prints as a missing prerequisite - and it names the directive, not its contents.
         /// </summary>
-        public string RewardLabel => rewardLabel;
+        public string[] RewardLabels => rewardLabels;
     }
 }

@@ -29,13 +29,11 @@
                 <!-- Rewards that are not items. Each gets its own row rather than text appended to
                      the item's name, so a directive granting only one of them shows exactly that
                      one. -->
-                <!-- Worded by the directive itself (CoreDirectiveDefinition.RewardLabel), not by the
-                     unlock it grants: one directive opens three researches and can only be described
-                     in general, another opens exactly one and names it. -->
-                <ui:VisualElement name="CoreDirectiveRewardResearch" class="core-directive-reward hidden">
-                    <ui:VisualElement class="core-directive-reward-glyph" />
-                    <ui:Label name="CoreDirectiveRewardResearchName" text="" class="core-directive-reward-name" />
-                </ui:VisualElement>
+                <!-- Worded by the directive itself (CoreDirectiveDefinition.RewardLabels), not by
+                     the unlock it grants, and one row per entry: an unlock can open four things and
+                     naming them in a single label ran off the edge of the panel. Rows are built by
+                     the controller. -->
+                <ui:VisualElement name="CoreDirectiveRewardResearchList" class="hidden" />
                 <ui:VisualElement name="CoreDirectiveRewardMenu" class="core-directive-reward hidden">
                     <ui:VisualElement class="core-directive-reward-glyph" />
                     <ui:Label text="Menu Recherche" class="core-directive-reward-name" />

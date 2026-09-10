@@ -21,4 +21,6 @@ MonoBehaviour:
   rewardItem: {fileID: 0}
   grants: {fileID: 11400000, guid: b5f183052c496fbd7183a5c7e2649b63, type: 2}
   unlocksResearchMenu: 0
-  rewardLabel: Deverrouille Moteur electrique et Module de controle
+  rewardLabels:
+  - Moteur electrique
+  - Module de controle

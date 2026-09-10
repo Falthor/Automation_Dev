@@ -21,4 +21,8 @@ MonoBehaviour:
   rewardItem: {fileID: 0}
   grants: {fileID: 11400000, guid: a4e072f91b385eac607294b6d1538a52, type: 2}
   unlocksResearchMenu: 0
-  rewardLabel: Deverrouille Usine, Electroaimant et Mecanisme electrique
+  rewardLabels:
+  - Usine
+  - Repartiteur
+  - Electroaimant
+  - Mecanisme electrique

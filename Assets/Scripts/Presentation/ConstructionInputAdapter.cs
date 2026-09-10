@@ -97,8 +97,17 @@ namespace Game.Presentation
         /// <summary>Bound to the synthetic control that is either Ctrl key, which is what the two literal reads it replaced meant together.</summary>
         InputAction _dropDragAxis;
 
+        /// <summary>
+        /// The document consulted to tell a click on the interface from a click on the world -
+        /// found rather than wired, following the camera controllers' precedent: there is one in
+        /// the scene, and a missing one only means the pointer is never considered to be over UI,
+        /// which PointerOverUI already treats as "not over UI" anyway.
+        /// </summary>
+        UnityEngine.UIElements.UIDocument _uiDocument;
+
         void Start()
         {
+            _uiDocument = FindAnyObjectByType<UnityEngine.UIElements.UIDocument>();
             _rotate = InputBindings.Find(InputActionCatalogue.Rotate);
             _moveInputSide = InputBindings.Find(InputActionCatalogue.MoveInputSide);
             _dropDragAxis = InputBindings.Find(InputActionCatalogue.DropDragAxis);
@@ -172,6 +181,10 @@ namespace Game.Presentation
             {
                 gameRuntime.Construction.Cancel();
             }
+
+            // The one exception to the rule below, taken before it: right-clicking the very
+            // building whose panel is open removes it.
+            if (TryDemolishTheInspectedBuilding(cellUnderMouse)) return;
 
             // A UI panel (Building menu, Storage panel, ...) owns mouse/keyboard input while
             // open, and for one extra frame after it closes - otherwise the same click that
@@ -785,6 +798,37 @@ namespace Game.Presentation
         /// drag's axis rather than to the rotation the ghost was showing.
         /// </summary>
         static bool IsDraggableRun(BuildingDefinition definition) => definition is ConveyorDefinition;
+
+        /// <summary>
+        /// Right-clicking the building whose contextual panel is open removes it, panel and all.
+        ///
+        /// <b>Why it needed saying at all.</b> Demolition was never missing - the adapter simply
+        /// never got that far: <c>IsUIBlockingInput</c> is true the moment
+        /// <c>Selection.SelectedBuilding</c> is set, so opening a building's panel made the world
+        /// inert, right button included. Hence one narrow exception rather than a relaxation of the
+        /// rule: it fires only on the press frame, only with no ghost armed, only when the cell
+        /// under the cursor is occupied by <b>that same</b> building, and never while the pointer
+        /// is over the interface - the panel is docked over the world, and a right-click inside it
+        /// must not reach a building that happens to sit behind it.
+        ///
+        /// The selection is cleared first, so the panel goes with the building rather than
+        /// surviving a frame over something that no longer exists.
+        /// </summary>
+        bool TryDemolishTheInspectedBuilding(GridCoord cell)
+        {
+            BuildingRuntime inspected = gameRuntime.Selection.SelectedBuilding;
+            if (inspected == null) return false;
+            if (gameRuntime.Construction.Selected != null) return false; // a ghost is armed: right-click cancels it
+
+            Mouse mouse = Mouse.current;
+            if (mouse == null || !mouse.rightButton.wasPressedThisFrame) return false;
+            if (PointerOverUI.At(_uiDocument, mouse.position.ReadValue())) return false;
+            if (!ReferenceEquals(gameRuntime.Grid.GetOccupant(cell), inspected)) return false;
+
+            gameRuntime.Selection.Clear();
+            DemolishAt(cell);
+            return true;
+        }
 
         void HandleDemolition(GridCoord cell)
         {

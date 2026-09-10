@@ -21,4 +21,6 @@ MonoBehaviour:
   rewardItem: {fileID: 0}
   grants: {fileID: 11400000, guid: 93df61e80a274d9b5f6183a5c0427941, type: 2}
   unlocksResearchMenu: 1
-  rewardLabel: Deverrouille Engrenage et Bobine de cuivre
+  rewardLabels:
+  - Engrenage
+  - Bobine de cuivre
