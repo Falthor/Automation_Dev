@@ -270,10 +270,39 @@ namespace Game.Presentation
                 gameRuntime.Construction.SetPreviewRotation(next);
             }
 
+            // T moves the single entry arrow round the building, skipping the output side. Only
+            // buildings that declare one input have a side to move; for the rest the key does
+            // nothing rather than something invisible.
+            if (keyboard.tKey.wasPressedThisFrame
+                && gameRuntime.Construction.Selected != null
+                && gameRuntime.Construction.Selected.HasSingleInputArrow)
+            {
+                gameRuntime.Construction.SetPreviewInputSide(NextInputSide(
+                    gameRuntime.Construction.PreviewInputSide, gameRuntime.Construction.PreviewRotation));
+            }
+
             if (keyboard.escapeKey.wasPressedThisFrame)
             {
                 gameRuntime.Construction.Cancel();
             }
+        }
+
+        /// <summary>
+        /// The next side round from <paramref name="current"/>, skipping <paramref name="exit"/>.
+        ///
+        /// Clockwise, so T reads the same way R does, and it steps twice when the next side round is
+        /// the output - which is why this is a loop rather than one RotateCW: three legal sides out
+        /// of four means the skip can land anywhere in the cycle.
+        /// </summary>
+        static Direction NextInputSide(Direction current, Direction exit)
+        {
+            Direction next = current;
+            for (int i = 0; i < 4; i++)
+            {
+                next = next.RotateCW(1);
+                if (next != exit) return next;
+            }
+            return current;
         }
 
         GridCoord CellUnderMouse()
@@ -338,10 +367,25 @@ namespace Game.Presentation
             {
                 inputArrowSprite = _spriteFactory.CreateArrowSprite(BuildingSpawner.InputArrowColor);
                 inputArrows = new List<(Vector3, Direction)>();
-                foreach ((GridCoord edgeCell, Direction fromMySide) in BuildingRuntime.ComputeInputCells(cell, selected.FootprintSize, previewRotation))
+
+                // One arrow for a single-input building, on the side T has landed on - so the ghost
+                // shows the one face the building will actually take from, rather than three faces
+                // it will refuse two of.
+                if (selected.HasSingleInputArrow)
                 {
+                    (GridCoord inputCell, Direction inputSide) = BuildingRuntime.ComputeSingleInputCell(
+                        cell, selected.FootprintSize, gameRuntime.Construction.PreviewInputSide);
+
                     inputArrows.Add((BuildingSpawner.ArrowPosition(
-                        gameRuntime.Grid.CellCenterToWorld(edgeCell), fromMySide, gameRuntime.Grid.CellSize), fromMySide));
+                        gameRuntime.Grid.CellCenterToWorld(inputCell), inputSide, gameRuntime.Grid.CellSize), inputSide));
+                }
+                else
+                {
+                    foreach ((GridCoord edgeCell, Direction fromMySide) in BuildingRuntime.ComputeInputCells(cell, selected.FootprintSize, previewRotation))
+                    {
+                        inputArrows.Add((BuildingSpawner.ArrowPosition(
+                            gameRuntime.Grid.CellCenterToWorld(edgeCell), fromMySide, gameRuntime.Grid.CellSize), fromMySide));
+                    }
                 }
             }
 

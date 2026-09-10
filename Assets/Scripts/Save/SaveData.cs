@@ -150,6 +150,18 @@ namespace Game.Save
         public int CellX;
         public int CellY;
         public int FacingRotation;
+
+        /// <summary>
+        /// Which side a single-input building takes deliveries on
+        /// (<c>BuildingRuntime.InputSide</c>) - a placement choice, so it belongs beside the
+        /// rotation rather than inside the per-building blob.
+        ///
+        /// Nullable: absent means a save from before the choice existed, which restores to the
+        /// default (opposite the output) rather than to North, which would have been a side the
+        /// building may never have taken anything from.
+        /// </summary>
+        public int? InputSide;
+
         public JObject State = new JObject();
     }
 }

@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e89f3531356874439b9e9e79a49064d, type: 3}
+  m_Name: ConstructorDefinition
+  m_EditorClassIdentifier: Game.Data::Game.Data.ConstructorDefinition
+  id: constructor
+  displayName: Constructeur
+  footprintSize: {x: 2, y: 2}
+  placeholderColor: {r: 1, g: 1, b: 1, a: 1}
+  unlockResearch: {fileID: 0}
+  sprite: {fileID: -6622863259242664493, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
+  animationFrames:
+  - {fileID: -6622863259242664493, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
+  - {fileID: 4138848172959368440, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
+  - {fileID: 5823024787834327110, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
+  - {fileID: -5429809939435209488, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
+  - {fileID: -7409573511083393705, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
+  - {fileID: 2402639969742374697, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
+  - {fileID: 368041112877095050, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
+  - {fileID: -3326688003119052452, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
+  - {fileID: 9209089764030810201, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
+  - {fileID: 7800090583882032772, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
+  - {fileID: -7160256121808793437, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
+  - {fileID: -955268259036638798, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
+  animationFps: 12
+  animationIntervalSeconds: 0
+  cost:
+  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+    amount: 8
+  - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
+    amount: 5
+  artCellSize: {x: 2, y: 2.25}
+  powerDemandKw: 3
+  recipeIds:
+  - Iron_Plate
+  - copper_wire
+  - Screw
+  acceptedItemIds:
+  - Iron_Ingot
+  - copper_Ingot

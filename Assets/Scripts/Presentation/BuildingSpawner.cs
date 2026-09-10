@@ -452,8 +452,16 @@ namespace Game.Presentation
         /// _BuildBounds, which is the visual AABB precisely because it normalises a gradient over
         /// what is drawn.
         /// </summary>
+        /// <summary>
+        /// How big to draw a building's art, in world units.
+        ///
+        /// <b>ArtCellSize rather than FootprintSize</b>, which are the same thing for every building
+        /// whose art is the shape of its ground and differ for one that is taller than it - see
+        /// BuildingDefinition.ArtCellSize. FitSpriteUniform then lands exactly on this box when it
+        /// carries the art's own aspect ratio, rather than covering it and overflowing sideways.
+        /// </summary>
         public static Vector2 ArtWorldSize(BuildingDefinition definition, float cellSize, bool overscanned = true)
-            => new Vector2(cellSize, cellSize) * definition.FootprintSize * (overscanned ? definition.RenderOverscan : 1f);
+            => new Vector2(cellSize, cellSize) * definition.ArtCellSize * (overscanned ? definition.RenderOverscan : 1f);
 
         /// <summary>
         /// True when a belt is drawn with its own art rather than the procedural shape sprite - a

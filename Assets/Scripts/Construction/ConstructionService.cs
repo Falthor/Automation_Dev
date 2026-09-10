@@ -56,6 +56,16 @@ namespace Game.Construction
         public Direction PreviewRotation { get; private set; } = Direction.North;
 
         /// <summary>
+        /// Which side the next single-input building will take deliveries on
+        /// (<c>BuildingDefinition.HasSingleInputArrow</c>). Moved with <c>T</c> while the ghost is
+        /// up; meaningless for anything else, and ignored by it.
+        ///
+        /// Held here rather than on the ghost because it is a placement parameter exactly like the
+        /// rotation - the ghost previews it, this applies it, and both read one value.
+        /// </summary>
+        public Direction PreviewInputSide { get; private set; } = Direction.South;
+
+        /// <summary>
         /// Current building slot cap (TASK_04_PLAFOND_RAYON.md §3) - starts at 40, raised to 52 by
         /// memory_allocation. Runtime state owned here (the same layer that enforces it), not on
         /// any definition; persisted directly by the save layer via RestoreBuildingCap, with a
@@ -151,6 +161,7 @@ namespace Game.Construction
             RelocationTarget = null;
             Selected = definition;
             PreviewRotation = Direction.North;
+            PreviewInputSide = BuildingRuntime.DefaultInputSideFor(Direction.North);
         }
 
         public void Cancel()
@@ -159,9 +170,24 @@ namespace Game.Construction
             Selected = null;
         }
 
+        /// <summary>
+        /// Points the next single input at a side, refusing the output side - a side that both took
+        /// and gave would feed the building its own production.
+        /// </summary>
+        public void SetPreviewInputSide(Direction side)
+        {
+            if (side == PreviewRotation) return;
+            PreviewInputSide = side;
+        }
+
         public void SetPreviewRotation(Direction rotation)
         {
             PreviewRotation = rotation;
+
+            // Rotating can leave the chosen input on the new output side. Rather than refuse the
+            // rotation - the player asked for it - the input follows to the default, which is what
+            // they would have to press T for anyway.
+            if (PreviewInputSide == PreviewRotation) PreviewInputSide = BuildingRuntime.DefaultInputSideFor(rotation);
         }
 
         /// <summary>Non-mutating check used by ghost-preview valid/invalid tinting.</summary>
@@ -233,6 +259,12 @@ namespace Game.Construction
 
             BuildingRuntime segment = CreateAndRegister(Selected, cell, rotation);
             if (segment == null) return false;
+
+            // Applied here rather than in the factory: the factory serves the save restore and the
+            // robot's materialisation too, and neither of those has a preview to read. A segment is
+            // already the real BuildingRuntime, so setting it now means the arrow is right from the
+            // moment the silhouette appears.
+            if (Selected.HasSingleInputArrow) segment.SetInputSide(PreviewInputSide);
 
             if (conveyorRunSite != null)
             {
@@ -390,6 +422,7 @@ namespace Game.Construction
             _grid.ClearOccupantFootprint(building.Cell, building.Definition.FootprintCells);
             building.MoveTo(destination);
             building.SetFacingRotation(PreviewRotation);
+            if (building.Definition.HasSingleInputArrow) building.SetInputSide(PreviewInputSide);
             _grid.SetOccupantFootprint(destination, building.Definition.FootprintCells, building);
 
             RelocationTarget = null;
@@ -522,6 +555,13 @@ namespace Game.Construction
                 var factory = new FactoryRuntime(factoryDefinition, cell, rotation, _recipeDatabase, _computeSystem, _powerSystem, _researchSystem);
                 _grid.SetOccupantFootprint(cell, factoryDefinition.FootprintSize, factory);
                 return factory;
+            }
+
+            if (definition is ConstructorDefinition constructorDefinition)
+            {
+                var constructor = new ConstructorRuntime(constructorDefinition, cell, rotation, _recipeDatabase, _computeSystem, _powerSystem, _researchSystem);
+                _grid.SetOccupantFootprint(cell, constructorDefinition.FootprintSize, constructor);
+                return constructor;
             }
 
             if (definition is AdvancedFoundryDefinition advancedFoundryDefinition)

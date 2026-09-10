@@ -881,3 +881,64 @@ textuelles doit énumérer ce qu'elle garde, pas seulement ce qu'elle vise.
 
 Et le rappel du §20 vaut toujours : mon script hors ligne ne compile pas `Game.Tests.EditMode`, donc
 « OK ×8 » ne dit rien des tests. La vérification passe par Unity — rafraîchir, puis **lire la console**.
+
+## 22. Une flèche d'entrée, et la capacité qui n'était pas la bonne
+
+Trois changements de contrat, et chacun a révélé une hypothèse que personne n'avait écrite.
+
+**La capacité du robot constructeur n'était pas une capacité, c'était deux.** Le plafond de 5 servait au
+même robot pour deux métiers opposés : apporter à un chantier les matériaux d'un bâtiment, et porter une
+livraison de directive. Le premier ne devrait jamais prendre cinq vagues pour une facture qu'un robot
+peut porter d'un coup ; le second est une remise que le joueur a choisi d'assumer, et le nombre de vagues
+fait partie de ce qu'elle demande. Décapé côté chantier, conservé côté directive — d'où le renommage en
+`DirectiveCargoCapacity`, parce qu'un nom qui dit « la capacité » invite à le réutiliser là où il ne faut
+pas.
+
+**Mais lever le plafond ne suffisait pas.** Un voyage prenait *un* article, donc un bâtiment demandant
+des plaques et du fil faisait deux allers-retours même avec les deux dans le coffre du Noyau. Le
+« pending » du robot est devenu un ensemble. La règle « une source par voyage » reste, elle : c'est la
+décision qui refuse les tournées multi-arrêts, et elle est intacte.
+
+**Conséquence non demandée, et je la signale plutôt que de la cacher :** un glisser de convoyeurs est
+**un** chantier à N segments, donc une ligne financée se construit maintenant en une seule livraison au
+lieu d'une vague par cinq unités. Deux tests épinglaient l'ancien rythme ; ils sont réécrits avec la
+facture répartie sur **deux** conteneurs, ce qui rend une livraison partielle atteignable de nouveau et
+teste au passage la règle « une source par voyage » — qu'ils n'exerçaient pas avant.
+
+**La flèche d'entrée unique est un contrat plus fort que trois flèches.** Trois flèches disaient vrai :
+le bâtiment accepte des trois côtés. Une flèche promet qu'il n'accepte **que** de celui-là, et un
+convoyeur qui touche une autre face est refusé quoi qu'il transporte. Cette promesse doit donc être
+appliquée **deux fois** : dans `GetInputCells` que la traction consulte, et dans `CanAcceptInput` —
+parce que la poussée générique et le passage de convoyeur interrogent la cible directement sans lire
+cette liste. Une seule des deux, et la flèche redevenait de la décoration.
+
+**Le côté est stocké en absolu, et c'est ce qui crée le piège de la rotation.** Tourner un bâtiment
+dont l'entrée était à l'opposé la laisse pointer sur la *nouvelle* sortie — que `SetInputSide` refuse,
+donc le bâtiment n'accepterait plus rien, silencieusement. `SetFacingRotation` la remet au défaut. Le
+fantôme réapplique le choix du joueur par-dessus, et `T` saute la sortie en boucle plutôt qu'en une
+rotation, parce que trois côtés légaux sur quatre veut dire que le saut peut tomber n'importe où.
+
+**Et l'art n'était pas ce qu'on croyait.** « Affiche-le en 64×85 » sur une image de 2048×1728 : mesurée,
+sa boîte opaque fait 2048×1668, soit un rapport de 1,23 — plus large que haut, quand 64×85 vaut 0,75.
+Incompatible : l'afficher ainsi l'écrasait de 39 %. C'était une **planche de 12 frames** de 512×576, dont
+le rapport est 0,888 : 64 de large donne donc **72** de haut. Mesurer la boîte opaque avant de croire une
+dimension est exactement ce que `FoundryDefinition.RenderOverscan` documente depuis trois erreurs.
+
+`ArtCellSize` est né de là : `RenderOverscan` est un facteur **uniforme**, il ne peut pas exprimer un art
+plus haut que son emprise. Et il est en cases, pas en pixels — combien de pixels vaut une case dépend du
+zoom, donc une taille en pixels ne serait vraie qu'à une distance de caméra.
+
+### Le lanceur de tests attendait un rechargement qui ne venait pas
+
+`Temp/run-tests` était lu par un `[InitializeOnLoadMethod]` : il ne part qu'à un rechargement de scripts.
+Déposer la sentinelle après un travail d'**assets** seulement — découpe de sprite, écriture d'un
+`.asset` — ne recompile rien, ne recharge rien, donc le hook ne part jamais et le fichier attend. Ça
+ressemblait à de la lenteur d'Unity ; c'était une exécution qui n'avait pas commencé. Aux sessions
+précédentes je déposais toujours la sentinelle juste après avoir édité du C#, donc un rechargement
+arrivait de toute façon : le mécanisme marchait par coïncidence.
+
+Il est maintenant sondé sur le tick de l'éditeur, une fois par seconde — déposer le fichier suffit, et
+le rapport arrive en une quinzaine de secondes. **Avec une règle d'ordre qui vient avec :** le sondage
+part en une seconde, donc déposer la sentinelle juste après avoir édité une source lance la suite contre
+l'assembly encore sur le disque. Éditer, laisser compiler, *puis* déposer. `isCompiling` ne peut pas
+aider — à cet instant Unity n'a pas encore vu le changement, donc il n'y a rien à compiler.

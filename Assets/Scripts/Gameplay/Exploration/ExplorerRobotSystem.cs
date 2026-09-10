@@ -171,7 +171,10 @@ namespace Game.Gameplay.Exploration
         /// </summary>
         public void Toggle(ExplorerRobotRuntime robot)
         {
-            if (robot == null) return;
+            // Before the fleet has arrived there is nothing to send: Tick ignores a robot that has
+            // not appeared, so accepting the gesture here would leave one marked Exploring and
+            // standing still.
+            if (robot == null || !RobotsHaveAppeared) return;
 
             if (robot.State == ExplorerRobotState.Exploring)
             {

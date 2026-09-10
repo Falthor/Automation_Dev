@@ -35,6 +35,9 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             public ItemDefinition Plate;
             public StorageRuntime CoreChest;
 
+            /// <summary>A second container, so a site's bill can sit in two places and a trip can be partial. Null unless the fixture was asked for one.</summary>
+            public StorageRuntime SecondChest;
+
             /// <summary>Runs the central tick often enough for a robot to cross `cells` at its own speed, plus margin.</summary>
             public void Simulate(float seconds)
             {
@@ -45,7 +48,8 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             }
         }
 
-        static Fixture NewFixture(int coreChestContents = 0, bool withCoreChest = true, int robotCount = 2)
+        static Fixture NewFixture(int coreChestContents = 0, bool withCoreChest = true, int robotCount = 2,
+            int secondChestContents = 0)
         {
             var grid = new GridRuntime(1f);
             var transport = new TransportSystem(grid);
@@ -71,6 +75,18 @@ namespace Game.Tests.EditMode.Gameplay.Sites
                 grid.SetOccupantFootprint(fixture.CoreChest.Cell, coreChestDefinition.FootprintSize, fixture.CoreChest);
                 transport.Register(fixture.CoreChest);
                 if (coreChestContents > 0) fixture.CoreChest.SeedInitialContents(PlateId, coreChestContents);
+            }
+
+            // A second container, which is the only way a delivery can be partial now that a robot
+            // takes everything one source holds for a site in a single trip. Collected after the
+            // Core chest (StoragesInCollectionOrder), so what is seeded here is fetched second.
+            if (secondChestContents > 0)
+            {
+                StorageDefinition depot = TestDataFactory.NewStorage("depot", 6, 200);
+                fixture.SecondChest = new StorageRuntime(depot, new GridCoord(0, 4), Direction.North);
+                grid.SetOccupantFootprint(fixture.SecondChest.Cell, depot.FootprintSize, fixture.SecondChest);
+                transport.Register(fixture.SecondChest);
+                fixture.SecondChest.SeedInitialContents(PlateId, secondChestContents);
             }
 
             return fixture;
@@ -184,10 +200,13 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         [Test]
         public void ARobotTheOldestSiteDoesNotNeed_IsSentToTheNextOne()
         {
-            // Exactly one robot-load each, so the very first dispatch empties the older site's
-            // earmarks - and the chest holds both loads, whatever the robot's capacity happens to be.
-            Fixture fixture = NewFixture(coreChestContents: 2 * BuilderRobotRuntime.Capacity);
-            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, BuilderRobotRuntime.Capacity));
+            // One dispatch now empties a site's earmarks whatever they add up to - a robot takes
+            // everything one source holds for it - so the cost here is any number the chest can fund
+            // twice over. That is the point of the test unchanged: the second robot finds the older
+            // site with nothing left to hand out.
+            const int costPerSite = 5;
+            Fixture fixture = NewFixture(coreChestContents: 2 * costPerSite);
+            StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, costPerSite));
 
             ConstructionSiteRuntime first = PlaceSite(fixture, costly, new GridCoord(5, 5));
             ConstructionSiteRuntime second = PlaceSite(fixture, costly, new GridCoord(9, 9));
@@ -201,9 +220,13 @@ namespace Game.Tests.EditMode.Gameplay.Sites
 
         /// <summary>
         /// The same rule at fleet scale, which is what "valable pour 2 - 10 - 100 - 250 robots"
-        /// asks for. Forty chantiers of three robot-loads each: robots fill the oldest one that
-        /// still has something to hand out and spill onto the next, so robot i works chantier i/3
-        /// exactly, and only once every load is claimed does anyone stay parked.
+        /// asks for. Forty chantiers, all funded from one chest: a robot claims everything one
+        /// source holds for the oldest chantier that still has something to hand out, which is that
+        /// whole chantier - so robot i works chantier i exactly, and past forty they stay parked.
+        ///
+        /// It was three loads per chantier when a trip was capped at five units. Uncapped, a
+        /// chantier is one claim, and this is the same rule with the arithmetic that follows from
+        /// it rather than a weaker assertion.
         ///
         /// It is an exact expectation rather than a "spread out somehow" one, because the two ways
         /// this can go wrong are opposite and both look reasonable in a loose assertion: robots
@@ -218,8 +241,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         public void RobotsFillTheOldestSiteThenSpillToTheNext_WhateverTheFleetSize(int robotCount)
         {
             const int siteCount = 40;
-            const int loadsPerSite = 3;
-            int costPerSite = BuilderRobotRuntime.Capacity * loadsPerSite;
+            const int costPerSite = 15;
 
             Fixture fixture = NewFixture(coreChestContents: siteCount * costPerSite, robotCount: robotCount);
             ConveyorDefinition belt = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, costPerSite));
@@ -234,18 +256,17 @@ namespace Game.Tests.EditMode.Gameplay.Sites
 
             fixture.Sites.Tick(TickSeconds);
 
-            int loadsAvailable = siteCount * loadsPerSite;
             for (int i = 0; i < robotCount; i++)
             {
                 BuilderRobotRuntime robot = fixture.Sites.Robots[i];
-                if (i < loadsAvailable)
+                if (i < siteCount)
                 {
-                    Assert.AreSame(sites[i / loadsPerSite], robot.TargetSite,
-                        $"Robot {i} should be serving chantier {i / loadsPerSite} - the oldest one with a load left to give.");
+                    Assert.AreSame(sites[i], robot.TargetSite,
+                        $"Robot {i} should be serving chantier {i} - the oldest one with anything left to give.");
                 }
                 else
                 {
-                    Assert.IsNull(robot.TargetSite, $"Robot {i} has no work: every load in the queue is already claimed.");
+                    Assert.IsNull(robot.TargetSite, $"Robot {i} has no work: every chantier in the queue is already claimed.");
                     Assert.AreEqual(BuilderRobotState.Idle, robot.State);
                 }
             }
@@ -645,16 +666,17 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         [Test]
         public void APartlyBuiltRun_ReportsOnlyItsUnmaterializedSegmentsAsPending()
         {
-            // A run is always fully funded now - the gate refuses a segment it cannot cover - so the
-            // partial state comes from DELIVERY, not from a short chest. Three segments at one
-            // robot-load each, sampled at the first one built: one segment built, two still waiting
-            // on trips that have not finished.
+            // A run is always fully funded - the gate refuses a segment it cannot cover - so the
+            // partial state comes from DELIVERY. And since a robot now takes everything one source
+            // holds for the site, a partial delivery needs the bill split across two containers:
+            // one segment's worth in the Core chest, two in a depot. The first trip fetches the Core
+            // chest's share and builds exactly one segment.
             //
             // One robot, so the sampling point is a fact rather than a race: with two, the second
-            // lands its own load while the first segment is still assembling, and which of them the
-            // sample catches depends on travel times.
-            Fixture fixture = NewFixture(coreChestContents: 3 * BuilderRobotRuntime.Capacity, robotCount: 1);
-            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, BuilderRobotRuntime.Capacity));
+            // lands the depot's share while the first segment is still assembling, and which of them
+            // the sample catches depends on travel times.
+            Fixture fixture = NewFixture(coreChestContents: 5, robotCount: 1, secondChestContents: 10);
+            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 5));
 
             fixture.Construction.SelectBuilding(conveyor);
             Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5, 5), Direction.East, out ConstructionSiteRuntime site));
@@ -683,12 +705,14 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         public void SegmentProgress_IsOneBehindTheFront_ZeroAhead_AndARatioOnTheSegmentBeingBuilt()
         {
             // One robot, so "the front has consumed everything delivered so far" is exact: a second
-            // robot delivers the next belt's load while the first is still assembling, and the
-            // segment behind the front would legitimately read 1 rather than 0.
-            // One robot-load per segment: with a smaller cost a single trip spills onto the next
-            // segment, and the one behind the front legitimately reads a fraction rather than 0.
-            Fixture fixture = NewFixture(coreChestContents: 3 * BuilderRobotRuntime.Capacity, robotCount: 1);
-            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, BuilderRobotRuntime.Capacity));
+            // robot delivers the depot's share while the first is still assembling, and the segment
+            // behind the front would legitimately read 1 rather than 0.
+            //
+            // The bill is split across two containers so the first trip lands exactly one segment's
+            // worth - a robot takes everything one source holds for the site, so a single chest
+            // would deliver the whole run at once and there would be no front to be behind.
+            Fixture fixture = NewFixture(coreChestContents: 5, robotCount: 1, secondChestContents: 10);
+            ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 5));
 
             fixture.Construction.SelectBuilding(conveyor);
             Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5, 5), Direction.East, out ConstructionSiteRuntime site));
@@ -863,7 +887,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         }
 
         /// <summary>
-        /// A robot on its way to fetch holds its claim in PendingAmount rather than in the site's
+        /// A robot on its way to fetch holds its claim in its pending set rather than in the site's
         /// reservations, so a site ending mid-trip has to drop that claim too. Left standing, it
         /// counts against TotalReserved forever: no reservation pass can see past it, so no site
         /// gets served, so no robot is ever reassigned - the stock is simply gone.
@@ -883,7 +907,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
                 if (robot.State == BuilderRobotState.MovingToSource) dispatched = robot;
             }
             Assert.IsNotNull(dispatched, "A robot has to be on its way to the chest for this to mean anything.");
-            Assert.Greater(dispatched.PendingAmount, 0);
+            Assert.Greater(dispatched.PendingTotal, 0);
 
             Assert.IsTrue(fixture.Sites.CancelPendingSegment(site.Segments[0]));
 

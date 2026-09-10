@@ -227,19 +227,15 @@ The fog sits above every band in the draw-order ladder (`PROJECT_ARCHITECTURE.md
 
 ## 4. Sectors
 
-A sector is the unit a mission is aimed at. Called a *sector*, never a *zone*: "zone" is already the
-Core's and the AI agents' signal zones, which are a different thing.
+A sector is the internal unit a name, a risk and a derived set of deposits hang off, and the unit
+`SectorMaterialisation` writes in. **Nothing is aimed at one and the player never points at one.**
+Called a *sector*, never a *zone*: "zone" is already the Core's and the AI agents' signal zones, which
+are a different thing.
 
 **A regular tiling, computed and never stored.** `SectorGrid` turns a coordinate into an index,
 origin, centre and cells by arithmetic — nothing is walked, there is no list of sectors anywhere. The
 same choice terrain makes: derive rather than materialise, so that nothing has to be generated and no
 order can matter.
-
-**A mission reveals the disc inscribed in a sector, not the sector.** The four corners stay hidden, so
-two revealed neighbours leave an undiscovered fringe and the tiling never shows on screen — which is
-what allows the partition to be a plain grid. A sector opened by a mission therefore rests at
-`SectorDiscovery.Partial` forever; that state means "there is something here and you have not seen all
-of it".
 
 **Identity is derived, never materialised.** `SectorCatalog` computes a sector's name, risk and
 contents as pure functions of the world seed and the sector index, when asked. The seed is the
@@ -253,7 +249,7 @@ world. Frozen by tests with hard-coded names.
 
 - **A name is a region plus a position in it** — "Cratère de Suie H12". Sectors are not named one by
   one: 390 625 of them against 768 vocabulary combinations is 80 % collisions, and neighbours sharing
-  a name makes designating a mission destination impossible. Widening the vocabulary is not an
+  a name would make two places indistinguishable. Widening the vocabulary is not an
   answer — 390 625 distinct generated names would all read alike anyway — so uniqueness moved off the
   name and onto the pair. It also reads better: a player learns one region instead of fifty unrelated
   nouns.
@@ -270,17 +266,17 @@ world. Frozen by tests with hard-coded names.
   `SectorSettings` — not in sectors crossed, which would tie a property of the world to a division of
   it and move the whole gradient whenever the division changed. The defaults read as the geometry of
   expansion: the starting territory, the mining ring, as far as a secondary Core reaches, beyond.
-- **Contents** place the point of interest at the sector's centre, so a mission always shows what it
-  found, and scatter deposits anywhere in the square — including the hidden corners, which is what
-  makes exploring around a revealed disc worth doing. The scatter respects the sector's real extent:
-  edge sectors are clipped where the map does not divide evenly.
+- **Contents** place the point of interest at the sector's centre and scatter deposits anywhere in the
+  square — including the corners a robot's path misses, which is what makes wandering back over the
+  same neighbourhood at a different angle worth something. The scatter respects the sector's real
+  extent: edge sectors are clipped where the map does not divide evenly. This is the half of a
+  sector's identity that is actually read, by `SectorMaterialisation` (§2.1).
 
-**Nothing is aimed at a sector any more.** The reach bands, and the exploration threshold they were
-derived from, went with the missions: a sector is now purely internal — the unit a name, a risk and a
-derived set of deposits hang off, and the unit `SectorMaterialisation` writes in. The player never
-points at one, and no screen names one.
+**Nothing is aimed at a sector.** It is purely internal — the unit a name, a risk and a derived set of
+deposits hang off, and the unit `SectorMaterialisation` writes in. The player never points at one, and
+no screen names one.
 
-**How far the world extends is one figure now**, and it belongs to the robots:
+**How far the world extends is one figure**, and it belongs to the robots:
 `ExplorerRobotSettings.maxRadiusCells` (**330**), which is where a wandering robot is turned back
 (§2.1) and what the map draws as its outer ring (§5).
 
@@ -294,10 +290,10 @@ chunk on first write and reads an absent one as unknown (§2); this does the sam
 64×64 cells — 16 KB — so the introduction's four chunks around the Core cost 64 KB, and fifty chunks of
 a well-explored run cost 800 KB.
 
-**It was one texel per sector, and that was the right answer to the wrong question.** One texture for
-the whole world is 400 MB per cell against 1.5 MB per sector, so the sector won on arithmetic. But a
-sector is 16 cells and a mission reveals a disc of radius 8: the revelation was smaller than the texel
-it was painted into, `DiscoveryOf` answered `Partial`, and the whole 16-cell square took one flat
+**The chunk is the unit rather than the sector, and the arithmetic is not why.** One texture for the
+whole world would be 400 MB per cell against 1.5 MB per sector, so the sector wins on memory — and
+loses on everything else: a sector is 16 cells and a revelation is a disc of radius 6, so the
+revelation is smaller than the texel it would be painted into and a whole 16-cell square takes one flat
 colour. The map read as a grid of blocks. Tiling by chunk keeps the memory bounded *and* gives the
 revelation an edge.
 
@@ -356,8 +352,7 @@ because that is what decides whether to go and find one.
   entirely by the veil today: terrain, vegetation and deposits are the only things drawn out of
   observation, and all three are static.
 - **A secondary Core.** [`../design/expansion-territoriale.md`](../design/expansion-territoriale.md)
-  holds the design; none of it is implemented, and the geometry that used to reserve room for it — the
-  exploration threshold, the territory gap, the maximum Core radius — was removed with the missions
-  rather than left as figures nothing reads.
+  holds the design; none of it is implemented, and no figure in the project reserves room for it — the
+  only reach the game measures is the robots' own 330 cells.
 - **What the datacard prototype still owes**: the threshold is a guess, and
   `ExplorerHarvestLog` exists to measure it. See the notebook.

@@ -11,8 +11,8 @@ namespace Game.EditorTools
     ///
     /// <b>Why this exists rather than just pressing the button.</b> The Test Runner window is the
     /// normal way in, and this changes nothing about it. What this adds is a way to start a run from
-    /// <i>outside</i> the editor: dropping a file at <c>Temp/run-tests</c> and forcing a script
-    /// reload starts the suite on the next load. The editor automation bridge refuses
+    /// <i>outside</i> the editor: dropping a file at <c>Temp/run-tests</c> starts the suite within a
+    /// second, needing nothing else. The editor automation bridge refuses
     /// <see cref="TestRunnerApi.Execute"/> as an interactive call, so a run cannot be started
     /// through it - and a tool that cannot run the tests cannot check its own work.
     ///
@@ -41,16 +41,45 @@ namespace Game.EditorTools
             api.Execute(new ExecutionSettings(new Filter { testMode = TestMode.EditMode }));
         }
 
+        /// <summary>How often the sentinel is looked for. Once a second is far below human patience and far above a per-frame cost.</summary>
+        const double PollIntervalSeconds = 1.0;
+
+        static double _nextPollAt;
+
+        /// <summary>
+        /// Watches for the sentinel on the editor's own tick.
+        ///
+        /// <b>It used to run only on load, and that was a trap.</b> An <c>[InitializeOnLoadMethod]</c>
+        /// fires on a script reload - so dropping the sentinel started a run only when a C# file had
+        /// also changed. Drop it after asset-only work and nothing recompiles, nothing reloads, the
+        /// hook never fires, and the file sits there while whoever asked waits for a report that was
+        /// never going to come. It looked like Unity being slow; it was a run that had not started.
+        ///
+        /// Polling makes dropping the file sufficient on its own, which is the whole contract.
+        ///
+        /// <b>One ordering rule comes with it.</b> The poll fires within a second, so dropping the
+        /// sentinel immediately after editing a source file starts the suite against the assembly
+        /// that is still on disk - the edit has not compiled yet. Edit, let the compile finish, then
+        /// drop the file. <c>isCompiling</c> is checked here but cannot help: Unity has not noticed
+        /// the change at that point, so there is nothing yet to be compiling.
+        /// </summary>
         [InitializeOnLoadMethod]
-        static void RunIfAsked()
+        static void WatchForRequests()
         {
+            EditorApplication.update -= Poll;
+            EditorApplication.update += Poll;
+        }
+
+        static void Poll()
+        {
+            if (EditorApplication.timeSinceStartup < _nextPollAt) return;
+            _nextPollAt = EditorApplication.timeSinceStartup + PollIntervalSeconds;
+
+            if (EditorApplication.isCompiling || EditorApplication.isPlaying) return;
             if (!File.Exists(SentinelPath)) return;
 
             File.Delete(SentinelPath);
-
-            // Not during the load itself: the test framework wants an editor that has finished
-            // coming up.
-            EditorApplication.delayCall += Run;
+            Run();
         }
 
         /// <summary>Collects the run into the report file. One line for the totals, one per failure, and the measurements a test chose to write out.</summary>

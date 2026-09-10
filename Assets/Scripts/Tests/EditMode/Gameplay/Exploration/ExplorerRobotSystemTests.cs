@@ -82,8 +82,16 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
         {
             discovery = NewDiscovery();
             compute = new ComputeSystem();
-            return new ExplorerRobotSystem(settings ?? NewSettings(), discovery, compute,
+
+            var system = new ExplorerRobotSystem(settings ?? NewSettings(), discovery, compute,
                 CoreCentre, CoreCentre, seed);
+
+            // The fleet is handed over up front. These tests are about how a robot wanders, not
+            // about when it arrives - and the reserve starts at its cap, which is above the
+            // threshold, so without this every robot would sit at the base and every measurement
+            // below would read zero.
+            system.MakeRobotsAppear();
+            return system;
         }
 
         static void RevealWholeMap(DiscoveryRuntime discovery)
@@ -145,6 +153,34 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
                 Assert.AreEqual(robot.HomePosition, robot.Position);
             }
             Assert.AreEqual(0, system.OutCount, "Nobody has been sent anywhere yet.");
+        }
+
+        /// <summary>
+        /// Before the CU reserve has fallen far enough the fleet does not exist yet, and a robot that
+        /// does not exist cannot be sent anywhere. Worth pinning because the two halves are in
+        /// different places - Toggle refuses, and Tick ignores - and either alone would leave a robot
+        /// marked as exploring while standing still.
+        /// </summary>
+        [Test]
+        public void BeforeTheFleetArrives_NothingCanBeSentAnywhere()
+        {
+            var discovery = NewDiscovery();
+            var compute = new ComputeSystem();
+            var system = new ExplorerRobotSystem(NewSettings(), discovery, compute, CoreCentre, CoreCentre, Seed);
+
+            Assert.IsFalse(system.RobotsHaveAppeared, "The reserve starts at its cap, well above the threshold.");
+
+            ExplorerRobotRuntime robot = system.Robots[0];
+            system.Toggle(robot);
+            Assert.AreEqual(ExplorerRobotState.Idle, robot.State, "Toggle refuses.");
+
+            WalkSortie(system, robot, 30f);
+            Assert.AreEqual(robot.HomePosition, robot.Position, "And nothing moves.");
+
+            // Spent down past the threshold, they turn up on the next tick.
+            compute.Spend(ComputeSystem.ReserveCap - 1000f);
+            system.Tick(Frame);
+            Assert.IsTrue(system.RobotsHaveAppeared);
         }
 
         [Test]
@@ -223,24 +259,63 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
                 "The robot uncovers while it advances, not on its return.");
         }
 
+        /// <summary>
+        /// The return uncovers exactly like the outward leg, and this test used to assert the
+        /// opposite.
+        ///
+        /// The old rule - "the way back crosses ground already walked, so it writes nothing" - was
+        /// wrong for a reason only the screen shows: <b>the outward leg meanders while the return is
+        /// a straight line</b>, so the return cuts across the gaps between the meanders and the robot
+        /// was seen travelling through pure black. Ground under a robot is ground it can see.
+        /// </summary>
         [Test]
-        public void ReturningUncoversNothingNew()
+        public void ReturningUncoversGroundLikeTheOutwardLegDoes()
         {
             ExplorerRobotSystem system = NewSystem(out DiscoveryRuntime discovery);
             ExplorerRobotRuntime robot = system.Robots[0];
 
-            // Far out, on ground nobody has seen, so anything revealed on the way back would show.
+            // Far out, on ground nobody has seen - which is exactly the case the straight line home
+            // used to cross without opening.
             robot.Position = CoreCentre + new Vector2(120f, 40f);
             robot.State = ExplorerRobotState.Returning;
 
-            int version = discovery.Version;
             int discovered = discovery.DiscoveredCount();
 
             for (int i = 0; i < Mathf.RoundToInt(90f / Frame); i++) system.Tick(Frame);
 
+            int opened = discovery.DiscoveredCount() - discovered;
+            TestContext.WriteLine($"the way home opened {opened} cells");
+
             Assert.AreEqual(ExplorerRobotState.Idle, robot.State, "It should have got home inside 90 s.");
-            Assert.AreEqual(version, discovery.Version, "The way back writes nothing at all.");
-            Assert.AreEqual(discovered, discovery.DiscoveredCount());
+            Assert.Greater(opened, 0, "A robot travelling over unseen ground has to open it.");
+        }
+
+        /// <summary>
+        /// And the corridor it opens is continuous rather than a row of beads: the reveal discs are
+        /// spaced a cell apart at a radius of six, so consecutive ones overlap heavily. Measured as
+        /// "no gap wider than a disc" along the straight line home.
+        /// </summary>
+        [Test]
+        public void TheWayHomeOpensAContinuousCorridor()
+        {
+            ExplorerRobotSystem system = NewSystem(out DiscoveryRuntime discovery);
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            Vector2 from = CoreCentre + new Vector2(60f, 0f);
+            robot.Position = from;
+            robot.State = ExplorerRobotState.Returning;
+
+            for (int i = 0; i < Mathf.RoundToInt(60f / Frame); i++) system.Tick(Frame);
+            Assert.AreEqual(ExplorerRobotState.Idle, robot.State);
+
+            // Every whole cell along the line the robot walked has to be discovered.
+            for (int step = 0; step <= 60; step++)
+            {
+                Vector2 point = Vector2.Lerp(from, robot.HomePosition, step / 60f);
+                var cell = new GridCoord(Mathf.FloorToInt(point.x), Mathf.FloorToInt(point.y));
+
+                Assert.IsTrue(discovery.IsDiscovered(cell), $"gap at {cell} along the way home");
+            }
         }
 
         // ---- The shape of the trace ----
@@ -482,6 +557,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             Vector2 EndOfSortie(int seed)
             {
                 var system = new ExplorerRobotSystem(NewSettings(), NewDiscovery(), new ComputeSystem(), CoreCentre, CoreCentre, seed);
+                system.MakeRobotsAppear();
                 ExplorerRobotRuntime robot = system.Robots[0];
                 system.Toggle(robot);
                 WalkSortie(system, robot, 120f);

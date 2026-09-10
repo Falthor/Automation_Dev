@@ -337,9 +337,8 @@ namespace Game.Tests.EditMode.Gameplay.Sites
 
             foreach (BuilderRobotRuntime robot in fixture.Sites.Robots)
             {
-                if (robot.PendingAmount <= 0) continue;
-                if (!ReferenceEquals(robot.SourceContainer, container) || robot.PendingItemId != itemId) continue;
-                total += robot.PendingAmount;
+                if (!ReferenceEquals(robot.SourceContainer, container)) continue;
+                total += robot.PendingOf(itemId);
             }
 
             return total;

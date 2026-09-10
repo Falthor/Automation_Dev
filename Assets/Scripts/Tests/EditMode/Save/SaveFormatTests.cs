@@ -107,7 +107,7 @@ namespace Game.Tests.EditMode.Save
             var buildingKeys = new List<string>();
             foreach (JProperty property in building.Properties()) buildingKeys.Add(property.Name);
             CollectionAssert.AreEquivalent(
-                new[] { "DefinitionId", "CellX", "CellY", "FacingRotation", "State" }, buildingKeys);
+                new[] { "DefinitionId", "CellX", "CellY", "FacingRotation", "InputSide", "State" }, buildingKeys);
 
             Assert.AreEqual("Iron_Ingot", building["State"]["recipe"].Value<string>(),
                 "A per-building blob is stored verbatim and never interpreted by the save layer.");

@@ -296,6 +296,11 @@ namespace Game.Gameplay.Buildings
 
         public override bool CanAcceptInput(string itemId, int amount, Direction fromDirection)
         {
+            // <b>One side, and nowhere else.</b> The arrow is the whole promise for a
+            // single-input building: a belt touching any other face is refused however full it is.
+            // Gated here as well as in GetInputCells because the generic push and the belt
+            // hand-over both arrive without consulting that list - they ask the target directly.
+            if (Definition.HasSingleInputArrow && fromDirection != InputSide) return false;
             if (BlocksInputOnOutputSide && fromDirection == ExitDirection) return false;
             if (!AcceptsItemType(itemId)) return false;
             if (!GetRequiredIngredients().ContainsKey(itemId)) return false;

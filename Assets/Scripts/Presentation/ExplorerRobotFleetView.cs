@@ -46,7 +46,10 @@ namespace Game.Presentation
         /// </summary>
         public void Refresh(ExplorerRobotSystem system, float deltaSeconds)
         {
-            if (system == null || _grid == null || _settings == null) return;
+            // Nothing is drawn before the fleet arrives: the robots exist as objects from the
+            // first frame, and marking the ground with machines the player has not been given yet
+            // would announce them early.
+            if (system == null || !system.RobotsHaveAppeared || _grid == null || _settings == null) return;
 
             IReadOnlyList<ExplorerRobotRuntime> robots = system.Robots;
             float cellSize = _grid.CellSize;

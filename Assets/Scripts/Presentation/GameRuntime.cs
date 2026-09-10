@@ -525,6 +525,9 @@ namespace Game.Presentation
                 BuildingRuntime runtime = Construction.CreateForRestore(definition, cell, rotation);
                 if (runtime == null) continue;
 
+                // Absent restores as the default the constructor already set, rather than as North.
+                if (buildingSave.InputSide.HasValue) runtime.SetInputSide((Direction)buildingSave.InputSide.Value);
+
                 runtime.RestoreState(buildingSave.State ?? new JObject());
                 Transport.Register(runtime);
                 _restoredBuildings.Add(runtime);
@@ -641,6 +644,7 @@ namespace Game.Presentation
                     CellX = building.Cell.X,
                     CellY = building.Cell.Y,
                     FacingRotation = (int)building.FacingRotation,
+                    InputSide = building.Definition.HasSingleInputArrow ? (int)building.InputSide : (int?)null,
                     State = building.CaptureState()
                 });
             }

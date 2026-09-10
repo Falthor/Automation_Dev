@@ -14,7 +14,15 @@ namespace Game.Gameplay.Sites
     /// </summary>
     public sealed class BuilderRobotRuntime
     {
-        public const int Capacity = 5;
+        /// <summary>
+        /// How much a robot may carry <b>for a Core directive</b>, and only for that.
+        ///
+        /// Construction work is deliberately uncapped: one robot is meant to be able to fetch a
+        /// whole building's bill in one trip, so a Foundry is one wave rather than five. A directive
+        /// is the opposite kind of job - a hand-over the player chose to take on, whose pacing is
+        /// part of what it asks - so its cap stays where it was.
+        /// </summary>
+        public const int DirectiveCargoCapacity = 5;
         public const float SpeedCellsPerSecond = 5.5f;
         public const float BlockedDestructionSeconds = 20f;
 
@@ -49,9 +57,39 @@ namespace Game.Gameplay.Sites
         public object SourceContainer { get; set; }
         public object DestinationContainer { get; set; }
 
-        /// <summary>Item/amount this robot is currently traveling to fetch (MovingToSource) - not yet in Cargo until PerformPickup runs.</summary>
-        public string PendingItemId { get; set; }
-        public int PendingAmount { get; set; }
+        /// <summary>
+        /// What this robot is travelling to fetch (MovingToSource) - not yet in Cargo until
+        /// PerformPickup runs.
+        ///
+        /// <b>Several items, from one container.</b> It was a single item/amount pair, which capped a
+        /// trip at one ingredient however much of the bill sat in the same chest: a building needing
+        /// plates and wire took two round trips even with both in the Core's own reserve. One source
+        /// per trip is still the rule (no multi-stop tours), but a trip now takes everything that
+        /// source holds for this job.
+        /// </summary>
+        readonly Dictionary<string, int> _pending = new Dictionary<string, int>();
+
+        public IReadOnlyDictionary<string, int> Pending => _pending;
+
+        public int PendingOf(string itemId) => _pending.TryGetValue(itemId, out int amount) ? amount : 0;
+
+        public int PendingTotal
+        {
+            get
+            {
+                int total = 0;
+                foreach (var kvp in _pending) total += kvp.Value;
+                return total;
+            }
+        }
+
+        public void AddPending(string itemId, int amount)
+        {
+            if (amount <= 0) return;
+            _pending[itemId] = PendingOf(itemId) + amount;
+        }
+
+        public void ClearPending() => _pending.Clear();
 
         /// <summary>Seconds remaining before a Blocked robot's cargo is destroyed (TASK_05_ROBOT_CONSTRUCTEUR.md §5's anti-deadlock). Null unless State == Blocked.</summary>
         public float? BlockedCountdownRemaining { get; set; }

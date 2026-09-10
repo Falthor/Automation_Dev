@@ -4,8 +4,9 @@ namespace Game.Data
 {
     /// <summary>
     /// Static definition of the Foundry: smelts ore into ingots via the shared production
-    /// contract (CONTRACTS.md §6). One fixed output side; the other sides accept ore deliveries
-    /// subject to an intake cooldown between deliveries (matches the source project exactly).
+    /// contract (CONTRACTS.md §6). <b>Two arrows and no more</b> - one output side, and one input
+    /// side chosen at placement (see HasSingleInputArrow). Deliveries on that one side are subject
+    /// to an intake cooldown between them.
     /// </summary>
     [CreateAssetMenu(fileName = "FoundryDefinition", menuName = "Game/Buildings/Foundry Definition")]
     public sealed class FoundryDefinition : BuildingDefinition
@@ -20,6 +21,7 @@ namespace Game.Data
 
         public override bool HasOutputArrow => true;
         public override bool HasInputArrows => true;
+        public override bool HasSingleInputArrow => true;
 
         // Compensates for the transparent margin around the art, so what is DRAWN fills the
         // footprint's cell edges rather than falling short of them. It is therefore a property of
