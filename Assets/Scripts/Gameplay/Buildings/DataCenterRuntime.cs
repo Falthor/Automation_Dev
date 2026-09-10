@@ -24,8 +24,12 @@ namespace Game.Gameplay.Buildings
     /// </summary>
     public sealed class DataCenterRuntime : BuildingRuntime
     {
-        const int InitialCpuSlots = 2;
-        const int InitialMemorySlots = 2;
+        const int InitialCpuSlots = 1;
+        const int InitialMemorySlots = 1;
+
+        // Hard cap, deliberately above what the two extension researches can reach: starting at
+        // 1+1, datacenter_bay_1 and datacenter_bay_2 bring a Data Center to 3+3. The fourth bay
+        // exists for a third extension research, and guards the restore path meanwhile.
         const int MaxCpuSlots = 4;
         const int MaxMemorySlots = 4;
         const float StabilityInterval = 5f;
@@ -102,7 +106,7 @@ namespace Game.Gameplay.Buildings
             researchSystem.ResearchCompleted += _onResearchCompleted;
         }
 
-        /// <summary>Either extension research appends one CPU bay and one Memory bay, capped at 4+4 - usable by the same install/wear/replacement code, no separate mechanism.</summary>
+        /// <summary>Either extension research appends one CPU bay and one Memory bay, capped at MaxCpuSlots/MaxMemorySlots - usable by the same install/wear/replacement code, no separate mechanism.</summary>
         void OnResearchCompleted(string researchId)
         {
             if (researchId == DataCenterBay1ResearchId || researchId == DataCenterBay2ResearchId) AddBayPair();
@@ -355,7 +359,7 @@ namespace Game.Gameplay.Buildings
                 }
 
                 string itemId = entry.Value<string>("itemId");
-                float nominalLifetime = entry.Value<float?>("nominalLifetimeSeconds") ?? (_itemDatabase.Get(itemId)?.NominalLifetimeSeconds ?? 120f);
+                float nominalLifetime = entry.Value<float?>("nominalLifetimeSeconds") ?? (_itemDatabase.Get(itemId)?.NominalLifetimeSeconds ?? 60f);
                 float baseLoss = entry.Value<float?>("baseLossPerSecond") ?? ComponentInstance.DeriveBaseLossPerSecond(nominalLifetime);
 
                 var component = new ComponentInstance(itemId, _itemDatabase, nominalLifetime, baseLoss);
