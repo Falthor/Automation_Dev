@@ -267,25 +267,6 @@ namespace Game.Tests.EditMode.Gameplay
             Assert.Greater(far, near + 1.5f, "the far half of the reachable map has to be worth the walk");
         }
 
-        /// <summary>
-        /// A wreck and a nest are no longer drawn: neither is built, nothing renders one, and
-        /// materialisation ignores the feature cell - so their only effect was to divide the ore rate
-        /// by three and make the setting mean something other than what it says. Pinned so that
-        /// re-introducing one is a decision rather than a side effect.
-        /// </summary>
-        [Test]
-        public void NothingButOreIsDrawnYet()
-        {
-            var catalog = NewCatalog();
-
-            for (int index = 0; index < catalog.Grid.Count; index++)
-            {
-                SectorFeature feature = catalog.ContentsOf(index).Feature;
-                Assert.IsTrue(feature == SectorFeature.None || feature == SectorFeature.OreCluster,
-                    $"sector {index} derives {feature}, which nothing draws");
-            }
-        }
-
         // ---- Contents ----
 
         /// <summary>

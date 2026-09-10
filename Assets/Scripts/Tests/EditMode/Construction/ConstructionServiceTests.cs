@@ -431,6 +431,58 @@ namespace Game.Tests.EditMode.Construction
             Assert.IsNotNull(FirstSegment(site));
         }
 
+        /// <summary>
+        /// <b>The buildable disc is the circle the player is looking at.</b> ActionRadiusView draws a
+        /// ring centred on the Core's footprint centre; this gate used to measure from the Core's
+        /// lowest-left cell, two cells away on a 4x4 Core. The disc was therefore offset from the
+        /// ring: it reached two cells past it on one side and stopped two cells short on the other,
+        /// and the ghost stayed green over ground outside the ring.
+        ///
+        /// Asserted from both sides of the Core, because an offset disc is right in the middle and
+        /// wrong at both edges - a single-sided test would have passed against the old arithmetic.
+        ///
+        /// The Core here is 4x4 at origin (0,0), so its centre is (2,2) and its ring runs from
+        /// x = -20 to x = 24 with a 22-cell radius.
+        /// </summary>
+        [Test]
+        public void TheBuildableDisc_IsCentredWhereTheRingIsDrawn()
+        {
+            var (service, _, _, core) = NewServiceWithCore(22);
+            service.SelectBuilding(NewConveyorDefinition());
+
+            Assert.AreEqual(new Vector2Int(4, 4), core.Definition.FootprintSize);
+            Assert.AreEqual(new GridCoord(0, 0), core.Cell);
+
+            // Past the ring on the low side: the ring stops at x = -20, and measuring from the
+            // origin cell instead let this through.
+            Assert.IsFalse(service.CanPlace(new GridCoord(-22, 0)),
+                "a cell outside the drawn ring must be refused, however it measures from the origin cell");
+
+            // Short of the ring on the high side: the ring reaches x = 24, and measuring from the
+            // origin cell refused this.
+            Assert.IsTrue(service.CanPlace(new GridCoord(23, 0)),
+                "a cell inside the drawn ring must be allowed");
+
+            // And the middle is unaffected either way.
+            Assert.IsTrue(service.CanPlace(new GridCoord(5, 5)));
+        }
+
+        /// <summary>
+        /// A cell is in or out by its body, not by its corner. Half a cell on top of the two the
+        /// centre was out by, and the same class of error: a coordinate is not a place.
+        /// </summary>
+        [Test]
+        public void ACellCountsByItsCentre_NotItsCoordinate()
+        {
+            var (service, _, _, _) = NewServiceWithCore(10);
+            service.SelectBuilding(NewConveyorDefinition());
+
+            // Core centre (2,2), radius 10. Cell (12,2) has its centre at (12.5,2.5): 10.51 out,
+            // so refused. Its coordinate alone is 10.0 out, which the old check called inside.
+            Assert.IsFalse(service.CanPlace(new GridCoord(12, 2)));
+            Assert.IsTrue(service.CanPlace(new GridCoord(11, 2)), "one cell in, at 9.51, is inside");
+        }
+
         [Test]
         public void IsWithinActionRadius_ReadsCoreRuntimeValue_NotTheFrozenDefinitionValue()
         {

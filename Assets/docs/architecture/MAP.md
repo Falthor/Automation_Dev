@@ -276,10 +276,6 @@ by hand, at chosen distances, because the introduction depends on it. A sector i
 part of it* falls inside the radius rather than having its cells clipped — a clipped cluster would be
 two tiles against a wall, which is worse than none.
 
-**A wreck and a nest are not drawn yet.** The enum members exist and the derivation no longer picks
-them: nothing renders one, materialisation ignores the feature cell, and their only effect was to
-divide the ore rate by three. One will be drawn again when there is one to draw (§6).
-
 `SectorMaterialisation` (§2.1) is what reads all of it.
 
 **A sector's only other property is its geometry**, and that is arithmetic: `SectorGrid` answers
