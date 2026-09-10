@@ -114,6 +114,9 @@ namespace Game.UI
         /// <summary>Which sector coordinate sits at the centre of the view.</summary>
         public Vector2 ViewCentreSectors { get; private set; }
 
+        /// <summary>UI Toolkit reports the pointer button as an integer, and zero is the left one. Named because a bare 0 in a button test says nothing.</summary>
+        const int LeftMouseButton = 0;
+
         bool _dragging;
         Vector2 _dragStart;
         Vector2 _dragCentreAtStart;
@@ -260,8 +263,19 @@ namespace Game.UI
             Layout();
         }
 
+        /// <summary>
+        /// Left button only, like the world screen - it used to pan on any button, middle and right
+        /// included, which no other drag in the game does.
+        ///
+        /// <b>Not routed through the binding table, and it cannot be.</b> This is a UI Toolkit
+        /// pointer event, not an Input System read: the button arrives as an integer on the event.
+        /// It is also deliberately not reassignable, so there is no binding to keep in step - the
+        /// constant below is the whole declaration.
+        /// </summary>
         void OnPointerDown(PointerDownEvent evt)
         {
+            if (evt.button != LeftMouseButton) return;
+
             _dragging = true;
             _dragStart = evt.localPosition;
             _dragCentreAtStart = ViewCentreSectors;
@@ -296,6 +310,8 @@ namespace Game.UI
 
         void OnPointerUp(PointerUpEvent evt)
         {
+            if (evt.button != LeftMouseButton) return;
+
             _dragging = false;
             this.ReleasePointer(evt.pointerId);
         }

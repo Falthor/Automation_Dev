@@ -427,6 +427,20 @@ The stack is **armed construction tool, then contextual panel, then global panel
 
 Two consequences a new consumer has to know. A contextual and a global panel cannot both be open (§7's mutual exclusion), so their relative order never decides anything today - it is stated so that it stays decided here if that changes. And an armed tool **can** coexist with an open panel, since nothing disarms a tool when a panel opens: a consumer serving the `ArmedTool` tier must therefore not sit behind a gate on `IsUIBlockingInput`, or the key is awarded to a reader that never runs.
 
+### 12b. Input bindings
+
+**Every keyboard shortcut is an action in one table, and nothing reads a key directly.** The table is `InputSystem_Actions.inputactions`, the Input System's **project-wide actions asset** (named from `ProjectSettings/ProjectSettings.asset` and `EditorBuildSettings.asset` - two references that do not look like code). `InputBindings` is the only way in: `Find(name)` resolves an action, `IsPressed`/`WasPressedThisFrame` read it null-tolerantly. A consumer resolves once in `Start` and holds the reference; `FindAction` walks the maps and has no business running per frame.
+
+`InputActionCatalogue` names every reassignable action once, with its French label and its section, in display order. **The names appear both there and in the asset, and that is the one duplication here that could not be designed away** - the asset format has nowhere to put a label. `InputBindingTableTests` asserts the two sets are exactly equal in both directions, so an action added to one and forgotten in the other fails the suite instead of reaching play as a blank row or a dead shortcut.
+
+**The table is keyboard-only, and a test enforces it.** The mouse buttons and the wheel are read straight from the device and are deliberately not reassignable: the click/drag arbitration is a contract between `CameraPanController`, `BuildingSelectionInput` and `ConstructionInputAdapter` sharing one slop threshold, and a reassignable button could produce a configuration in which clicking selects nothing. The map's pointer drag could not be in the table even if it were reassignable - it is a UI Toolkit `PointerDownEvent`, not an Input System read - and it is pinned to the left button by a named constant. The intro and Genesis screens answer to any key at all, which is not a binding.
+
+**The camera and the map share four pan actions rather than owning four each.** They always read the same physical keys, and used to hold two literal copies of them; reassigning "vers le nord" now moves both, which is what reassigning it means.
+
+`Game.Save.PreferencesService` owns `preferences.json`, **beside `save.json` and never inside it**: a keyboard layout belongs to the person playing, not to the run, so it has to survive starting a new game and must not travel with a save file. One JSON object, one key per concern (`inputBindings` holds the Input System's own override blob, opaque here). An absent or unreadable file means "no preferences", which is the truthful default; writing an empty override set **erases** the key rather than keeping the last non-default value.
+
+**`InputBindings.ApplyStoredOverrides` clears every override before applying.** Domain Reload is disabled (`DEVELOPMENT_RULES.md` §5), so the actions asset instance survives Play sessions - applying on top of what was left would let a session's unsaved reassignment leak into the next one. Idempotence is the requirement, not a nicety.
+
 ## 13. Contract evolution
 
 Changing a public contract is an architectural change.

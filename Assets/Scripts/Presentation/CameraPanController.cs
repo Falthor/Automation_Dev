@@ -8,13 +8,15 @@ namespace Game.Presentation
     /// Camera panning, two ways: the ZQSD cluster and dragging the world with the left mouse button
     /// held.
     ///
-    /// <b>`Key` is a physical position, not a letter, and that is not a detail.</b> The Input System
-    /// names its keys after where they sit on a US keyboard, so <c>Key.W</c> is the key an AZERTY
-    /// board prints "Z" on and <c>Key.A</c> the one it prints "Q" on. Reading <c>zKey</c> and
-    /// <c>qKey</c> - which is what this did, under a comment claiming AZERTY - bound north and west
-    /// to the keys printed W and A: a cluster shaped like a diagonal, and no key marked Z doing
-    /// anything at all. Anything that has to name a key to the player asks the control for its own
-    /// <c>displayName</c>, which is layout-aware; the enum name never is.
+    /// <b>The four pan keys come from the binding table</b> (<see cref="InputBindings"/>), not from
+    /// the keyboard directly, and they are the same four actions the map panel reads - the two used
+    /// to hold separate literal copies of one cluster. Reassigning one moves both, which is what a
+    /// player reassigning "vers le nord" means.
+    ///
+    /// The mouse below is read straight from the device on purpose: the buttons are not
+    /// reassignable, so there is no binding to keep in step, and the click/drag arbitration is a
+    /// contract between this, BuildingSelectionInput and ConstructionInputAdapter that a
+    /// reassignable button could break into a configuration where clicking selects nothing.
     ///
     /// Driven by <b>unscaled</b> time, like CameraZoomController: pause freezes the simulation by
     /// setting Time.timeScale to 0, and where the player is looking is not part of that simulation.
@@ -57,6 +59,15 @@ namespace Game.Presentation
         GameRuntime _gameRuntime;
         Camera _camera;
 
+        // Resolved once: FindAction walks the maps, which has no business happening per frame. The
+        // map panel resolves the same four actions and gets the same objects - one binding each,
+        // read by two consumers, rather than two copies of a key cluster.
+        InputAction _panNorth;
+        InputAction _panSouth;
+        InputAction _panEast;
+        InputAction _panWest;
+
+
         /// <summary>Left button is down on the world and this may yet become a drag - it is not one until the slop is crossed.</summary>
         bool _pressed;
 
@@ -96,6 +107,11 @@ namespace Game.Presentation
         {
             _gameRuntime = FindAnyObjectByType<GameRuntime>();
             _camera = GetComponent<Camera>();
+
+            _panNorth = InputBindings.Find(InputActionCatalogue.PanNorth);
+            _panSouth = InputBindings.Find(InputActionCatalogue.PanSouth);
+            _panEast = InputBindings.Find(InputActionCatalogue.PanEast);
+            _panWest = InputBindings.Find(InputActionCatalogue.PanWest);
         }
 
         void Update()
@@ -110,15 +126,11 @@ namespace Game.Presentation
             // panned and the world scrolled underneath it on the same keypress.
             if (_gameRuntime != null && _gameRuntime.KeyboardOwnedByPanel) return;
 
-            var keyboard = Keyboard.current;
-            if (keyboard == null) return;
-
-            // wKey/aKey are the physical positions AZERTY prints Z and Q on - see the class summary.
             Vector2 move = Vector2.zero;
-            if (keyboard.wKey.isPressed) move.y += 1f;
-            if (keyboard.sKey.isPressed) move.y -= 1f;
-            if (keyboard.dKey.isPressed) move.x += 1f;
-            if (keyboard.aKey.isPressed) move.x -= 1f;
+            if (InputBindings.IsPressed(_panNorth)) move.y += 1f;
+            if (InputBindings.IsPressed(_panSouth)) move.y -= 1f;
+            if (InputBindings.IsPressed(_panEast)) move.x += 1f;
+            if (InputBindings.IsPressed(_panWest)) move.x -= 1f;
 
             if (move.sqrMagnitude > 0f)
             {

@@ -91,8 +91,18 @@ namespace Game.Presentation
 
         static readonly Direction[] AllDirections = { Direction.North, Direction.East, Direction.South, Direction.West };
 
+        InputAction _rotate;
+        InputAction _moveInputSide;
+
+        /// <summary>Bound to the synthetic control that is either Ctrl key, which is what the two literal reads it replaced meant together.</summary>
+        InputAction _dropDragAxis;
+
         void Start()
         {
+            _rotate = InputBindings.Find(InputActionCatalogue.Rotate);
+            _moveInputSide = InputBindings.Find(InputActionCatalogue.MoveInputSide);
+            _dropDragAxis = InputBindings.Find(InputActionCatalogue.DropDragAxis);
+
             // Cross-object wiring belongs in Start(), not Awake(): Awake ordering between
             // GameRuntime and this adapter is not guaranteed, but Start always runs after
             // every object's Awake, so gameRuntime.Grid is guaranteed to be initialized here.
@@ -275,10 +285,7 @@ namespace Game.Presentation
         /// </summary>
         void HandleRotateAndInputSide()
         {
-            var keyboard = Keyboard.current;
-            if (keyboard == null) return;
-
-            if (keyboard.rKey.wasPressedThisFrame)
+            if (InputBindings.WasPressedThisFrame(_rotate))
             {
                 Direction next = gameRuntime.Construction.PreviewRotation.RotateCW(1);
                 gameRuntime.Construction.SetPreviewRotation(next);
@@ -287,14 +294,13 @@ namespace Game.Presentation
             // T moves the single entry arrow round the building, skipping the output side. Only
             // buildings that declare one input have a side to move; for the rest the key does
             // nothing rather than something invisible.
-            if (keyboard.tKey.wasPressedThisFrame
+            if (InputBindings.WasPressedThisFrame(_moveInputSide)
                 && gameRuntime.Construction.Selected != null
                 && gameRuntime.Construction.Selected.HasSingleInputArrow)
             {
                 gameRuntime.Construction.SetPreviewInputSide(NextInputSide(
                     gameRuntime.Construction.PreviewInputSide, gameRuntime.Construction.PreviewRotation));
             }
-
         }
 
         /// <summary>
@@ -483,11 +489,8 @@ namespace Game.Presentation
         /// </summary>
         void HandleAxisDropRequest(GridCoord cell)
         {
-            var keyboard = Keyboard.current;
-            if (keyboard == null || !_dragAxis.HasValue || cell != _lastPlacedCell) return;
-
-            bool ctrlPressed = keyboard.leftCtrlKey.wasPressedThisFrame || keyboard.rightCtrlKey.wasPressedThisFrame;
-            if (!ctrlPressed) return;
+            if (!_dragAxis.HasValue || cell != _lastPlacedCell) return;
+            if (!InputBindings.WasPressedThisFrame(_dropDragAxis)) return;
 
             _pendingCornerEntry = _dragAxis.Value.Opposite();
             _dragAxis = null;

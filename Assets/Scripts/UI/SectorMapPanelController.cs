@@ -44,8 +44,20 @@ namespace Game.UI
         /// <summary>How much wider than the robots' range the opening view is, so the ring is inside the frame rather than exactly on its edge.</summary>
         const float OpeningMargin = 1.15f;
 
+        // The world camera's own four actions, not a second set. Resolved once - FindAction walks
+        // the maps, which has no business happening per frame.
+        InputAction _panNorth;
+        InputAction _panSouth;
+        InputAction _panEast;
+        InputAction _panWest;
+
         void Start()
         {
+            _panNorth = InputBindings.Find(InputActionCatalogue.PanNorth);
+            _panSouth = InputBindings.Find(InputActionCatalogue.PanSouth);
+            _panEast = InputBindings.Find(InputActionCatalogue.PanEast);
+            _panWest = InputBindings.Find(InputActionCatalogue.PanWest);
+
             VisualElement panelRoot = visualTree.CloneTree();
             uiDocument.rootVisualElement.Add(panelRoot);
             panelRoot.StretchToParentSize();
@@ -114,14 +126,13 @@ namespace Game.UI
             if (gameRuntime.Selection.ActiveGlobalPanel != PanelName) return;
             if (!Bind()) return;
 
-            Keyboard keyboard = Keyboard.current;
             if (gameRuntime.Escape.IsClaimedBy(EscapeClaimant.GlobalPanel))
             {
                 Hide();
                 return;
             }
 
-            if (keyboard != null) _map.PanByKeyboard(PanDirection(keyboard), Time.unscaledDeltaTime);
+            _map.PanByKeyboard(PanDirection(), Time.unscaledDeltaTime);
 
             // The image rebuilds itself only when discovery moved, so this is a version comparison on
             // a still frame - see SectorMapImage. A rebuild can have brought a chunk into existence,
@@ -210,18 +221,17 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// The same four keys the world camera pans with, and deliberately the same physical
-        /// positions: wKey/aKey are what an AZERTY board prints Z and Q on (see
-        /// CameraPanController). A second copy of the cluster, which is exactly what the binding
-        /// table is meant to end.
+        /// The same four actions the world camera pans with - not the same keys by coincidence, the
+        /// same actions. The two used to hold separate literal copies of one cluster, which is the
+        /// duplication the binding table exists to end.
         /// </summary>
-        static Vector2 PanDirection(Keyboard keyboard)
+        Vector2 PanDirection()
         {
             var move = Vector2.zero;
-            if (keyboard.wKey.isPressed) move.y += 1f;
-            if (keyboard.sKey.isPressed) move.y -= 1f;
-            if (keyboard.dKey.isPressed) move.x += 1f;
-            if (keyboard.aKey.isPressed) move.x -= 1f;
+            if (InputBindings.IsPressed(_panNorth)) move.y += 1f;
+            if (InputBindings.IsPressed(_panSouth)) move.y -= 1f;
+            if (InputBindings.IsPressed(_panEast)) move.x += 1f;
+            if (InputBindings.IsPressed(_panWest)) move.x -= 1f;
             return move;
         }
     }

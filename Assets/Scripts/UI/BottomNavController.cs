@@ -3,7 +3,6 @@ using Game.Data;
 using Game.Presentation;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.Controls;
 using UnityEngine.UIElements;
 
 namespace Game.UI
@@ -49,8 +48,16 @@ namespace Game.UI
         readonly VisualElement[] _slotIcons = new VisualElement[BuildingMenuController.ToolbarSlotCount];
         readonly Label[] _slotBadges = new Label[BuildingMenuController.ToolbarSlotCount];
 
+        /// <summary>One action per slot, in slot order. Resolved once - see InputBindings.</summary>
+        readonly InputAction[] _slotShortcuts = new InputAction[BuildingMenuController.ToolbarSlotCount];
+
         void Start()
         {
+            for (int slot = 0; slot < _slotShortcuts.Length; slot++)
+            {
+                _slotShortcuts[slot] = InputBindings.Find(InputActionCatalogue.Slot(slot + 1));
+            }
+
             // Start(), not OnEnable() - GameRuntime.Awake() (which constructs Selection) is not
             // guaranteed to run before this object's OnEnable, but Start() always runs after
             // every object's Awake() - see ConstructionInputAdapter/BuildingMenuController.
@@ -275,12 +282,11 @@ namespace Game.UI
             RefreshResearchAvailability();
             RefreshMapAvailability();
 
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard == null || IsTextFieldFocused()) return;
+            if (IsTextFieldFocused()) return;
 
-            for (int i = 0; i < BuildingMenuController.ToolbarSlotCount; i++)
+            for (int i = 0; i < _slotShortcuts.Length; i++)
             {
-                if (!DigitKey(keyboard, i).wasPressedThisFrame) continue;
+                if (!InputBindings.WasPressedThisFrame(_slotShortcuts[i])) continue;
                 OnSlotClicked(i);
             }
         }
@@ -291,16 +297,5 @@ namespace Game.UI
             return focused is TextField;
         }
 
-        static ButtonControl DigitKey(Keyboard keyboard, int slotIndex) => slotIndex switch
-        {
-            0 => keyboard.digit1Key,
-            1 => keyboard.digit2Key,
-            2 => keyboard.digit3Key,
-            3 => keyboard.digit4Key,
-            4 => keyboard.digit5Key,
-            5 => keyboard.digit6Key,
-            6 => keyboard.digit7Key,
-            _ => keyboard.digit8Key,
-        };
     }
 }

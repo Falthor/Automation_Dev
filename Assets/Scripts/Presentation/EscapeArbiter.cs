@@ -56,6 +56,9 @@ namespace Game.Presentation
     {
         readonly SelectionRuntime _selection;
 
+        /// <summary>Resolved once, in the constructor: the arbiter is built in GameRuntime.Awake, which runs after the bindings are loaded.</summary>
+        readonly InputAction _close;
+
         /// <summary>Optional: null means no tool can be armed, which is the truth in a scene without construction.</summary>
         readonly ConstructionService _construction;
 
@@ -63,6 +66,7 @@ namespace Game.Presentation
         {
             _selection = selection;
             _construction = construction;
+            _close = InputBindings.Find(InputActionCatalogue.Close);
         }
 
         /// <summary>
@@ -98,8 +102,7 @@ namespace Game.Presentation
         {
             if (claimant == EscapeClaimant.None || Claimant != claimant) return false;
 
-            Keyboard keyboard = Keyboard.current;
-            return keyboard != null && keyboard.escapeKey.wasPressedThisFrame;
+            return InputBindings.WasPressedThisFrame(_close);
         }
     }
 }

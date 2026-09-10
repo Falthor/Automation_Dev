@@ -113,3 +113,58 @@ revendiquant est une valeur unique — donc épingler le revendiquant épingle q
 agir. La table des huit combinaisons est écrite en littéraux plutôt que bouclée : un changement
 d'ordre doit échouer contre une table que quelqu'un a décidée, pas contre une règle que le test
 recalcule comme le code.
+
+## 5. La table : ce qui a été fusionné, ce qui a été gelé
+
+**L'asset existait déjà et n'était pas un leurre inerte.** `InputSystem_Actions.inputactions` est
+l'asset **project-wide actions** du package, désigné depuis `ProjectSettings/ProjectSettings.asset`
+et `EditorBuildSettings.asset` — deux références qui ne ressemblent pas à du code, et que le premier
+inventaire avait manquées (§3). Le réécrire sur place plutôt qu'en créer un autre garde ces deux
+références valides, et donne `InputSystem.actions` à l'exécution sans aucun champ sérialisé ni câblage
+de scène. Ça compte : le menu de raccourcis vit dans `MainMenu.unity`, où il n'y a pas de
+`GameRuntime` à quoi accrocher quoi que ce soit.
+
+Le nom du fichier **et** le champ `"name"` sont restés identiques, parce que le `fileID` du sous-asset
+principal en dépend. La preuve que ça a tenu est indirecte mais nette : les tests résolvent les 18
+actions par `InputSystem.actions`, donc la référence pointe bien sur la table réécrite.
+
+**La caméra et la carte partagent leurs quatre touches au lieu d'en posséder quatre chacune.** Elles
+lisaient les mêmes touches physiques dans deux copies littérales séparées — la duplication même que
+l'inventaire signalait. Une seule série d'actions, lue par deux consommateurs : réassigner « vers le
+nord » déplace les deux, ce qui est ce que veut dire réassigner « vers le nord ». Et le menu montre
+quatre lignes au lieu de huit identiques.
+
+**Conséquence sur les sections demandées.** La consigne demandait « caméra, carte, construction,
+interface ». Une fois le pan fusionné, « carte » n'a plus d'action propre : la section s'appelle
+*Caméra et carte*, et une quatrième — *Barre d'outils* — porte les huit emplacements, qui ne sont ni
+de la construction ni vraiment de l'interface.
+
+**La souris n'entre pas dans la table, et c'est un choix, pas un oubli.** Elle n'est pas
+réassignable ; il n'y a donc aucun binding à tenir en cohérence, et l'arbitrage clic/glisser est un
+contrat entre trois composants qui partagent un seuil unique. La rendre réassignable permettrait une
+configuration où cliquer ne sélectionne plus rien. « À toucher ensemble ou pas du tout » : pas du
+tout.
+
+Le glisser de la carte, lui, **ne pourrait pas** y entrer même s'il était réassignable : c'est un
+`PointerDownEvent` d'UI Toolkit, où le bouton arrive en entier sur l'événement, pas une lecture de
+l'Input System. Il est fixé au bouton gauche par une constante nommée — avant, il pannait sur
+n'importe quel bouton, molette et clic droit compris, ce qu'aucun autre glisser du jeu ne fait.
+
+**La duplication qu'on ne pouvait pas supprimer.** Les noms d'actions apparaissent deux fois : dans
+l'asset, qui dit sur quelle touche chacune est, et dans `InputActionCatalogue`, qui dit lesquelles
+existent et comment les nommer en français. Le format `.inputactions` n'a nulle part pour ranger un
+libellé. Donc on ne l'a pas supprimée, on l'a **épinglée** : le test compare les deux ensembles dans
+les deux sens, et une action ajoutée d'un côté et oubliée de l'autre fait échouer la suite au lieu
+d'arriver en jeu comme une ligne vide ou un raccourci mort.
+
+**Le rechargement de domaine désactivé mord ici aussi.** L'instance de l'asset survit aux sessions
+de Play, donc appliquer les surcharges par-dessus ce qui restait laisserait la réassignation non
+sauvegardée d'une session fuiter dans la suivante. `ApplyStoredOverrides` efface tout avant
+d'appliquer : l'idempotence est l'exigence, pas une élégance.
+
+**Le piège d'outillage du jour.** Le build hors ligne a compilé les huit assemblies au vert alors
+que le projet ne compilait pas : `Game.Tests.EditMode` ne référençait pas `Unity.InputSystem`, et le
+script exclut délibérément cet assembly (le NUnit d'Unity est net472 et ne se mélange pas à la façade
+netstandard). Huit lignes vertes ne disent rien des tests. Et une seconde fois dans la même heure :
+`[RuntimeInitializeOnLoadMethod]` tire un `[Preserve]` interne qui vit dans `Unity.Scripting.dll`,
+que la liste de références du script ne ramassait pas — une erreur qui n'existait que hors ligne.

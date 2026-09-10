@@ -70,8 +70,12 @@ namespace Game.UI
 
         public event Action ToolbarChanged;
 
+        InputAction _openMenu;
+
         void Start()
         {
+            _openMenu = InputBindings.Find(InputActionCatalogue.BuildingMenu);
+
             // Start(), not OnEnable(): GameRuntime.Awake() (which constructs Selection) is not
             // guaranteed to run before this object's OnEnable, but Start() always runs after
             // every object's Awake() - see ConstructionInputAdapter for the same reasoning.
@@ -312,10 +316,9 @@ namespace Game.UI
                 if (HoveredCardDefinition != null) PopulateDetails(HoveredCardDefinition);
             }
 
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard == null || IsTextFieldFocused()) return;
+            if (IsTextFieldFocused()) return;
 
-            if (keyboard.bKey.wasPressedThisFrame)
+            if (InputBindings.WasPressedThisFrame(_openMenu))
             {
                 Toggle();
             }

@@ -79,8 +79,12 @@ namespace Game.UI
             public float DetailHeight;
         }
 
+        InputAction _pause;
+
         void Start()
         {
+            _pause = InputBindings.Find(InputActionCatalogue.Pause);
+
             VisualElement panelRoot = visualTree.CloneTree();
             uiDocument.rootVisualElement.Add(panelRoot);
             panelRoot.StretchToParentSize();
@@ -288,7 +292,7 @@ namespace Game.UI
             // Same gesture as the Pause button (GLOBAL_UI.md's Top Bar) - not gated on
             // IsUIBlockingInput, since pausing/resuming from behind an open panel is expected.
             // A clicked button no longer competes for this key - see ReleaseFocusAfterAClick.
-            if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
+            if (InputBindings.WasPressedThisFrame(_pause))
             {
                 TogglePause();
             }
