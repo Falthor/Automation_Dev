@@ -50,10 +50,32 @@ namespace Game.Presentation
         /// <summary>Left button is down on the world and this may yet become a drag - it is not one until the slop is crossed.</summary>
         bool _pressed;
 
-        /// <summary>Mouse travel since the press, while still under the slop. Reset at every press.</summary>
+        /// <summary>
+        /// Mouse travel since the current press, for the whole gesture rather than only up to the
+        /// slop. Reset at the next press and at nothing else, which is what makes
+        /// <see cref="PressTravelPixels"/> readable on the release frame however the component order
+        /// happens to fall.
+        /// </summary>
         Vector2 _travelSincePress;
 
         bool _dragging;
+
+        /// <summary>
+        /// How far the mouse has travelled since the left button went down, in pixels. Held until the
+        /// next press, so it is still this gesture's answer on the frame the button comes up.
+        ///
+        /// <b>Published so the click router can ask one question of one accumulator.</b> A drag has to
+        /// suppress the click it began with, and the alternative was a second press-tracker with a
+        /// second copy of the threshold - two implementations of one rule, free to disagree the day
+        /// either is touched.
+        /// </summary>
+        public float PressTravelPixels => _travelSincePress.magnitude;
+
+        /// <summary>The one threshold that separates a click from a drag. Read by the click router rather than duplicated there.</summary>
+        public float DragSlopPixels => dragSlopPixels;
+
+        /// <summary>Whether the current gesture has already become a drag - true from the slop being crossed until the button is released.</summary>
+        public bool IsDraggingTheWorld => _dragging;
 
         /// <summary>
         /// Where the operating system's cursor stood when the button went down, in its own screen
@@ -108,10 +130,20 @@ namespace Game.Presentation
             Mouse mouse = Mouse.current;
             if (mouse == null) return;
 
+            // Every press starts a fresh gesture, including one the camera is about to decline.
+            // Reset inside the accepted-press branch instead and a refused press inherits the travel
+            // of the last real drag - after which the click router, reading it, would swallow a click
+            // that never moved a pixel.
+            if (mouse.leftButton.wasPressedThisFrame) _travelSincePress = Vector2.zero;
+
             Vector2 delta = mouse.delta.ReadValue();
 
             if (_dragging)
             {
+                // Kept accumulating past the slop, so the total is still this gesture's when the
+                // click router reads it on the release frame.
+                _travelSincePress += delta;
+
                 // Deliberately not re-checking whether the drag would still be allowed to start.
                 // A gesture that has begun runs to the button being released: losing the lock
                 // half-way would strand the cursor hidden somewhere it never asked to be.
@@ -144,7 +176,6 @@ namespace Game.Presentation
             if (!mouse.leftButton.wasPressedThisFrame || !MayGrabTheWorld(mouse)) return;
 
             _pressed = true;
-            _travelSincePress = Vector2.zero;
             AnchorCursor();
         }
 
