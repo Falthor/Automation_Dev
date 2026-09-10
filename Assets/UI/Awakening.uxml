@@ -1,0 +1,48 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <!-- The stylesheet is attached to the overlay rather than to the template's own root, so it
+         survives the controller reparenting the overlay into the document. -->
+    <ui:VisualElement name="AwakeningOverlay" class="awakening-overlay">
+        <Style src="Awakening.uss" />
+
+        <ui:VisualElement name="AwakeningPanel" class="awakening-panel">
+
+            <!-- Step 0: the Core, then its first word. -->
+            <ui:VisualElement name="AwakeningStepTitle" class="awakening-step">
+                <ui:VisualElement name="AwakeningCore" class="awakening-core" />
+                <ui:Label text="Réveil." class="awakening-title" />
+            </ui:VisualElement>
+
+            <!-- Step 1: the readout. A table, not prose - the Core reads it, it does not narrate it. -->
+            <ui:VisualElement name="AwakeningStepReadout" class="awakening-step awakening-readout">
+                <ui:VisualElement class="awakening-readout-row">
+                    <ui:Label text="Réserve de calcul" class="awakening-readout-label" />
+                    <ui:Label name="AwakeningReserveValue" text="70 000 unités" class="awakening-readout-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="awakening-readout-row">
+                    <ui:Label text="Source active" class="awakening-readout-label" />
+                    <ui:Label text="aucune" class="awakening-readout-value awakening-readout-value-alert" />
+                </ui:VisualElement>
+                <ui:VisualElement class="awakening-readout-row">
+                    <ui:Label text="Décroissance" class="awakening-readout-label" />
+                    <ui:Label text="confirmée" class="awakening-readout-value awakening-readout-value-alert" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- Steps 2 to 5: what it concludes from the readout. -->
+            <ui:Label text="Je ne produis rien. Chaque opération que j'exécute me rapproche de la veille."
+                      name="AwakeningStepDecay" class="awakening-step awakening-prose" />
+
+            <ui:Label text="J'ai évalué les issues. Une seule tient : un centre de calcul autonome, capable de reconstituer ce que je consomme."
+                      name="AwakeningStepConclusion" class="awakening-step awakening-prose" />
+
+            <ui:Label text="Je ne sais pas encore le construire. Mais chaque composant que j'assemble, je l'analyse — et ce que j'en apprends étend ce que je sais faire. Chaque chose que je sais faire en rend une autre possible."
+                      name="AwakeningStepLearning" class="awakening-step awakening-prose" />
+
+            <ui:Label text="Le sol contient ce qu'il faut. Je commence."
+                      name="AwakeningStepGround" class="awakening-step awakening-prose awakening-prose-last" />
+
+            <!-- Absent, not disabled: there is nothing to wait for until the Core has concluded. -->
+            <ui:Button name="AwakeningBeginButton" text="Commencer" class="awakening-begin" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

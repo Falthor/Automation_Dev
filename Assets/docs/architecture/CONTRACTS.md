@@ -517,6 +517,8 @@ The sectors add nothing to the save. What a sector holds is a pure function of t
 
 `Game.Save.PendingGameStart` carries the player's New Game/Load choice across the `MainMenu.unity → Bootstrap.unity` scene load. It is the one deliberately mutable static field the save system introduces (DEVELOPMENT_RULES.md §5): a single field, consumed and cleared at the very start of `GameRuntime.Awake()`, never read anywhere else.
 
+Because it is cleared there, anything later in the frame that must tell a fresh run from a restored one has to be told by `GameRuntime` or not at all: `GameRuntime.StartedFromNewGame` is that answer, set from `loadedSave == null` in `Awake()` and read-only afterwards. Its one consumer is the awakening message (GLOBAL_UI.md §4a), which belongs to the birth of the Core rather than to the launch of the game.
+
 `SaveData.ConstructionSites` (a `JObject`) round-trips every construction site (segments, delivered totals, reservations) and both builder robots (position, state, cargo) plus any repatriation still in flight, via `ConstructionSiteSystem.CaptureState()`/`RestoreState(...)` (§15). It restores last, after every real building is back in `Game.Grid` and registered, because a site's segments are rebuilt with the same `CreateForRestore` factory and its reservations are re-resolved by container cell. An absent key restores as two idle robots with no site, without throwing. `SaveData.GlobalStock` no longer exists: the aggregate holds nothing, so there is nothing to serialize - it is recomputed from the real containers at load. Both changes bumped `SaveData.CurrentVersion` to 3.
 
 ## 15. Construction sites, builder robots, and GlobalStock as a view

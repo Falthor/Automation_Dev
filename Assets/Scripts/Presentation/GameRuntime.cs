@@ -228,6 +228,17 @@ namespace Game.Presentation
         /// see <see cref="EscapeArbiter"/> for why fourteen independent readers could not hold it.
         /// </summary>
         public EscapeArbiter Escape { get; private set; }
+
+        /// <summary>
+        /// Whether this session began as a fresh game rather than a restored save.
+        ///
+        /// Read by the awakening message, which belongs to the birth of the Core and not to the
+        /// launch of the game - a player reloading a two-hour run must not see it again. The
+        /// distinction exists nowhere else: by the time any view runs, PendingGameStart has already
+        /// been consumed and cleared, so anything downstream that needs to tell the two apart has
+        /// to be told here or not at all.
+        /// </summary>
+        public bool StartedFromNewGame { get; private set; }
         public ItemVisualSync ItemVisuals => itemVisuals;
         public ConstructionSiteVisualSync ConstructionSiteVisuals => constructionSiteVisuals;
         public ItemDatabase Items => itemDatabase;
@@ -355,6 +366,7 @@ namespace Game.Presentation
 
             SaveData loadedSave = PendingGameStart.LoadedSave;
             PendingGameStart.RequestNewGame(); // consume immediately - never read a second time this session
+            StartedFromNewGame = loadedSave == null;
 
             if (loadedSave != null)
             {

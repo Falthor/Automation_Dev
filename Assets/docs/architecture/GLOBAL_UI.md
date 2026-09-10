@@ -177,6 +177,36 @@ This logic must not be duplicated per-panel. `Selection` (`open_global_panel`/`c
 
 ---
 
+## 8a. Awakening message (new game only)
+
+The Core's first seconds, shown once over the running game as a new run begins
+(`AwakeningController`, `Awakening.uxml`/`.uss`). Not a scene: `Intro.unity` and
+`Genesis.unity` are scenes played before Bootstrap, this is an overlay inside it, added to
+the same `UIDocument` every other HUD controller uses and brought to the front.
+
+**Gated on `GameRuntime.StartedFromNewGame`** (CONTRACTS.md), never on the scene loading -
+a player reloading an established run must not see it again.
+
+**It cannot be dismissed early.** No key skips it, and the button does not exist - not
+disabled, absent - until the last line has landed. The button is deliberately never given
+focus: a focused UI Toolkit `Button` answers to Space, and Space is Pause, so focusing it
+would hand the player a skip key by accident.
+
+Every wait is unscaled (`WaitForSecondsRealtime`, `Time.unscaledDeltaTime`), so pausing
+behind the overlay cannot stall the message half-way through.
+
+Two typefaces, deliberately: the three measures are a right-aligned table in the tabular
+monospace every value in the game uses, with the red kept for something actually going
+wrong; the conclusions are prose in the current face. The Core reads its state, it does not
+narrate it.
+
+The displayed reserve is seeded from `ComputeSystem.Reserve` and then drifts down on its
+own - the first figure is true, the drift is presentation and never touches the reserve.
+
+Pacing is six serialized fields on the component (fade, ordinary pause, the two longer
+pauses, the pause before the button, and the reserve's tick), adjustable in the Inspector
+while the game runs.
+
 ## 9. Storage global interface
 
 Already implemented as specified (`scripts/ui/storage_panel.gd`) — this section documents the existing, authoritative behavior for the Global UI to integrate with, not a new requirement:

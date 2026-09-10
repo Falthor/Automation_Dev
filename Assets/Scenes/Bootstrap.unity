@@ -422,6 +422,7 @@ GameObject:
   - component: {fileID: 60635904}
   - component: {fileID: 60635905}
   - component: {fileID: 60635906}
+  - component: {fileID: 60635910}
   m_Layer: 0
   m_Name: GameUI
   m_TagString: Untagged
@@ -5046,3 +5047,25 @@ SceneRoots:
   - {fileID: 1273392653}
   - {fileID: 1348531429}
   - {fileID: 696337367}
+--- !u!114 &60635910
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 60635885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1428f71d033a7604fbb6e9bf23d4256d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.UI::Game.UI.AwakeningController
+  uiDocument: {fileID: 60635889}
+  visualTree: {fileID: 9197481963319205126, guid: 9870ddefe3b62214085f336afcebb262, type: 3}
+  gameRuntime: {fileID: 2103112250}
+  coreImage: {fileID: 21300000, guid: 0aeff3efc23cc1f468a8ebbd45e41512, type: 3}
+  fadeSeconds: 0.5
+  pauseBetweenLines: 1.9
+  pauseAfterReadout: 3.1
+  pauseAfterConclusion: 3.1
+  pauseBeforeButton: 1.2
+  reserveTickSeconds: 1
