@@ -300,6 +300,11 @@ namespace Game.Gameplay.Buildings
             // single-input building: a belt touching any other face is refused however full it is.
             // Gated here as well as in GetInputCells because the generic push and the belt
             // hand-over both arrive without consulting that list - they ask the target directly.
+            // Paused means paused on both sides. Refusing production while still draining the
+            // belt into a buffer nobody spends is how a paused building empties the line feeding
+            // it - the pause is meant to hold the material upstream, not to hoard it.
+            if (IsPaused) return false;
+
             if (Definition.HasSingleInputArrow && fromDirection != InputSide) return false;
             if (BlocksInputOnOutputSide && fromDirection == ExitDirection) return false;
             if (!AcceptsItemType(itemId)) return false;

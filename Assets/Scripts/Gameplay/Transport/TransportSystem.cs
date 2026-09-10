@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Core;
+using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Grid;
 
@@ -359,6 +360,28 @@ namespace Game.Gameplay.Transport
         bool HasBuildingNeighbor(GridCoord cell) => ActiveBuildingAt(cell) != null;
 
         /// <summary>
+        /// A chest takes material only from a <b>straight</b> conveyor aimed at it - not from a
+        /// corner, not from a splitter or a crossroad, and not from a production building standing
+        /// alongside it.
+        ///
+        /// <b>Stated here rather than in StorageRuntime, because it is a rule about the pair.</b>
+        /// <c>CanAcceptInput</c> is handed a direction and never learns who is handing over, so a
+        /// storage cannot answer this question about itself. Both intake paths ask it: the generic
+        /// pull a chest runs for itself, and the push a splitter or crossroad makes.
+        ///
+        /// "Aimed at it" is already covered by <c>HandsOutTo</c>/<c>TryDeliverItem</c> on the
+        /// delivering side; what this adds is that the source is a belt at all, and a straight one.
+        /// The Core chest is stricter still and refuses every conveyor
+        /// (<c>StorageDefinition.RejectsConveyorInput</c>); a builder robot bypasses both through
+        /// <c>AddFromRobot</c>.
+        /// </summary>
+        static bool MayFeedStorage(BuildingRuntime consumer, BuildingRuntime source)
+        {
+            if (!(consumer is StorageRuntime)) return true;
+            return source is ConveyorRuntime belt && belt.Orientation.Shape == ConveyorShapeKind.Straight;
+        }
+
+        /// <summary>
         /// Hands the splitter's held item to whatever sits at the given exit's neighbor cell. A
         /// conveyor target is fed directly via ReceiveItem (conveyors never accept the generic
         /// CanAcceptInput/AddInput push contract - see the conveyor loop above); anything else
@@ -366,7 +389,7 @@ namespace Game.Gameplay.Transport
         /// </summary>
         bool TryDeliverSplitterItem(SplitterRuntime splitter, Direction direction)
         {
-            if (!TryDeliverItem(splitter.NeighborCell(direction), direction, splitter.HeldItemId)) return false;
+            if (!TryDeliverItem(splitter.NeighborCell(direction), direction, splitter.HeldItemId, splitter)) return false;
             splitter.ClearHeldItem();
             return true;
         }
@@ -387,12 +410,12 @@ namespace Game.Gameplay.Transport
 
                 crossroad.AdvanceItems(deltaTime, ConveyorSpeedCellsPerSecond);
 
-                if (crossroad.HasItemA && crossroad.ProgressA >= 1f && TryDeliverItem(crossroad.NeighborCell(crossroad.ExitA), crossroad.ExitA, crossroad.ItemA))
+                if (crossroad.HasItemA && crossroad.ProgressA >= 1f && TryDeliverItem(crossroad.NeighborCell(crossroad.ExitA), crossroad.ExitA, crossroad.ItemA, crossroad))
                 {
                     crossroad.ClearA();
                 }
 
-                if (crossroad.HasItemB && crossroad.ProgressB >= 1f && TryDeliverItem(crossroad.NeighborCell(crossroad.ExitB), crossroad.ExitB, crossroad.ItemB))
+                if (crossroad.HasItemB && crossroad.ProgressB >= 1f && TryDeliverItem(crossroad.NeighborCell(crossroad.ExitB), crossroad.ExitB, crossroad.ItemB, crossroad))
                 {
                     crossroad.ClearB();
                 }
@@ -418,9 +441,10 @@ namespace Game.Gameplay.Transport
         /// the generic CanAcceptInput/AddInput push contract), anything else goes through the
         /// normal Building/Inventory contract. Shared by Splitter and Crossroad delivery.
         /// </summary>
-        bool TryDeliverItem(GridCoord neighborCell, Direction exitDirection, object item)
+        bool TryDeliverItem(GridCoord neighborCell, Direction exitDirection, object item, BuildingRuntime source)
         {
             BuildingRuntime occupant = ActiveBuildingAt(neighborCell);
+            if (!MayFeedStorage(occupant, source)) return false;
 
             if (occupant is ConveyorRuntime targetConveyor)
             {
@@ -493,6 +517,8 @@ namespace Game.Gameplay.Transport
                     // The consumer's own cell touching that neighbour - one step back inside itself
                     // from the edge cell it just scanned.
                     if (!occupant.HandsOutTo(cell + fromMySide.Opposite())) continue;
+
+                    if (!MayFeedStorage(building, occupant)) continue;
 
                     object item = occupant.PeekPullableItem();
                     if (item == null || !(item is string itemId)) continue;
