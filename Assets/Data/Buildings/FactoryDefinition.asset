@@ -39,11 +39,13 @@ MonoBehaviour:
     amount: 5
   powerDemandKw: 3
   recipeIds:
-  - Gear
   - bolted_iron_plate
+  - magnet
   - Printed_Circuit_Board
   - Memory_MK1
   acceptedItemIds:
   - Iron_Plate
-  - copper_wire
   - Screw
+  - copper_wire
+  - copper_plate
+  - Cable

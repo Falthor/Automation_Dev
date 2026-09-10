@@ -10,11 +10,12 @@ namespace Game.Data
     public sealed class FactoryDefinition : BuildingDefinition
     {
         [SerializeField, Min(0f)] float powerDemandKw = 3f;
-        [SerializeField] string[] recipeIds = { "Gear", "bolted_iron_plate", "Printed_Circuit_Board", "Memory_MK1" };
+        [SerializeField] string[] recipeIds = { "bolted_iron_plate", "magnet", "Printed_Circuit_Board", "Memory_MK1" };
 
-        // No ingots: the Factory no longer makes plates or wire, so an ingot would be an input
-        // nothing here can spend - a belt of them would fill the buffer and stall the building.
-        [SerializeField] string[] acceptedItemIds = { "Iron_Plate", "copper_wire", "Screw" };
+        // No ingots: the Factory makes no first stage at all, so an ingot would be an input nothing
+        // here can spend - a belt of them would fill the buffer and stall the building. Everything
+        // listed is consumed by one of the four recipes above.
+        [SerializeField] string[] acceptedItemIds = { "Iron_Plate", "Screw", "copper_wire", "copper_plate", "Cable" };
 
         public override float PowerDemandKw => powerDemandKw;
         public string[] RecipeIds => recipeIds;
