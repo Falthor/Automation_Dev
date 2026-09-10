@@ -12,6 +12,11 @@ namespace Game.Data
     ///
     /// Its art is taller than its ground, so it carries an <c>artCellSize</c> rather than being
     /// fitted to the footprint - see BuildingDefinition.ArtCellSize.
+    ///
+    /// <b>And it is the one building drawn at that box rather than fitted into it</b>
+    /// (<see cref="StretchArtToBox"/>): 2x3 cells is 64x96 px, while a 512x640 frame at 64 wide is
+    /// 80 tall. The 20% the art gains in height is a deliberate choice about how the building should
+    /// read, not a property of the file.
     /// </summary>
     [CreateAssetMenu(fileName = "ConstructorDefinition", menuName = "Game/Buildings/Constructor Definition")]
     public sealed class ConstructorDefinition : BuildingDefinition
@@ -27,5 +32,7 @@ namespace Game.Data
         public override bool HasOutputArrow => true;
         public override bool HasInputArrows => true;
         public override bool HasSingleInputArrow => true;
+
+        public override bool StretchArtToBox => true;
     }
 }

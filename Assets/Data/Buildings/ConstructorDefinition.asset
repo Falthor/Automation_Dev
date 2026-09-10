@@ -38,7 +38,7 @@ MonoBehaviour:
     amount: 8
   - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
     amount: 5
-  artCellSize: {x: 2, y: 2.5}
+  artCellSize: {x: 2, y: 3}
   powerDemandKw: 3
   recipeIds:
   - Iron_Plate

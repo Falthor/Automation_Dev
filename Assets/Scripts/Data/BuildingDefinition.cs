@@ -72,6 +72,23 @@ namespace Game.Data
         public Vector2 ArtCellSize =>
             artCellSize.x > 0f && artCellSize.y > 0f ? artCellSize : (Vector2)FootprintSize;
 
+        /// <summary>
+        /// Whether <see cref="ArtCellSize"/> is the size the art is drawn at, rather than a box it is
+        /// fitted into without distortion.
+        ///
+        /// <b>False everywhere but one building, and it should stay that way.</b> The normal rule is
+        /// that the box carries the art's own proportion and the sprite lands exactly on it; the box
+        /// is then a statement about the art, and a sheet redrawn at a different aspect is a value to
+        /// correct rather than a picture to squash. Setting this true breaks that: the art is scaled
+        /// per axis to whatever the box says, so the box becomes a decision about how the building
+        /// should look and no longer agrees with the file on disk.
+        ///
+        /// It exists because the Constructor is wanted at 64x96 over a 2x2 footprint while its frames
+        /// are 512x640 - 0.8 wide per tall, so 64 wide is 80 tall. Asked for deliberately, with the
+        /// arithmetic on the table.
+        /// </summary>
+        public virtual bool StretchArtToBox => false;
+
         /// <summary>Research required before this building type may be placed at all. Null means buildable from the start (CONTRACTS.md §11).</summary>
         public ResearchDefinition UnlockResearch => unlockResearch;
 

@@ -44,7 +44,7 @@ namespace Game.Presentation
         public void Show(Sprite sprite, Vector2 worldSize, Vector3 worldPosition, Direction rotation, bool valid,
             Sprite outputArrowSprite = null, Vector3? outputArrowWorldPosition = null, float outputArrowWorldSize = 0f,
             Sprite inputArrowSprite = null, IReadOnlyList<(Vector3 position, Direction direction)> inputArrows = null,
-            bool rotateSprite = false, Direction artNativeDirection = default)
+            bool rotateSprite = false, Direction artNativeDirection = default, bool stretchArt = false)
         {
             gameObject.SetActive(true);
             if (_spriteRenderer == null) _spriteRenderer = GetComponent<SpriteRenderer>();
@@ -52,11 +52,10 @@ namespace Game.Presentation
             _spriteRenderer.sprite = sprite;
             _spriteRenderer.color = valid ? ValidTint : InvalidTint;
 
-            // Uniform, never per axis - the fourth and last path to ask BuildingSpawner rather than
-            // do its own arithmetic. A per-axis stretch is a no-op on square art and squashes a
-            // sprite deliberately drawn taller than its footprint (the Core, the Foundry) into a
-            // square, which is exactly the height it was drawn to convey.
-            BuildingSpawner.FitSpriteUniform(_spriteRenderer, sprite, worldSize);
+            // The fourth and last path to ask BuildingSpawner rather than do its own arithmetic,
+            // and it has to ask for the same treatment the built view will get - a ghost fitted
+            // uniformly over a building drawn per axis would preview the wrong height.
+            BuildingSpawner.FitArt(_spriteRenderer, sprite, worldSize, stretchArt);
             transform.position = worldPosition;
 
             // Most buildings never rotate their sprite - rotating only moves input/output arrows
