@@ -24,6 +24,10 @@ namespace Game.UI
     ///
     /// <b>Real time, not game time.</b> Every wait is unscaled, so pausing behind the overlay cannot
     /// stall the message half-way through.
+    ///
+    /// The reveal itself lives in <see cref="NarrativeScreen"/>, shared with the threshold message.
+    /// What stays here is what only this screen knows: when it appears, its steps, and the figure
+    /// that falls while it plays.
     /// </summary>
     public sealed class AwakeningController : MonoBehaviour
     {
@@ -95,45 +99,31 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// The reveal order and its rhythm. Written as a sequence of (block, pause after it) so the
-        /// two long pauses the message needs are two values rather than a special case in the loop.
+        /// The reveal order and its rhythm. The readout's own step also starts the figure falling,
+        /// so that by the time the player reads "chaque opération me rapproche de la veille" the
+        /// sentence has already been demonstrated in front of them.
         /// </summary>
         IEnumerator Play()
         {
-            var steps = new List<(string Name, float PauseAfter)>
-            {
-                ("AwakeningStepTitle", pauseBetweenLines),
-                ("AwakeningStepReadout", pauseAfterReadout),
-                ("AwakeningStepDecay", pauseBetweenLines),
-                ("AwakeningStepConclusion", pauseAfterConclusion),
-                ("AwakeningStepLearning", pauseBetweenLines),
-                ("AwakeningStepGround", pauseBeforeButton)
-            };
-
-            foreach ((string name, float pauseAfter) in steps)
-            {
-                Reveal(name);
-
-                // The figure starts moving the moment its own line is on screen, so that by the time
-                // the player reads "chaque opération me rapproche de la veille" the sentence has
-                // already been demonstrated.
-                if (name == "AwakeningStepReadout") _reserveIsFalling = true;
-
-                yield return new WaitForSecondsRealtime(pauseAfter);
-            }
-
-            if (_beginButton != null) _beginButton.style.display = DisplayStyle.Flex;
+            yield return NarrativeScreen.Play(
+                new[]
+                {
+                    Step("AwakeningStepTitle", pauseBetweenLines),
+                    Step("AwakeningStepReadout", pauseAfterReadout, () => _reserveIsFalling = true),
+                    Step("AwakeningStepDecay", pauseBetweenLines),
+                    Step("AwakeningStepConclusion", pauseAfterConclusion),
+                    Step("AwakeningStepLearning", pauseBetweenLines),
+                    Step("AwakeningStepGround", pauseBeforeButton)
+                },
+                fadeSeconds,
+                () =>
+                {
+                    if (_beginButton != null) _beginButton.style.display = DisplayStyle.Flex;
+                });
         }
 
-        void Reveal(string name)
-        {
-            VisualElement step = _overlay.Q<VisualElement>(name);
-            if (step == null) return;
-
-            step.style.transitionDuration = new StyleList<TimeValue>(
-                new List<TimeValue> { new TimeValue(fadeSeconds, TimeUnit.Second) });
-            step.style.opacity = 1f;
-        }
+        NarrativeScreen.Step Step(string name, float pauseAfter, System.Action onRevealed = null)
+            => new NarrativeScreen.Step(_overlay.Q<VisualElement>(name), pauseAfter, onRevealed);
 
         void Update()
         {

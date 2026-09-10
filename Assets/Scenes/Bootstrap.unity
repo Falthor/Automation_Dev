@@ -423,6 +423,7 @@ GameObject:
   - component: {fileID: 60635905}
   - component: {fileID: 60635906}
   - component: {fileID: 60635910}
+  - component: {fileID: 60635911}
   m_Layer: 0
   m_Name: GameUI
   m_TagString: Untagged
@@ -5069,3 +5070,25 @@ MonoBehaviour:
   pauseAfterConclusion: 3.1
   pauseBeforeButton: 1.2
   reserveTickSeconds: 1
+--- !u!114 &60635911
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 60635885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e2f5c9b3d607401bc5e8f102d4c6b37, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.UI::Game.UI.ThresholdController
+  uiDocument: {fileID: 60635889}
+  visualTree: {fileID: 9197481963319205126, guid: 7d1e4b8a2c5f6390ab4d7e0f1c3b5a26, type: 3}
+  gameRuntime: {fileID: 2103112250}
+  coreImage: {fileID: 21300000, guid: 0aeff3efc23cc1f468a8ebbd45e41512, type: 3}
+  fadeSeconds: 0.5
+  pauseBetweenLines: 1.9
+  pauseAfterReadout: 3.1
+  pauseAfterDeficit: 3.1
+  pauseBeforeResult: 2.4
+  pauseBeforeButton: 1.2
