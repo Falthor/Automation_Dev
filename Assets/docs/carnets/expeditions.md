@@ -677,3 +677,36 @@ comme appel interactif, donc la suite ne peut plus être lancée par là. `Asset
 la démarre depuis un fichier sentinelle (`Temp/run-tests`) au rechargement des scripts, et écrit son
 rapport dans `Temp/test-report.txt` — un fichier plutôt qu'un log parce qu'une exécution traverse un
 domain reload : celui qui l'a demandée n'est plus là pour lire la console.
+
+## 18. Attraper le sol — le curseur ne revient pas tout seul
+
+Glisser le monde au clic gauche maintenu : la souris déplace le sol dans son sens, donc la caméra dans
+l'autre. `CameraPanController`, qui ne touche que la position — le contrôleur de zoom ne touche que
+`orthographicSize`, et c'est ce partage qui leur permet de tourner ensemble sans se connaître.
+
+**Le facteur d'échelle n'est pas un réglage.** Pour que le sol suive le curseur au pixel à n'importe quel
+zoom, il vaut `2 × orthographicSize / Screen.height`. Et aucun `deltaTime` : l'Input System rapporte déjà
+le déplacement accumulé de la frame, et un glisser suit la souris, pas un débit.
+
+**Trois choses possèdent le bouton gauche avant la caméra**, et les oublier casse des gestes existants :
+un élément d'UI sous le curseur possède ses propres clics ; un panneau global ouvert possède le clic
+même en dehors de lui, puisque cliquer à côté est ce qui le ferme ; et un outil de construction armé
+possède le glisser gauche entièrement — c'est le geste qui pose une ligne de convoyeurs. Un panneau
+contextuel de bâtiment n'est délibérément pas dans la liste : il est ancré à droite et laisse voir le
+monde, donc glisser ce qui reste visible est légitime.
+
+**Le seuil de quelques pixels n'est pas du confort.** Sans lui, chaque clic déplacerait le monde d'un
+pixel ou deux et cacherait le curseur pendant une frame.
+
+**Déverrouiller un curseur ne le rend pas là où il était** — c'est le point non évident.
+`CursorLockMode.Locked` le gare au centre de la fenêtre, et c'est là qu'il est restitué : sans rien de
+plus, le pointeur saute au milieu de l'écran à la fin de chaque glisser. La position est donc demandée à
+l'OS au moment de l'appui et replacée à la relâche. Demander à l'OS des deux côtés évite toute
+conversion entre l'espace écran d'Unity et celui du bureau — et c'est la position de **l'appui** qui est
+mémorisée, pas celle du début du glisser, donc le curseur réapparaît là où le joueur a cliqué et non
+quelques pixels plus loin. Unity n'a pas d'API multiplateforme pour placer un curseur : c'est `user32`
+sous Windows, et un no-op ailleurs.
+
+**Un geste commencé va jusqu'à la relâche.** Les conditions d'autorisation ne sont pas revérifiées
+pendant le glisser : perdre le verrou en cours de route laisserait le curseur caché quelque part où il
+n'a pas demandé à être. Même raison pour `OnDisable` et la perte de focus, qui le rendent.

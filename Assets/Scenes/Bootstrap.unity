@@ -2381,6 +2381,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.CameraPanController
   panSpeed: 10
+  uiDocument: {fileID: 60635889}
+  dragSlopPixels: 3
 --- !u!114 &885634528
 MonoBehaviour:
   m_ObjectHideFlags: 0
