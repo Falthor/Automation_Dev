@@ -209,13 +209,19 @@ namespace Game.UI
             _fleet.text = $"{robots.OutCount}/{fleet.Count} dehors · {cards} datacards";
         }
 
+        /// <summary>
+        /// The same four keys the world camera pans with, and deliberately the same physical
+        /// positions: wKey/aKey are what an AZERTY board prints Z and Q on (see
+        /// CameraPanController). A second copy of the cluster, which is exactly what the binding
+        /// table is meant to end.
+        /// </summary>
         static Vector2 PanDirection(Keyboard keyboard)
         {
             var move = Vector2.zero;
-            if (keyboard.zKey.isPressed) move.y += 1f;
+            if (keyboard.wKey.isPressed) move.y += 1f;
             if (keyboard.sKey.isPressed) move.y -= 1f;
             if (keyboard.dKey.isPressed) move.x += 1f;
-            if (keyboard.qKey.isPressed) move.x -= 1f;
+            if (keyboard.aKey.isPressed) move.x -= 1f;
             return move;
         }
     }

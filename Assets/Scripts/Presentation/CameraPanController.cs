@@ -5,8 +5,16 @@ using UnityEngine.UIElements;
 namespace Game.Presentation
 {
     /// <summary>
-    /// Camera panning, two ways: AZERTY keys (Z=North, Q=West, S=South, D=East) and dragging the
-    /// world with the left mouse button held.
+    /// Camera panning, two ways: the ZQSD cluster and dragging the world with the left mouse button
+    /// held.
+    ///
+    /// <b>`Key` is a physical position, not a letter, and that is not a detail.</b> The Input System
+    /// names its keys after where they sit on a US keyboard, so <c>Key.W</c> is the key an AZERTY
+    /// board prints "Z" on and <c>Key.A</c> the one it prints "Q" on. Reading <c>zKey</c> and
+    /// <c>qKey</c> - which is what this did, under a comment claiming AZERTY - bound north and west
+    /// to the keys printed W and A: a cluster shaped like a diagonal, and no key marked Z doing
+    /// anything at all. Anything that has to name a key to the player asks the control for its own
+    /// <c>displayName</c>, which is layout-aware; the enum name never is.
     ///
     /// Driven by <b>unscaled</b> time, like CameraZoomController: pause freezes the simulation by
     /// setting Time.timeScale to 0, and where the player is looking is not part of that simulation.
@@ -105,11 +113,12 @@ namespace Game.Presentation
             var keyboard = Keyboard.current;
             if (keyboard == null) return;
 
+            // wKey/aKey are the physical positions AZERTY prints Z and Q on - see the class summary.
             Vector2 move = Vector2.zero;
-            if (keyboard.zKey.isPressed) move.y += 1f;
+            if (keyboard.wKey.isPressed) move.y += 1f;
             if (keyboard.sKey.isPressed) move.y -= 1f;
             if (keyboard.dKey.isPressed) move.x += 1f;
-            if (keyboard.qKey.isPressed) move.x -= 1f;
+            if (keyboard.aKey.isPressed) move.x -= 1f;
 
             if (move.sqrMagnitude > 0f)
             {

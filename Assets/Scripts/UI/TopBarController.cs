@@ -94,6 +94,8 @@ namespace Game.UI
             // Menu is a reserved, non-functional placeholder (GLOBAL_UI.md §3) - no handler.
             panelRoot.Q<Button>("TopBarPauseButton").clicked += TogglePause;
 
+            ReleaseFocusAfterAClick();
+
             // Base widths reduced per user feedback ("moins large") - hover only expands height
             // (SetExpanded below), never width, so this has no effect on the hover-expand behavior.
             _powerCard = BuildCard(powerIcon, PowerPanelController.PanelName, 170f, 130f, 210f, 66f, 3, "top-bar-card-bar-fill-power");
@@ -244,10 +246,48 @@ namespace Game.UI
             _pauseOverlay.EnableInClassList("hidden", !_paused);
         }
 
+        /// <summary>
+        /// Drops the focus a click just handed to a button.
+        ///
+        /// <b>Space belongs to the pause, and a focused button was quietly taking it.</b> UI Toolkit
+        /// activates a focused <see cref="Button"/> on Space (a NavigationSubmitEvent), so after
+        /// clicking anything in the interface, pausing also re-fired that button - the Bottom Nav
+        /// reopening a panel, or, at its sharpest, the Pause button itself toggling a second time so
+        /// that Space appeared to do nothing at all.
+        ///
+        /// The focus is what is wrong here, not the pause: <see cref="Update"/> reads Space
+        /// deliberately ungated, because pausing from behind an open panel is expected. And this
+        /// project activates buttons by clicking them or by their digit shortcut, never by
+        /// submitting a focused one, so a clicked button has no use for the focus it was given.
+        ///
+        /// <b>Registered on the document root rather than per button.</b> Every controller clones
+        /// its tree into the same root, so one callback in the bubble phase covers the Top Bar, the
+        /// Bottom Nav, the building menu and every panel - eight places to edit, and eight places to
+        /// forget, become one. It lives here because this is the component that claims Space.
+        ///
+        /// Only a <see cref="Button"/> is blurred. A text field must keep the focus a click gives
+        /// it, or typing into it would be impossible - which matters from the shortcuts menu on.
+        ///
+        /// <b>It asks what holds the focus, not what was clicked.</b> A Top Bar card is a Button
+        /// containing an icon and labels, and those children take the click for themselves - so the
+        /// event's own target is usually not the Button that ended up focused. Reading the focus
+        /// controller is the same question the digit shortcuts already ask (IsTextFieldFocused), and
+        /// it is the only form of the question that survives a button with children.
+        /// </summary>
+        void ReleaseFocusAfterAClick()
+        {
+            uiDocument.rootVisualElement.RegisterCallback<ClickEvent>(_ =>
+            {
+                FocusController focus = uiDocument.rootVisualElement.panel?.focusController;
+                if (focus?.focusedElement is Button button) button.Blur();
+            });
+        }
+
         void Update()
         {
             // Same gesture as the Pause button (GLOBAL_UI.md's Top Bar) - not gated on
             // IsUIBlockingInput, since pausing/resuming from behind an open panel is expected.
+            // A clicked button no longer competes for this key - see ReleaseFocusAfterAClick.
             if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
             {
                 TogglePause();
