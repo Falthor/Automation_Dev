@@ -17,7 +17,6 @@ MonoBehaviour:
   description: Debloque le CPU MkI et la Memory MK1.
   icon: {fileID: 0}
   cuCost: 3500
-  prerequisites:
-  - {fileID: 11400000, guid: 044697c9013e7824e93bafe53e0ddb6f, type: 2}
+  prerequisites: []
   absorptionRatePerSecond: 50
   tier: 2

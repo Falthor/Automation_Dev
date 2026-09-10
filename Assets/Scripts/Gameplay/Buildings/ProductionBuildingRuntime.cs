@@ -12,7 +12,7 @@ namespace Game.Gameplay.Buildings
 {
     /// <summary>
     /// Generic single-active-recipe production contract (CONTRACTS.md §6), shared by every
-    /// recipe-based production building (Foundry today; Factory/AdvancedFoundry/Assembler in
+    /// recipe-based production building (Foundry today; Factory/AdvancedFoundry in
     /// later phases). A recipe cycle takes ALL its ingredients and its one-shot Compute cost at
     /// once, the moment it starts (transition into Producing) - switching recipes mid-cycle
     /// abandons it without refunding what was already taken (CONTRACTS.md §6). Power demand is

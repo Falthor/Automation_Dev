@@ -353,7 +353,7 @@ namespace Game.Gameplay.Transport
         /// TryDeliverItem's own CanAcceptInput check; this only decides which directions are
         /// worth trying instead of being skipped outright. Previously restricted to
         /// Conveyor/Splitter/Crossroad/Storage, which silently excluded every production building
-        /// (Factory, Foundry, Assembler, AdvancedFoundry, DataCenter) - a splitter wired directly
+        /// (Factory, Foundry, AdvancedFoundry, DataCenter) - a splitter wired directly
         /// into one, with no belt in between, never delivered.
         /// </summary>
         bool HasBuildingNeighbor(GridCoord cell) => ActiveBuildingAt(cell) != null;

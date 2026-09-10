@@ -161,11 +161,11 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         public void Tick_ExcessDelivered_StaysInInput_WhenNoEmptySlotLeft()
         {
             DataCenterRuntime dataCenter = NewDataCenter(maxStackPerItem: 10);
-            dataCenter.AddInput("cpu_mkI", 5, Direction.South); // only 2 initial CPU slots
+            dataCenter.AddInput("cpu_mkI", 5, Direction.South); // only 1 initial CPU slot
 
             dataCenter.Tick(0f);
 
-            Assert.AreEqual(3, dataCenter.GetInputAmount("cpu_mkI"));
+            Assert.AreEqual(4, dataCenter.GetInputAmount("cpu_mkI"));
         }
 
         [Test]

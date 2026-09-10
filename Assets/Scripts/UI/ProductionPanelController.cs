@@ -9,7 +9,7 @@ namespace Game.UI
 {
     /// <summary>
     /// Generic two-tab panel (RECETTES / PRODUCTION) for every ProductionBuildingRuntime
-    /// (Foundry/Factory/AdvancedFoundry/Assembler today) - talks only through the
+    /// (Foundry/Factory/AdvancedFoundry today) - talks only through the
     /// ProductionBuildingRuntime contract, no per-concrete-type code. Mirrors the source
     /// project's production_panel.gd/recipe_card.gd: recipe cards only stage a pending choice
     /// (_pendingRecipeId); only the bottom action button ("COMMENCER"/"CHANGER DE RECETTE")

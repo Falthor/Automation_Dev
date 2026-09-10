@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.RecipeDefinition
   id: copper_plate
   ingredients:
-  - item: {fileID: 11400000, guid: 65d78e7c331fda945b089ab7a130f97c, type: 2}
+  - item: {fileID: 11400000, guid: f4990fb2614444647bfa5e069df5b9c5, type: 2}
     amount: 1
   outputAmount: 1
   timeSeconds: 4

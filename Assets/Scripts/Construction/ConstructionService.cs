@@ -571,13 +571,6 @@ namespace Game.Construction
                 return advancedFoundry;
             }
 
-            if (definition is AssemblerDefinition assemblerDefinition)
-            {
-                var assembler = new AssemblerRuntime(assemblerDefinition, cell, rotation, _recipeDatabase, _computeSystem, _powerSystem, _researchSystem);
-                _grid.SetOccupantFootprint(cell, assemblerDefinition.FootprintSize, assembler);
-                return assembler;
-            }
-
             if (definition is PowerplantGazDefinition powerplantGazDefinition)
             {
                 var powerplant = new PowerplantGazRuntime(powerplantGazDefinition, cell, rotation, _computeSystem, _powerSystem);

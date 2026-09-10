@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.RecipeDefinition
   id: magnet
   ingredients:
-  - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
+  - item: {fileID: 11400000, guid: 4e7a1c93b5d2f8460a1c3e5079b2d4f6, type: 2}
     amount: 2
-  - item: {fileID: 11400000, guid: a1c4e07b3f5d42a1b8e6c9d0f2a4b6c8, type: 2}
+  - item: {fileID: 11400000, guid: 5f8b2da4c6e309571b2d4f6180c3e507, type: 2}
     amount: 1
   outputAmount: 1
-  timeSeconds: 6
-  computeCost: 12
+  timeSeconds: 20
+  computeCost: 45
   unlockResearch: {fileID: 11400000, guid: a4e072f91b385eac607294b6d1538a52, type: 2}

@@ -229,18 +229,6 @@ namespace Game.Tests.EditMode.TestSupport
             return factory;
         }
 
-        public static AssemblerDefinition NewAssembler(float powerDemandKw, string[] recipeIds, string[] acceptedItemIds, ResearchDefinition unlockResearch)
-        {
-            var assembler = ScriptableObject.CreateInstance<AssemblerDefinition>();
-            var so = new SerializedObject(assembler);
-            so.FindProperty("powerDemandKw").floatValue = powerDemandKw;
-            so.FindProperty("unlockResearch").objectReferenceValue = unlockResearch;
-            SetStringArray(so, "recipeIds", recipeIds);
-            SetStringArray(so, "acceptedItemIds", acceptedItemIds);
-            so.ApplyModifiedPropertiesWithoutUndo();
-            return assembler;
-        }
-
         public static AdvancedFoundryDefinition NewAdvancedFoundry(float powerDemandKw, string[] recipeIds, string[] acceptedItemIds)
         {
             var advancedFoundry = ScriptableObject.CreateInstance<AdvancedFoundryDefinition>();

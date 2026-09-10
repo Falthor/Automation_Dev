@@ -474,8 +474,6 @@ MonoBehaviour:
     category: 0
   - definition: {fileID: 11400000, guid: b8f5a41bb3ae49b488dbb71936ae4a0a, type: 2}
     category: 0
-  - definition: {fileID: 11400000, guid: 81fc98426c6cbeb46b62f0f51a99c00b, type: 2}
-    category: 0
   - definition: {fileID: 11400000, guid: e2d760110358f57448f69bdb863e1670, type: 2}
     category: 1
   - definition: {fileID: 11400000, guid: 8210b580053bf8643bc763cb2195c291, type: 2}
@@ -4840,7 +4838,6 @@ MonoBehaviour:
   itemVisuals: {fileID: 2103112252}
   constructionSiteVisuals: {fileID: 2103112254}
   buildingCatalog:
-  - {fileID: 11400000, guid: 81fc98426c6cbeb46b62f0f51a99c00b, type: 2}
   - {fileID: 11400000, guid: 24f3c4c440f22c14cb72e74f072b099c, type: 2}
   - {fileID: 11400000, guid: e9cd37ecbc57c35419a77ff9115d78ad, type: 2}
   - {fileID: 11400000, guid: 19683784cfd38ce41924c33986e91b77, type: 2}

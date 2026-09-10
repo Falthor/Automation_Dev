@@ -210,7 +210,7 @@ namespace Game.Presentation
         /// Generic view for every non-conveyor building: a sprite sized to its footprint, plus
         /// an output arrow (and, for a recipe-based production building, entry arrows on every
         /// other side) if its Definition declares one. Covers Extractor/Storage/Foundry/Factory/
-        /// AdvancedFoundry/Assembler/PowerplantGaz/DataCenter - the only per-type
+        /// AdvancedFoundry/PowerplantGaz/DataCenter - the only per-type
         /// differences (HasOutputArrow/HasInputArrows) already live on BuildingDefinition, so no
         /// concrete-type dispatch is needed here at all.
         ///

@@ -20,11 +20,11 @@ namespace Game.Data
     public sealed class ConstructorDefinition : BuildingDefinition
     {
         [SerializeField, Min(0f)] float powerDemandKw = 3f;
-        [SerializeField] string[] recipeIds = { "Iron_Plate", "copper_plate", "copper_wire", "Screw", "Cable" };
+        [SerializeField] string[] recipeIds = { "iron_rod", "copper_wire", "Gear", "copper_coil" };
 
-        // Plates and wire as well as ingots: a Screw is made from a plate and a Cable from wire, so
-        // the Constructor takes its own output back as an ingredient.
-        [SerializeField] string[] acceptedItemIds = { "Iron_Ingot", "copper_Ingot", "Iron_Plate", "copper_wire" };
+        // Plates as well as its own output: a rod is made from a plate and a gear from rods, so
+        // the Constructor takes back as an ingredient what it produced a stage earlier.
+        [SerializeField] string[] acceptedItemIds = { "Iron_Plate", "copper_plate", "iron_rod", "copper_wire" };
 
         public override float PowerDemandKw => powerDemandKw;
         public string[] RecipeIds => recipeIds;

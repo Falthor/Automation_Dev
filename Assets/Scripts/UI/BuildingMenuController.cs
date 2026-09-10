@@ -430,7 +430,7 @@ namespace Game.UI
         /// conveyor shapes quote the same figure because they are the same belt: that turning a line
         /// costs nothing is itself the answer.
         ///
-        /// Null for a Foundry/Factory/Assembler on purpose. Their rate is a property of the recipe
+        /// Null for a Foundry/Factory on purpose. Their rate is a property of the recipe
         /// currently selected, not of the building, so there is no honest number to put on a
         /// catalogue card - it belongs in the production panel, beside the recipe.
         /// </summary>

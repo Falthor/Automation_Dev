@@ -13,17 +13,15 @@ MonoBehaviour:
   m_Name: RecipeDatabase
   m_EditorClassIdentifier: Game.Data::Game.Data.RecipeDatabase
   recipes:
-  - {fileID: 11400000, guid: d0cd878eb6d97f243a907103ed6eb1e7, type: 2}
-  - {fileID: 11400000, guid: 42464a060d0c7f54c8b3c6ddcbab995e, type: 2}
-  - {fileID: 11400000, guid: 7a5f8a8cb4618254bbb844560b77c664, type: 2}
-  - {fileID: 11400000, guid: 05721c27ba84f9d438217793470e025f, type: 2}
-  - {fileID: 11400000, guid: e09d5bf4e6a331e47bd7350f78d54ba5, type: 2}
   - {fileID: 11400000, guid: 0b7618d40d0b3da419c82e2b07407432, type: 2}
-  - {fileID: 11400000, guid: 40c9561da4f1e034983a9e243b0a6ae1, type: 2}
+  - {fileID: 11400000, guid: d4f7130e628075140119fc03254d7e9f, type: 2}
+  - {fileID: 11400000, guid: 1a2b3c4d5e6f70819243a5b6c7d8e9f0, type: 2}
+  - {fileID: 11400000, guid: 7a5f8a8cb4618254bbb844560b77c664, type: 2}
+  - {fileID: 11400000, guid: 2b3c4d5e6f708192a354b6c7d8e9f001, type: 2}
+  - {fileID: 11400000, guid: 3c4d5e6f708192a3b465c7d8e9f00112, type: 2}
+  - {fileID: 11400000, guid: 3c5d7e9f102b4365780921c1dfe30517, type: 2}
+  - {fileID: 11400000, guid: 4d5e6f708192a3b4c576d8e9f0011223, type: 2}
+  - {fileID: 11400000, guid: 5e6f708192a3b4c5d687e9f001122334, type: 2}
+  - {fileID: 11400000, guid: 6f708192a3b4c5d6e798f00112233445, type: 2}
   - {fileID: 11400000, guid: 9d5ff2c0ad8f28347829f1d8556a0496, type: 2}
   - {fileID: 11400000, guid: b3e7e4a6985d2c4459f989ff544f41f5, type: 2}
-  - {fileID: 11400000, guid: ebe617db7fc1c024897d37db8177ba0c, type: 2}
-  - {fileID: 11400000, guid: d4f7130e628075140119fc03254d7e9f, type: 2}
-  - {fileID: 11400000, guid: e508241f73918625122a0d14365e8f01, type: 2}
-  - {fileID: 11400000, guid: f619352084a29736233b1e25476f9012, type: 2}
-  - {fileID: 11400000, guid: 3c5d7e9f102b4365780921c1dfe30517, type: 2}

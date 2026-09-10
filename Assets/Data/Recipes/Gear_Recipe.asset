@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c066c336084ad324aa88241708a951b1, type: 3}
-  m_Name: Iron_Ingot_Recipe
+  m_Name: Gear_Recipe
   m_EditorClassIdentifier: Game.Data::Game.Data.RecipeDefinition
-  id: Iron_Ingot
+  id: Gear
   ingredients:
-  - item: {fileID: 11400000, guid: 929b7f451c0471e4792a67bdfa782512, type: 2}
-    amount: 1
+  - item: {fileID: 11400000, guid: 4e7a1c93b5d2f8460a1c3e5079b2d4f6, type: 2}
+    amount: 2
   outputAmount: 1
-  timeSeconds: 6
-  computeCost: 2
-  unlockResearch: {fileID: 0}
+  timeSeconds: 12
+  computeCost: 20
+  unlockResearch: {fileID: 11400000, guid: 93df61e80a274d9b5f6183a5c0427941, type: 2}

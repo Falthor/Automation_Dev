@@ -27,7 +27,4 @@ MonoBehaviour:
     amount: 10
   powerDemandKw: 4
   recipeIds:
-  - Steel
   acceptedItemIds:
-  - iron_ore
-  - Coal_ore
