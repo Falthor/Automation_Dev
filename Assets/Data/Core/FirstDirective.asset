@@ -15,9 +15,9 @@ MonoBehaviour:
   id: first_parts
   requirements:
   - item: {fileID: 11400000, guid: 4e7a1c93b5d2f8460a1c3e5079b2d4f6, type: 2}
-    amount: 75
+    amount: 50
   - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
-    amount: 75
+    amount: 50
   rewardItem: {fileID: 0}
   grants: {fileID: 11400000, guid: 93df61e80a274d9b5f6183a5c0427941, type: 2}
   unlocksResearchMenu: 1

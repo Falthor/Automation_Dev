@@ -40,7 +40,7 @@ namespace Game.Construction
     {
         public const int DefaultBuildingCap = 30;
         const string MemoryAllocationResearchId = "memory_allocation";
-        const int ExtendedBuildingCap = 52;
+        const int ExtendedBuildingCap = 36;
 
         readonly GridRuntime _grid;
         readonly ItemDatabase _itemDatabase;

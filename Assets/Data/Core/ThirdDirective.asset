@@ -15,9 +15,9 @@ MonoBehaviour:
   id: third_mechanisms
   requirements:
   - item: {fileID: 11400000, guid: 2b4c6d8e0f1a3254769810b0ced2f406, type: 2}
-    amount: 18
+    amount: 12
   - item: {fileID: 11400000, guid: 60ac3eb5d7f41a682c3e50729d1f4618, type: 2}
-    amount: 18
+    amount: 12
   rewardItem: {fileID: 0}
   grants: {fileID: 11400000, guid: b5f183052c496fbd7183a5c7e2649b63, type: 2}
   unlocksResearchMenu: 0

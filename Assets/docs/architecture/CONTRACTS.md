@@ -287,7 +287,7 @@ public bool TryDemolish(GridCoord cell, out BuildingRuntime removed)
 public bool CanAfford(BuildingDefinition definition)   // the placement gate, and the menu's styling
 public int GetAvailableAmount(string itemId)           // reads GlobalStock's aggregate (§15)
 
-public int BuildingCap { get; }              // 40 by default, 52 after memory_allocation
+public int BuildingCap { get; }              // 30 by default, 36 after memory_allocation
 public int OccupiedBuildingSlots { get; }    // live count against BuildingCap
 public void RestoreBuildingCap(int? cap)
 ```
@@ -317,7 +317,7 @@ Owning ground and being operational are two different states, and the flag is wh
 
 `GetPlacementRefusalReason` (TASK_04_PLAFOND_RAYON.md §3.2) is the explanatory counterpart to `CanPlace`: same checks, same order, but returns a `PlacementRefusalReason` (`None`/`NotUnlocked`/`OutOfActionRadius`/`CannotAfford`/`BuildingCapReached`/`CellOccupied`) instead of a bare bool, for player-facing messaging - meaningful only while `Selected != null`. `CannotAfford` reads the aggregate **minus what other sites have already reserved**, so placing four buildings with stock for three refuses the fourth rather than letting four sites fight over one stock afterwards. Placing still does not pay - it opens a site that reserves the whole bill and waits for robots to carry it - but the bill must be coverable at that instant, which is what makes a placed site's `missing` count zero in ordinary play.
 
-`BuildingCap` (TASK_04_PLAFOND_RAYON.md §3) is runtime state owned by `ConstructionService`, not any definition: starts at 40, raised to 52 by `memory_allocation` (via `ResearchSystem.ResearchCompleted`, same pattern as `DataCenterRuntime`'s bay/threshold subscriptions), and restored directly from a save (`RestoreBuildingCap`) rather than re-derived from `ResearchSystem.IsUnlocked`. `OccupiedBuildingSlots` counts every building currently registered with the constructor-injected `TransportSystem` except the Core and every `ConveyorRuntime`/`SplitterRuntime`/`CrossroadRuntime` - computed live from `TransportSystem.GetAllBuildings()`, never a separately tracked counter, so placing and demolishing can never drift out of sync with it. `IsPlaceable`'s cap check applies to every other building type.
+`BuildingCap` (TASK_04_PLAFOND_RAYON.md §3) is runtime state owned by `ConstructionService`, not any definition: starts at 30, raised to 36 by `memory_allocation` (via `ResearchSystem.ResearchCompleted`, same pattern as `DataCenterRuntime`'s bay/threshold subscriptions), and restored directly from a save (`RestoreBuildingCap`) rather than re-derived from `ResearchSystem.IsUnlocked`. `OccupiedBuildingSlots` counts every building currently registered with the constructor-injected `TransportSystem` except the Core and every `ConveyorRuntime`/`SplitterRuntime`/`CrossroadRuntime` - computed live from `TransportSystem.GetAllBuildings()`, never a separately tracked counter, so placing and demolishing can never drift out of sync with it. `IsPlaceable`'s cap check applies to every other building type.
 
 The Core's action radius (`CoreDefinition.ActionRadiusCells` is only the starting value) is runtime state on `CoreRuntime.ActionRadiusCells` instead - `IsWithinActionRadius` reads that, never the definition. `CoreRuntime` owns and extends it via `extended_bandwidth` (`ResearchSystem.ResearchCompleted`), exactly like `BuildingCap` above; `WorldGenerator.ActionRadiusCells` is a plain pass-through of it.
 

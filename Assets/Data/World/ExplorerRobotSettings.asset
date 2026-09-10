@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: ExplorerRobotSettings
   m_EditorClassIdentifier: Game.Data::Game.Data.ExplorerRobotSettings
   robotCount: 2
+  appearAtReserveCu: 20000
   robotSprite: {fileID: 21300000, guid: 92f60d47c562e4c42b7000ca82a3fdc2, type: 3}
   speedCellsPerSecond: 2
   maxRadiusCells: 330

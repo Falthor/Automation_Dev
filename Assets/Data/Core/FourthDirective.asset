@@ -15,9 +15,9 @@ MonoBehaviour:
   id: fourth_motors
   requirements:
   - item: {fileID: 11400000, guid: 71bd4fc6e8052b793d4f6183ae205729, type: 2}
-    amount: 12
+    amount: 8
   - item: {fileID: 11400000, guid: 82ce50d7f9163c8a4e507294bf316830, type: 2}
-    amount: 12
+    amount: 8
   rewardItem: {fileID: 0}
   grants: {fileID: 11400000, guid: c6029416385a70ce8294b6d8f375ac74, type: 2}
   unlocksResearchMenu: 0

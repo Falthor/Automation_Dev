@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: memory_allocation
   displayName: Allocation memoire
-  description: Releve le plafond de batiments de 30 a 52.
+  description: Releve le plafond de batiments de 30 a 36.
   icon: {fileID: 0}
   cuCost: 2500
   prerequisites:
