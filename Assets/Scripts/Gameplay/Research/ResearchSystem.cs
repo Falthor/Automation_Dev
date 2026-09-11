@@ -74,8 +74,12 @@ namespace Game.Gameplay.Research
         {
             if (research == null) return true;
 
-            foreach (ResearchDefinition prerequisite in research.Prerequisites)
+            // Indexed rather than foreach: the research panel asks this of every node every frame,
+            // and foreach over an interface allocates its enumerator.
+            IReadOnlyList<ResearchDefinition> prerequisites = research.Prerequisites;
+            for (int i = 0; i < prerequisites.Count; i++)
             {
+                ResearchDefinition prerequisite = prerequisites[i];
                 if (prerequisite != null && !IsUnlocked(prerequisite.Id)) return false;
             }
             return true;

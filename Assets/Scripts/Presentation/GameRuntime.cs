@@ -139,13 +139,14 @@ namespace Game.Presentation
         /// directive is marked done - the Core still asks for its first delivery.
         /// </summary>
         /// <summary>
-        /// Development bypass: brings the explorer robots out at once and hands over the Research
-        /// menu, skipping the thresholds that normally grant them.
+        /// Development bypass: brings the explorer robots out at once and powers the Datacenter's
+        /// Research and Buildings cores - which is what opens the research menu - skipping what
+        /// normally grants them.
         ///
         /// <b>Off by default, deliberately.</b> It used to default to true, which is how a build
         /// shipped with both already granted at the first frame - the fleet standing at the park
         /// before the reserve had fallen anywhere near its threshold, and the Research menu present
-        /// before the first directive opened it. A bypass whose resting state is "on" is not a
+        /// before anything had opened it. A bypass whose resting state is "on" is not a
         /// bypass, it is the behaviour.
         /// </summary>
         [SerializeField] bool startWithEverythingUnlocked;
@@ -569,7 +570,8 @@ namespace Game.Presentation
             if (startWithEverythingUnlocked)
             {
                 ExplorerRobots?.MakeRobotsAppear();
-                if (CoreDirectives != null) CoreDirectives.ResearchMenuForcedOpen = true;
+                Research.Grant(DataCenterRuntime.ResearchCoreId);
+                Research.Grant(DataCenterRuntime.BuildingsCoreId);
             }
 
             Selection = new SelectionRuntime();

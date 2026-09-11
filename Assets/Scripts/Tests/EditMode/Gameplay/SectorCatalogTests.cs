@@ -29,7 +29,7 @@ namespace Game.Tests.EditMode.Gameplay
         const int FarMinTiles = 10;
         const int FarMaxTiles = 15;
 
-        /// <summary>CoreRuntime.ExtendedActionRadiusCells and ExplorerRobotSettings.MaxRadiusCells - the two ends of the ramp.</summary>
+        /// <summary>The two ends of the ramp, fixed here so the pinned cases below stay pinned. The shipped ones are CoreRuntime.ExtendedActionRadiusCells and ExplorerRobotSettings.MaxRadiusCells.</summary>
         const float NearRadius = 32f;
         const float FarRadius = 330f;
 

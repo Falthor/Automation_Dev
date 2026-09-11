@@ -49,37 +49,6 @@ namespace Game.Gameplay.Directives
         /// <summary>Whether the player has validated the current directive and the robots are on it. While true the panel shows what has landed rather than what is available.</summary>
         public bool IsDelivering => _sites != null && _sites.CoreHaul != null;
 
-        /// <summary>
-        /// Whether the Research menu has been handed over yet - the Top Bar card and the Bottom Nav
-        /// icon are both absent until it has.
-        ///
-        /// Derived from the directives already completed rather than stored, so it needs nothing of
-        /// its own in the save: the index already says which ones are done, and a flag on top of it
-        /// could only ever disagree with them.
-        /// </summary>
-        public bool IsResearchMenuUnlocked
-        {
-            get
-            {
-                if (ResearchMenuForcedOpen) return true;
-
-                for (int i = 0; i < _index && i < _directives.Count; i++)
-                {
-                    if (_directives[i] != null && _directives[i].UnlocksResearchMenu) return true;
-                }
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Hands the Research menu over without the directive that grants it. Development only.
-        ///
-        /// It moves what is visible and nothing else: no directive is marked done, the first one is
-        /// still asked for and still grants what it grants. That is why it is a flag beside the
-        /// derivation rather than a nudge to <c>_index</c>, which would silently skip a directive.
-        /// </summary>
-        public bool ResearchMenuForcedOpen { get; set; }
-
         /// <summary>How much of one requirement has physically reached the Core, once validated. Zero before that: nothing has been carried yet.</summary>
         public int DeliveredOf(string itemId)
             => _sites != null && _sites.CoreHaul != null ? _sites.CoreHaul.DeliveredOf(itemId) : 0;

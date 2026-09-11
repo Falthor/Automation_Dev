@@ -399,7 +399,7 @@ namespace Game.Tests.EditMode.Construction
         }
 
         [Test]
-        public void MemoryAllocation_Completed_RaisesBuildingCapTo42()
+        public void MemoryAllocation_Completed_RaisesBuildingCapTo75()
         {
             var (service, _, research, _) = NewServiceWithCore(1000);
             Assert.AreEqual(36, service.BuildingCap, "A run starts at 36 slots.");
@@ -409,14 +409,30 @@ namespace Game.Tests.EditMode.Construction
             research.Tick(60f);
 
             Assert.IsTrue(research.IsUnlocked("memory_allocation"));
-            Assert.AreEqual(42, service.BuildingCap, "And the research adds six, as it did from 30.");
+            Assert.AreEqual(75, service.BuildingCap, "The first allocation takes the base to 75.");
+        }
+
+        /// <summary>Each level sets its own figure, and the highest reached wins: a lower level landing after a higher one never takes slots away.</summary>
+        [Test]
+        public void TheAllocationLevels_Reach100Then200_AndNeverLowerTheCap()
+        {
+            var (service, _, research, _) = NewServiceWithCore(1000);
+
+            research.Grant("memory_allocation_2");
+            Assert.AreEqual(100, service.BuildingCap);
+
+            research.Grant("memory_allocation_3");
+            Assert.AreEqual(200, service.BuildingCap);
+
+            research.Grant("memory_allocation");
+            Assert.AreEqual(200, service.BuildingCap, "A lower level after a higher one changes nothing.");
         }
 
         [Test]
         public void ExtendedBandwidth_MakesACellAt27CellsFromCore_PlaceableWhereItWasRefusedBefore()
         {
             var (service, _, research, _) = NewServiceWithCore(22);
-            var farCell = new GridCoord(27, 0); // beyond the starting 22-cell radius, within the extended 32
+            var farCell = new GridCoord(27, 0); // beyond the starting 22-cell radius, within the first extension (42)
 
             service.SelectBuilding(NewConveyorDefinition());
             Assert.AreEqual(PlacementRefusalReason.OutOfActionRadius, service.GetPlacementRefusalReason(farCell));
@@ -426,7 +442,7 @@ namespace Game.Tests.EditMode.Construction
             research.Enqueue(extendedBandwidth);
             research.Tick(60f);
 
-            Assert.IsTrue(service.CanPlace(farCell), "A cell at 27 cells from the Core must become placeable once the radius extends to 32 - this is the exact promise the invitation ore clusters make.");
+            Assert.IsTrue(service.CanPlace(farCell), "A cell at 27 cells from the Core must become placeable once the radius extends to 42 - this is the exact promise the invitation ore clusters make.");
             Assert.IsTrue(service.TryPlace(farCell, Direction.North, out ConstructionSiteRuntime site));
             Assert.IsNotNull(FirstSegment(site));
         }
@@ -493,10 +509,10 @@ namespace Game.Tests.EditMode.Construction
 
             var coreDefinition = (CoreDefinition)core.Definition;
             Assert.AreEqual(22, coreDefinition.ActionRadiusCells, "The definition asset itself never changes - only the runtime value grows.");
-            Assert.AreEqual(32, core.ActionRadiusCells);
+            Assert.AreEqual(42, core.ActionRadiusCells);
 
             service.SelectBuilding(NewConveyorDefinition());
-            Assert.IsTrue(service.CanPlace(new GridCoord(27, 0)), "Placement must follow core.ActionRadiusCells (32), not CoreDefinition.ActionRadiusCells (still 22).");
+            Assert.IsTrue(service.CanPlace(new GridCoord(27, 0)), "Placement must follow core.ActionRadiusCells (42), not CoreDefinition.ActionRadiusCells (still 22).");
         }
 
         [Test]

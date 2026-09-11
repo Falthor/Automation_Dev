@@ -39,8 +39,14 @@ namespace Game.Construction
     public sealed class ConstructionService
     {
         public const int DefaultBuildingCap = 36;
-        const string MemoryAllocationResearchId = "memory_allocation";
-        const int ExtendedBuildingCap = 42;
+
+        /// <summary>The cap each memory allocation research raises the base to. The highest one completed wins, so the order they land in can never lower anything.</summary>
+        static readonly (string researchId, int cap)[] CapResearches =
+        {
+            ("memory_allocation", 75),
+            ("memory_allocation_2", 100),
+            ("memory_allocation_3", 200)
+        };
 
         readonly GridRuntime _grid;
         readonly ItemDatabase _itemDatabase;
@@ -67,7 +73,7 @@ namespace Game.Construction
 
         /// <summary>
         /// Current building slot cap (TASK_04_PLAFOND_RAYON.md §3) - starts at
-        /// DefaultBuildingCap, raised to ExtendedBuildingCap by memory_allocation. Runtime state
+        /// DefaultBuildingCap, raised by the memory allocation researches (CapResearches). Runtime state
         /// owned here (the same layer that enforces it), not on
         /// any definition; persisted directly by the save layer via RestoreBuildingCap, with a
         /// fallback to DefaultBuildingCap for a save predating this task.
@@ -130,7 +136,10 @@ namespace Game.Construction
         /// </summary>
         void OnResearchCompleted(string researchId)
         {
-            if (researchId == MemoryAllocationResearchId) BuildingCap = ExtendedBuildingCap;
+            for (int i = 0; i < CapResearches.Length; i++)
+            {
+                if (CapResearches[i].researchId == researchId) BuildingCap = System.Math.Max(BuildingCap, CapResearches[i].cap);
+            }
         }
 
         /// <summary>Restores the persisted cap directly (TASK_04_PLAFOND_RAYON.md §6) - never re-derived from ResearchSystem.IsUnlocked, so a future non-research source of extra cap wouldn't need to also be mirrored here. Falls back to DefaultBuildingCap for an absent/older save.</summary>

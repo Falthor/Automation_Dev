@@ -102,6 +102,28 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             Assert.AreEqual(1, dataCenter.MemorySlots.Count);
         }
 
+        /// <summary>
+        /// The research menu opens when the Datacenter finishes priming (GDD §5.4), because that is
+        /// when it powers the Research and Buildings cores. Not at placement, not partway through -
+        /// and never the armament core, which is waiting for something else.
+        /// </summary>
+        [Test]
+        public void FinishingPriming_PowersTheResearchAndBuildingsCores_AndNotBefore()
+        {
+            DataCenterRuntime dataCenter = NewDataCenter();
+
+            dataCenter.Tick(1f);
+            Assert.IsTrue(dataCenter.IsPriming, "Precondition: one second into ninety.");
+            Assert.IsFalse(_research.IsUnlocked(DataCenterRuntime.ResearchCoreId), "Nothing is powered while priming.");
+
+            FinishPriming(dataCenter);
+            dataCenter.Tick(0.1f);
+
+            Assert.IsTrue(_research.IsUnlocked(DataCenterRuntime.ResearchCoreId));
+            Assert.IsTrue(_research.IsUnlocked(DataCenterRuntime.BuildingsCoreId));
+            Assert.IsFalse(_research.IsUnlocked("cortex_armament"));
+        }
+
         [Test]
         public void DatacenterBay1_AddsOneCpuBayAndOneMemoryBay()
         {

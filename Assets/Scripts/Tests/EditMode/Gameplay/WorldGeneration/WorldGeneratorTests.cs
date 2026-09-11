@@ -136,8 +136,8 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
         /// TASK_04_PLAFOND_RAYON.md's follow-up correction: the invitation band
         /// (InvitationMinDistanceCells/MaxDistanceCells) must sit entirely beyond the starting
         /// 22-cell radius, entirely within the fog's starting reveal (22 + fogRadiusMarginCells,
-        /// mirrored here from GameRuntime), and entirely within CoreRuntime's extended radius (32,
-        /// via extended_bandwidth) - on every seed, not just the one that happened to pass before.
+        /// mirrored here from GameRuntime), and entirely within the first extension (42, the first
+        /// extended_bandwidth) - on every seed, not just the one that happened to pass before.
         /// A cluster drawn past the extended radius would be permanently unreachable regardless of
         /// how the player plays; a cluster under the starting radius would be constructible before
         /// the research exists to explain why it wasn't.
@@ -156,7 +156,7 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
         {
             const int startingRadius = 22;
             const int fogRadiusMarginCells = 10; // mirrors GameRuntime.fogRadiusMarginCells
-            const int extendedRadius = Game.Gameplay.Buildings.CoreRuntime.ExtendedActionRadiusCells; // 32
+            const int extendedRadius = Game.Gameplay.Buildings.CoreRuntime.FirstExtendedActionRadiusCells; // 42
 
             var settings = NewSettings(startingRadius, seed);
             var grid = new GridRuntime(1f);

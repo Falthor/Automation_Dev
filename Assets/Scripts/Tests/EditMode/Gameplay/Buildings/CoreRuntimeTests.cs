@@ -28,7 +28,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         }
 
         [Test]
-        public void OnResearchCompleted_ExtendedBandwidth_GrowsRadiusTo32()
+        public void OnResearchCompleted_ExtendedBandwidth_GrowsRadiusTo42()
         {
             var research = new ResearchSystem(new ComputeSystem());
             var core = NewCoreRuntime(research);
@@ -38,7 +38,25 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             research.Tick(60f);
 
             Assert.IsTrue(research.IsUnlocked("extended_bandwidth"));
-            Assert.AreEqual(32, core.ActionRadiusCells);
+            Assert.AreEqual(42, core.ActionRadiusCells);
+        }
+
+        /// <summary>Each level sets its own radius, the last one is the Core's furthest reach, and a lower level landing after a higher one never shrinks anything.</summary>
+        [Test]
+        public void TheBandwidthLevels_Reach60Then80_AndNeverShrinkTheRadius()
+        {
+            var research = new ResearchSystem(new ComputeSystem());
+            var core = NewCoreRuntime(research);
+
+            research.Grant("extended_bandwidth_2");
+            Assert.AreEqual(60, core.ActionRadiusCells);
+
+            research.Grant("extended_bandwidth_3");
+            Assert.AreEqual(80, core.ActionRadiusCells);
+            Assert.AreEqual(CoreRuntime.ExtendedActionRadiusCells, core.ActionRadiusCells, "The last level is the furthest reach world generation keeps clear.");
+
+            research.Grant("extended_bandwidth");
+            Assert.AreEqual(80, core.ActionRadiusCells, "A lower level after a higher one changes nothing.");
         }
 
         [Test]
@@ -79,7 +97,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             var state = core.CaptureState();
 
-            Assert.AreEqual(32, state.Value<int?>("actionRadiusCells"));
+            Assert.AreEqual(42, state.Value<int?>("actionRadiusCells"));
         }
 
         [Test]
@@ -95,7 +113,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             var restored = NewCoreRuntime(new ResearchSystem(new ComputeSystem()));
             restored.RestoreState(state);
 
-            Assert.AreEqual(32, restored.ActionRadiusCells);
+            Assert.AreEqual(42, restored.ActionRadiusCells);
         }
 
         [Test]

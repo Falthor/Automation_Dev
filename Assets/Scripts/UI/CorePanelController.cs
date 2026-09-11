@@ -34,7 +34,6 @@ namespace Game.UI
         VisualElement _requirements;
         VisualElement _rewardTitle;
         VisualElement _rewardItem;
-        VisualElement _rewardMenu;
         VisualElement _rewardResearchList;
         VisualElement _rewardIcon;
         Label _rewardName;
@@ -59,7 +58,6 @@ namespace Game.UI
             _requirements = panelRoot.Q<VisualElement>("CoreDirectiveRequirements");
             _rewardTitle = panelRoot.Q<Label>("CoreDirectiveRewardTitle");
             _rewardItem = panelRoot.Q<VisualElement>("CoreDirectiveRewardItem");
-            _rewardMenu = panelRoot.Q<VisualElement>("CoreDirectiveRewardMenu");
             _rewardResearchList = panelRoot.Q<VisualElement>("CoreDirectiveRewardResearchList");
             _rewardIcon = panelRoot.Q<VisualElement>("CoreDirectiveRewardIcon");
             _rewardName = panelRoot.Q<Label>("CoreDirectiveRewardName");
@@ -132,7 +130,7 @@ namespace Game.UI
                 _requirements.Add(BuildRequirement(requirement, Mathf.Min(held, requirement.Amount)));
             }
 
-            // A directive can reward an item, an unlock, the Research menu, or several of those -
+            // A directive can reward an item, an unlock, or both -
             // and the whole REWARD block steps aside when there is nothing to promise, rather than
             // showing a heading over an empty row.
             //
@@ -141,7 +139,6 @@ namespace Game.UI
             // says exactly the same thing: the reward is named once, by whichever names it best.
             ItemDefinition reward = current.RewardItem;
             bool hasItemReward = reward != null;
-            bool hasMenuReward = current.UnlocksResearchMenu;
             bool hasResearchReward = !hasItemReward && current.Grants != null;
 
             if (hasItemReward && reward.Icon != null) _rewardIcon.style.backgroundImage = new StyleBackground(reward.Icon);
@@ -150,8 +147,7 @@ namespace Game.UI
 
             _rewardItem.EnableInClassList("hidden", !hasItemReward);
             _rewardResearchList.EnableInClassList("hidden", !hasResearchReward);
-            _rewardMenu.EnableInClassList("hidden", !hasMenuReward);
-            _rewardTitle.EnableInClassList("hidden", !hasItemReward && !hasMenuReward && !hasResearchReward);
+            _rewardTitle.EnableInClassList("hidden", !hasItemReward && !hasResearchReward);
 
             _validateButton.text = delivering ? "LIVRAISON EN COURS" : "VALIDER";
             // No stock handed in: the system reads the one view the haul reserves from. `available`

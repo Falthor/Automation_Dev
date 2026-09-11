@@ -271,8 +271,9 @@ between and clamped at both ends. Distance is the only thing exploring costs, so
 thing that pays — a flat size makes the far half of the map the near half with a longer walk.
 Measured on the shipped map: 8.0 tiles on average inside 100 cells, 12.3 past 260.
 
-**Nothing derived lands inside `CoreRuntime.ExtendedActionRadiusCells` (32).** That ground is placed
-by hand, at chosen distances, because the introduction depends on it. A sector is skipped when *any
+**Nothing derived lands inside `CoreRuntime.ExtendedActionRadiusCells` (80)** - the Core's furthest
+reach, what the last `extended_bandwidth` grants. The ore in it is placed by hand, at chosen distances,
+because the introduction depends on it; growing the radius gives the player room, not new ore. A sector is skipped when *any
 part of it* falls inside the radius rather than having its cells clipped — a clipped cluster would be
 two tiles against a wall, which is worse than none.
 

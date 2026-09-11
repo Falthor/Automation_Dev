@@ -1,52 +1,59 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="GameUI.uss" />
 
+    <!-- The research network (GDD §5.4). Nodes, synapses and the pulse are built by
+         ResearchPanelController inside ResearchNetworkContent; the markup only holds the frame. -->
     <ui:VisualElement name="ResearchPanelRoot" class="overlay-root hidden" picking-mode="Ignore">
         <ui:VisualElement class="panel panel-accent research-panel" picking-mode="Position">
             <ui:VisualElement class="header-row">
                 <ui:Label text="RECHERCHE" class="title" />
+                <ui:Label text="Cortex - architecture neuronale" class="research-subtitle" />
                 <ui:Label name="ResearchReserveLabel" text="" class="research-reserve-label" />
                 <ui:Button name="ResearchCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
 
             <ui:VisualElement class="research-body">
-                <ui:ScrollView name="ResearchListScroll" class="research-list-scroll" mode="Vertical" horizontal-scroller-visibility="Hidden" vertical-scroller-visibility="Auto">
-                    <ui:VisualElement name="ResearchList" class="research-list" />
-
+                <ui:VisualElement name="ResearchNetwork" class="research-network">
+                    <ui:VisualElement name="ResearchNetworkContent" class="research-network-content" />
+                    <ui:Button name="ResearchRecenterButton" text="RECENTRER" class="research-recenter-button" />
+                    <ui:Label text="molette : zoom  -  glisser : deplacer" class="research-network-hint" picking-mode="Ignore" />
                     <ui:VisualElement name="ResearchQueueSection" class="research-queue-section hidden">
                         <ui:Label text="FILE D'ATTENTE" class="research-section-label" />
                         <ui:VisualElement name="ResearchQueueList" class="research-queue-list" />
                     </ui:VisualElement>
-                </ui:ScrollView>
+                </ui:VisualElement>
 
                 <ui:VisualElement name="ResearchDetailPanel" class="research-detail-panel hidden">
                     <ui:Label name="ResearchDetailState" text="" class="research-detail-state" />
                     <ui:Label name="ResearchDetailName" text="" class="research-detail-name" />
                     <ui:Label name="ResearchDetailDescription" text="" class="research-detail-description" />
 
-                    <ui:VisualElement class="research-detail-effect-box">
-                        <ui:Label text="EFFET" class="research-section-label" />
-                        <ui:Label name="ResearchDetailEffect" text="" class="research-detail-effect-value" />
-                    </ui:VisualElement>
+                    <!-- Everything below is about buying a research, so a core hides it. -->
+                    <ui:VisualElement name="ResearchDetailResearchBody">
+                        <ui:VisualElement class="research-detail-effect-box">
+                            <ui:Label text="EFFET" class="research-section-label" />
+                            <ui:Label name="ResearchDetailEffect" text="" class="research-detail-effect-value" />
+                        </ui:VisualElement>
 
-                    <ui:Label text="PROGRESSION" class="research-section-label" />
-                    <ui:VisualElement class="extractor-progress-track research-detail-progress-track">
-                        <ui:VisualElement name="ResearchDetailProgressFill" class="extractor-progress-fill" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="research-detail-cost-row">
-                        <ui:Label name="ResearchDetailCostLabel" text="" class="research-detail-cost-label" />
-                        <ui:Label name="ResearchDetailTimeLabel" text="" class="research-detail-time-label" />
-                    </ui:VisualElement>
+                        <ui:Label text="PROGRESSION" class="research-section-label" />
+                        <ui:VisualElement class="extractor-progress-track research-detail-progress-track">
+                            <ui:VisualElement name="ResearchDetailProgressFill" class="extractor-progress-fill" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="research-detail-cost-row">
+                            <ui:Label name="ResearchDetailCostLabel" text="" class="research-detail-cost-label" />
+                            <ui:Label name="ResearchDetailTimeLabel" text="" class="research-detail-time-label" />
+                        </ui:VisualElement>
 
-                    <ui:VisualElement class="research-detail-absorption-row">
-                        <ui:Label text="Absorption" class="research-detail-absorption-name" />
-                        <ui:Label name="ResearchDetailAbsorptionValue" text="" class="research-detail-absorption-value" />
+                        <ui:VisualElement class="research-detail-absorption-row">
+                            <ui:Label text="Absorption" class="research-detail-absorption-name" />
+                            <ui:Label name="ResearchDetailAbsorptionValue" text="" class="research-detail-absorption-value" />
+                        </ui:VisualElement>
+
+                        <ui:Label text="PREREQUIS" class="research-section-label" />
+                        <ui:VisualElement name="ResearchDetailPrerequisites" class="research-detail-prerequisites" />
+
+                        <ui:Button name="ResearchDetailActionButton" text="" class="research-detail-action-button" />
                     </ui:VisualElement>
-
-                    <ui:Label text="PREREQUIS" class="research-section-label" />
-                    <ui:VisualElement name="ResearchDetailPrerequisites" class="research-detail-prerequisites" />
-
-                    <ui:Button name="ResearchDetailActionButton" text="" class="research-detail-action-button" />
                 </ui:VisualElement>
             </ui:VisualElement>
 
@@ -56,6 +63,7 @@
                 <ui:Label text="&#9670; payable" class="research-legend-item research-legend-payable" />
                 <ui:Label text="&#9671; CU insuffisant" class="research-legend-item research-legend-unaffordable" />
                 <ui:Label text="&#128274; verrouille" class="research-legend-item research-legend-locked" />
+                <ui:Label text="? inconnu" class="research-legend-item research-legend-unknown" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

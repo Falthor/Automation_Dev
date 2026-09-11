@@ -587,10 +587,9 @@ namespace Game.UI
         {
             var research = gameRuntime.Research;
 
-            // Research is the first directive's reward, so before that there is no card to fill in -
-            // and nothing to fill it from. A run with no directives at all keeps it, since then
-            // nothing was ever going to hand it over.
-            bool menuUnlocked = gameRuntime.CoreDirectives == null || gameRuntime.CoreDirectives.IsResearchMenuUnlocked;
+            // No research menu before the Datacenter has finished priming and powered its cores
+            // (GDD §5.4), so before that there is no card to fill in - and nothing to fill it from.
+            bool menuUnlocked = ResearchPanelController.IsAvailable(gameRuntime.Researches, research);
             _researchCard.Root.EnableInClassList("hidden", !menuUnlocked);
 
             // A card that appears mid-run appears among three the player has long stopped looking
@@ -658,7 +657,7 @@ namespace Game.UI
             _researchCard.Value.EnableInClassList("top-bar-card-value-done", finished);
         }
 
-        /// <summary>Occupied/cap counter (TASK_04_PLAFOND_RAYON.md §5) - the second Top Bar figure the survival-phase UI shows, alongside CU. Turns alert-colored within BuildingCapAlertMargin slots of the cap; the cap itself is read live from ConstructionService, so memory_allocation's 40->52 jump shows immediately.</summary>
+        /// <summary>Occupied/cap counter (TASK_04_PLAFOND_RAYON.md §5) - the second Top Bar figure the survival-phase UI shows, alongside CU. Turns alert-colored within BuildingCapAlertMargin slots of the cap; the cap itself is read live from ConstructionService, so each memory allocation level shows the moment it lands.</summary>
         void RefreshBuildings()
         {
             var construction = gameRuntime.Construction;

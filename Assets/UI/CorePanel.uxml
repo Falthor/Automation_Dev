@@ -34,10 +34,6 @@
                      naming them in a single label ran off the edge of the panel. Rows are built by
                      the controller. -->
                 <ui:VisualElement name="CoreDirectiveRewardResearchList" class="hidden" />
-                <ui:VisualElement name="CoreDirectiveRewardMenu" class="core-directive-reward hidden">
-                    <ui:VisualElement class="core-directive-reward-glyph" />
-                    <ui:Label text="Menu Recherche" class="core-directive-reward-name" />
-                </ui:VisualElement>
 
                 <ui:Button name="CoreDirectiveValidate" text="VALIDER" class="recipe-action-button" />
             </ui:VisualElement>

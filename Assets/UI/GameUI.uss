@@ -721,8 +721,8 @@
     -unity-font-style: bold;
 }
 
-/* Stands in the icon's place for a reward that has no item to show (the Research menu), so both
-   reward lines start at the same left edge. */
+/* Stands in the icon's place for a reward that has no item to show (an unlock), so every reward
+   line starts at the same left edge. */
 .core-directive-reward-glyph {
     width: 24px;
     height: 24px;
@@ -818,10 +818,28 @@
     font-size: 9px;
 }
 
-/* Research panel - linear introduction menu (TASK_02_REFONTE_RECHERCHE.md §8) */
+/* Research panel - the neural network (GDD §5.4). Nodes are placed by ResearchPanelController;
+   their size, position and radius are set in code, everything else here. */
 
-.research-panel {
-    width: 620px;
+/* The whole screen, over everything (the controller brings it to the front when it opens): the
+   network needs the room, and nothing behind it is usable while it is up. Two classes deep so it
+   outranks .panel's centred, top-margined box whatever the file order. */
+.panel.research-panel {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    margin-top: 0;
+    align-self: auto;
+    flex-direction: column;
+}
+
+.research-subtitle {
+    color: rgb(139, 147, 161);
+    font-size: 11px;
+    margin-left: 10px;
+    -unity-text-align: middle-left;
 }
 
 .research-reserve-label {
@@ -833,37 +851,47 @@
 
 .research-body {
     flex-direction: row;
-}
-
-.research-list-scroll {
     flex-grow: 1;
-    max-height: 420px;
 }
 
-/* Same slim treatment the building grid already uses - the default scroller is far too wide for
-   a list this narrow, and its stepper buttons are dead weight. */
-.research-list-scroll .unity-scroller--vertical {
-    width: 6px;
+.research-network {
+    flex-grow: 1;
+    overflow: hidden;
+    background-color: rgb(14, 16, 21);
+    border-width: 1px;
+    border-color: rgb(43, 49, 60);
+    border-radius: 6px;
 }
 
-.research-list-scroll .unity-scroller--vertical .unity-scroller__low-button,
-.research-list-scroll .unity-scroller--vertical .unity-scroller__high-button {
-    display: none;
+.research-network-content {
+    position: absolute;
+    left: 50%;
+    top: 50%;
 }
 
-.research-list-scroll .unity-scroller--vertical .unity-base-slider__tracker {
-    width: 4px;
-    border-radius: 2px;
+.research-network-hint {
+    position: absolute;
+    right: 10px;
+    bottom: 8px;
+    font-size: 9px;
+    color: rgb(78, 85, 99);
 }
 
-.research-list-scroll .unity-scroller--vertical .unity-base-slider__dragger {
-    width: 4px;
-    border-radius: 2px;
-    background-color: rgb(85, 221, 245);
+.research-recenter-button {
+    position: absolute;
+    right: 8px;
+    top: 8px;
+    font-size: 10px;
+    padding: 4px 8px;
+    color: rgb(200, 210, 218);
+    background-color: rgba(26, 30, 38, 0.92);
+    border-width: 1px;
+    border-color: rgb(47, 53, 64);
+    border-radius: 4px;
 }
 
-.research-list {
-    flex-direction: column;
+.research-recenter-button:hover {
+    border-color: rgb(85, 221, 245);
 }
 
 .research-section-label {
@@ -873,100 +901,116 @@
     margin: 8px 0 4px;
 }
 
-.research-row {
-    flex-direction: row;
+/* Nodes */
+
+.research-node {
+    position: absolute;
     align-items: center;
-    padding: 6px 8px;
-    margin-bottom: 4px;
-    background-color: rgb(20, 24, 29);
-    border-width: 1px;
-    border-color: rgb(48, 59, 66);
+    justify-content: center;
+    border-width: 1.5px;
+    background-color: rgb(22, 25, 32);
+    border-color: rgb(61, 67, 79);
 }
 
-/* Selection and hover live at the end of this block, after the per-state rules - see there. */
+.research-node-glyph {
+    font-size: 11px;
+    -unity-text-align: middle-center;
+    color: rgb(92, 99, 113);
+    margin: 0;
+    padding: 0;
+}
 
-.research-row-missing-prereq {
+.research-node-name,
+.research-node-caption {
+    position: absolute;
+    font-size: 9px;
+    white-space: normal;
+    -unity-text-align: upper-center;
+    color: rgb(107, 114, 128);
+    margin: 0;
+    padding: 0;
+}
+
+.research-node-caption {
+    color: rgb(78, 85, 99);
+}
+
+.research-node-name-inside {
+    width: 100%;
+    font-size: 8px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    padding: 0 3px;
+    margin: 0;
+}
+
+.research-node-centre { background-color: rgb(18, 53, 44); border-color: rgb(93, 202, 165); border-width: 2px; }
+.research-node-centre .research-node-name-inside { color: rgb(159, 225, 203); }
+
+.research-node-core-on { background-color: rgb(29, 37, 49); border-color: rgb(237, 147, 177); }
+.research-node-core-on .research-node-name-inside { color: rgb(237, 147, 177); }
+.research-node-core-off { background-color: rgb(20, 22, 27); border-color: rgb(57, 64, 76); }
+.research-node-core-off .research-node-name-inside { color: rgb(92, 99, 113); }
+
+.research-node-completed { background-color: rgb(18, 53, 44); border-color: rgb(93, 202, 165); }
+.research-node-completed .research-node-glyph { color: rgb(93, 202, 165); }
+.research-node-completed .research-node-name { color: rgb(159, 225, 203); }
+
+.research-node-in-progress { background-color: rgb(46, 36, 9); border-color: rgb(239, 159, 39); }
+.research-node-in-progress .research-node-glyph,
+.research-node-in-progress .research-node-name { color: rgb(250, 199, 117); }
+
+/* What can be paid for now is the one thing the player opens this menu to find (GDD §5.4): a thicker
+   frame, never colour alone - the diamond glyph says it too. */
+.research-node-payable { background-color: rgb(51, 23, 42); border-color: rgb(237, 147, 177); border-width: 3px; }
+.research-node-payable .research-node-glyph,
+.research-node-payable .research-node-name { color: rgb(244, 192, 209); }
+
+.research-node-unaffordable { background-color: rgb(26, 30, 38); border-color: rgb(107, 114, 128); }
+.research-node-unaffordable .research-node-glyph,
+.research-node-unaffordable .research-node-name { color: rgb(154, 162, 177); }
+
+.research-node-locked { background-color: rgb(22, 25, 32); border-color: rgb(61, 67, 79); }
+.research-node-locked .research-node-glyph { color: rgb(92, 99, 113); }
+
+.research-node-unknown { background-color: rgb(22, 24, 29); border-color: rgb(47, 53, 64); }
+.research-node-unknown .research-node-glyph { color: rgb(69, 76, 88); }
+
+/* After the per-state rules on purpose: every state above sets a border colour at the same
+   specificity, so file order decides - the missing chain and the selection have to come last. */
+.research-node-missing-prereq {
     border-color: rgb(239, 108, 108);
 }
 
-.research-row-icon {
-    width: 20px;
-    height: 20px;
-    margin-right: 8px;
-    border-radius: 10px;
-    border-width: 1px;
-    -unity-text-align: middle-center;
-    font-size: 11px;
-    -unity-font-style: bold;
-}
-
-.research-row-text {
-    flex-grow: 1;
-}
-
-.research-row-name {
-    font-size: 11px;
-    -unity-font-style: bold;
-    color: rgb(220, 220, 220);
-}
-
-.research-row-sub {
-    font-size: 9px;
-    color: rgb(139, 147, 161);
-}
-
-.research-row-status {
-    font-size: 10px;
-    -unity-text-align: middle-right;
-}
-
-.research-state-locked .research-row-icon { background-color: rgb(22, 25, 32); border-color: rgb(61, 67, 79); color: rgb(92, 99, 113); }
-.research-state-locked .research-row-name,
-.research-state-locked .research-row-status,
-.research-state-locked .research-row-sub { color: rgb(107, 114, 128); }
-
-/* Payable: blue, with a soft halo around the row so it reads as "ready to go" at a glance
-   (feedback: was pink before, indistinguishable in intent from the other states' warm colors). */
-.research-state-payable {
-    border-color: rgb(90, 170, 255);
-    box-shadow: 0 0 8px 2px rgba(90, 170, 255, 0.35);
-}
-.research-state-payable .research-row-icon { background-color: rgb(18, 34, 56); border-color: rgb(90, 170, 255); color: rgb(160, 205, 255); }
-.research-state-payable .research-row-status { color: rgb(160, 205, 255); }
-
-.research-state-unaffordable .research-row-icon { background-color: rgb(26, 30, 38); border-color: rgb(107, 114, 128); color: rgb(154, 162, 177); }
-.research-state-unaffordable .research-row-status { color: rgb(139, 147, 161); }
-
-.research-state-in-progress { border-color: rgb(239, 159, 39); }
-.research-state-in-progress .research-row-icon { background-color: rgb(46, 36, 9); border-color: rgb(239, 159, 39); color: rgb(250, 199, 117); }
-.research-state-in-progress .research-row-status { color: rgb(250, 199, 117); }
-
-.research-state-completed { opacity: 0.85; }
-.research-state-completed .research-row-icon { background-color: rgb(18, 53, 44); border-color: rgb(93, 202, 165); color: rgb(93, 202, 165); }
-.research-state-completed .research-row-status { color: rgb(93, 202, 165); }
-
-/* The row the detail panel is describing: a green edge over a green ground, the same "this is the
-   one you picked" treatment .recipe-card-selected already uses, in the other colour.
-
-   Written after the per-state rules on purpose. Every .research-state-* above sets a border colour
-   at the same specificity, so which of them wins is decided by file order - selection has to come
-   last or a payable row would stay blue while selected. A brighter green than the completed teal
-   (93, 202, 165), which already means "acquis" a few lines up. */
-.research-row-inspected {
-    border-width: 2px;
+.research-node-inspected {
+    border-width: 3px;
     border-color: rgb(100, 210, 130);
-    background-color: rgb(20, 45, 32);
 }
 
-/* Under the cursor it is cyan, selected or not: hover is the pointer's own feedback and must not be
-   read as the selection it is about to change. Last, and the only rule here carrying a pseudo-class,
-   so it wins over both the states and the green above. */
-.research-row:hover,
-.research-row-inspected:hover {
+/* Last, and the only rule here carrying a pseudo-class, so it wins over both. */
+.research-node:hover {
     border-color: rgb(85, 221, 245);
 }
 
-.research-queue-section { margin-top: 6px; }
+.research-pulse {
+    position: absolute;
+    border-radius: 4px;
+    background-color: rgb(250, 199, 117);
+}
+
+/* Queue, floating over the bottom-left of the network */
+
+.research-queue-section {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    width: 240px;
+    padding: 4px 8px 6px;
+    background-color: rgba(16, 20, 25, 0.94);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    border-radius: 4px;
+}
 
 .research-queue-row {
     flex-direction: row;
@@ -1046,8 +1090,7 @@
 }
 
 .research-detail-progress-track {
-    /* Overrides extractor-progress-track's 220px - wider than this panel itself (210px),
-       which pushed the bar past the panel's edge (feedback: "sort du menu"). */
+    /* Overrides extractor-progress-track's 220px - wider than this panel itself (210px). */
     width: 190px;
     margin-bottom: 4px;
 }
@@ -1073,6 +1116,11 @@
 .research-detail-prereq-missing {
     color: rgb(107, 114, 128);
     font-size: 11px;
+}
+
+/* A prerequisite is also a way to get there: clicking it recentres the network on it. */
+.research-detail-prereq-link:hover {
+    color: rgb(85, 221, 245);
 }
 
 .research-detail-prereq-none {
@@ -1112,6 +1160,7 @@
 .research-legend-payable { color: rgb(237, 147, 177); }
 .research-legend-unaffordable { color: rgb(154, 162, 177); }
 .research-legend-locked { color: rgb(107, 114, 128); }
+.research-legend-unknown { color: rgb(92, 99, 113); }
 
 /* Top Bar */
 

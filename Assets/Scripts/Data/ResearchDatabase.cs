@@ -13,6 +13,17 @@ namespace Game.Data
     {
         [SerializeField] ResearchDefinition[] researches;
 
+        /// <summary>
+        /// The roots of the research network, in the order the panel lays them out around the
+        /// Datacenter: Research, Buildings, Armament (GDD §5.4).
+        ///
+        /// Kept apart from the researches because a core is never bought: it is an unlock id granted
+        /// by whatever powers it (ResearchSystem.Grant), and a research joins a branch by naming its
+        /// core as a prerequisite. Out of GetAll, so nothing lists or counts a core as a research;
+        /// still found by Get.
+        /// </summary>
+        [SerializeField] ResearchDefinition[] cores;
+
         Dictionary<string, ResearchDefinition> _byId;
 
         /// <summary>Returns the research for researchId, or null if it isn't registered.</summary>
@@ -28,12 +39,24 @@ namespace Game.Data
             return researches ?? System.Array.Empty<ResearchDefinition>();
         }
 
+        /// <summary>The network's cores, in layout order. Empty when none are assigned.</summary>
+        public IReadOnlyList<ResearchDefinition> GetCores()
+        {
+            return cores ?? System.Array.Empty<ResearchDefinition>();
+        }
+
         void BuildLookup()
         {
             _byId = new Dictionary<string, ResearchDefinition>();
-            if (researches == null) return;
+            Index(researches);
+            Index(cores);
+        }
 
-            foreach (ResearchDefinition research in researches)
+        void Index(ResearchDefinition[] definitions)
+        {
+            if (definitions == null) return;
+
+            foreach (ResearchDefinition research in definitions)
             {
                 if (research != null && !string.IsNullOrEmpty(research.Id)) _byId[research.Id] = research;
             }

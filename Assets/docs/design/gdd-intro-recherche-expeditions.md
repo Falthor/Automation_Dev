@@ -285,7 +285,7 @@ l'indiquer autrement, sinon l'indicateur devient une frustration au lieu d'un ob
 | 9 | Recherche **Datacenter MK1**, puis production de masse et construction. | choix du joueur |
 | 10 | **Amorçage** : 90 s de consommation sans production. | pose du bâtiment |
 | 11 | En interne, **la mission de découverte du nid devient disponible**. Rien n'est annoncé au joueur : le site apparaît simplement parmi les cibles possibles. | fin de l'amorçage |
-| 12 | Le menu de recherche se transforme, **trois noyaux** apparaissent dont un éteint. La Fonderie avancée devient accessible. **Fin de la survie.** | fin de l'amorçage |
+| 12 | Le menu de recherche apparaît — le réseau neuronal, **trois noyaux** dont un éteint — avec le bouton Recherche et la carte de la barre du haut. La Fonderie avancée devient accessible. **Fin de la survie.** | fin de l'amorçage |
 | 13 | **Découverte du nid dormant.** Le troisième noyau s'allume. Le dernier robot explorateur s'éteint au même moment. | mission débloquée à l'étape 11 |
 
 Les recherches **Optimisation de fabrication** et **Extraction renforcée** sont
@@ -434,16 +434,14 @@ L'Optimisation, achetée tôt, rapporte environ 1 150 CU net ; achetée tard, el
 perdre de l'argent. Le joueur doit estimer ce qu'il lui reste à produire — exactement
 le raisonnement que le jeu lui demandera pendant des heures.
 
-### 5.3 Présentation — menu d'introduction
+### 5.3 Pendant la survie : pas de menu
 
-Pendant la survie, le menu est **classique et linéaire**. Une liste verticale, ou une
-colonne de cartes, dans un overlay plein écran assombri. Quatre nœuds obligatoires en
-ligne droite, deux nœuds optionnels sur le côté, un nœud ??? en silhouette.
+Il n'y a **pas de menu de recherche pendant la survie**. Les déblocages de l'introduction
+viennent des directives du Noyau ; le bouton Recherche de la barre du bas et la carte
+Recherche de la barre du haut n'existent pas encore. Le seul menu de recherche est le
+réseau neuronal (§5.4), et il n'apparaît qu'à la fin de l'amorçage du Datacenter.
 
-Dessiner un réseau neuronal pour une chaîne linéaire serait de la pose, et brûlerait la
-révélation pour rien.
-
-Chaque entrée affiche :
+Chaque nœud du réseau affiche :
 
 - **nom et icône**
 - **état** parmi cinq : verrouillé, disponible mais CU insuffisant, disponible et
@@ -452,16 +450,11 @@ Chaque entrée affiche :
 - **effet chiffré**
 - **prérequis** avec leur statut
 
-Le nœud ??? est visible dès le premier écran, en silhouette, avec le statut *signal non
-identifié*. Un point d'interrogation qu'on voit sans pouvoir le toucher travaille le
-joueur bien plus qu'une surprise surgie de nulle part.
-
 ### 5.4 Présentation — menu neuronal
 
-À l'amorçage du Datacenter, le menu se transforme. **Le vocabulaire visuel ne change
-pas** — mêmes cinq états, même panneau de détail, même barre de coût avec autonomie.
-Seule la mise en page change. Si le joueur doit réapprendre à lire, la transformation
-devient une corvée au lieu d'une récompense.
+Le menu apparaît à la fin de l'amorçage du Datacenter, en même temps que le bouton
+Recherche et la carte de la barre du haut : c'est l'alimentation des noyaux Recherche et
+Bâtiments qui l'ouvre. Chaque nœud porte les cinq états et le panneau de détail du §5.3.
 
 **Disposition radiale.** Le rayon encode le palier de progression : le joueur lit sa
 position dans la partie à sa distance au centre, sans aucun texte.
@@ -657,11 +650,11 @@ Restent ici les points qui n'appartiennent qu'à l'économie de l'introduction :
 | 1 | Refonte de l'économie CU : suppression du RP, de la Data Card et du Laboratoire, suppression de la production de CU du Core, réserve finie, nouveaux `computeCost`, arrêt des machines à buffer plein | **fait** |
 | 2 | Nouvelles recettes et coûts de construction, plafond de bâtiments | **fait** |
 | 3 | Modèle de recherche en processus, prérequis multiples, file d'attente, pause à zéro CU | **fait** |
-| 4 | Menu de recherche linéaire de l'introduction, ses cinq états et son panneau de détail | **fait** |
+| 4 | Menu de recherche linéaire de l'introduction | **retiré** : pas de menu pendant la survie, voir §5.3 |
 | 5 | Datacenter MK1, amorçage, baies, curseur de répartition, formule de rendement | **fait** |
 | 6 | Système d'expéditions : robots explorateurs, deux types de mission, sites finis | **le processus est fait**, l'interface non |
 | 7 | Carte dézoomée : l'image existe (`SectorMapImage`), l'écran non | **en cours** |
-| 8 | Transformation du menu en réseau radial, trois noyaux, algorithme de placement | à faire |
+| 8 | Menu de recherche en réseau radial, trois noyaux, algorithme de placement, zoom et recentrage | **fait** |
 | 9 | Nid, branche armement, unités, usure, entretien, réparation | à faire |
 
 L'étape qui ouvrait cette liste — modifier `CONTRACTS.md` §10, parce que le modèle de recherche par

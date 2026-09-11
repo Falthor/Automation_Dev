@@ -30,7 +30,7 @@ namespace Game.UI
         VisualElement _toolbarRow;
         readonly (string panelName, VisualElement button)[] _categoryButtons = new (string, VisualElement)[3];
 
-        /// <summary>Kept apart from the array because it is the one category that can be absent: the Research menu is handed over by the Core's first directive, not owned from the start.</summary>
+        /// <summary>Kept apart from the array because it is the one category that can be absent: the Research menu arrives with the Datacenter's cores, once its priming is done - not owned from the start.</summary>
         VisualElement _researchCategoryButton;
 
         /// <summary>Opens the zoomed-out map. Hidden until the explorer robots arrive.</summary>
@@ -100,16 +100,16 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// The Research icon exists only once the Core has handed the menu over (the first
-        /// directive's reward, alongside its item). Re-asked every frame rather than wired to an
-        /// event: the directive completes when a robot lands its last crate, and this is the same
-        /// per-frame refresh every other panel controller already runs.
+        /// The Research icon exists only once the Datacenter has finished priming and powered its
+        /// cores (GDD §5.4) - there is no research menu before that. Re-asked every frame rather
+        /// than wired to an event: this is the same per-frame refresh every other panel controller
+        /// already runs.
         /// </summary>
         void RefreshResearchAvailability()
         {
             if (_researchCategoryButton == null) return;
 
-            bool unlocked = gameRuntime.CoreDirectives == null || gameRuntime.CoreDirectives.IsResearchMenuUnlocked;
+            bool unlocked = ResearchPanelController.IsAvailable(gameRuntime.Researches, gameRuntime.Research);
             _researchCategoryButton.EnableInClassList("hidden", !unlocked);
 
             // Pulsed in step with the Top Bar card (both read NewUnlockPulse's shared phase), and

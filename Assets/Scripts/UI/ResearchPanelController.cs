@@ -9,30 +9,90 @@ using UnityEngine.UIElements;
 namespace Game.UI
 {
     /// <summary>
-    /// Global Research panel (CONTRACTS.md §11/§12), opened from the Bottom Nav "Research"
-    /// category button. Linear introduction menu (TASK_02_REFONTE_RECHERCHE.md §8,
-    /// `01-menu-recherche-intro.html`): the whole tree is read from
-    /// GameRuntime.Researches (Game.Data.ResearchDatabase) - this panel never defines it.
+    /// Global Research panel (CONTRACTS.md §11/§12): the neural network of GDD §5.4, and the only
+    /// research menu the game has. It takes the whole screen, brought in front of everything else
+    /// when it opens. It does not exist before the Datacenter has finished priming - see
+    /// IsAvailable - and the introduction runs on the Core's directives alone.
     ///
-    /// Five states, never distinguished by color alone - each also gets its own glyph:
-    /// acquis (check), en cours (progress ring), disponible et payable / CU insuffisant (diamond,
-    /// filled vs hollow), verrouille (lock). Clicking a row only selects it for inspection in the
-    /// detail panel - it never itself starts or queues anything, including a locked row (whose
-    /// missing prerequisites get highlighted instead). Only the detail panel's own action button
-    /// (OnDetailActionClicked) calls ResearchSystem.Enqueue/Dequeue/CancelActive, so committing
-    /// CU to a research is always a deliberate second click, never a side effect of browsing.
+    /// The Datacenter sits at the centre, the cores of ResearchDatabase.GetCores() around it, and each
+    /// research on the ring of its tier inside its core's sector (NeuralLayout). A synapse is drawn
+    /// only from a parent already acquired; toward a parent that is available but not acquired only a
+    /// short stub leaves the node, and toward one locked further back nothing is drawn at all - there
+    /// is no path, so there is none on screen. An unpowered core is linked by a dim dashed line.
+    ///
+    /// Clicking a node only inspects it: the detail panel's own button is what queues or cancels, so
+    /// committing CU is always a deliberate second click. Clicking a prerequisite in the detail panel
+    /// recentres the view on it; the inspected node's whole missing chain is outlined.
+    ///
+    /// Nothing is rebuilt per frame. Node classes, the synapses and the detail panel are redone only
+    /// when the state signature changes; per frame, only the pulse moves and the live figures of the
+    /// active research are rewritten when their whole value changes.
     /// </summary>
     public sealed class ResearchPanelController : MonoBehaviour
     {
         public const string PanelName = "research";
 
+        /// <summary>Logical pixels between two rings - the radius is the tier.</summary>
+        const float RingStep = 64f;
+
+        const float CentreSize = 58f;
+        const float CoreSize = 50f;
+        const float NodeSize = 30f;
+        const float UnknownSize = 24f;
+        const float NameWidth = 110f;
+        const float StubLength = 22f;
+        const float PulseSize = 8f;
+        const float PulseSeconds = 1.6f;
+        const float MinZoom = 0.4f;
+        const float MaxZoom = 2f;
+        const float WheelStep = 1.12f;
+        const int UnknownNodesPerEmptyCore = 3;
+        const int CurveSamples = 20;
+
+        static readonly Color RingColor = new Color32(28, 32, 41, 255);
+        static readonly Color LitColor = new Color32(237, 147, 177, 255);
+        static readonly Color AcquiredColor = new Color32(93, 202, 165, 255);
+        static readonly Color StubColor = new Color32(61, 67, 79, 255);
+        static readonly Color DarkColor = new Color32(42, 48, 58, 255);
+
+        enum NodeState { Completed, InProgress, Payable, Unaffordable, Locked, CoreOn, CoreOff, Unknown }
+
+        /// <summary>Indexed by NodeState - one class per state, never distinguished by colour alone: each also has its own glyph.</summary>
+        static readonly string[] StateClasses =
+        {
+            "research-node-completed", "research-node-in-progress", "research-node-payable",
+            "research-node-unaffordable", "research-node-locked", "research-node-core-on",
+            "research-node-core-off", "research-node-unknown"
+        };
+
+        sealed class Node
+        {
+            /// <summary>The core or research on this node; null for an unknown one.</summary>
+            public ResearchDefinition Definition;
+            public bool IsCore;
+
+            /// <summary>Index in _nodes of the node this one hangs from; -1 for a core, which hangs from the Datacenter.</summary>
+            public int ParentIndex;
+
+            /// <summary>Offset from the Datacenter, before pan and zoom.</summary>
+            public Vector2 Position;
+
+            public VisualElement Element;
+            public Label Glyph;
+            public Label OffCaption;
+            public NodeState State;
+        }
+
         [SerializeField] UIDocument uiDocument;
         [SerializeField] VisualTreeAsset visualTree;
         [SerializeField] GameRuntime gameRuntime;
 
+        VisualElement _panelRoot;
         VisualElement _root;
         Label _reserveLabel;
-        VisualElement _list;
+        VisualElement _network;
+        VisualElement _content;
+        VisualElement _pulse;
         VisualElement _queueSection;
         VisualElement _queueList;
 
@@ -40,6 +100,7 @@ namespace Game.UI
         Label _detailState;
         Label _detailName;
         Label _detailDescription;
+        VisualElement _detailResearchBody;
         Label _detailEffect;
         VisualElement _detailProgressFill;
         Label _detailCostLabel;
@@ -48,14 +109,55 @@ namespace Game.UI
         VisualElement _detailPrerequisites;
         Button _detailActionButton;
 
-        /// <summary>One row per research in the tree, built once when the panel opens - never rebuilt per frame (a Button destroyed and recreated between pointer-down and pointer-up never completes its click).</summary>
-        readonly List<(ResearchDefinition definition, VisualElement row, Label icon, Label name, Label status)> _rows = new List<(ResearchDefinition, VisualElement, Label, Label, Label)>();
+        readonly List<Node> _nodes = new List<Node>();
+        readonly Dictionary<ResearchDefinition, int> _indexOf = new Dictionary<ResearchDefinition, int>();
 
-        /// <summary>Queue buttons are rebuilt only when the queue's actual sequence changes (rare - a handful of times per session), for the same reason the main rows aren't rebuilt every frame.</summary>
+        /// <summary>Queue buttons are rebuilt only when the queue's actual sequence changes: a Button destroyed and recreated between pointer-down and pointer-up never completes its click.</summary>
         readonly List<ResearchDefinition> _lastRenderedQueue = new List<ResearchDefinition>();
 
-        /// <summary>The research currently shown in the detail panel - defaults to the active one when the panel opens, otherwise whatever the player last clicked. Not necessarily the active research.</summary>
+        /// <summary>Every prerequisite the inspected research is still missing, all the way back - outlined on the network.</summary>
+        readonly HashSet<ResearchDefinition> _missingChain = new HashSet<ResearchDefinition>();
+        readonly Stack<ResearchDefinition> _chainWalk = new Stack<ResearchDefinition>();
+
+        /// <summary>What the detail panel describes - defaults to the active research when the panel opens, otherwise whatever the player last clicked.</summary>
         ResearchDefinition _inspected;
+
+        float _outerRadius;
+
+        /// <summary>Half the side of the square the network is drawn in, centred on the Datacenter. Sized on what it holds, so picking reaches every node however many rings there are.</summary>
+        float _extent = 400f;
+
+        int _maxTier;
+        bool _dirty = true;
+        int _signature;
+        int _shownReserve = int.MinValue;
+        int _shownAbsorbed = int.MinValue;
+        int _shownSeconds = int.MinValue;
+        int _pulseNode = -1;
+        int _pulseParent = -1;
+
+        Vector2 _pan;
+        float _zoom = 1f;
+        bool _fitPending;
+        bool _dragging;
+        int _dragPointer = -1;
+
+        /// <summary>
+        /// Whether the research menu exists yet: once any core is powered. The Datacenter powers the
+        /// Research and Buildings cores when its priming is done (DataCenterRuntime.ResearchCoreId),
+        /// so before that there is no Top Bar card, no Bottom Nav icon and nothing to open.
+        /// </summary>
+        public static bool IsAvailable(ResearchDatabase database, ResearchSystem research)
+        {
+            if (database == null || research == null) return false;
+
+            IReadOnlyList<ResearchDefinition> cores = database.GetCores();
+            for (int i = 0; i < cores.Count; i++)
+            {
+                if (cores[i] != null && research.IsUnlocked(cores[i].Id)) return true;
+            }
+            return false;
+        }
 
         void Start()
         {
@@ -65,10 +167,12 @@ namespace Game.UI
             uiDocument.rootVisualElement.Add(panelRoot);
             panelRoot.StretchToParentSize();
             panelRoot.pickingMode = PickingMode.Ignore;
+            _panelRoot = panelRoot;
 
             _root = panelRoot.Q<VisualElement>("ResearchPanelRoot");
             _reserveLabel = panelRoot.Q<Label>("ResearchReserveLabel");
-            _list = panelRoot.Q<VisualElement>("ResearchList");
+            _network = panelRoot.Q<VisualElement>("ResearchNetwork");
+            _content = panelRoot.Q<VisualElement>("ResearchNetworkContent");
             _queueSection = panelRoot.Q<VisualElement>("ResearchQueueSection");
             _queueList = panelRoot.Q<VisualElement>("ResearchQueueList");
 
@@ -76,6 +180,7 @@ namespace Game.UI
             _detailState = panelRoot.Q<Label>("ResearchDetailState");
             _detailName = panelRoot.Q<Label>("ResearchDetailName");
             _detailDescription = panelRoot.Q<Label>("ResearchDetailDescription");
+            _detailResearchBody = panelRoot.Q<VisualElement>("ResearchDetailResearchBody");
             _detailEffect = panelRoot.Q<Label>("ResearchDetailEffect");
             _detailProgressFill = panelRoot.Q<VisualElement>("ResearchDetailProgressFill");
             _detailCostLabel = panelRoot.Q<Label>("ResearchDetailCostLabel");
@@ -86,6 +191,16 @@ namespace Game.UI
             _detailActionButton.clicked += OnDetailActionClicked;
 
             panelRoot.Q<Button>("ResearchCloseButton").clicked += Hide;
+            panelRoot.Q<Button>("ResearchRecenterButton").clicked += FitView;
+
+            _content.generateVisualContent += DrawSynapses;
+
+            _network.RegisterCallback<PointerDownEvent>(OnPointerDown);
+            _network.RegisterCallback<PointerMoveEvent>(OnPointerMove);
+            _network.RegisterCallback<PointerUpEvent>(OnPointerUp);
+            _network.RegisterCallback<PointerCaptureOutEvent>(_ => _dragging = false);
+            _network.RegisterCallback<WheelEvent>(OnWheel);
+            _network.RegisterCallback<GeometryChangedEvent>(_ => { if (_fitPending) FitView(); });
 
             _root.EnableInClassList("hidden", true);
             gameRuntime.Selection.GlobalPanelChanged += OnGlobalPanelChanged;
@@ -99,11 +214,21 @@ namespace Game.UI
         void OnGlobalPanelChanged(string panelName)
         {
             _root.EnableInClassList("hidden", panelName != PanelName);
-            if (panelName != PanelName) return;
+            if (panelName != PanelName)
+            {
+                _dragging = false;
+                return;
+            }
 
-            BuildRows();
+            // Over the Top Bar, the Bottom Nav and every other panel: the whole screen is the network's.
+            _panelRoot.BringToFront();
+
+            if (_nodes.Count == 0) BuildNetwork();
             _inspected = gameRuntime.Research.GetActiveResearch();
             _lastRenderedQueue.Clear();
+            _queueList.Clear();
+            _dirty = true;
+            FitView();
             Refresh();
         }
 
@@ -124,214 +249,566 @@ namespace Game.UI
             }
 
             Refresh();
+            MovePulse();
         }
 
-        /// <summary>
-        /// Whether this research is listed at all right now. A locked research is normally shown
-        /// anyway - the chain up to the Datacenter is what tells the player where the introduction
-        /// is going - but one declaring RevealedBy stays out of the list until that milestone is
-        /// done, so the introduction's menu does not announce what comes after it.
-        /// </summary>
-        public static bool IsRevealed(ResearchDefinition definition, ResearchSystem research)
-            => definition.RevealedBy == null || research.IsUnlocked(definition.RevealedBy.Id);
+        // --- Building the network (once) ---
 
-        bool IsRevealed(ResearchDefinition definition) => IsRevealed(definition, gameRuntime.Research);
-
-        /// <summary>Every research to list right now, in database order.</summary>
-        IEnumerable<ResearchDefinition> VisibleResearches()
+        /// <summary>Creates every node from the database. The tree is static data, so this runs the first time the panel opens and never again.</summary>
+        void BuildNetwork()
         {
-            IReadOnlyList<ResearchDefinition> all = gameRuntime.Researches != null ? gameRuntime.Researches.GetAll() : System.Array.Empty<ResearchDefinition>();
-            foreach (ResearchDefinition definition in all)
+            _content.Clear();
+            _nodes.Clear();
+            _indexOf.Clear();
+
+            ResearchDatabase database = gameRuntime.Researches;
+            IReadOnlyList<ResearchDefinition> cores = database != null ? database.GetCores() : System.Array.Empty<ResearchDefinition>();
+            IReadOnlyList<ResearchDefinition> researches = database != null ? database.GetAll() : System.Array.Empty<ResearchDefinition>();
+            List<NeuralLayout.Placement> placements = NeuralLayout.Compute(cores, researches, RingStep, UnknownNodesPerEmptyCore);
+
+            // How far the drawing reaches: the furthest node, its half-size and the name under it.
+            _maxTier = 1;
+            _outerRadius = CentreSize;
+            for (int i = 0; i < placements.Count; i++)
             {
-                if (definition != null && IsRevealed(definition)) yield return definition;
+                _maxTier = Mathf.Max(_maxTier, placements[i].Tier);
+                _outerRadius = Mathf.Max(_outerRadius, placements[i].Position.magnitude + CoreSize * 0.5f + 30f);
             }
-        }
 
-        /// <summary>
-        /// Whether the set of listed researches has changed under us. Checked every frame, rebuilt
-        /// only when it answers true: completing the Datacenter reveals five rows, and it can
-        /// complete while this panel is open and watching it.
-        /// </summary>
-        bool VisibleSetChanged()
-        {
-            int index = 0;
-            foreach (ResearchDefinition definition in VisibleResearches())
+            // The square the network lives in, centred on the network area. Its own centre is the
+            // Datacenter, which is also the default transform-origin - so zoom scales about it.
+            _extent = _outerRadius + 60f;
+            _content.style.width = 2f * _extent;
+            _content.style.height = 2f * _extent;
+            _content.style.marginLeft = -_extent;
+            _content.style.marginTop = -_extent;
+
+            // The Datacenter: not a research and not clickable - the network grows out of it.
+            AddElement(Vector2.zero, CentreSize, "research-node-centre", "Datacenter MK1", nameInside: true, clickable: false, out _);
+
+            for (int i = 0; i < placements.Count; i++)
             {
-                if (index >= _rows.Count || !ReferenceEquals(_rows[index].definition, definition)) return true;
-                index++;
+                NeuralLayout.Placement placement = placements[i];
+                var node = new Node
+                {
+                    Definition = placement.Definition,
+                    IsCore = placement.IsCore,
+                    ParentIndex = placement.ParentIndex,
+                    Position = placement.Position
+                };
+
+                float size;
+                if (node.IsCore)
+                {
+                    size = CoreSize;
+                    node.Element = AddElement(node.Position, size, "research-node-core", node.Definition.DisplayName, nameInside: true, clickable: true, out _);
+                    node.OffCaption = Caption("non alimente", size, "research-node-caption");
+                    node.Element.Add(node.OffCaption);
+                }
+                else if (node.Definition == null)
+                {
+                    size = UnknownSize;
+                    node.Element = AddElement(node.Position, size, "research-node-research", null, nameInside: false, clickable: false, out node.Glyph);
+                }
+                else
+                {
+                    size = NodeSize;
+                    node.Element = AddElement(node.Position, size, "research-node-research", node.Definition.DisplayName, nameInside: false, clickable: true, out node.Glyph);
+                }
+
+                if (node.Definition != null)
+                {
+                    ResearchDefinition captured = node.Definition;
+                    node.Element.RegisterCallback<ClickEvent>(_ => _inspected = captured);
+                    _indexOf[node.Definition] = _nodes.Count;
+                }
+
+                _nodes.Add(node);
             }
-            return index != _rows.Count;
+
+            _pulse = new VisualElement();
+            _pulse.AddToClassList("research-pulse");
+            _pulse.pickingMode = PickingMode.Ignore;
+            _pulse.style.width = PulseSize;
+            _pulse.style.height = PulseSize;
+            _content.Add(_pulse);
         }
 
-        /// <summary>Creates one row per listed research. Called when the panel opens and whenever that list changes - never merely per frame, see _rows.</summary>
-        void BuildRows()
+        VisualElement AddElement(Vector2 position, float size, string kindClass, string name, bool nameInside, bool clickable, out Label glyph)
         {
-            _list.Clear();
-            _rows.Clear();
+            var element = new VisualElement();
+            element.AddToClassList("research-node");
+            element.AddToClassList(kindClass);
+            element.style.left = _extent + position.x - size * 0.5f;
+            element.style.top = _extent + position.y - size * 0.5f;
+            element.style.width = size;
+            element.style.height = size;
+            float radius = size * 0.5f;
+            element.style.borderTopLeftRadius = radius;
+            element.style.borderTopRightRadius = radius;
+            element.style.borderBottomLeftRadius = radius;
+            element.style.borderBottomRightRadius = radius;
+            element.pickingMode = clickable ? PickingMode.Position : PickingMode.Ignore;
 
-            foreach (ResearchDefinition definition in VisibleResearches())
+            glyph = null;
+            if (nameInside)
             {
-                ResearchDefinition captured = definition;
-                var row = new VisualElement();
-                row.AddToClassList("research-row");
-                row.RegisterCallback<ClickEvent>(_ => OnRowClicked(captured));
-
-                var icon = new Label();
-                icon.AddToClassList("research-row-icon");
-                row.Add(icon);
-
-                var text = new VisualElement();
-                text.AddToClassList("research-row-text");
-
-                var name = new Label(definition.DisplayName);
-                name.AddToClassList("research-row-name");
-                text.Add(name);
-
-                var sub = new Label(definition.Description);
-                sub.AddToClassList("research-row-sub");
-                text.Add(sub);
-
-                row.Add(text);
-
-                var status = new Label();
-                status.AddToClassList("research-row-status");
-                row.Add(status);
-
-                _list.Add(row);
-                _rows.Add((definition, row, icon, name, status));
-            }
-        }
-
-        /// <summary>
-        /// Selects a row for inspection only - it must never itself start or queue anything.
-        /// Committing to a research is a deliberate act via the detail panel's own action button
-        /// (OnDetailActionClicked), so a player browsing the tree can click around freely without
-        /// accidentally spending CU on the wrong one.
-        /// </summary>
-        void OnRowClicked(ResearchDefinition definition)
-        {
-            _inspected = definition;
-        }
-
-        void OnDetailActionClicked()
-        {
-            if (_inspected == null) return;
-
-            ResearchSystem research = gameRuntime.Research;
-            if (ReferenceEquals(_inspected, research.GetActiveResearch()))
-            {
-                research.CancelActive();
-            }
-            else if (research.GetQueue().Contains(_inspected))
-            {
-                research.Dequeue(_inspected);
+                var inside = new Label(name);
+                inside.AddToClassList("research-node-name-inside");
+                inside.pickingMode = PickingMode.Ignore;
+                element.Add(inside);
             }
             else
             {
-                research.Enqueue(_inspected);
+                glyph = new Label();
+                glyph.AddToClassList("research-node-glyph");
+                glyph.pickingMode = PickingMode.Ignore;
+                element.Add(glyph);
+                if (!string.IsNullOrEmpty(name)) element.Add(Caption(name, size, "research-node-name"));
             }
+
+            _content.Add(element);
+            return element;
         }
+
+        /// <summary>A label centred under a node of the given size - its name, or a core's "non alimente".</summary>
+        static Label Caption(string text, float size, string className)
+        {
+            var label = new Label(text);
+            label.AddToClassList(className);
+            label.pickingMode = PickingMode.Ignore;
+            label.style.left = (size - NameWidth) * 0.5f;
+            label.style.top = size + 3f;
+            label.style.width = NameWidth;
+            return label;
+        }
+
+        // --- Per-frame refresh ---
 
         void Refresh()
         {
             ResearchSystem research = gameRuntime.Research;
+            float reserve = gameRuntime.Compute.Reserve;
 
-            // A research completing can reveal others, and it completes while this panel watches it.
-            if (VisibleSetChanged()) BuildRows();
-
-            // The inspected one may have just been rebuilt away from under the detail panel - only
-            // possible if it was hidden, which today cannot happen (nothing is ever un-revealed),
-            // but the panel must not be left describing a row that is no longer on screen.
-            if (_inspected != null && !IsRevealed(_inspected)) _inspected = research.GetActiveResearch();
-
-            _reserveLabel.text = $"Reserve {Mathf.FloorToInt(gameRuntime.Compute.Reserve)} CU";
-
-            HashSet<string> missingPrereqIds = MissingPrerequisiteIds(research, _inspected);
-
-            foreach (var (definition, row, icon, name, status) in _rows)
+            int shownReserve = Mathf.FloorToInt(reserve);
+            if (shownReserve != _shownReserve)
             {
-                RefreshRow(research, definition, row, icon, name, status, missingPrereqIds);
+                _shownReserve = shownReserve;
+                _reserveLabel.text = $"Reserve {shownReserve} CU";
+            }
+
+            int signature = 17;
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                Node node = _nodes[i];
+                node.State = ResolveState(research, node, reserve);
+                signature = signature * 31 + (int)node.State;
+            }
+            signature = signature * 31 + (_inspected != null && _indexOf.TryGetValue(_inspected, out int inspectedIndex) ? inspectedIndex + 1 : 0);
+            signature = signature * 31 + research.GetQueue().Count;
+            signature = signature * 31 + (research.HasActiveResearch() ? 1 : 0);
+
+            if (_dirty || signature != _signature)
+            {
+                _dirty = false;
+                _signature = signature;
+                RebuildMissingChain(research);
+                ApplyNodeStates();
+                FindPulseEdge(research);
+                _content.MarkDirtyRepaint();
+                RebuildDetail(research);
             }
 
             RefreshQueueList(research);
-            RefreshDetailPanel(research);
+            RefreshLiveDetail(research);
         }
-
-        static HashSet<string> MissingPrerequisiteIds(ResearchSystem research, ResearchDefinition inspected)
-        {
-            var missing = new HashSet<string>();
-            if (inspected == null || research.ArePrerequisitesMet(inspected)) return missing;
-
-            foreach (ResearchDefinition prerequisite in inspected.Prerequisites)
-            {
-                if (prerequisite != null && !research.IsUnlocked(prerequisite.Id)) missing.Add(prerequisite.Id);
-            }
-            return missing;
-        }
-
-        enum RowState { Completed, InProgress, Payable, Unaffordable, Locked }
 
         /// <summary>
-        /// "Payable" vs "CU insuffisant" is a display-only distinction (reserve > 0 right now) -
-        /// queuing/starting a research never requires CU up front (ResearchSystem.CanQueue has no
-        /// reserve check), so this never blocks a click, it only tells the player what to expect.
+        /// "Payable" vs "CU insuffisant" is display only (reserve above zero right now): queuing never
+        /// requires CU up front, so it never blocks a click, it only tells the player what to expect.
         /// </summary>
-        static RowState ResolveState(ResearchSystem research, ResearchDefinition definition, float currentReserve)
+        static NodeState ResolveState(ResearchSystem research, Node node, float reserve)
         {
-            if (research.IsUnlocked(definition.Id)) return RowState.Completed;
-            if (ReferenceEquals(definition, research.GetActiveResearch())) return RowState.InProgress;
-            if (!research.ArePrerequisitesMet(definition)) return RowState.Locked;
-            return currentReserve > 0f ? RowState.Payable : RowState.Unaffordable;
+            if (node.Definition == null) return NodeState.Unknown;
+            if (node.IsCore) return research.IsUnlocked(node.Definition.Id) ? NodeState.CoreOn : NodeState.CoreOff;
+            if (research.IsUnlocked(node.Definition.Id)) return NodeState.Completed;
+            if (ReferenceEquals(node.Definition, research.GetActiveResearch())) return NodeState.InProgress;
+            if (!research.ArePrerequisitesMet(node.Definition)) return NodeState.Locked;
+            return reserve > 0f ? NodeState.Payable : NodeState.Unaffordable;
         }
 
-        void RefreshRow(ResearchSystem research, ResearchDefinition definition, VisualElement row, Label icon, Label name, Label status, HashSet<string> missingPrereqIds)
+        static string Glyph(NodeState state) => state switch
         {
-            RowState state = ResolveState(research, definition, gameRuntime.Compute.Reserve);
+            NodeState.Completed => "✓",
+            NodeState.InProgress => "◷",
+            NodeState.Payable => "◆",
+            NodeState.Unaffordable => "◇",
+            NodeState.Unknown => "?",
+            _ => "\U0001F512"
+        };
 
-            row.RemoveFromClassList("research-state-completed");
-            row.RemoveFromClassList("research-state-in-progress");
-            row.RemoveFromClassList("research-state-payable");
-            row.RemoveFromClassList("research-state-unaffordable");
-            row.RemoveFromClassList("research-state-locked");
-            row.EnableInClassList(StateClass(state), true);
-            row.EnableInClassList("research-row-missing-prereq", missingPrereqIds.Contains(definition.Id));
-            row.EnableInClassList("research-row-inspected", ReferenceEquals(definition, _inspected));
-
-            icon.text = StateGlyph(state);
-
-            switch (state)
+        void ApplyNodeStates()
+        {
+            for (int i = 0; i < _nodes.Count; i++)
             {
-                case RowState.Completed:
-                    status.text = "ACQUIS";
-                    break;
-                case RowState.InProgress:
-                    status.text = $"{Mathf.FloorToInt(research.AbsorbedCu)} / {Mathf.CeilToInt(definition.CuCost)} CU";
-                    break;
-                default:
-                    status.text = $"{Mathf.CeilToInt(definition.CuCost)} CU";
-                    break;
+                Node node = _nodes[i];
+                for (int c = 0; c < StateClasses.Length; c++) node.Element.EnableInClassList(StateClasses[c], c == (int)node.State);
+
+                bool inspected = node.Definition != null && ReferenceEquals(node.Definition, _inspected);
+                node.Element.EnableInClassList("research-node-inspected", inspected);
+                node.Element.EnableInClassList("research-node-missing-prereq", node.Definition != null && _missingChain.Contains(node.Definition));
+
+                if (node.Glyph != null) node.Glyph.text = Glyph(node.State);
+                if (node.OffCaption != null) node.OffCaption.EnableInClassList("hidden", node.State != NodeState.CoreOff);
             }
         }
 
-        static string StateClass(RowState state) => state switch
+        void RebuildMissingChain(ResearchSystem research)
         {
-            RowState.Completed => "research-state-completed",
-            RowState.InProgress => "research-state-in-progress",
-            RowState.Payable => "research-state-payable",
-            RowState.Unaffordable => "research-state-unaffordable",
-            _ => "research-state-locked"
-        };
+            _missingChain.Clear();
+            if (_inspected == null || research.ArePrerequisitesMet(_inspected)) return;
 
-        static string StateGlyph(RowState state) => state switch
+            _chainWalk.Clear();
+            _chainWalk.Push(_inspected);
+            while (_chainWalk.Count > 0)
+            {
+                IReadOnlyList<ResearchDefinition> prerequisites = _chainWalk.Pop().Prerequisites;
+                for (int i = 0; i < prerequisites.Count; i++)
+                {
+                    ResearchDefinition prerequisite = prerequisites[i];
+                    if (prerequisite == null || research.IsUnlocked(prerequisite.Id) || !_missingChain.Add(prerequisite)) continue;
+                    _chainWalk.Push(prerequisite);
+                }
+            }
+        }
+
+        /// <summary>The synapse the active research is drawing through: from its first acquired parent on the network. None when nothing is active, or the active one is not on the network.</summary>
+        void FindPulseEdge(ResearchSystem research)
         {
-            RowState.Completed => "✓", // check
-            RowState.InProgress => "◷", // progress ring
-            RowState.Payable => "◆", // filled diamond
-            RowState.Unaffordable => "◇", // hollow diamond
-            _ => "\U0001F512" // lock
-        };
+            _pulseNode = -1;
+            _pulseParent = -1;
 
-        /// <summary>Rebuilds the reorderable queue list only when the queue's own sequence changed since last frame - same reasoning as _rows: these buttons must not be torn down mid-click.</summary>
+            ResearchDefinition active = research.GetActiveResearch();
+            if (active != null && _indexOf.TryGetValue(active, out int index))
+            {
+                IReadOnlyList<ResearchDefinition> prerequisites = active.Prerequisites;
+                for (int i = 0; i < prerequisites.Count; i++)
+                {
+                    ResearchDefinition prerequisite = prerequisites[i];
+                    if (prerequisite == null || !research.IsUnlocked(prerequisite.Id) || !_indexOf.TryGetValue(prerequisite, out int parent)) continue;
+                    _pulseNode = index;
+                    _pulseParent = parent;
+                    break;
+                }
+            }
+
+            _pulse?.EnableInClassList("hidden", _pulseNode < 0);
+        }
+
+        /// <summary>The one thing that moves every frame: a point of light travelling the synapse of the research in progress.</summary>
+        void MovePulse()
+        {
+            if (_pulseNode < 0) return;
+
+            Vector2 from = _nodes[_pulseParent].Position;
+            Vector2 to = _nodes[_pulseNode].Position;
+            Vector2 point = Bezier(from, Control(from, to), to, Mathf.Repeat(Time.time / PulseSeconds, 1f));
+            _pulse.style.left = _extent + point.x - PulseSize * 0.5f;
+            _pulse.style.top = _extent + point.y - PulseSize * 0.5f;
+        }
+
+        // --- Synapses ---
+
+        void DrawSynapses(MeshGenerationContext context)
+        {
+            if (_nodes.Count == 0) return;
+
+            ResearchSystem research = gameRuntime.Research;
+            Painter2D painter = context.painter2D;
+            painter.lineCap = LineCap.Round;
+            painter.lineJoin = LineJoin.Round;
+            var origin = new Vector2(_extent, _extent);
+
+            painter.strokeColor = RingColor;
+            painter.lineWidth = 1f;
+            for (int tier = 1; tier <= _maxTier; tier++) Circle(painter, origin, tier * RingStep);
+
+            for (int i = 0; i < _nodes.Count; i++)
+            {
+                Node node = _nodes[i];
+                Vector2 to = origin + node.Position;
+
+                if (node.IsCore)
+                {
+                    if (node.State == NodeState.CoreOn) Curve(painter, origin, to, LitColor, 2f, dashed: false);
+                    else Curve(painter, origin, to, DarkColor, 1.5f, dashed: true);
+                    continue;
+                }
+
+                if (node.Definition == null)
+                {
+                    Curve(painter, origin + _nodes[node.ParentIndex].Position, to, DarkColor, 1.2f, dashed: true);
+                    continue;
+                }
+
+                IReadOnlyList<ResearchDefinition> prerequisites = node.Definition.Prerequisites;
+                for (int p = 0; p < prerequisites.Count; p++)
+                {
+                    ResearchDefinition prerequisite = prerequisites[p];
+                    if (prerequisite == null || !_indexOf.TryGetValue(prerequisite, out int parentIndex)) continue;
+
+                    Vector2 from = origin + _nodes[parentIndex].Position;
+                    if (research.IsUnlocked(prerequisite.Id))
+                    {
+                        Curve(painter, from, to, node.State == NodeState.Completed ? AcquiredColor : LitColor, 2f, dashed: false);
+                    }
+                    else if (!_nodes[parentIndex].IsCore && research.ArePrerequisitesMet(prerequisite))
+                    {
+                        Stub(painter, to, from);
+                    }
+                    // A parent locked further back, or an unpowered core: no path, so nothing drawn.
+                }
+            }
+        }
+
+        static void Curve(Painter2D painter, Vector2 from, Vector2 to, Color color, float width, bool dashed)
+        {
+            painter.strokeColor = color;
+            painter.lineWidth = width;
+            Vector2 control = Control(from, to);
+
+            painter.BeginPath();
+            if (!dashed)
+            {
+                painter.MoveTo(from);
+                painter.QuadraticCurveTo(control, to);
+            }
+            else
+            {
+                for (int s = 0; s < CurveSamples; s += 2)
+                {
+                    painter.MoveTo(Bezier(from, control, to, s / (float)CurveSamples));
+                    painter.LineTo(Bezier(from, control, to, (s + 1) / (float)CurveSamples));
+                }
+            }
+            painter.Stroke();
+        }
+
+        /// <summary>A short floating stub leaving the node toward a parent that is available but not acquired yet.</summary>
+        static void Stub(Painter2D painter, Vector2 node, Vector2 towards)
+        {
+            Vector2 direction = (towards - node).normalized;
+            painter.strokeColor = StubColor;
+            painter.lineWidth = 1.5f;
+            painter.BeginPath();
+            painter.MoveTo(node + direction * (NodeSize * 0.5f));
+            painter.LineTo(node + direction * (NodeSize * 0.5f + StubLength));
+            painter.Stroke();
+        }
+
+        static void Circle(Painter2D painter, Vector2 centre, float radius)
+        {
+            const int segments = 96;
+            painter.BeginPath();
+            painter.MoveTo(centre + new Vector2(radius, 0f));
+            for (int s = 1; s <= segments; s++)
+            {
+                float angle = s * (2f * Mathf.PI / segments);
+                painter.LineTo(centre + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius);
+            }
+            painter.Stroke();
+        }
+
+        /// <summary>A gentle, always same-side bend - the synapses are curves, not spokes.</summary>
+        static Vector2 Control(Vector2 from, Vector2 to)
+        {
+            Vector2 delta = to - from;
+            return (from + to) * 0.5f + new Vector2(-delta.y, delta.x) * 0.12f;
+        }
+
+        static Vector2 Bezier(Vector2 from, Vector2 control, Vector2 to, float t)
+        {
+            float u = 1f - t;
+            return u * u * from + 2f * u * t * control + t * t * to;
+        }
+
+        // --- Pan and zoom ---
+
+        void OnPointerDown(PointerDownEvent evt)
+        {
+            // Only the background drags: a node, the queue and the recentre button keep their clicks.
+            if (evt.button != 0 || (evt.target != _network && evt.target != _content)) return;
+
+            _dragging = true;
+            _dragPointer = evt.pointerId;
+            _network.CapturePointer(evt.pointerId);
+            evt.StopPropagation();
+        }
+
+        void OnPointerMove(PointerMoveEvent evt)
+        {
+            if (!_dragging || evt.pointerId != _dragPointer) return;
+
+            _pan += new Vector2(evt.deltaPosition.x, evt.deltaPosition.y);
+            ApplyView();
+        }
+
+        void OnPointerUp(PointerUpEvent evt)
+        {
+            if (!_dragging || evt.pointerId != _dragPointer) return;
+
+            _dragging = false;
+            _network.ReleasePointer(evt.pointerId);
+        }
+
+        /// <summary>Zooms about the cursor: the point under it stays under it.</summary>
+        void OnWheel(WheelEvent evt)
+        {
+            float zoom = Mathf.Clamp(evt.delta.y > 0f ? _zoom / WheelStep : _zoom * WheelStep, MinZoom, MaxZoom);
+            Vector2 fromCentre = evt.localMousePosition - _network.contentRect.center;
+            Vector2 underCursor = (fromCentre - _pan) / _zoom;
+
+            _zoom = zoom;
+            _pan = fromCentre - underCursor * _zoom;
+            ApplyView();
+            evt.StopPropagation();
+        }
+
+        /// <summary>The whole network in view, centred on the Datacenter. Deferred until the area has a size - it has none the frame the panel opens.</summary>
+        void FitView()
+        {
+            Rect area = _network.contentRect;
+            if (float.IsNaN(area.width) || area.width < 1f || area.height < 1f)
+            {
+                _fitPending = true;
+                return;
+            }
+
+            _fitPending = false;
+            _zoom = Mathf.Clamp(Mathf.Min(area.width, area.height) / (2f * _outerRadius), MinZoom, 1f);
+            _pan = Vector2.zero;
+            ApplyView();
+        }
+
+        void FocusOn(ResearchDefinition definition)
+        {
+            if (definition == null || !_indexOf.TryGetValue(definition, out int index)) return;
+
+            _pan = -_nodes[index].Position * _zoom;
+            ApplyView();
+        }
+
+        void ApplyView()
+        {
+            _content.style.translate = new Translate(_pan.x, _pan.y);
+            _content.style.scale = new Scale(new Vector3(_zoom, _zoom, 1f));
+        }
+
+        // --- Detail panel ---
+
+        void OnDetailActionClicked()
+        {
+            if (_inspected == null || (_indexOf.TryGetValue(_inspected, out int index) && _nodes[index].IsCore)) return;
+
+            ResearchSystem research = gameRuntime.Research;
+            if (ReferenceEquals(_inspected, research.GetActiveResearch())) research.CancelActive();
+            else if (research.GetQueue().Contains(_inspected)) research.Dequeue(_inspected);
+            else research.Enqueue(_inspected);
+        }
+
+        /// <summary>Everything in the detail panel that only changes with the state - redone on a signature change, never per frame.</summary>
+        void RebuildDetail(ResearchSystem research)
+        {
+            _shownAbsorbed = int.MinValue;
+            _shownSeconds = int.MinValue;
+            _detailPanel.EnableInClassList("hidden", _inspected == null);
+            if (_inspected == null) return;
+
+            bool isCore = _indexOf.TryGetValue(_inspected, out int index) && _nodes[index].IsCore;
+            _detailName.text = _inspected.DisplayName;
+            _detailDescription.text = _inspected.Description;
+            _detailResearchBody.EnableInClassList("hidden", isCore);
+
+            if (isCore)
+            {
+                _detailState.text = research.IsUnlocked(_inspected.Id) ? "ALIMENTE" : "NON ALIMENTE";
+                return;
+            }
+
+            bool isActive = ReferenceEquals(_inspected, research.GetActiveResearch());
+            bool isQueued = research.GetQueue().Contains(_inspected);
+            bool isCompleted = research.IsUnlocked(_inspected.Id);
+            bool prerequisitesMet = research.ArePrerequisitesMet(_inspected);
+
+            _detailState.text = isCompleted ? "ACQUIS" : isActive ? "EN COURS" : isQueued ? "EN FILE D'ATTENTE" : !prerequisitesMet ? "VERROUILLE" : "DISPONIBLE";
+            _detailEffect.text = _inspected.Description;
+
+            float progress = isActive ? research.GetProgress() : isCompleted ? 1f : 0f;
+            _detailProgressFill.style.width = new StyleLength(Length.Percent(progress * 100f));
+            if (!isActive)
+            {
+                _detailCostLabel.text = isCompleted ? "ACQUIS" : $"{Mathf.CeilToInt(_inspected.CuCost)} CU";
+                _detailTimeLabel.text = string.Empty;
+            }
+            _detailAbsorptionValue.text = $"{Mathf.CeilToInt(_inspected.AbsorptionRatePerSecond)} CU/s";
+
+            _detailPrerequisites.Clear();
+            IReadOnlyList<ResearchDefinition> prerequisites = _inspected.Prerequisites;
+            if (prerequisites.Count == 0)
+            {
+                var none = new Label("Aucun");
+                none.AddToClassList("research-detail-prereq-none");
+                _detailPrerequisites.Add(none);
+            }
+            for (int i = 0; i < prerequisites.Count; i++)
+            {
+                ResearchDefinition prerequisite = prerequisites[i];
+                if (prerequisite == null) continue;
+
+                bool met = research.IsUnlocked(prerequisite.Id);
+                var line = new Label((met ? "✓ " : "\U0001F512 ") + prerequisite.DisplayName);
+                line.AddToClassList(met ? "research-detail-prereq-met" : "research-detail-prereq-missing");
+                line.AddToClassList("research-detail-prereq-link");
+                line.RegisterCallback<ClickEvent>(_ => FocusOn(prerequisite));
+                _detailPrerequisites.Add(line);
+            }
+
+            if (isCompleted) SetAction("ACQUIS", false);
+            else if (isActive) SetAction("ANNULER LA RECHERCHE", true);
+            else if (isQueued) SetAction("RETIRER DE LA FILE", true);
+            else if (!prerequisitesMet) SetAction("VERROUILLE", false);
+            else SetAction(research.HasActiveResearch() ? "AJOUTER A LA FILE" : "LANCER", true);
+        }
+
+        void SetAction(string text, bool enabled)
+        {
+            _detailActionButton.text = text;
+            _detailActionButton.SetEnabled(enabled);
+        }
+
+        /// <summary>The only detail figures that move while nothing changes state: the active research's progress. Rewritten when their whole value changes, not per frame.</summary>
+        void RefreshLiveDetail(ResearchSystem research)
+        {
+            if (_inspected == null || !ReferenceEquals(_inspected, research.GetActiveResearch())) return;
+
+            int absorbed = Mathf.FloorToInt(research.AbsorbedCu);
+            if (absorbed != _shownAbsorbed)
+            {
+                _shownAbsorbed = absorbed;
+                _detailCostLabel.text = $"{absorbed} / {Mathf.CeilToInt(_inspected.CuCost)} CU";
+                _detailProgressFill.style.width = new StyleLength(Length.Percent(research.GetProgress() * 100f));
+            }
+
+            int seconds = Mathf.CeilToInt(research.GetEstimatedSecondsRemaining());
+            if (seconds != _shownSeconds)
+            {
+                _shownSeconds = seconds;
+                _detailTimeLabel.text = $"~{seconds} s";
+            }
+        }
+
+        // --- Queue ---
+
         void RefreshQueueList(ResearchSystem research)
         {
             IReadOnlyList<ResearchDefinition> queue = research.GetQueue();
@@ -385,75 +862,6 @@ namespace Game.UI
             row.Add(remove);
 
             return row;
-        }
-
-        void RefreshDetailPanel(ResearchSystem research)
-        {
-            _detailPanel.EnableInClassList("hidden", _inspected == null);
-            if (_inspected == null) return;
-
-            bool isActive = ReferenceEquals(_inspected, research.GetActiveResearch());
-            bool isQueued = research.GetQueue().Contains(_inspected);
-            bool isCompleted = research.IsUnlocked(_inspected.Id);
-            bool prerequisitesMet = research.ArePrerequisitesMet(_inspected);
-
-            _detailState.text = isCompleted ? "ACQUIS" : isActive ? "EN COURS" : isQueued ? "EN FILE D'ATTENTE" : !prerequisitesMet ? "VERROUILLE" : "DISPONIBLE";
-            _detailName.text = _inspected.DisplayName;
-            _detailDescription.text = _inspected.Description;
-            _detailEffect.text = _inspected.Description;
-
-            float progress = isActive ? research.GetProgress() : isCompleted ? 1f : 0f;
-            _detailProgressFill.style.width = new StyleLength(Length.Percent(progress * 100f));
-            _detailCostLabel.text = isActive
-                ? $"{Mathf.FloorToInt(research.AbsorbedCu)} / {Mathf.CeilToInt(_inspected.CuCost)} CU"
-                : isCompleted ? "ACQUIS" : $"{Mathf.CeilToInt(_inspected.CuCost)} CU";
-            _detailTimeLabel.text = isActive ? $"~{Mathf.CeilToInt(research.GetEstimatedSecondsRemaining())} s" : string.Empty;
-            _detailAbsorptionValue.text = $"{Mathf.CeilToInt(_inspected.AbsorptionRatePerSecond)} CU/s";
-
-            _detailPrerequisites.Clear();
-            if (_inspected.Prerequisites.Count == 0)
-            {
-                var none = new Label("Aucun");
-                none.AddToClassList("research-detail-prereq-none");
-                _detailPrerequisites.Add(none);
-            }
-            else
-            {
-                foreach (ResearchDefinition prerequisite in _inspected.Prerequisites)
-                {
-                    if (prerequisite == null) continue;
-                    bool met = research.IsUnlocked(prerequisite.Id);
-                    var line = new Label((met ? "✓ " : "\U0001F512 ") + prerequisite.DisplayName);
-                    line.AddToClassList(met ? "research-detail-prereq-met" : "research-detail-prereq-missing");
-                    _detailPrerequisites.Add(line);
-                }
-            }
-
-            if (isCompleted)
-            {
-                _detailActionButton.text = "ACQUIS";
-                _detailActionButton.SetEnabled(false);
-            }
-            else if (isActive)
-            {
-                _detailActionButton.text = "ANNULER LA RECHERCHE";
-                _detailActionButton.SetEnabled(true);
-            }
-            else if (isQueued)
-            {
-                _detailActionButton.text = "RETIRER DE LA FILE";
-                _detailActionButton.SetEnabled(true);
-            }
-            else if (!prerequisitesMet)
-            {
-                _detailActionButton.text = "VERROUILLE";
-                _detailActionButton.SetEnabled(false);
-            }
-            else
-            {
-                _detailActionButton.text = research.HasActiveResearch() ? "AJOUTER A LA FILE" : "LANCER";
-                _detailActionButton.SetEnabled(true);
-            }
         }
     }
 }

@@ -18,7 +18,6 @@ MonoBehaviour:
   icon: {fileID: 0}
   cuCost: 2000
   prerequisites:
-  - {fileID: 11400000, guid: 8e7a78127efaea543854b4afb8011b8f, type: 2}
-  revealedBy: {fileID: 11400000, guid: 8e7a78127efaea543854b4afb8011b8f, type: 2}
-  absorptionRatePerSecond: 30
-  tier: 4
+  - {fileID: 11400000, guid: 5c1e7a2b9d3f4e60a8b4c2d6e0f1a3b5, type: 2}
+  absorptionRatePerSecond: 40
+  tier: 2

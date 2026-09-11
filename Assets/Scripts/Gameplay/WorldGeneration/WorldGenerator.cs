@@ -37,10 +37,8 @@ namespace Game.Gameplay.WorldGeneration
         /// <summary>
         /// Distance band (cells) for the single "invitation" cluster placed just outside the
         /// action radius - visible, deliberately not yet exploitable. Must stay entirely beyond
-        /// the starting action radius (22) and entirely within CoreRuntime.ExtendedActionRadiusCells
-        /// (32, via extended_bandwidth) with margin - a cluster drawn past the extended radius
-        /// would be permanently unreachable regardless of seed (TASK_04_PLAFOND_RAYON.md's
-        /// follow-up correction: the previous 28-34 band let a cluster land past 32).
+        /// the starting action radius (22) and entirely within CoreRuntime.FirstExtendedActionRadiusCells
+        /// (42, the first extended_bandwidth), so that research is the one that opens it.
         /// </summary>
         const float InvitationMinDistanceCells = 26f;
         const float InvitationMaxDistanceCells = 29f;

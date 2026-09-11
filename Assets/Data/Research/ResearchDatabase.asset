@@ -13,9 +13,16 @@ MonoBehaviour:
   m_Name: ResearchDatabase
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDatabase
   researches:
-  - {fileID: 11400000, guid: 8e7a78127efaea543854b4afb8011b8f, type: 2}
   - {fileID: 11400000, guid: b4504efb95934dc9b042f00ca6cff1f8, type: 2}
   - {fileID: 11400000, guid: 2d21c857cc4f4be9b22a2f6886064237, type: 2}
   - {fileID: 11400000, guid: d480d6f5dc814760a79619c05471ba5c, type: 2}
-  - {fileID: 11400000, guid: dd8c0be5fde9f2156a424539f2b6a635, type: 2}
   - {fileID: 11400000, guid: ad3f371f2226368e8a91ba4c18f7d75c, type: 2}
+  - {fileID: 11400000, guid: dd8c0be5fde9f2156a424539f2b6a635, type: 2}
+  - {fileID: 11400000, guid: a1b2c3d4e5f60718293a4b5c6d7e8f90, type: 2}
+  - {fileID: 11400000, guid: b2c3d4e5f6a70819203b4c5d6e7f8091, type: 2}
+  - {fileID: 11400000, guid: c3d4e5f6a7b8091a213c4d5e6f708192, type: 2}
+  - {fileID: 11400000, guid: d4e5f6a7b8c90a1b324d5e6f70819203, type: 2}
+  cores:
+  - {fileID: 11400000, guid: 5c1e7a2b9d3f4e60a8b4c2d6e0f1a3b5, type: 2}
+  - {fileID: 11400000, guid: 6d2f8b3c0e4a4f71b9c5d3e7f1a2b4c6, type: 2}
+  - {fileID: 11400000, guid: 7e3a9c4d1f5b4a82c0d6e4f8a2b3c5d7, type: 2}

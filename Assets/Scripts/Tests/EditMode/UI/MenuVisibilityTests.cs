@@ -10,8 +10,9 @@ using UnityEngine;
 namespace Game.Tests.EditMode.UI
 {
     /// <summary>
-    /// What the two menus list, held apart from the panels themselves so it can be checked without a
-    /// UIDocument - same approach as ConstructionSitePanelFormatTests.
+    /// Whether the research menu exists yet, and what the building menu lists - held apart from the
+    /// panels themselves so it can be checked without a UIDocument, the same approach as
+    /// ConstructionSitePanelFormatTests.
     ///
     /// Both rules answer the same question - "does this exist yet, as far as the player is
     /// concerned" - and both are about the menu offering nothing it cannot deliver.
@@ -28,41 +29,52 @@ namespace Game.Tests.EditMode.UI
             return research;
         }
 
-        // --- Research list ---
+        // --- Research menu ---
 
-        /// <summary>
-        /// The introduction's menu must not advertise what comes after it. Everything behind the
-        /// Datacenter - the bays, the advanced foundry, memory allocation, extended bandwidth -
-        /// stays out of the list until that milestone is done.
-        /// </summary>
-        [Test]
-        public void AResearchBehindAMilestone_IsNotListedUntilThatMilestoneIsDone()
+        static ResearchDatabase NewDatabase(ResearchDefinition[] cores, params ResearchDefinition[] researches)
         {
-            ResearchDefinition datacenter = TestDataFactory.NewResearch("datacenter", 1000f);
-            ResearchDefinition bays = TestDataFactory.SetRevealedBy(
-                TestDataFactory.NewResearch("datacenter_bay_1", 2000f, 1_000_000f, datacenter), datacenter);
+            var database = ScriptableObject.CreateInstance<ResearchDatabase>();
+            var so = new UnityEditor.SerializedObject(database);
+            SetArray(so.FindProperty("cores"), cores);
+            SetArray(so.FindProperty("researches"), researches);
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return database;
+        }
 
-            Assert.IsFalse(ResearchPanelController.IsRevealed(bays, Unlocked()),
-                "Before the Datacenter, the menu must not mention what follows it.");
-            Assert.IsTrue(ResearchPanelController.IsRevealed(bays, Unlocked(datacenter)),
-                "Once it is done, they appear.");
+        static void SetArray(UnityEditor.SerializedProperty array, ResearchDefinition[] values)
+        {
+            array.arraySize = values.Length;
+            for (int i = 0; i < values.Length; i++) array.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
         }
 
         /// <summary>
-        /// The distinction the field exists for: a locked research is normally shown anyway. The
-        /// visible chain up to the Datacenter is what tells the player where the introduction is
-        /// going, so "cannot start it yet" must never be read as "hide it".
+        /// There is no research menu during the introduction: it runs on the Core's directives. The
+        /// menu - Top Bar card and Bottom Nav icon alike - exists from the moment a core is powered,
+        /// which the Datacenter does when its priming is done.
         /// </summary>
         [Test]
-        public void AResearchWithUnmetPrerequisites_IsStillListed_WhenItDeclaresNoMilestone()
+        public void TheResearchMenu_ExistsOnlyOnceACoreIsPowered()
         {
-            ResearchDefinition computeModules = TestDataFactory.NewResearch("compute_modules", 500f);
-            ResearchDefinition datacenter = TestDataFactory.NewResearch("datacenter", 800f, 1_000_000f, computeModules);
+            ResearchDefinition researchCore = TestDataFactory.NewResearch("cortex_research", 0f);
+            ResearchDefinition armament = TestDataFactory.NewResearch("cortex_armament", 0f);
+            ResearchDefinition bays = TestDataFactory.NewResearch("datacenter_bay_1", 2000f, 1_000_000f, researchCore);
+            ResearchDatabase database = NewDatabase(new[] { researchCore, armament }, bays);
 
-            ResearchSystem research = Unlocked();
+            Assert.IsFalse(ResearchPanelController.IsAvailable(database, Unlocked()), "A new run has no research menu.");
+            Assert.IsTrue(ResearchPanelController.IsAvailable(database, Unlocked(researchCore)));
+        }
 
-            Assert.IsFalse(research.ArePrerequisitesMet(datacenter), "Precondition: it cannot be started.");
-            Assert.IsTrue(ResearchPanelController.IsRevealed(datacenter, research), "And it is listed all the same, locked.");
+        /// <summary>A core is a root of the network, not a research: nothing lists or counts it as one - but a save naming it still resolves.</summary>
+        [Test]
+        public void TheCores_AreNotInTheResearchList_ButAreStillFoundById()
+        {
+            ResearchDefinition researchCore = TestDataFactory.NewResearch("cortex_research", 0f);
+            ResearchDefinition bays = TestDataFactory.NewResearch("datacenter_bay_1", 2000f, 1_000_000f, researchCore);
+            ResearchDatabase database = NewDatabase(new[] { researchCore }, bays);
+
+            Assert.AreEqual(1, database.GetAll().Count);
+            Assert.AreSame(bays, database.GetAll()[0]);
+            Assert.AreSame(researchCore, database.Get("cortex_research"));
         }
 
         // --- Building menu category rail ---

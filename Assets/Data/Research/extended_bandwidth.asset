@@ -14,11 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: extended_bandwidth
   displayName: Bande passante etendue
-  description: Porte le rayon d'action du Noyau de 22 a 32 cellules.
+  description: Porte le rayon d'action du Noyau a 42 cellules.
   icon: {fileID: 0}
-  cuCost: 3000
+  cuCost: 2000
   prerequisites:
-  - {fileID: 11400000, guid: c6029416385a70ce8294b6d8f375ac74, type: 2}
-  revealedBy: {fileID: 11400000, guid: c6029416385a70ce8294b6d8f375ac74, type: 2}
-  absorptionRatePerSecond: 60
-  tier: 4
+  - {fileID: 11400000, guid: 5c1e7a2b9d3f4e60a8b4c2d6e0f1a3b5, type: 2}
+  absorptionRatePerSecond: 40
+  tier: 2

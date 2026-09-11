@@ -29,9 +29,6 @@ namespace Game.Data
         [Tooltip("The unlock granted on completion, through ResearchSystem.Grant. Referenced by whatever it opens (e.g. Gear_Recipe.unlockResearch) exactly like a real research.")]
         [SerializeField] ResearchDefinition grants;
 
-        [Tooltip("Also hands the player the Research menu itself (Top Bar card + Bottom Nav icon). Not a research id: what it opens is a menu, and no research can be its own prerequisite.")]
-        [SerializeField] bool unlocksResearchMenu;
-
         [Tooltip("What this directive opens, one entry per line of the REWARD block. Left empty, a directive that grants an unlock says so in general terms.")]
         [SerializeField] string[] rewardLabels = System.Array.Empty<string>();
 
@@ -39,14 +36,6 @@ namespace Game.Data
         public RecipeIngredient[] Requirements => requirements;
         public ItemDefinition RewardItem => rewardItem;
         public ResearchDefinition Grants => grants;
-
-        /// <summary>
-        /// Whether completing this directive opens the Research menu. Research is not a thing the
-        /// player starts the run with - it is the first directive's own reward, alongside the item
-        /// on the REWARD line - so the menu has to be gated by something, and a research id cannot
-        /// gate the menu that buys research ids.
-        /// </summary>
-        public bool UnlocksResearchMenu => unlocksResearchMenu;
 
         /// <summary>
         /// What this directive opens, one entry per line, or empty to let the panel word it

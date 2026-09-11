@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72c3c39fefc96e1488e1fdd7ff1eb525, type: 3}
-  m_Name: advanced_foundry
+  m_Name: extended_bandwidth_2
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
-  id: advanced_foundry
-  displayName: Fonderie avancee
-  description: Batiment Fonderie avancee et recette acier.
+  id: extended_bandwidth_2
+  displayName: Bande passante etendue 2
+  description: Porte le rayon d'action du Noyau a 60 cellules.
   icon: {fileID: 0}
   cuCost: 2000
   prerequisites:
-  - {fileID: 11400000, guid: 6d2f8b3c0e4a4f71b9c5d3e7f1a2b4c6, type: 2}
+  - {fileID: 11400000, guid: dd8c0be5fde9f2156a424539f2b6a635, type: 2}
   absorptionRatePerSecond: 40
-  tier: 2
+  tier: 4

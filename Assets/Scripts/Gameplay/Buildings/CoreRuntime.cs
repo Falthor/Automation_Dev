@@ -26,25 +26,33 @@ namespace Game.Gameplay.Buildings
     ///
     /// Also the sole owner of the action radius as runtime state (TASK_04_PLAFOND_RAYON.md §4):
     /// CoreDefinition.ActionRadiusCells is only the starting value. ActionRadiusCells here is what
-    /// every placement check must read - extended_bandwidth grows it in place, live, no reload
+    /// every placement check must read - the bandwidth researches grow it in place, live, no reload
     /// needed. Persisted directly in CaptureState/RestoreState rather than re-derived from
     /// ResearchSystem.IsUnlocked at construction, matching that task's save decision.
     /// </summary>
     public sealed class CoreRuntime : BuildingRuntime
     {
-        public const string ExtendedBandwidthResearchId = "extended_bandwidth";
+        /// <summary>
+        /// What the first bandwidth research reaches. The invitation ore clusters WorldGenerator
+        /// places just past the starting radius (26-29 cells, plus a cluster's own half-diagonal)
+        /// have to lie inside it on <b>every</b> seed - WorldGeneratorTests pins the relationship.
+        /// </summary>
+        public const int FirstExtendedActionRadiusCells = 42;
 
         /// <summary>
-        /// 32, not the ticket's originally stated 30: the invitation ore clusters WorldGenerator
-        /// actually places sit farther out than the ticket assumed (25-28), so 30 would only have
-        /// made each cluster partially reachable.
-        ///
-        /// Held against WorldGenerator's band (InvitationMinDistanceCells/MaxDistanceCells = 26-29)
-        /// plus a cluster's own half-diagonal, so it clears every cluster on <b>every</b> seed - the
-        /// world is drawn afresh each new game, and a figure measured on one layout would only ever
-        /// have been true of that layout. WorldGeneratorTests pins the relationship.
+        /// The Core's furthest reach: what the last bandwidth research grants. World generation reads
+        /// it as the edge of the starting territory - no derived ore lands inside it (MAP.md) - and
+        /// the ground coverage sizes its texture on it, so neither has to change as the radius grows.
         /// </summary>
-        public const int ExtendedActionRadiusCells = 32;
+        public const int ExtendedActionRadiusCells = 80;
+
+        /// <summary>The radius each bandwidth research brings the Core to. The highest one completed wins, so the order they land in can never shrink anything.</summary>
+        static readonly (string researchId, int radiusCells)[] RadiusResearches =
+        {
+            ("extended_bandwidth", FirstExtendedActionRadiusCells),
+            ("extended_bandwidth_2", 60),
+            ("extended_bandwidth_3", ExtendedActionRadiusCells)
+        };
 
         readonly CoreDefinition _definition;
         readonly ComputeSystem _computeSystem;
@@ -55,7 +63,7 @@ namespace Game.Gameplay.Buildings
 
         float _cuTimer;
 
-        /// <summary>Current action radius in cells - starts at CoreDefinition.ActionRadiusCells, grows via extended_bandwidth.</summary>
+        /// <summary>Current action radius in cells - starts at CoreDefinition.ActionRadiusCells, grows with each bandwidth research (RadiusResearches).</summary>
         public int ActionRadiusCells { get; private set; }
 
         public CoreRuntime(CoreDefinition definition, GridCoord cell, Direction facingRotation,
@@ -74,7 +82,11 @@ namespace Game.Gameplay.Buildings
 
         void OnResearchCompleted(string researchId)
         {
-            if (researchId == ExtendedBandwidthResearchId) ActionRadiusCells = ExtendedActionRadiusCells;
+            for (int i = 0; i < RadiusResearches.Length; i++)
+            {
+                if (RadiusResearches[i].researchId == researchId)
+                    ActionRadiusCells = System.Math.Max(ActionRadiusCells, RadiusResearches[i].radiusCells);
+            }
         }
 
         /// <summary>Unsubscribes from ResearchSystem - the Core is never demolished in practice, but this keeps the same hygiene as every other research-reactive building (DataCenterRuntime).</summary>

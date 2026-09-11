@@ -34,7 +34,7 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
         /// <summary>The middle of the fixture map, where a generated world puts its Core.</summary>
         static readonly Vector2 CoreCentre = new Vector2(MapSize / 2f, MapSize / 2f);
 
-        /// <summary>CoreRuntime.ExtendedActionRadiusCells - the Core's furthest reach, which is what derived ore must stay out of.</summary>
+        /// <summary>An exclusion radius, fixed here: the rule is the same at any value. The shipped one is CoreRuntime.ExtendedActionRadiusCells, the Core's furthest reach.</summary>
         const float ExclusionRadius = 32f;
 
 

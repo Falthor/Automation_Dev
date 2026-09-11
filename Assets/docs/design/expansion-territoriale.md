@@ -26,17 +26,11 @@ celui du principal, plus l'espace qu'on veut voir entre les deux.
 | | rayon maximal | vide minimal | seuil |
 |---|---|---|---|
 | **La vision** | 80 | 90 | **250** |
-| **Le code livré** | 32 (`CoreRuntime.ExtendedActionRadiusCells`) | 90 | **154** |
+| **Le code livré** | 80 (`CoreRuntime.ExtendedActionRadiusCells`, par `extended_bandwidth_3`) | 90 | **250** |
 
-**Ce document est écrit pour 80, donc pour 250.** Les nombres qui suivent supposent ce rayon, et le
-seuil les suit automatiquement si on le change.
-
-**Pourquoi ne pas tout recalculer à 154.** Ce serait graver dans un document de conception un chiffre
-issu d'une valeur transitoire : le 32 vient de `extended_bandwidth`, une recherche calibrée pour que
-les grappes d'invitation de l'introduction soient atteignables — pas d'une décision sur l'ampleur
-qu'un territoire doit avoir. Et cela masquerait la vraie question, qui n'est pas « quelle distance »
-mais **jusqu'où un Noyau doit pouvoir s'étendre**. Cet arbitrage se posera de toute façon, et il se
-posera mieux une fois l'introduction mesurée en jeu.
+**Le code livré rejoint la vision.** Les trois recherches `extended_bandwidth` portent le Noyau à
+42, 60 puis 80 cellules. Les nombres qui suivent supposent ce rayon, et le seuil les suit
+automatiquement si on le change.
 
 ## 2. Six Noyaux secondaires sur un cercle de rayon égal au seuil
 
@@ -203,8 +197,8 @@ réglées.
 
 | Paramètre | Défaut | Note |
 |---|---|---|
-| Rayon initial du Noyau principal | 40 | livré à 22, puis 32 par `extended_bandwidth` |
-| Rayon maximal d'un Noyau | 80 | **livré à 32** — l'écart central de ce document |
+| Rayon initial du Noyau principal | 40 | livré à 22, puis 42 / 60 / 80 par les trois `extended_bandwidth` |
+| Rayon maximal d'un Noyau | 80 | **livré** |
 | Rayon initial d'un Noyau secondaire | 40 | à confirmer |
 | Nombre de Noyaux secondaires | 6 | répartis à 360°/n |
 | Vide minimal entre deux territoires | 90 | **livré** (`SectorSettings.territorySpacingCells`) |

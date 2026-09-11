@@ -48,6 +48,16 @@ namespace Game.Gameplay.Buildings
         const float ReplacementDuration = 5f;
         const string DataCenterBay1ResearchId = "datacenter_bay_1";
         const string DataCenterBay2ResearchId = "datacenter_bay_2";
+
+        /// <summary>
+        /// The two cores of the research network a primed Datacenter powers (ResearchDatabase.GetCores),
+        /// granted through ResearchSystem.Grant like any unlock. Powering them is what opens the
+        /// research menu (GDD §5.4) - there is none before. The armament core is not among them.
+        /// </summary>
+        public const string ResearchCoreId = "cortex_research";
+
+        /// <summary>See <see cref="ResearchCoreId"/>.</summary>
+        public const string BuildingsCoreId = "cortex_buildings";
         /// <summary>What a CPU bay takes. Public because the panel shows how many spares are in stock, and it has to be able to ask while the bay is empty - which is when that count matters most.</summary>
         public const string CpuItemId = "cpu_mkI";
 
@@ -78,6 +88,9 @@ namespace Game.Gameplay.Buildings
         float _stabilityTimer;
         float _previousPowerDemand;
         float _primingAbsorbedCu;
+
+        /// <summary>Whether this instance has granted the cores yet. Not saved: Grant is silent for an id already unlocked, so a reload simply asks again.</summary>
+        bool _coresPowered;
 
         public IReadOnlyList<ComponentInstance> CpuSlots => _cpuSlots;
         public IReadOnlyList<ComponentInstance> MemorySlots => _memorySlots;
@@ -213,6 +226,13 @@ namespace Game.Gameplay.Buildings
                 _primingAbsorbedCu += _computeSystem.SpendUpTo(wanted);
                 _previousPowerDemand = TotalPowerDemand();
                 return; // no production, no wear while priming (GDD §2.3)
+            }
+
+            if (!_coresPowered)
+            {
+                _researchSystem.Grant(ResearchCoreId);
+                _researchSystem.Grant(BuildingsCoreId);
+                _coresPowered = true;
             }
 
             // delta already carries the Power gate (0 whenever unpowered, from last frame's

@@ -53,12 +53,11 @@ namespace Game.Tests.EditMode.Gameplay.Directives
             }
         }
 
-        static CoreDirectiveDefinition NewDirective(ItemDefinition wire, ItemDefinition plate, ItemDefinition reward, ResearchDefinition grants, bool unlocksResearchMenu = false)
+        static CoreDirectiveDefinition NewDirective(ItemDefinition wire, ItemDefinition plate, ItemDefinition reward, ResearchDefinition grants)
         {
             var directive = ScriptableObject.CreateInstance<CoreDirectiveDefinition>();
             var so = new SerializedObject(directive);
             so.FindProperty("id").stringValue = "first_gear";
-            so.FindProperty("unlocksResearchMenu").boolValue = unlocksResearchMenu;
 
             SerializedProperty reqs = so.FindProperty("requirements");
             reqs.arraySize = 2;
@@ -84,9 +83,6 @@ namespace Game.Tests.EditMode.Gameplay.Directives
             return database;
         }
 
-        static Fixture NewFixture(int wire, int plate, out ResearchDefinition gate)
-            => NewFixture(wire, plate, out gate, unlocksResearchMenu: false);
-
         /// <summary>
         /// <paramref name="wire"/> and <paramref name="plate"/> go into an <b>ordinary</b> box, because
         /// that is where a directive's material has to come from; <paramref name="reserveWire"/> and
@@ -97,7 +93,7 @@ namespace Game.Tests.EditMode.Gameplay.Directives
         /// forbidden to claim. Seven tests went red the day that rule was posed and stayed red because
         /// nothing here distinguished the two containers.
         /// </summary>
-        static Fixture NewFixture(int wire, int plate, out ResearchDefinition gate, bool unlocksResearchMenu,
+        static Fixture NewFixture(int wire, int plate, out ResearchDefinition gate,
             int reserveWire = 0, int reservePlate = 0)
         {
             var grid = new GridRuntime(1f);
@@ -127,7 +123,7 @@ namespace Game.Tests.EditMode.Gameplay.Directives
 
             gate = TestDataFactory.NewResearch("core_gear_unlock", 0f);
             CoreDirectiveDefinition directive = NewDirective(
-                TestDataFactory.NewItem(WireId), TestDataFactory.NewItem(PlateId), TestDataFactory.NewItem("Gear"), gate, unlocksResearchMenu);
+                TestDataFactory.NewItem(WireId), TestDataFactory.NewItem(PlateId), TestDataFactory.NewItem("Gear"), gate);
 
             return new Fixture
             {
@@ -169,7 +165,7 @@ namespace Game.Tests.EditMode.Gameplay.Directives
         [Test]
         public void TheCoreReserve_CannotSatisfyADirective()
         {
-            Fixture fixture = NewFixture(wire: 0, plate: 0, out _, unlocksResearchMenu: false,
+            Fixture fixture = NewFixture(wire: 0, plate: 0, out _,
                 reserveWire: 50, reservePlate: 50);
 
             Assert.AreEqual(50, fixture.Stock[WireId], "Precondition: a construction site could still spend it.");
@@ -192,7 +188,7 @@ namespace Game.Tests.EditMode.Gameplay.Directives
         [Test]
         public void TheHaul_DrainsTheBox_AndLeavesTheCoreReserveAlone()
         {
-            Fixture fixture = NewFixture(wire: 5, plate: 5, out _, unlocksResearchMenu: false,
+            Fixture fixture = NewFixture(wire: 5, plate: 5, out _,
                 reserveWire: 40, reservePlate: 40);
 
             Assert.IsTrue(fixture.Directives.Validate(fixture.Core));
@@ -283,80 +279,6 @@ namespace Game.Tests.EditMode.Gameplay.Directives
             reloaded.Directives.RestoreState(captured);
 
             Assert.IsNull(reloaded.Directives.Current, "A finished directive stays finished across a save.");
-        }
-
-        /// <summary>
-        /// Research is not something the run starts with: it is the first directive's own reward,
-        /// and until that directive is done the Top Bar card and the Bottom Nav icon have nothing to
-        /// show. Validating is not enough - the menu arrives with the last crate, like every other
-        /// thing a directive grants.
-        /// </summary>
-        [Test]
-        public void TheResearchMenu_ArrivesWithTheDirectiveThatGrantsIt_NotBefore()
-        {
-            Fixture fixture = NewFixture(wire: 5, plate: 5, out _, unlocksResearchMenu: true);
-
-            Assert.IsFalse(fixture.Directives.IsResearchMenuUnlocked, "A new run has no Research menu.");
-
-            Assert.IsTrue(fixture.Directives.Validate(fixture.Core));
-            Assert.IsFalse(fixture.Directives.IsResearchMenuUnlocked, "Nor while the robots are still carrying it.");
-
-            fixture.Simulate(30f);
-
-            Assert.IsTrue(fixture.Directives.IsResearchMenuUnlocked);
-        }
-
-        /// <summary>
-        /// The development bypass opens the menu and touches nothing else. What is being pinned is the
-        /// "nothing else": a shortcut that nudged the directive index would silently hand the player a
-        /// directive's reward and skip its ask, and the run would no longer be the run being debugged.
-        /// </summary>
-        [Test]
-        public void ForcingTheResearchMenu_OpensIt_WithoutCompletingTheDirectiveThatGrantsIt()
-        {
-            Fixture fixture = NewFixture(wire: 5, plate: 5, out _, unlocksResearchMenu: true);
-            CoreDirectiveDefinition asked = fixture.Directives.Current;
-
-            fixture.Directives.ResearchMenuForcedOpen = true;
-
-            Assert.IsTrue(fixture.Directives.IsResearchMenuUnlocked);
-            Assert.AreSame(asked, fixture.Directives.Current, "The Core still asks for the same directive.");
-            Assert.AreEqual(1, fixture.Directives.CurrentNumber, "and it is still the first one.");
-        }
-
-        /// <summary>A directive that grants no menu never opens one, however many of them complete.</summary>
-        [Test]
-        public void ADirectiveThatDoesNotGrantTheMenu_LeavesItClosed()
-        {
-            Fixture fixture = NewFixture(wire: 5, plate: 5, out _, unlocksResearchMenu: false);
-
-            fixture.Directives.Validate(fixture.Core);
-            fixture.Simulate(30f);
-
-            Assert.IsNull(fixture.Directives.Current, "Precondition: it completed.");
-            Assert.IsFalse(fixture.Directives.IsResearchMenuUnlocked);
-        }
-
-        /// <summary>
-        /// The menu is derived from which directives are done, so the index the save already carries
-        /// restores it - there is nothing else to persist, and nothing that could disagree with it.
-        /// </summary>
-        [Test]
-        public void TheResearchMenu_SurvivesASave_ThroughTheDirectiveIndexAlone()
-        {
-            Fixture fixture = NewFixture(wire: 5, plate: 5, out _, unlocksResearchMenu: true);
-            fixture.Directives.Validate(fixture.Core);
-            fixture.Simulate(30f);
-            Assert.IsTrue(fixture.Directives.IsResearchMenuUnlocked, "Precondition.");
-
-            Newtonsoft.Json.Linq.JObject captured = fixture.Directives.CaptureState();
-
-            Fixture reloaded = NewFixture(wire: 0, plate: 0, out _, unlocksResearchMenu: true);
-            Assert.IsFalse(reloaded.Directives.IsResearchMenuUnlocked, "Precondition: a fresh system starts closed.");
-
-            reloaded.Directives.RestoreState(captured);
-
-            Assert.IsTrue(reloaded.Directives.IsResearchMenuUnlocked);
         }
 
         [Test]
