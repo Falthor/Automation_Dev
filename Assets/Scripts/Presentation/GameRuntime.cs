@@ -767,7 +767,31 @@ namespace Game.Presentation
             if (cycles.Count > 0) Debug.LogError($"Research tree: prerequisite cycle through {NamesOf(cycles)} - none of these can ever start.", researchDatabase);
 
             List<ResearchDefinition> unreachable = ResearchTreeValidation.FindUnreachable(researchDatabase.GetCores(), researchDatabase.GetAll());
-            if (unreachable.Count > 0) Debug.LogError($"Research tree: {NamesOf(unreachable)} can never be unlocked from the cores.", researchDatabase);
+            if (unreachable.Count == 0) return;
+
+            // Those the cycle holds back are named apart, so the cause is not lost among its consequences.
+            var behindCycle = new List<ResearchDefinition>();
+            var cutOff = new List<ResearchDefinition>();
+            var blocked = new HashSet<ResearchDefinition>(cycles);
+            for (bool grew = true; grew;)
+            {
+                grew = false;
+                foreach (ResearchDefinition research in unreachable)
+                {
+                    if (blocked.Contains(research)) continue;
+                    foreach (ResearchDefinition prerequisite in research.Prerequisites)
+                    {
+                        if (prerequisite == null || !blocked.Contains(prerequisite)) continue;
+                        blocked.Add(research);
+                        grew = true;
+                        break;
+                    }
+                }
+            }
+            foreach (ResearchDefinition research in unreachable) (blocked.Contains(research) ? behindCycle : cutOff).Add(research);
+
+            if (behindCycle.Count > 0) Debug.LogError($"Research tree: {NamesOf(behindCycle)} are blocked behind the cycle and can never be unlocked.", researchDatabase);
+            if (cutOff.Count > 0) Debug.LogError($"Research tree: {NamesOf(cutOff)} can never be unlocked from the cores.", researchDatabase);
         }
 
         static string NamesOf(List<ResearchDefinition> researches)
