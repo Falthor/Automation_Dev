@@ -214,6 +214,20 @@ namespace Game.Presentation
         public DepthSortLadder DepthSort { get; private set; }
 
         /// <summary>
+        /// The scene's single building-view registry - one <see cref="BuildingSpawner"/>, and it has
+        /// to stay one.
+        ///
+        /// A spawner remembers the views it created, by cell, and that dictionary is what demolition
+        /// removes from. Two spawners are two dictionaries, and a view in the wrong one cannot be
+        /// removed at all: that is not a hypothetical, it shipped, and it is why a chest that came
+        /// back from a save could be demolished and go on standing there.
+        ///
+        /// Null until <c>Start</c>, which is where its settings come from - a caller on its own
+        /// <c>Start</c> must wait (the input adapter does, on its first Update).
+        /// </summary>
+        public BuildingSpawner BuildingViews { get; private set; }
+
+        /// <summary>
         /// Redraws one building's view, given the cell its current view is filed under. Installed by
         /// ConstructionInputAdapter, which owns the scene's only BuildingSpawner; null in a scene
         /// without one (a test), where rotating still changes the runtime and simply draws nothing.
@@ -1150,6 +1164,21 @@ namespace Game.Presentation
             GroundSlabSettings = BuildGroundSlabSettings();
             GroundSlabNeighborLinker = new GroundSlabNeighborLinker(Grid);
 
+            // <b>The one spawner of the scene</b>, built here because this is the line its settings
+            // become available on, and owned here because three other places need it at three
+            // different moments: the Core chest below, every building coming back from a save, and
+            // the input adapter on its first Update.
+            //
+            // There were three of them, one per caller, and that is a defect with a precise
+            // symptom: a spawner keeps a per-cell dictionary of the views it created, demolition
+            // asks the input adapter's, and a building restored from a save was in one of the other
+            // two. Demolishing it removed the building and left its sprite standing on the ground
+            // for the rest of the run - and only ever the ones the save had brought back, which is
+            // exactly how it was reported.
+            BuildingViews = new BuildingSpawner(Grid, new ProceduralSpriteFactory(),
+                ConveyorArt(ConveyorShapeKind.Straight), ConveyorArt(ConveyorShapeKind.Corner),
+                GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings, DepthSort);
+
             if (gridLineView != null)
             {
                 gridLineView.Initialize(Grid, Terrain.Size);
@@ -1171,8 +1200,7 @@ namespace Game.Presentation
                 // instead, already registered and viewed like any other placed Storage box.
                 if (World.CoreStorage != null)
                 {
-                    var coreStorageSpawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings, DepthSort);
-                    coreStorageSpawner.SpawnView(World.CoreStorage);
+                    BuildingViews.SpawnView(World.CoreStorage);
                     Transport.Register(World.CoreStorage);
                 }
 
@@ -1253,15 +1281,13 @@ namespace Game.Presentation
             // and the shadow.
             if (_restoredBuildings.Count > 0)
             {
-                // Passed the same presentation settings as the placement path, which it was not:
-                // a building coming back from a save has to look like the one that was placed, and
-                // this spawner was giving it neither a concrete slab nor a shadow.
-                var spawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(),
-                    ConveyorArt(ConveyorShapeKind.Straight), ConveyorArt(ConveyorShapeKind.Corner),
-                    GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings, DepthSort);
+                // Through the scene's own spawner, which is what makes a restored building
+                // demolishable: its view has to be in the dictionary demolition reads. It used to
+                // build a spawner of its own here, with the same settings but its own dictionary -
+                // see BuildingViews.
                 foreach (BuildingRuntime building in _restoredBuildings)
                 {
-                    spawner.SpawnView(building);
+                    BuildingViews.SpawnView(building);
                     if (itemVisuals != null) itemVisuals.Register(building);
                 }
             }

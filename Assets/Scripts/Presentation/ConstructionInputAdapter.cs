@@ -119,11 +119,12 @@ namespace Game.Presentation
             if (hoverHighlightView != null) hoverHighlightView.Initialize(gameRuntime.Grid);
             if (depositHoverGlowView != null) depositHoverGlowView.Initialize(gameRuntime.Grid, _spriteFactory);
 
-            // _spawner is NOT built here: it needs gameRuntime.GroundSlabSettings, which
-            // GameRuntime only populates partway through its own Start() (after TerrainView.
-            // Initialize runs) - and Unity does not guarantee Start() order between different
-            // components (unlike Awake, which gameRuntime.Grid above already relies on). Built
-            // lazily on first Update() instead, by which point every object's Start() has run.
+            // _spawner is NOT taken here: it is GameRuntime.BuildingViews, which GameRuntime
+            // only builds partway through its own Start() (after TerrainView.Initialize runs, since
+            // the ground slab settings come from it) - and Unity does not guarantee Start() order
+            // between different components (unlike Awake, which gameRuntime.Grid above already
+            // relies on). Taken on the first Update() instead, by which point every object's
+            // Start() has run.
         }
 
         void Update()
@@ -131,7 +132,11 @@ namespace Game.Presentation
             if (worldCamera == null || gameRuntime == null) return;
             if (_spawner == null)
             {
-                _spawner = new BuildingSpawner(gameRuntime.Grid, _spriteFactory, straightConveyorForDragContinuation, cornerConveyorForReshape, gameRuntime.GroundSlabSettings, gameRuntime.GroundSlabNeighborLinker, gameRuntime.ShadowSettings, gameRuntime.DepthSort);
+                // Borrowed, never built. This used to construct one, and a second spawner is a
+                // second per-cell view dictionary: demolition reads this one, so every view created
+                // anywhere else became impossible to remove. See GameRuntime.BuildingViews.
+                _spawner = gameRuntime.BuildingViews;
+                if (_spawner == null) return;   // GameRuntime.Start has not reached it yet
             }
 
             // Subscribed here rather than in Start() for the same reason _spawner is built lazily:
