@@ -104,16 +104,29 @@ namespace Game.EditorTools
             DrawSummary();
         }
 
-        /// <summary>A line from the prerequisite to the research, with a head two thirds of the way along pointing at the research.</summary>
+        /// <summary>
+        /// The prerequisite's link, bent exactly as the game's research menu bends its synapse
+        /// (ResearchPanelController.SynapseControl), with a head two thirds of the way along pointing at
+        /// the research.
+        /// </summary>
         static void Arrow(Vector3 from, Vector3 to, float thickness)
         {
-            Handles.DrawLine(from, to, thickness);
+            Vector3 control = SynapseControl(from, to);
+            Handles.DrawBezier(from, to, from + (control - from) * (2f / 3f), to + (control - to) * (2f / 3f), Handles.color, null, thickness);
 
-            Vector3 direction = (to - from).normalized;
-            Vector3 head = Vector3.Lerp(from, to, 0.66f);
+            const float t = 0.66f;
+            Vector3 head = (1f - t) * (1f - t) * from + 2f * (1f - t) * t * control + t * t * to;
+            Vector3 direction = (2f * (1f - t) * (control - from) + 2f * t * (to - control)).normalized;
             const float size = 0.25f;
             Handles.DrawLine(head, head - Quaternion.Euler(0f, 0f, 25f) * direction * size, thickness);
             Handles.DrawLine(head, head - Quaternion.Euler(0f, 0f, -25f) * direction * size, thickness);
+        }
+
+        /// <summary>The game's bend, computed in the panel's y-down space and brought back to the scene's y-up plane - so it bows to the same side here as in the game.</summary>
+        static Vector3 SynapseControl(Vector3 from, Vector3 to)
+        {
+            Vector2 control = Game.UI.ResearchPanelController.SynapseControl(new Vector2(from.x, -from.y), new Vector2(to.x, -to.y));
+            return new Vector3(control.x, -control.y, 0f);
         }
 
         static Vector3 Polar(float radius, float angleDegrees)

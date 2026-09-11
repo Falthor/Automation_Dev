@@ -496,7 +496,7 @@ namespace Game.UI
 
             Vector2 from = _nodes[_pulseParent].Position;
             Vector2 to = _nodes[_pulseNode].Position;
-            Vector2 point = Bezier(from, Control(from, to), to, Mathf.Repeat(Time.time / PulseSeconds, 1f));
+            Vector2 point = Bezier(from, SynapseControl(from, to), to, Mathf.Repeat(Time.time / PulseSeconds, 1f));
             _pulse.style.left = _extent + point.x - PulseSize * 0.5f;
             _pulse.style.top = _extent + point.y - PulseSize * 0.5f;
         }
@@ -553,7 +553,7 @@ namespace Game.UI
         {
             painter.strokeColor = color;
             painter.lineWidth = width;
-            Vector2 control = Control(from, to);
+            Vector2 control = SynapseControl(from, to);
 
             painter.BeginPath();
             if (!dashed)
@@ -597,8 +597,12 @@ namespace Game.UI
             painter.Stroke();
         }
 
-        /// <summary>A gentle, always same-side bend - the synapses are curves, not spokes.</summary>
-        static Vector2 Control(Vector2 from, Vector2 to)
+        /// <summary>
+        /// A gentle, always same-side bend - the synapses are curves, not spokes. The control point of
+        /// a quadratic curve from one node to the other, in this panel's y-down space. Public so the
+        /// research tree editor draws its links with exactly this bend.
+        /// </summary>
+        public static Vector2 SynapseControl(Vector2 from, Vector2 to)
         {
             Vector2 delta = to - from;
             return (from + to) * 0.5f + new Vector2(-delta.y, delta.x) * 0.12f;
