@@ -44,5 +44,9 @@
             <!-- Absent, not disabled: there is nothing to wait for until the Core has concluded. -->
             <ui:Button name="AwakeningBeginButton" text="Commencer" class="narrative-begin" />
         </ui:VisualElement>
+
+        <!-- Outside the panel and on the overlay itself, pinned to its corner: a way out has to be
+             reachable from the first frame, and it must not push the message around to be there. -->
+        <ui:Button name="AwakeningSkipButton" text="Passer" class="narrative-skip" focusable="false" />
     </ui:VisualElement>
 </ui:UXML>

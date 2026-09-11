@@ -187,10 +187,18 @@ the same `UIDocument` every other HUD controller uses and brought to the front.
 **Gated on `GameRuntime.StartedFromNewGame`** (CONTRACTS.md), never on the scene loading -
 a player reloading an established run must not see it again.
 
-**It cannot be dismissed early.** No key skips it, and the button does not exist - not
-disabled, absent - until the last line has landed. The button is deliberately never given
-focus: a focused UI Toolkit `Button` answers to Space, and Space is Pause, so focusing it
-would hand the player a skip key by accident.
+**It can be left, by one button.** "Passer" sits in the overlay's own corner (outside the
+panel, so it neither moves as blocks appear nor shifts the message to make room) from the
+first frame, and dismisses the whole screen. It was unskippable, which is right for a first
+run and wrong for the twentieth.
+
+**No key skips it, still.** Escape has one arbiter (`EscapeArbiter`) and this overlay is not
+one of its tiers, so it does not read Escape at all. Neither button is ever given focus - a
+focused UI Toolkit `Button` answers to Space, and Space is Pause, so focusing one would hand
+the player a second skip key by accident; the skip button is declared non-focusable for that
+reason, which costs it nothing since a click still reaches it. "Commencer" still does not
+exist - not disabled, absent - until the last line has landed: skipping is a deliberate way
+out, not the same gesture as the end of the message.
 
 Every wait is unscaled (`WaitForSecondsRealtime`, `Time.unscaledDeltaTime`), so pausing
 behind the overlay cannot stall the message half-way through.

@@ -124,6 +124,30 @@
     background-color: rgb(26, 34, 40);
 }
 
+/* The way out of the awakening: present from the first frame, and quiet enough that it is not
+   the thing being read. Pinned to the overlay's corner rather than placed in the panel's flow, so
+   it neither moves as blocks appear nor shifts the message to make room for itself. */
+.narrative-skip {
+    position: absolute;
+    right: 26px;
+    bottom: 22px;
+    height: 28px;
+    padding-left: 14px;
+    padding-right: 14px;
+    font-size: 12px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 1px;
+    border-radius: 0;
+    border-color: rgb(48, 59, 66);
+    color: rgb(130, 140, 148);
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.narrative-skip:hover {
+    border-color: rgb(85, 221, 245);
+    color: rgb(215, 224, 229);
+}
+
 /* A closing line that is a reading, not a thought: monospace like the table above it, because it
    is the result rather than the conclusion. */
 .narrative-result {

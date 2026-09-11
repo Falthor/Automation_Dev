@@ -18,9 +18,19 @@ namespace Game.UI
     /// show it to a player reloading a two-hour run, and by the time any view runs
     /// <c>PendingGameStart</c> has been consumed and cleared.
     ///
-    /// <b>It cannot be skipped.</b> No key dismisses it and the button does not exist until the last
-    /// line has landed. The button is deliberately never focused: a focused UI Toolkit Button answers
-    /// to Space, and Space is Pause - focusing it would hand the player a skip key by accident.
+    /// <b>It can be skipped, by one button and nothing else.</b> "Passer" sits in the overlay's
+    /// corner from the first frame and dismisses the whole thing. It was unskippable, which is
+    /// right for a first run and wrong for the twentieth: the message is worth reading once, and a
+    /// player who starts a run to test a belt layout should not have to read it again.
+    ///
+    /// No <i>key</i> dismisses it, still. Escape has one arbiter (<see cref="EscapeArbiter"/>) and
+    /// this overlay is not one of its tiers; and neither button is ever focused - a focused UI
+    /// Toolkit Button answers to Space, and Space is Pause, so focusing one would hand the player a
+    /// second skip key by accident. The skip button is declared non-focusable for that reason,
+    /// which costs it nothing: a click still reaches it.
+    ///
+    /// "Commencer" still does not exist until the last line has landed - not disabled, absent.
+    /// Skipping is a deliberate way out, not the same gesture as the end of the message.
     ///
     /// <b>Real time, not game time.</b> Every wait is unscaled, so pausing behind the overlay cannot
     /// stall the message half-way through.
@@ -60,6 +70,7 @@ namespace Game.UI
         VisualElement _overlay;
         Label _reserveValue;
         Button _beginButton;
+        Button _skipButton;
 
         /// <summary>The displayed reserve, seeded from the real one and then drifting on its own - the first figure is true, the drift is theatre.</summary>
         float _displayedReserve;
@@ -93,6 +104,15 @@ namespace Game.UI
             {
                 _beginButton.style.display = DisplayStyle.None;
                 _beginButton.clicked += Dismiss;
+            }
+
+            _skipButton = _overlay.Q<Button>("AwakeningSkipButton");
+            if (_skipButton != null)
+            {
+                // Belt and braces with the UXML attribute: whichever of the two is read, Space must
+                // stay Pause.
+                _skipButton.focusable = false;
+                _skipButton.clicked += Dismiss;
             }
 
             StartCoroutine(Play());
@@ -140,8 +160,15 @@ namespace Game.UI
             }
         }
 
+        /// <summary>
+        /// Ends the screen, from either button. The coroutine is stopped rather than left to finish
+        /// against a detached hierarchy: skipping at the second line otherwise leaves it revealing
+        /// blocks nobody can see for another ten seconds, and turning the button on at the end of
+        /// it.
+        /// </summary>
         void Dismiss()
         {
+            StopAllCoroutines();
             _reserveIsFalling = false;
             _overlay?.RemoveFromHierarchy();
             _overlay = null;

@@ -216,6 +216,13 @@ namespace Game.Gameplay.Buildings
         /// touches: a declared output side has to hold on the way out as well as on the way in, or
         /// the arrow is decoration. A building declaring no output side may still be taken from
         /// wherever it is touched - that is what Storage and the Core are for.
+        ///
+        /// <b>A belt declares none, and that is deliberate</b>, not an oversight: a machine may tap
+        /// the side of a line running past it, which is the counterpart of the side merge a machine
+        /// uses to drop its output onto one (and the layout TransportSystem's round-robin exists to
+        /// share fairly). A <b>chest</b> may not - that one rule lives in
+        /// <c>TransportSystem.MayFeedStorage</c>, because it is about the pair and not about the
+        /// belt.
         /// </summary>
         public bool HandsOutTo(GridCoord cell) => !Definition.HasOutputArrow || FeedsCell(cell);
 

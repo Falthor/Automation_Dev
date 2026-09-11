@@ -399,17 +399,17 @@ namespace Game.Tests.EditMode.Construction
         }
 
         [Test]
-        public void MemoryAllocation_Completed_RaisesBuildingCapTo36()
+        public void MemoryAllocation_Completed_RaisesBuildingCapTo42()
         {
             var (service, _, research, _) = NewServiceWithCore(1000);
-            Assert.AreEqual(30, service.BuildingCap, "A run starts at 30 slots.");
+            Assert.AreEqual(36, service.BuildingCap, "A run starts at 36 slots.");
 
             ResearchDefinition memoryAllocation = TestDataFactory.NewResearch("memory_allocation", 10f);
             research.Enqueue(memoryAllocation);
             research.Tick(60f);
 
             Assert.IsTrue(research.IsUnlocked("memory_allocation"));
-            Assert.AreEqual(36, service.BuildingCap);
+            Assert.AreEqual(42, service.BuildingCap, "And the research adds six, as it did from 30.");
         }
 
         [Test]

@@ -4,6 +4,7 @@ using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Power;
 using Game.Gameplay.Research;
+using Game.Gameplay.Sites;
 using Game.Gameplay.Transport;
 using Game.Grid;
 using Game.Tests.EditMode.TestSupport;
@@ -76,6 +77,148 @@ namespace Game.Tests.EditMode.Gameplay.Transport
 
             Assert.IsFalse(definition.HasOutputArrow, "Precondition.");
             foreach (var (cell, _) in box.GetEdgeCells()) Assert.IsTrue(box.HandsOutTo(cell), $"cell {cell}");
+        }
+
+        /// <summary>
+        /// A chest takes only from a belt piece whose exit lands on it - not from a line running
+        /// past its flank.
+        ///
+        /// Reported as a chest filling up from a line that never pointed at it. A belt hands out on
+        /// every side it is touched on, deliberately (a machine may tap a passing line, and
+        /// <c>Tick_TwoConsumersSharingOneInputCell_AlternateWhichOneIsFed</c> pins that), so the
+        /// direction is a chest's own rule to ask - and it was asking about the belt's <i>shape</i>
+        /// instead, which is a different question that happened to hide half the cases.
+        /// </summary>
+        [Test]
+        public void ABeltRunningPastAChest_IsNotTakenFrom()
+        {
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+
+            // A line running north through (0,0) and (0,1): neither belt points at the chest.
+            ConveyorRuntime lower = AddBelt(grid, transport, new GridCoord(0, 0), Direction.North);
+            AddBelt(grid, transport, new GridCoord(0, 1), Direction.North);
+
+            StorageRuntime beside = AddBox(grid, transport, new GridCoord(1, 0));
+
+            Assert.IsFalse(lower.FeedsCell(beside.Cell), "The belt's exit is north, the chest is east.");
+            Assert.IsTrue(lower.HandsOutTo(beside.Cell), "And it does offer its flank - to a machine.");
+
+            for (int i = 0; i < 200; i++)
+            {
+                if (lower.HasRoomForNewItem) lower.ReceiveItem("copper_Ingot");
+                transport.Tick(0.1f);
+            }
+
+            Assert.AreEqual(0, beside.GetInputAmount("copper_Ingot"), "A line is not a source on its flank.");
+        }
+
+        /// <summary>
+        /// The other half of the same rule: a belt aimed at the chest feeds it, whatever shape that
+        /// belt is. A corner ending on a chest is an ordinary layout and was refused for a while, by
+        /// a straight-only restriction standing in for a direction check that was not enforcing one.
+        /// </summary>
+        [Test]
+        public void ACornerAimedAtAChest_FeedsIt()
+        {
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+
+            // Entering from the south, leaving east onto the chest at (1,0).
+            var corner = new ConveyorRuntime(TestDataFactory.NewConveyor(), new GridCoord(0, 0), Direction.North);
+            corner.ConfigureAsCorner(Direction.South, Direction.East);
+            grid.SetOccupant(corner.Cell, corner);
+            transport.Register(corner);
+
+            StorageRuntime chest = AddBox(grid, transport, new GridCoord(1, 0));
+
+            Assert.AreEqual(ConveyorShapeKind.Corner, corner.Orientation.Shape, "Precondition.");
+            Assert.IsTrue(corner.FeedsCell(chest.Cell), "Precondition: the corner does end on the chest.");
+
+            for (int i = 0; i < 200; i++)
+            {
+                if (corner.HasRoomForNewItem) corner.ReceiveItem("copper_Ingot");
+                transport.Tick(0.1f);
+            }
+
+            Assert.Greater(chest.GetInputAmount("copper_Ingot"), 0);
+        }
+
+        /// <summary>
+        /// A machine standing alongside a chest never feeds it, whichever way its arrow points. A
+        /// chest is fed by a line - that is what keeps it a reserve rather than the place a
+        /// production building quietly empties itself into.
+        /// </summary>
+        [Test]
+        public void AProductionBuildingFacingAChest_DoesNotFeedIt()
+        {
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+
+            ItemDefinition ingot = TestDataFactory.NewItem("copper_Ingot");
+            RecipeDatabase recipes = TestDataFactory.NewRecipeDatabase(
+                TestDataFactory.NewRecipe("copper_wire", 3f, 0f, 2, (ingot, 1)));
+
+            FactoryDefinition definition = TestDataFactory.NewFactory(0f, new[] { "copper_wire" }, new[] { "copper_Ingot" });
+            var factory = new FactoryRuntime(definition, new GridCoord(0, 0), Direction.East, recipes,
+                new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            grid.SetOccupantFootprint(factory.Cell, definition.FootprintSize, factory);
+            transport.Register(factory);
+
+            StorageRuntime chest = AddBox(grid, transport, factory.GetOutputCell());
+
+            for (int i = 0; i < 200; i++)
+            {
+                factory.AddOutput("copper_wire", 1);
+                transport.Tick(0.1f);
+            }
+
+            Assert.AreEqual(0, chest.GetInputAmount("copper_wire"), "Put a belt between them.");
+        }
+
+        /// <summary>
+        /// A building still being built holds its ground and nothing else: a belt aimed straight at
+        /// it delivers nothing, and its own pull never runs. The flag is <c>IsUnderConstruction</c>
+        /// and transport honours it at one chokepoint (<c>ActiveBuildingAt</c>); this pins the
+        /// behaviour from the outside, which is where it was doubted.
+        /// </summary>
+        [Test]
+        public void ABeltAimedAtABuildingStillUnderConstruction_DeliversNothing()
+        {
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+
+            ConveyorRuntime belt = AddBelt(grid, transport, new GridCoord(0, 0), Direction.East);
+
+            StorageDefinition definition = TestDataFactory.NewStorage("box", 4, 100);
+            var pending = new StorageRuntime(definition, new GridCoord(1, 0), Direction.North);
+            grid.SetOccupantFootprint(pending.Cell, definition.FootprintSize, pending);
+
+            // Through a real site rather than by setting the flag: the flag's setter is internal to
+            // Game.Gameplay, and opening it for a test would let one be built that no chantier can
+            // produce.
+            var site = new ConstructionSiteRuntime(1, pending);
+            Assert.IsTrue(pending.IsUnderConstruction, "Precondition: placing a segment flags it.");
+            Assert.IsNotNull(site);
+
+            Assert.IsTrue(belt.FeedsCell(pending.Cell), "Precondition: the belt does point at it.");
+
+            for (int i = 0; i < 200; i++)
+            {
+                if (belt.HasRoomForNewItem) belt.ReceiveItem("copper_Ingot");
+                transport.Tick(0.1f);
+            }
+
+            Assert.AreEqual(0, pending.GetInputAmount("copper_Ingot"), "A chantier takes nothing.");
+        }
+
+        static ConveyorRuntime AddBelt(GridRuntime grid, TransportSystem transport, GridCoord cell, Direction exit)
+        {
+            var belt = new ConveyorRuntime(TestDataFactory.NewConveyor(), cell, exit);
+            belt.ConfigureAsStraight(exit);
+            grid.SetOccupant(cell, belt);
+            transport.Register(belt);
+            return belt;
         }
 
         static StorageRuntime AddBox(GridRuntime grid, TransportSystem transport, GridCoord cell)

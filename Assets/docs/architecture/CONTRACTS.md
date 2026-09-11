@@ -137,7 +137,13 @@ A conveyor also accepts a **side merge**: when its pull from the back edge finds
 
 Both intakes match against the source's own hand-out cells (`FeedsCell`), which for an arrow-declaring building is the one cell its arrow marks.
 
-**Where a source hands out is the source's rule, on every path.** The generic push walks `GetOutputCells()`; the generic pull asks `HandsOutTo` before reaching into a neighbour; the belt intakes ask `FeedsCell`. A building that shows an output arrow therefore hands out there and nowhere else - a box parked against its back, or beside its arrow on a wide edge, is not served. A building declaring no output side (Storage, the Core) may still be taken from wherever it is touched, which is what those are for: the pull is otherwise the generic one, any of the 4 sides, matching the source project's `Building._try_pull()` (§13).
+**Where a source hands out is the source's rule, on every path.** The generic push walks `GetOutputCells()`; the generic pull asks `HandsOutTo` before reaching into a neighbour; the belt intakes ask `FeedsCell`. A building that shows an output arrow therefore hands out there and nowhere else - a box parked against its back, or beside its arrow on a wide edge, is not served.
+
+A building declaring no output side (Storage, the Core, **a belt**) may still be taken from wherever it is touched, which is what those are for: the pull is otherwise the generic one, any of the 4 sides, matching the source project's `Building._try_pull()` (§13). For a belt that is a deliberate tap, not an oversight - a machine may read a line running past its entry arrow, which is the counterpart of the side merge it uses to drop its output onto one, and the layout the round-robin above exists to share fairly.
+
+**What may feed a Storage is a rule about the pair** (`TransportSystem.MayFeedStorage`), and it is the one place a direction is asked of the source rather than left to `HandsOutTo`. A chest takes from the **belt network** - a conveyor of either shape, a Splitter or a Crossroad - and only from a piece whose exit lands on the chest's own cell; never from a machine standing alongside, whichever way that machine's arrow points. A chest is fed by a line, not by a machine's output face; put a belt between them. The direction belongs here because a belt's open flank is right for a machine and wrong for a chest, which would otherwise drain every line it happened to sit beside.
+
+**All three intake paths ask it**: the generic pull a chest runs for itself, the push a Splitter or Crossroad makes, and the generic push a production building makes across its output cells. The third was missing for a while, which is the one a player meets first - a Constructor parked against a box filled it with no belt anywhere in sight. The Core chest is stricter still and refuses every conveyor (`StorageDefinition.RejectsConveyorInput`), and a builder robot bypasses both through `AddFromRobot`.
 
 ## 4. Conveyor configuration
 
@@ -287,7 +293,7 @@ public bool TryDemolish(GridCoord cell, out BuildingRuntime removed)
 public bool CanAfford(BuildingDefinition definition)   // the placement gate, and the menu's styling
 public int GetAvailableAmount(string itemId)           // reads GlobalStock's aggregate (§15)
 
-public int BuildingCap { get; }              // 30 by default, 36 after memory_allocation
+public int BuildingCap { get; }              // 36 by default, 42 after memory_allocation
 public int OccupiedBuildingSlots { get; }    // live count against BuildingCap
 public void RestoreBuildingCap(int? cap)
 ```

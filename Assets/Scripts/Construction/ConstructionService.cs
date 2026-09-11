@@ -38,9 +38,9 @@ namespace Game.Construction
     /// </summary>
     public sealed class ConstructionService
     {
-        public const int DefaultBuildingCap = 30;
+        public const int DefaultBuildingCap = 36;
         const string MemoryAllocationResearchId = "memory_allocation";
-        const int ExtendedBuildingCap = 36;
+        const int ExtendedBuildingCap = 42;
 
         readonly GridRuntime _grid;
         readonly ItemDatabase _itemDatabase;
@@ -66,8 +66,9 @@ namespace Game.Construction
         public Direction PreviewInputSide { get; private set; } = Direction.South;
 
         /// <summary>
-        /// Current building slot cap (TASK_04_PLAFOND_RAYON.md §3) - starts at 40, raised to 52 by
-        /// memory_allocation. Runtime state owned here (the same layer that enforces it), not on
+        /// Current building slot cap (TASK_04_PLAFOND_RAYON.md §3) - starts at
+        /// DefaultBuildingCap, raised to ExtendedBuildingCap by memory_allocation. Runtime state
+        /// owned here (the same layer that enforces it), not on
         /// any definition; persisted directly by the save layer via RestoreBuildingCap, with a
         /// fallback to DefaultBuildingCap for a save predating this task.
         /// </summary>

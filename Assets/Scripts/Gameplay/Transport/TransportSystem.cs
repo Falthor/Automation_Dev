@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Game.Core;
-using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Grid;
 
@@ -360,25 +359,35 @@ namespace Game.Gameplay.Transport
         bool HasBuildingNeighbor(GridCoord cell) => ActiveBuildingAt(cell) != null;
 
         /// <summary>
-        /// A chest takes material only from a <b>straight</b> conveyor aimed at it - not from a
-        /// corner, not from a splitter or a crossroad, and not from a production building standing
-        /// alongside it.
+        /// A chest takes material from the <b>belt network</b> - a conveyor of either shape, a
+        /// Splitter or a Crossroad - <b>and only from a piece whose exit lands on the chest's own
+        /// cell</b>. Not from a machine standing alongside: a chest is fed by a line, not by a
+        /// machine's output face.
         ///
         /// <b>Stated here rather than in StorageRuntime, because it is a rule about the pair.</b>
         /// <c>CanAcceptInput</c> is handed a direction and never learns who is handing over, so a
-        /// storage cannot answer this question about itself. Both intake paths ask it: the generic
-        /// pull a chest runs for itself, and the push a splitter or crossroad makes.
+        /// storage cannot answer this question about itself. <b>All three</b> intake paths ask it:
+        /// the generic pull a chest runs for itself, the push a Splitter or Crossroad makes, and the
+        /// generic push a production building makes across its output cells. That third one was
+        /// missing, and it is the one a player meets first - a Constructor parked against a box
+        /// filled it without a belt anywhere in sight.
         ///
-        /// "Aimed at it" is already covered by <c>HandsOutTo</c>/<c>TryDeliverItem</c> on the
-        /// delivering side; what this adds is that the source is a belt at all, and a straight one.
+        /// <b>The direction is checked here rather than left to HandsOutTo</b>, unlike everywhere
+        /// else. A belt hands out on every side it is touched on, on purpose: a machine may tap a
+        /// line running past it. A chest may not - it would drain every line it happens to sit
+        /// beside - so "arriving in its direction" is asked of the source right here, for chests
+        /// alone, with <c>FeedsCell</c> and the cell actually receiving. Narrowing the rule to
+        /// straight conveyors was the previous attempt at that, and it hid the flank case while
+        /// refusing corners, Splitters and Crossroads that genuinely pointed at the chest.
+        ///
         /// The Core chest is stricter still and refuses every conveyor
         /// (<c>StorageDefinition.RejectsConveyorInput</c>); a builder robot bypasses both through
         /// <c>AddFromRobot</c>.
         /// </summary>
-        static bool MayFeedStorage(BuildingRuntime consumer, BuildingRuntime source)
+        static bool MayFeedStorage(BuildingRuntime consumer, BuildingRuntime source, GridCoord intoCell)
         {
             if (!(consumer is StorageRuntime)) return true;
-            return source is ConveyorRuntime belt && belt.Orientation.Shape == ConveyorShapeKind.Straight;
+            return IsBeltGated(source) && source.FeedsCell(intoCell);
         }
 
         /// <summary>
@@ -444,7 +453,7 @@ namespace Game.Gameplay.Transport
         bool TryDeliverItem(GridCoord neighborCell, Direction exitDirection, object item, BuildingRuntime source)
         {
             BuildingRuntime occupant = ActiveBuildingAt(neighborCell);
-            if (!MayFeedStorage(occupant, source)) return false;
+            if (!MayFeedStorage(occupant, source, neighborCell)) return false;
 
             if (occupant is ConveyorRuntime targetConveyor)
             {
@@ -477,6 +486,7 @@ namespace Game.Gameplay.Transport
             {
                 BuildingRuntime target = ActiveBuildingAt(cell);
                 if (target == null || ReferenceEquals(target, building)) continue;
+                if (!MayFeedStorage(target, building, cell)) continue;
 
                 foreach (var kvp in contents)
                 {
@@ -518,7 +528,7 @@ namespace Game.Gameplay.Transport
                     // from the edge cell it just scanned.
                     if (!occupant.HandsOutTo(cell + fromMySide.Opposite())) continue;
 
-                    if (!MayFeedStorage(building, occupant)) continue;
+                    if (!MayFeedStorage(building, occupant, cell + fromMySide.Opposite())) continue;
 
                     object item = occupant.PeekPullableItem();
                     if (item == null || !(item is string itemId)) continue;
