@@ -241,22 +241,26 @@ namespace Game.Gameplay.Transport
             TickRawOutputPullCooldowns(deltaTime);
             RunGenericPulls();
 
+            // Three passes, where there used to be one per belt, and the reason is a chest with
+            // several belts leaving it: the source can only hand out one item per
+            // RawOutputPullIntervalSeconds, so whichever belt came first in this list took every
+            // one of them and the others never moved.
+            //
+            // Pass 1 offers each source to a belt it did not serve last time; pass 2 picks up what
+            // pass 1 deferred, which is also the only pass a lone belt is ever served on. Pass 3 is
+            // the side merge, still the lower-priority intake and still only for a belt the
+            // straight-through pull left empty-handed - it simply happens after every belt has had
+            // its turn at that instead of interleaved with it, which is what made the order of this
+            // list matter.
+            _beltFedThisTick.Clear();
+
+            for (int i = 0; i < _conveyors.Count; i++) TryPullFromBehind(_conveyors[i], skipTheLastServed: true);
+            for (int i = 0; i < _conveyors.Count; i++) TryPullFromBehind(_conveyors[i], skipTheLastServed: false);
+
             for (int i = 0; i < _conveyors.Count; i++)
             {
-                ConveyorRuntime conveyor = _conveyors[i];
-                if (!conveyor.HasRoomForNewItem) continue;
-
-                GridCoord behind = conveyor.Cell + conveyor.Orientation.Rotation.Opposite();
-                if (TryPullFromNeighbor(behind, conveyor.Cell, out object item, out BuildingRuntime source) && MayEnterBeltNetwork(source))
-                {
-                    conveyor.ReceiveItem(item);
-                    source.ConsumePulledItem(item);
-                    NoteEnteredBeltNetwork(source);
-                }
-                else
-                {
-                    TryMergeFromSide(conveyor);
-                }
+                if (_beltFedThisTick.Contains(_conveyors[i])) continue;
+                TryMergeFromSide(_conveyors[i]);
             }
 
             TickSplitters();
@@ -279,6 +283,38 @@ namespace Game.Gameplay.Transport
         }
 
         /// <summary>
+        /// One belt's straight-through pull from whatever sits behind it.
+        ///
+        /// <paramref name="skipTheLastServed"/> is the fair-sharing half: on the first pass a source
+        /// that is not itself a belt - a chest, a machine's output - will not serve the same belt it
+        /// served last time, so two belts leaving one chest alternate instead of the first one
+        /// taking everything. Belt-to-belt hand-over is exempt: a belt has one exit and one
+        /// successor, so there is nothing to share and nothing to take turns over.
+        /// </summary>
+        void TryPullFromBehind(ConveyorRuntime conveyor, bool skipTheLastServed)
+        {
+            if (_beltFedThisTick.Contains(conveyor)) return;
+            if (!conveyor.HasRoomForNewItem) return;
+
+            GridCoord behind = conveyor.Cell + conveyor.Orientation.Rotation.Opposite();
+            if (!TryPullFromNeighbor(behind, conveyor.Cell, out object item, out BuildingRuntime source)) return;
+            if (!MayEnterBeltNetwork(source)) return;
+
+            if (skipTheLastServed && !IsBeltGated(source)
+                && _lastPullServedBy.TryGetValue(source, out BuildingRuntime last)
+                && ReferenceEquals(last, conveyor))
+            {
+                return;
+            }
+
+            conveyor.ReceiveItem(item);
+            source.ConsumePulledItem(item);
+            NoteEnteredBeltNetwork(source);
+            _lastPullServedBy[source] = conveyor;
+            _beltFedThisTick.Add(conveyor);
+        }
+
+        /// <summary>
         /// Side merge: a neighbor whose own output points into this conveyor, but across one of
         /// its two side edges rather than its back edge, hands over one item. That neighbor is
         /// any building, not just another belt - it is equally how a Foundry/Factory standing
@@ -294,6 +330,16 @@ namespace Game.Gameplay.Transport
         /// </summary>
         void TryMergeFromSide(ConveyorRuntime conveyor)
         {
+            // <b>Asked here rather than by the caller.</b> It used to be asked once at the top of a
+            // single loop that did the straight-through pull and this, and splitting that loop into
+            // passes left this one calling ReceiveItem with nobody having checked - which is not a
+            // small slip: ReceiveItem trusts its caller, so a belt merged into by another belt took
+            // an item every tick for as long as it stayed jammed. Twenty-nine on a cell that holds
+            // three, drawn trailing eight cells backwards off the belt and over whatever was there,
+            // because AdvanceItem spaces each item a third of a cell behind the one ahead of it and
+            // nothing said where to stop.
+            if (!conveyor.HasRoomForNewItem) return;
+
             Direction entry = conveyor.Orientation.Rotation.Opposite();
             Direction exit = conveyor.ExitDirection;
 
@@ -302,6 +348,16 @@ namespace Game.Gameplay.Transport
                 if (side == entry || side == exit) continue;
                 BuildingRuntime neighbor = ActiveBuildingAt(conveyor.Cell + side);
                 if (neighbor == null) continue;
+
+                // <b>A chest is never a side source.</b> What may take from one is a belt leading
+                // away from it - its back edge against the chest - which is the straight-through
+                // pull, not this. A chest hands out on every side it is touched on
+                // (StorageRuntime.FeedsCell), having no output side to declare, and that made every
+                // line merely running past a buffer siphon it through here: the chests that used to
+                // be where a line ended started feeding it back, and bases came back from a save
+                // with every belt packed solid.
+                if (neighbor is StorageRuntime) continue;
+
                 if (!OutputsTo(neighbor, conveyor.Cell)) continue;
 
                 object item = neighbor.PeekPullableItem();
@@ -331,10 +387,19 @@ namespace Game.Gameplay.Transport
                 {
                     GridCoord armCell = splitter.ArmCell(splitter.EntrySide);
                     GridCoord neighborCell = splitter.NeighborCell(splitter.EntrySide);
-                    if (TryPullFromNeighbor(neighborCell, armCell, out object item, out BuildingRuntime source) && item is string itemId)
+
+                    // MayEnterBeltNetwork, like every other way into the network. This arm was the
+                    // one entry that never paid the rate: a source that is not itself a belt - a
+                    // chest, a machine's raw output - was drained one item per <b>tick</b> here
+                    // instead of one per RawOutputPullIntervalSeconds, so a splitter parked against
+                    // one emptied it at the frame rate and flooded everything downstream.
+                    if (TryPullFromNeighbor(neighborCell, armCell, out object item, out BuildingRuntime source)
+                        && item is string itemId
+                        && MayEnterBeltNetwork(source))
                     {
                         splitter.AddInput(itemId, 1, splitter.EntrySide);
                         source.ConsumePulledItem(item);
+                        NoteEnteredBeltNetwork(source);
                     }
                 }
 
@@ -481,9 +546,15 @@ namespace Game.Gameplay.Transport
             GridCoord neighborCell = crossroad.NeighborCell(entry);
             if (!TryPullFromNeighbor(neighborCell, armCell, out object item, out BuildingRuntime source)) return;
 
+            // The same entry rate the belts and the splitter pay - see TickSplitters. Two lanes
+            // share one gate per source, which is right: the rate belongs to the source putting
+            // items into the network, not to the lane taking them.
+            if (!MayEnterBeltNetwork(source)) return;
+
             if (isLaneA) crossroad.ReceiveA(item);
             else crossroad.ReceiveB(item);
             source.ConsumePulledItem(item);
+            NoteEnteredBeltNetwork(source);
         }
 
         /// <summary>

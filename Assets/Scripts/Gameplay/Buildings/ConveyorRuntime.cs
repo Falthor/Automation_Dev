@@ -68,13 +68,21 @@ namespace Game.Gameplay.Buildings
         /// Advances every carried item toward the front edge; call once per simulation tick.
         /// Each item is capped by the one ahead of it (MinItemSpacing back from it) so items
         /// queue up instead of overlapping - only the front item (index 0) can reach 1.
+        ///
+        /// <b>The cap has a floor at 0</b>, which is the back edge of this cell. With at most
+        /// MaxItemsPerCell items the floor is never reached - the third sits at exactly 1/3 - so it
+        /// changes nothing about a belt that was filled through HasRoomForNewItem. It exists because
+        /// one intake path once stopped asking: with twenty-nine items on the cell, the spacing put
+        /// the last one at -8.33 and the view drew it eight cells behind the belt, over open ground
+        /// and behind buildings. An overfilled belt now stacks its extras at its own back edge, where
+        /// they are at least visibly wrong on the belt they belong to.
         /// </summary>
         public void AdvanceItem(float deltaTime, float speedCellsPerSecond)
         {
             float delta = deltaTime * speedCellsPerSecond;
             for (int i = 0; i < _slots.Count; i++)
             {
-                float cap = i == 0 ? 1f : _slots[i - 1].Progress - MinItemSpacing;
+                float cap = i == 0 ? 1f : System.Math.Max(0f, _slots[i - 1].Progress - MinItemSpacing);
                 _slots[i].Progress = System.Math.Min(cap, _slots[i].Progress + delta);
             }
         }
@@ -210,7 +218,19 @@ namespace Game.Gameplay.Buildings
                     string itemId = entry.Value<string>("itemId");
                     float progress = entry.Value<float?>("progress") ?? 0f;
                     if (string.IsNullOrEmpty(itemId)) continue;
-                    _slots.Add(new ConveyorItemSlot(itemId) { Progress = progress });
+
+                    // <b>What a cell cannot hold is not restored.</b> A save written while one intake
+                    // path was overfilling belts carries cells with up to twenty-nine items on them,
+                    // at progress down to -8.33 - positions that are not on the belt at all. Reading
+                    // them back would keep drawing them there for the rest of that run, so the extras
+                    // are dropped here rather than carried forever. They are lost, which is the
+                    // choice: they are already in a place the simulation has no rule for.
+                    if (_slots.Count >= MaxItemsPerCell) continue;
+
+                    _slots.Add(new ConveyorItemSlot(itemId)
+                    {
+                        Progress = UnityEngine.Mathf.Clamp01(progress)
+                    });
                 }
             }
         }

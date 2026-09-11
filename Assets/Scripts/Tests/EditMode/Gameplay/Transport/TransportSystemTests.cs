@@ -184,6 +184,228 @@ namespace Game.Tests.EditMode.Gameplay.Transport
             Assert.AreEqual(0, pending.GetInputAmount("copper_Ingot"), "A chantier takes nothing.");
         }
 
+        /// <summary>
+        /// A chest empties onto a belt leading away from it. It used to expose no pullable item at
+        /// all, so a box that filled up could only be emptied by hand, one slot at a time.
+        /// </summary>
+        [Test]
+        public void ABeltLeadingAwayFromAChest_EmptiesIt()
+        {
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+
+            StorageRuntime chest = AddBox(grid, transport, new GridCoord(0, 0));
+            chest.SeedInitialContents("copper_Ingot", 20);
+
+            // Behind this belt is the chest, so its straight-through pull reaches it.
+            ConveyorRuntime belt = AddBelt(grid, transport, new GridCoord(1, 0), Direction.East);
+
+            for (int i = 0; i < 60; i++) transport.Tick(0.1f);
+
+            Assert.Greater(belt.Items.Count, 0, "The belt is carrying what the chest gave it.");
+            Assert.Less(chest.GetInputAmount("copper_Ingot"), 20, "And the chest is lighter by the same.");
+        }
+
+        /// <summary>
+        /// A line running past a chest does not siphon it. Only a belt <b>leading away</b> from a
+        /// chest - its back edge against it - may take from one.
+        ///
+        /// The distinction is the whole of what a chest's hand-out means, and losing it was visible
+        /// from orbit: a chest has no output side to declare, so it hands out on all four
+        /// (<c>StorageRuntime.FeedsCell</c>), and the side merge asks exactly that question. Every
+        /// buffer in a base bled into whatever line passed it, the chests that used to be where a
+        /// line ended started feeding it back, and a loaded save came up with every belt packed at
+        /// three items a cell.
+        /// </summary>
+        [Test]
+        public void ABeltRunningPastAChest_DoesNotSiphonIt()
+        {
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+
+            StorageRuntime chest = AddBox(grid, transport, new GridCoord(0, 0));
+            chest.SeedInitialContents("copper_Ingot", 20);
+
+            // Running north past the chest's east flank: its back edge is south, on open ground, so
+            // the chest is beside it and never behind it.
+            ConveyorRuntime passing = AddBelt(grid, transport, new GridCoord(1, 0), Direction.North);
+
+            for (int i = 0; i < 200; i++) transport.Tick(0.1f);
+
+            Assert.AreEqual(0, passing.Items.Count, "A line passing a chest is not a line leaving it.");
+            Assert.AreEqual(20, chest.GetInputAmount("copper_Ingot"), "And the chest keeps everything.");
+        }
+
+        /// <summary>
+        /// Several belts leaving one chest share it in turn, rather than the first-registered one
+        /// taking every item the rate gate lets out.
+        ///
+        /// The share is exact, not approximate: one item per <c>RawOutputPullIntervalSeconds</c>
+        /// leaves the chest, and the belt that took the last one stands aside on the next.
+        /// </summary>
+        [Test]
+        public void TwoBeltsLeavingOneChest_TakeTurns()
+        {
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+
+            StorageRuntime chest = AddBox(grid, transport, new GridCoord(0, 0));
+            chest.SeedInitialContents("copper_Ingot", 20);
+
+            ConveyorRuntime east = AddBelt(grid, transport, new GridCoord(1, 0), Direction.East);
+            ConveyorRuntime west = AddBelt(grid, transport, new GridCoord(-1, 0), Direction.West);
+
+            // Stop as soon as four items are out, which is before either belt can fill up (three
+            // per cell) and therefore before a full belt could distort the share.
+            for (int i = 0; i < 200 && east.Items.Count + west.Items.Count < 4; i++)
+            {
+                transport.Tick(0.1f);
+            }
+
+            Assert.AreEqual(4, east.Items.Count + west.Items.Count, "Four items left the chest.");
+            Assert.AreEqual(2, east.Items.Count, "Two each, not four and none.");
+            Assert.AreEqual(2, west.Items.Count);
+        }
+
+        /// <summary>
+        /// A chest gives to the belt network and to nothing else: a machine standing against one may
+        /// not reach into it. The mirror of what a chest accepts, and what keeps a box a buffer on a
+        /// line rather than a feeder with no belt to see and no rate to read.
+        /// </summary>
+        [Test]
+        public void AMachineTouchingAChest_MayNotTakeFromIt()
+        {
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+
+            StorageRuntime chest = AddBox(grid, transport, new GridCoord(0, 0));
+            chest.SeedInitialContents("copper_Ingot", 20);
+
+            ItemDefinition ingot = TestDataFactory.NewItem("copper_Ingot");
+            RecipeDatabase recipes = TestDataFactory.NewRecipeDatabase(
+                TestDataFactory.NewRecipe("copper_wire", 100f, 0f, 1, (ingot, 1000)));
+            FactoryDefinition definition = TestDataFactory.NewFactory(0f, new[] { "copper_wire" }, new[] { "copper_Ingot" });
+
+            // Facing East, so its input sides are the other three - the chest is on its West side.
+            var factory = new FactoryRuntime(definition, new GridCoord(1, 0), Direction.East, recipes,
+                new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            factory.SetSelectedRecipe("copper_wire");
+            grid.SetOccupantFootprint(factory.Cell, definition.FootprintSize, factory);
+            transport.Register(factory);
+
+            for (int i = 0; i < 200; i++) transport.Tick(0.1f);
+
+            Assert.AreEqual(0, factory.GetInputAmount("copper_Ingot"), "Put a belt between them.");
+            Assert.AreEqual(20, chest.GetInputAmount("copper_Ingot"), "And the chest is untouched.");
+        }
+
+        /// <summary>
+        /// The Core chest is the one container a conveyor may not connect to <b>in either
+        /// direction</b>: it refuses a belt's delivery (RejectsConveyorInput) and hands nothing to
+        /// one either. It is the construction reserve, and a belt draining it would empty the
+        /// player's stock of plates into a line.
+        /// </summary>
+        [Test]
+        public void TheCoreChest_HandsOutNothingToABelt()
+        {
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+
+            StorageDefinition definition = TestDataFactory.NewStorage("core_storage", 6, 200, rejectsConveyorInput: true);
+            var coreChest = new StorageRuntime(definition, new GridCoord(0, 0), Direction.North);
+            grid.SetOccupantFootprint(coreChest.Cell, definition.FootprintSize, coreChest);
+            transport.Register(coreChest);
+            coreChest.SeedInitialContents("copper_Ingot", 20);
+
+            ConveyorRuntime belt = AddBelt(grid, transport, new GridCoord(1, 0), Direction.East);
+
+            for (int i = 0; i < 60; i++) transport.Tick(0.1f);
+
+            Assert.IsNull(coreChest.PeekPullableItem(), "It exposes nothing to pull.");
+            Assert.AreEqual(0, belt.Items.Count);
+            Assert.AreEqual(20, coreChest.GetInputAmount("copper_Ingot"));
+        }
+
+        /// <summary>
+        /// <b>No intake may put more on a cell than the cell holds</b>, however long the line stays
+        /// jammed. Driven through the side merge, which is the path that stopped asking.
+        ///
+        /// What it cost: a belt merged into by another belt took an item every tick, so a jam grew a
+        /// column of up to twenty-nine items on one cell. AdvanceItem spaces each item a third of a
+        /// cell behind the one ahead, and nothing said where to stop - so the twenty-ninth sat at
+        /// progress -8.33 and the view drew it eight cells behind the belt, on open ground and behind
+        /// buildings. The player who reported it was looking at iron ore standing in a field.
+        ///
+        /// Both halves are asserted: the count, and that every item is somewhere on its own cell.
+        /// </summary>
+        [Test]
+        public void ASideMerge_NeverPutsMoreOnACellThanItHolds()
+        {
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+
+            // A belt running north, jammed: nothing ahead of it takes anything.
+            ConveyorRuntime jammed = AddBelt(grid, transport, new GridCoord(0, 0), Direction.North);
+
+            // A second belt on its east flank, pointing west into it - a side merge, and a belt
+            // source, so the entry rate does not gate it either.
+            ConveyorRuntime feeder = AddBelt(grid, transport, new GridCoord(1, 0), Direction.West);
+
+            for (int i = 0; i < 600; i++)
+            {
+                if (feeder.HasRoomForNewItem) feeder.ReceiveItem("iron_ore");
+                transport.Tick(0.1f);
+            }
+
+            Assert.LessOrEqual(jammed.Items.Count, ConveyorRuntime.MaxItemsPerCell,
+                $"A cell holds {ConveyorRuntime.MaxItemsPerCell}, and it was handed {jammed.Items.Count}.");
+
+            foreach (ConveyorItemSlot slot in jammed.Items)
+            {
+                Assert.GreaterOrEqual(slot.Progress, 0f, "An item behind the back edge is drawn off the belt entirely.");
+                Assert.LessOrEqual(slot.Progress, 1f);
+            }
+        }
+
+        /// <summary>
+        /// A save written while a belt was overfilled comes back holding what a belt can hold. The
+        /// extras are lost rather than carried: they sit at positions the simulation has no rule for
+        /// - off the belt, behind buildings - and reading them back would keep drawing them there for
+        /// the rest of the run.
+        /// </summary>
+        [Test]
+        public void RestoringABeltThatWasOverfilled_KeepsOnlyWhatFits()
+        {
+            var belt = new ConveyorRuntime(TestDataFactory.NewConveyor(), new GridCoord(0, 0), Direction.North);
+
+            var items = new Newtonsoft.Json.Linq.JArray();
+            float progress = 1f;
+            for (int i = 0; i < 29; i++)
+            {
+                items.Add(new Newtonsoft.Json.Linq.JObject
+                {
+                    ["itemId"] = "iron_ore",
+                    ["progress"] = progress
+                });
+                progress -= 1f / 3f;   // exactly what the mangled save carried, down to -8.33
+            }
+
+            belt.RestoreState(new Newtonsoft.Json.Linq.JObject
+            {
+                ["shape"] = (int)ConveyorShapeKind.Straight,
+                ["rotation"] = (int)Direction.North,
+                ["mirrored"] = false,
+                ["items"] = items
+            });
+
+            Assert.AreEqual(ConveyorRuntime.MaxItemsPerCell, belt.Items.Count);
+            foreach (ConveyorItemSlot slot in belt.Items)
+            {
+                Assert.GreaterOrEqual(slot.Progress, 0f);
+                Assert.LessOrEqual(slot.Progress, 1f);
+            }
+        }
+
         static ConveyorRuntime AddBelt(GridRuntime grid, TransportSystem transport, GridCoord cell, Direction exit)
         {
             var belt = new ConveyorRuntime(TestDataFactory.NewConveyor(), cell, exit);
@@ -289,6 +511,43 @@ namespace Game.Tests.EditMode.Gameplay.Transport
 
             Assert.IsFalse(splitter.HasItem, "The splitter should have handed its item to the factory.");
             Assert.AreEqual(1, factory.GetInputAmount("iron_ore"));
+        }
+
+        /// <summary>
+        /// A Splitter's entry arm pays the entry rate, like every other way into the belt network.
+        ///
+        /// It was the one path that did not. A source that is not itself a belt - a chest, a
+        /// machine's raw output - was drained one item per <b>tick</b> through a splitter's arm
+        /// rather than one per <c>RawOutputPullIntervalSeconds</c>: at sixty frames a second that is
+        /// sixty items a second out of a container rated for one, and everything downstream of it
+        /// packed solid.
+        ///
+        /// Measured over one second with somewhere for the items to go, so that what bounds the
+        /// count is the rate and not the splitter's single slot: ungated it drains four (three on
+        /// the belt, one held), gated it takes one.
+        /// </summary>
+        [Test]
+        public void ASplittersEntryArm_PaysTheEntryRate()
+        {
+            var grid = new GridRuntime(1f);
+            var transport = new TransportSystem(grid);
+
+            var splitterDefinition = ScriptableObject.CreateInstance<SplitterDefinition>();
+            var origin = new GridCoord(5, 5);
+            var splitter = new SplitterRuntime(splitterDefinition, origin, Direction.South); // entry side South
+            grid.SetOccupantFootprint(origin, splitterDefinition.FootprintCells, splitter);
+            transport.Register(splitter);
+
+            // The chest against the entry arm, and a belt on one exit so the splitter keeps asking.
+            StorageRuntime chest = AddBox(grid, transport, CrossFootprint_NeighborCellForTest(origin, Direction.South));
+            chest.SeedInitialContents("copper_Ingot", 20);
+            AddBelt(grid, transport, CrossFootprint_NeighborCellForTest(origin, Direction.North), Direction.North);
+
+            for (int i = 0; i < 10; i++) transport.Tick(0.1f);
+
+            int taken = 20 - chest.GetInputAmount("copper_Ingot");
+            Assert.LessOrEqual(taken, 2, $"One second, one item (two at a boundary) - {taken} left the chest.");
+            Assert.GreaterOrEqual(taken, 1, "And the arm does take: this is a rate, not a refusal.");
         }
 
         static GridCoord CrossFootprint_NeighborCellForTest(GridCoord origin, Direction direction)
