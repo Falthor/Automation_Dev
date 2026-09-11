@@ -142,7 +142,7 @@ namespace Game.EditorTools
             if (researches.Count == 0) return;
 
             var names = new List<string>();
-            foreach (ResearchDefinition research in researches) names.Add(research.name);
+            foreach (ResearchDefinition research in researches) names.Add(ResearchTreeScene.Label(research));
             text.Append(title).Append(": ").Append(string.Join(", ", names)).Append('\n');
         }
     }

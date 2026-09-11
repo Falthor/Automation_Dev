@@ -12,6 +12,9 @@ par recherche de la base, noyaux compris, posé à sa distance du centre et à s
   pose un anneau plus loin, au même angle, et le prend pour prérequis ; sans sélection, elle arrive
   sur le deuxième anneau, hors de toute branche — et signalée comme inatteignable.
 - **Remplir** : l'inspecteur d'un nœud est celui de son asset (nom, coût, effets typés, prérequis).
+  La hiérarchie montre le nom affiché, et renommer un nœud dans la hiérarchie renomme la recherche. Le
+  fichier garde son nom de création (`new_research`) : le jeu ne le lit pas, et le renommer dans la
+  fenêtre Project ne casse aucune référence. L'identifiant, lui, est ce que les sauvegardes retiennent.
 - **Relier** : l'outil *Link* de la barre d'outils de la scène, proposé dès qu'un nœud est
   sélectionné. Un clic sur un nœud, puis sur un autre : le premier devient prérequis du second.
   Recliquer la même paire retire le lien ; cliquer dans le vide abandonne.

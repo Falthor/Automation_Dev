@@ -35,6 +35,9 @@ namespace Game.EditorTools
         static readonly List<ResearchNodeHandle> _handles = new List<ResearchNodeHandle>();
         static bool _handlesStale = true;
 
+        /// <summary>The name each handle was last given, so a rename in the hierarchy can be told apart from a new display name arriving from the asset. Never cleared on a rebuild: renaming an object is itself a hierarchy change, and clearing here would forget the rename before it is read.</summary>
+        static readonly Dictionary<ResearchNodeHandle, string> _shownNames = new Dictionary<ResearchNodeHandle, string>();
+
         /// <summary>Set by anything that may have put the scene out of step with the database; honoured on the next editor tick, never in the middle of another event.</summary>
         static bool _rebuildPending = true;
 
@@ -127,7 +130,7 @@ namespace Game.EditorTools
 
         public static ResearchNodeHandle CreateHandle(ResearchDefinition research)
         {
-            var gameObject = new GameObject(research.name);
+            var gameObject = new GameObject(Label(research));
             ResearchNodeHandle handle = gameObject.AddComponent<ResearchNodeHandle>();
             handle.Research = research;
             Place(handle);
@@ -227,13 +230,35 @@ namespace Game.EditorTools
             ResearchTreeDiagnosis.Invalidate();
         }
 
-        /// <summary>Puts a handle where its asset says, under the asset's name, without that counting as a move.</summary>
+        /// <summary>
+        /// Puts a handle where its asset says, under the research's display name, without that counting
+        /// as a move. A handle renamed in the hierarchy since it was last named gives the research that
+        /// name - so renaming a node there renames the research, rather than being undone a tick later.
+        /// </summary>
         static void Place(ResearchNodeHandle handle)
         {
             Vector3 position = PositionOf(handle.Research);
             if (handle.transform.position != position) handle.transform.position = position;
-            if (handle.name != handle.Research.name) handle.name = handle.Research.name;
+
+            string label = Label(handle.Research);
+            if (_shownNames.TryGetValue(handle, out string shown) && handle.name != shown && handle.name != label && !string.IsNullOrWhiteSpace(handle.name))
+            {
+                WriteDisplayName(handle.Research, handle.name);
+                label = handle.name;
+            }
+            if (handle.name != label) handle.name = label;
+            _shownNames[handle] = label;
             handle.transform.hasChanged = false;
+        }
+
+        /// <summary>What a node is called in the hierarchy and the scene: its display name, or its asset's name while it has none.</summary>
+        public static string Label(ResearchDefinition research) => string.IsNullOrEmpty(research.DisplayName) ? research.name : research.DisplayName;
+
+        static void WriteDisplayName(ResearchDefinition research, string displayName)
+        {
+            var serialized = new SerializedObject(research);
+            serialized.FindProperty("displayName").stringValue = displayName;
+            serialized.ApplyModifiedProperties();
         }
     }
 }
