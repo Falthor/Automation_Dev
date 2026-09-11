@@ -15,7 +15,7 @@ namespace Game.UI
     /// IsAvailable - and the introduction runs on the Core's directives alone.
     ///
     /// The Datacenter sits at the centre, the cores of ResearchDatabase.GetCores() around it, and each
-    /// research where its asset places it - on the ring of its tier, at its angle - placed by hand and
+    /// research where its asset places it - at its distance in rings and its angle - placed by hand and
     /// never computed here (ResearchNetworkPlacement). A synapse is drawn
     /// only from a parent already acquired; toward a parent that is available but not acquired only a
     /// short stub leaves the node, and toward one locked further back nothing is drawn at all - there
@@ -273,7 +273,7 @@ namespace Game.UI
                 var node = new Node { Definition = definition, IsCore = isCore, Position = ScreenPosition(definition) };
                 _indexOf[definition] = _nodes.Count;
                 _nodes.Add(node);
-                _maxTier = Mathf.Max(_maxTier, definition.Tier);
+                _maxTier = Mathf.Max(_maxTier, Mathf.CeilToInt(definition.Tier));
                 _outerRadius = Mathf.Max(_outerRadius, node.Position.magnitude + CoreSize * 0.5f + 30f);
             }
 

@@ -6,7 +6,7 @@ du code est dans `CONTRACTS.md` §11 ; ici, les raisons.
 ## Ce qu'il fait
 
 Tools > Research Tree > Open Editor Scene ouvre `Assets/Scenes/Tools/ResearchTree.unity` : un objet
-par recherche de la base, noyaux compris, posé sur son anneau à son angle.
+par recherche de la base, noyaux compris, posé à sa distance du centre et à son angle.
 
 - **Créer** : Tools > Research Tree > New Research. Avec un nœud sélectionné, la nouvelle recherche se
   pose un anneau plus loin, au même angle, et le prend pour prérequis ; sans sélection, elle arrive
@@ -16,17 +16,17 @@ par recherche de la base, noyaux compris, posé sur son anneau à son angle.
   sélectionné. Un clic sur un nœud, puis sur un autre : le premier devient prérequis du second.
   Recliquer la même paire retire le lien ; cliquer dans le vide abandonne.
 - **Déplacer** : l'outil de translation habituel, par le carré au centre de ses flèches. Le nœud suit
-  la souris, et se cale au relâchement sur l'anneau le plus proche ; l'angle reste libre. Le caler
-  pendant le glissement le clouait à son anneau jusqu'à mi-chemin du suivant : il semblait ne pas
-  bouger.
+  la souris et reste où on le lâche, sur un anneau ou entre deux, au dixième d'anneau près ; à moins
+  de 0,15 anneau d'un anneau, il s'y aimante. Le caler pendant le glissement le clouait à son anneau :
+  il semblait ne pas bouger.
 
 Tout passe par l'annulation d'Unity. Rien n'est écrit sur disque avant File > Save Project, sauf la
 création, qui enregistre tout de suite l'asset qu'elle fabrique.
 
 ## La scène ne stocke rien
 
-**Les objets sont des poignées, et l'asset est la seule vérité.** Déplacer un nœud écrit son anneau et
-son angle dans l'asset, puis repose le nœud là où l'asset le dit — c'est ce qui le cale sur l'anneau.
+**Les objets sont des poignées, et l'asset est la seule vérité.** Lâcher un nœud écrit sa distance et
+son angle dans l'asset, puis repose le nœud là où l'asset le dit.
 Toute autre modification de l'asset — l'inspecteur, une annulation, une fusion git — déplace le nœud.
 Il n'existe aucun moment où la scène et l'asset peuvent dire deux choses différentes.
 
@@ -37,8 +37,10 @@ qu'on le trouve, pas parce qu'il contiendrait quoi que ce soit.
 
 ## Le polaire
 
-**Un anneau entier et un angle libre, jamais une position.** Une position figerait l'échelle et le
-centre : le menu ne pourrait plus se redimensionner, et déplacer le centre de l'arbre décalerait tout.
+**Une distance comptée en anneaux et un angle, jamais une position.** La distance n'est pas un
+entier : un nœud peut rester entre deux anneaux, et un palier entier le pose sur un anneau. Une
+position figerait l'échelle et le centre : le menu ne pourrait plus se redimensionner, et déplacer le
+centre de l'arbre décalerait tout.
 
 La conversion n'est écrite qu'à un endroit, `ResearchNetworkPlacement`, lue par le menu du jeu et par
 l'éditeur. Un test la vérifie — ce n'est pas de l'ergonomie : si les deux la lisaient différemment,

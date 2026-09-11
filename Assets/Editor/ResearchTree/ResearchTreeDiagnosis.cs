@@ -23,7 +23,7 @@ namespace Game.EditorTools
         public static readonly HashSet<ResearchDefinition> Unreachable = new HashSet<ResearchDefinition>();
         public static readonly HashSet<ResearchDefinition> OutOfSector = new HashSet<ResearchDefinition>();
 
-        /// <summary>The outermost ring any node sits on.</summary>
+        /// <summary>The outermost ring any node reaches.</summary>
         public static int MaxTier { get; private set; }
 
         /// <summary>Half a sector, in degrees.</summary>
@@ -66,7 +66,7 @@ namespace Game.EditorTools
             foreach (ResearchDefinition research in tree)
             {
                 if (research == null) continue;
-                MaxTier = Mathf.Max(MaxTier, research.Tier);
+                MaxTier = Mathf.Max(MaxTier, Mathf.CeilToInt(research.Tier));
                 if (Cores.Contains(research)) continue;
 
                 ResearchDefinition core = BranchCore(research);

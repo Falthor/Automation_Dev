@@ -60,7 +60,7 @@ namespace Game.EditorTools
             serialized.FindProperty("displayName").stringValue = "Nouvelle recherche";
             serialized.FindProperty("cuCost").floatValue = NewResearchCost;
             serialized.FindProperty("absorptionRatePerSecond").floatValue = NewResearchAbsorption;
-            serialized.FindProperty("tier").intValue = parent != null ? parent.Tier + 1 : 2;
+            serialized.FindProperty("tier").floatValue = parent != null ? parent.Tier + 1f : 2f;
             serialized.FindProperty("angle").floatValue = parent != null ? parent.Angle : 0f;
             if (parent != null)
             {

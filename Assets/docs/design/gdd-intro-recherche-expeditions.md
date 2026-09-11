@@ -459,8 +459,8 @@ Bâtiments qui l'ouvre. Chaque nœud porte les cinq états et le panneau de dét
 **Disposition radiale.** Le rayon encode le palier de progression : le joueur lit sa
 position dans la partie à sa distance au centre, sans aucun texte.
 
-**Placement à la main.** Chaque nœud est posé à la main : son palier (l'anneau) et son
-angle sont stockés sur la recherche elle-même, jamais calculés. Chaque branche a son
+**Placement à la main.** Chaque nœud est posé à la main : son palier — sa distance au
+centre comptée en anneaux, sur un anneau ou entre deux — et son angle sont stockés sur la recherche elle-même, jamais calculés. Chaque branche a son
 secteur de 120° ; un enfant reste dans le secteur de sa branche, ce qui évite les
 croisements de câbles. Le secteur est un repère pour qui pose le nœud, pas une
 contrainte : un nœud peut en sortir, et l'éditeur le signale.

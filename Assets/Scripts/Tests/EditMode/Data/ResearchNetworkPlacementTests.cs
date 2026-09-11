@@ -17,35 +17,35 @@ namespace Game.Tests.EditMode.Data
         [Test]
         public void AnAngleOfNinety_IsStraightUp_AtTheTierTimesTheStep()
         {
-            Vector2 offset = ResearchNetworkPlacement.Offset(2, 90f, Step);
+            Vector2 offset = ResearchNetworkPlacement.Offset(2f, 90f, Step);
 
             Assert.AreEqual(0f, offset.x, Tolerance);
             Assert.AreEqual(2f * Step, offset.y, Tolerance);
         }
 
         [Test]
-        public void APosition_ComesBackAsTheTierAndAngleItWasMadeFrom()
+        public void APosition_ComesBackAsTheTierAndAngleItWasMadeFrom_OnARingOrBetweenTwo()
         {
-            foreach (int tier in new[] { 1, 2, 5 })
+            foreach (float tier in new[] { 1f, 2f, 2.5f, 5.3f })
             {
                 foreach (float angle in new[] { 0f, 37.5f, 150f, 270f, 359f })
                 {
-                    ResearchNetworkPlacement.FromOffset(ResearchNetworkPlacement.Offset(tier, angle, Step), Step, out int backTier, out float backAngle);
+                    ResearchNetworkPlacement.FromOffset(ResearchNetworkPlacement.Offset(tier, angle, Step), Step, out float backTier, out float backAngle);
 
-                    Assert.AreEqual(tier, backTier, $"tier {tier} at {angle}");
+                    Assert.AreEqual(tier, backTier, Tolerance, $"tier {tier} at {angle}");
                     Assert.AreEqual(angle, backAngle, Tolerance, $"tier {tier} at {angle}");
                 }
             }
         }
 
         [Test]
-        public void AnOffsetBetweenRings_TakesTheNearest_AndNeverOneInsideTheFirst()
+        public void AnOffsetBetweenRings_StaysBetweenThem_AndNeverInsideTheFirst()
         {
-            ResearchNetworkPlacement.FromOffset(new Vector2(24f, 0f), Step, out int tier, out _);
-            Assert.AreEqual(2, tier);
+            ResearchNetworkPlacement.FromOffset(new Vector2(24f, 0f), Step, out float tier, out _);
+            Assert.AreEqual(2.4f, tier, Tolerance, "The convention does not round - settling a dropped node is the editor's choice.");
 
             ResearchNetworkPlacement.FromOffset(new Vector2(1f, 0f), Step, out tier, out _);
-            Assert.AreEqual(1, tier, "The centre is the Datacenter's.");
+            Assert.AreEqual(1f, tier, Tolerance, "The centre is the Datacenter's.");
 
             ResearchNetworkPlacement.FromOffset(new Vector2(0f, -5f), Step, out _, out float angle);
             Assert.AreEqual(270f, angle, Tolerance, "Angles are given in [0, 360).");

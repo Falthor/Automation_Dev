@@ -10,11 +10,11 @@ namespace Game.EditorTools
 {
     /// <summary>
     /// The research tree editor's scene (Tools > Research Tree): one handle per research of the
-    /// database, where the research's asset places it - its ring and its angle, through
+    /// database, where the research's asset places it - its distance in rings and its angle, through
     /// ResearchNetworkPlacement - and nothing else.
     ///
-    /// <b>The assets are the only source of truth.</b> Moving a handle writes the nearest ring and the
-    /// free angle to its asset and snaps the handle onto that ring; any other change to the asset -
+    /// <b>The assets are the only source of truth.</b> Letting go of a moved handle writes its distance
+    /// and angle to its asset - pulled onto a ring when close to one (Settle); any other change to the asset -
     /// the inspector, an undo, a merge - moves the handle to match. The scene is rebuilt from the
     /// database on opening and whenever its hierarchy changes: a missing handle is created, one whose
     /// research is gone or already has a handle is removed. What the scene file holds is disposable.
@@ -28,6 +28,9 @@ namespace Game.EditorTools
 
         /// <summary>World units between two rings - the scene's own scale, unrelated to the panel's.</summary>
         public const float RingStep = 2f;
+
+        /// <summary>How close to a ring, in rings, a dropped node is pulled onto it.</summary>
+        const float MagnetRings = 0.15f;
 
         static readonly List<ResearchNodeHandle> _handles = new List<ResearchNodeHandle>();
         static bool _handlesStale = true;
@@ -76,7 +79,7 @@ namespace Game.EditorTools
             return null;
         }
 
-        /// <summary>Where a research sits in the scene: its stored ring and angle, on the XY plane.</summary>
+        /// <summary>Where a research sits in the scene: its stored distance and angle, on the XY plane.</summary>
         public static Vector3 PositionOf(ResearchDefinition research)
         {
             Vector2 offset = ResearchNetworkPlacement.Offset(research.Tier, research.Angle, RingStep);
@@ -173,13 +176,12 @@ namespace Game.EditorTools
         }
 
         /// <summary>
-        /// Every editor tick while the scene is open: a handle that was moved writes its ring and angle
-        /// to the asset, and every handle is then put back where its asset says - which is what snaps
-        /// a dragged node onto its ring, and what makes a handle follow a change made anywhere else.
+        /// Every editor tick while the scene is open: a handle that was moved writes its distance and
+        /// angle to the asset, and every handle is then put back where its asset says - which is what
+        /// settles a dropped node, and what makes a handle follow a change made anywhere else.
         ///
-        /// Nothing happens while a control is held: snapping under the cursor pinned a node to its ring
-        /// until the drag passed halfway to the next one, so it seemed not to move at all. The node now
-        /// follows the cursor freely and lands on its ring when it is let go.
+        /// Nothing happens while a control is held: settling under the cursor would tug the node about
+        /// while it is dragged. It follows the cursor freely and settles when it is let go.
         /// </summary>
         static void KeepInStep()
         {
@@ -197,19 +199,29 @@ namespace Game.EditorTools
 
                 if (handle.transform.hasChanged)
                 {
-                    ResearchNetworkPlacement.FromOffset(handle.transform.position, RingStep, out int tier, out float angle);
-                    WritePlacement(handle.Research, tier, Mathf.Round(angle * 10f) / 10f);
+                    ResearchNetworkPlacement.FromOffset(handle.transform.position, RingStep, out float tier, out float angle);
+                    WritePlacement(handle.Research, Settle(tier), Mathf.Round(angle * 10f) / 10f);
                 }
                 Place(handle);
             }
         }
 
-        static void WritePlacement(ResearchDefinition research, int tier, float angle)
+        /// <summary>
+        /// Where a dropped node's distance lands: onto a ring when within MagnetRings of it, so a ring is
+        /// easy to hit, and otherwise where it was let go, to a tenth of a ring.
+        /// </summary>
+        static float Settle(float tier)
         {
-            if (research.Tier == tier && Mathf.Approximately(research.Angle, angle)) return;
+            float ring = Mathf.Round(tier);
+            return Mathf.Abs(tier - ring) < MagnetRings ? ring : Mathf.Round(tier * 10f) / 10f;
+        }
+
+        static void WritePlacement(ResearchDefinition research, float tier, float angle)
+        {
+            if (Mathf.Approximately(research.Tier, tier) && Mathf.Approximately(research.Angle, angle)) return;
 
             var serialized = new SerializedObject(research);
-            serialized.FindProperty("tier").intValue = tier;
+            serialized.FindProperty("tier").floatValue = tier;
             serialized.FindProperty("angle").floatValue = angle;
             serialized.ApplyModifiedProperties();
             ResearchTreeDiagnosis.Invalidate();
