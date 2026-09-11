@@ -26,6 +26,9 @@ namespace Game.Data
         /// <summary>Seed for the per-component nominal-lifetime draw (TASK_03_DATACENTER.md §4.4) - same seed and installation sequence must reproduce the same drawn lifetimes.</summary>
         [SerializeField] int componentLifetimeSeed = 12345;
 
+        /// <summary>Its demand is whatever its installed components draw, so there is no figure to put in PowerDemandKw - but it draws, and it is the consumer a player most needs to be able to put first.</summary>
+        public override bool DrawsPower => true;
+
         public int MaxStackPerItem => maxStackPerItem;
         public string[] AcceptedItemIds => acceptedItemIds;
         public float AxisYieldFloor => axisYieldFloor;

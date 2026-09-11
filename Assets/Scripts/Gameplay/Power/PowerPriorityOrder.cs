@@ -72,6 +72,37 @@ namespace Game.Gameplay.Power
             _order.Insert(index, typeId);
         }
 
+        /// <summary>
+        /// Places a type immediately before another - what a drag means when the screen does not
+        /// show every type.
+        ///
+        /// The Priorité tab lists only types that draw power, while this order holds all of them,
+        /// so a row's index on screen is not its index here: a conveyor that draws nothing may sit
+        /// between two visible rows. Moving by index would drop the dragged group somewhere among
+        /// the hidden ones; moving relative to the visible neighbour puts it exactly where the
+        /// player let go. An unknown <paramref name="beforeId"/> sends it to the bottom.
+        /// </summary>
+        public void MoveBefore(string typeId, string beforeId)
+        {
+            if (string.IsNullOrEmpty(typeId) || typeId == beforeId) return;
+
+            _order.Remove(typeId);
+            int index = _order.IndexOf(beforeId);
+            if (index < 0) _order.Add(typeId);
+            else _order.Insert(index, typeId);
+        }
+
+        /// <summary>Places a type immediately after another - the drag's answer when the row lands last among the visible ones. See <see cref="MoveBefore"/>.</summary>
+        public void MoveAfter(string typeId, string afterId)
+        {
+            if (string.IsNullOrEmpty(typeId) || typeId == afterId) return;
+
+            _order.Remove(typeId);
+            int index = _order.IndexOf(afterId);
+            if (index < 0) _order.Add(typeId);
+            else _order.Insert(index + 1, typeId);
+        }
+
         /// <summary>What the save writes: the order as it stands, and nothing else.</summary>
         public List<string> CaptureState() => new List<string>(_order);
 

@@ -312,8 +312,14 @@ because a deficit rarely lands exactly between two groups. It is counted at the 
 (`PowerSystem.ServedInstancesOf`), not divided out of the kilowatts: see CONTRACTS.md §9 for why
 dividing would be wrong for the Data Center.
 
-**Every type is listed, built or not** (the player's call). One with no instances shows a dash for
-its count and no state, and holds the place it was given. The rows come from the priority order,
+**Every type that draws power is listed, built or not** (the player's call, both halves). A type
+that consumes nothing has nothing to arbitrate and gets no row; a consumer with no instances yet
+shows a dash for its count and no state, and holds the place it was given. The filter is
+`BuildingDefinition.DrawsPower`, not the kilowatt field: the Data Center has no fixed figure - its
+demand is its installed components' - and would otherwise vanish from the screen it most belongs on.
+Because the order underneath still holds every type, a drag places the row **before its visible
+neighbour** (`PowerPriorityOrder.MoveBefore`) rather than at an index: hidden types sit between
+visible ones, and an index would drop the group among them. The rows come from the priority order,
 which comes from the building catalogue - so a type added to the game appears here without this
 screen being touched, which is the requirement the order of identifiers exists for (§9a).
 

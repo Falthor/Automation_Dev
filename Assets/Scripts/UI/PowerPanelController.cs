@@ -20,9 +20,12 @@ namespace Game.UI
     /// production. Above it, served; below it, stopped. The player drags a handle and the line
     /// moves as they drag, so nothing has to be calculated.
     ///
-    /// <b>Every type is listed, built or not</b> (the player's call): a type with no instances
-    /// shows no draw and no state, and still holds the place it was given - which is what stops the
-    /// list reshuffling itself the day one is built. The rows come from
+    /// <b>Every type that draws power is listed, built or not</b> (the player's call, both
+    /// halves): a type that consumes nothing has nothing to arbitrate and is not shown, and a
+    /// consumer with no instances yet shows no draw and no state but holds the place it was given -
+    /// which is what stops the list reshuffling itself the day one is built. "Draws power" is
+    /// <c>BuildingDefinition.DrawsPower</c>, not its kilowatt field: the Data Center has no fixed
+    /// figure and would otherwise vanish from the one screen it most belongs on. The rows come from
     /// <c>GameRuntime.PowerPriority</c>, which is seeded from the building catalogue, so a type
     /// added to the game appears here without this file being touched.
     ///
@@ -66,6 +69,9 @@ namespace Game.UI
 
         /// <summary>One row per building type, built once and updated in place - and kept alive across a drag, which is why the cut line is drawn over the list rather than inserted into it.</summary>
         readonly List<GroupRow> _rows = new List<GroupRow>();
+
+        /// <summary>The order's ids that get a row - the ones whose type draws power - refilled into this same list each pass.</summary>
+        readonly List<string> _visibleIds = new List<string>();
 
         /// <summary>Instances per definition id, refilled every frame into this same dictionary rather than a new one.</summary>
         readonly Dictionary<string, int> _instanceCounts = new Dictionary<string, int>();
@@ -241,18 +247,26 @@ namespace Game.UI
         /// </summary>
         void SyncRows(PowerPriorityOrder order)
         {
+            // Compared against the filtered list, not the order itself: the order holds every type,
+            // and the rows are only the ones that draw power.
+            _visibleIds.Clear();
             IReadOnlyList<string> ids = order.Order;
-
-            if (ids.Count != _builtRowCount)
+            for (int i = 0; i < ids.Count; i++)
             {
-                BuildRows(ids);
+                BuildingDefinition definition = gameRuntime.FindBuildingDefinitionById(ids[i]);
+                if (definition != null && definition.DrawsPower) _visibleIds.Add(ids[i]);
+            }
+
+            if (_visibleIds.Count != _rows.Count)
+            {
+                BuildRows(_visibleIds);
                 return;
             }
 
-            for (int i = 0; i < ids.Count; i++)
+            for (int i = 0; i < _visibleIds.Count; i++)
             {
-                if (_rows[i].TypeId == ids[i]) continue;
-                BuildRows(ids);
+                if (_rows[i].TypeId == _visibleIds[i]) continue;
+                BuildRows(_visibleIds);
                 return;
             }
         }
@@ -268,7 +282,7 @@ namespace Game.UI
                 if (row != null) _rows.Add(row);
             }
 
-            _builtRowCount = ids.Count;
+            _builtRowCount = _rows.Count;
         }
 
         GroupRow BuildRow(string typeId)
@@ -347,7 +361,11 @@ namespace Game.UI
             row.Root.RemoveFromHierarchy();
             _list.Insert(target + 1, row.Root);   // +1: the cut line is the list's first child
 
-            gameRuntime.PowerPriority.MoveTo(row.TypeId, target);
+            // Relative to the visible neighbour rather than by index: the order also holds the
+            // types this screen does not show, so a row's place on screen is not its place there.
+            if (target + 1 < _rows.Count) gameRuntime.PowerPriority.MoveBefore(row.TypeId, _rows[target + 1].TypeId);
+            else gameRuntime.PowerPriority.MoveAfter(row.TypeId, _rows[target - 1].TypeId);
+
             evt.StopPropagation();
         }
 

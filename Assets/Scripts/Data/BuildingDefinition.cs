@@ -87,6 +87,17 @@ namespace Game.Data
         public virtual float PowerDemandKw => 0f;
 
         /// <summary>
+        /// Whether this type ever draws from the power network - what decides if it has a row on
+        /// the Énergie panel's Priorité tab.
+        ///
+        /// <b>Not the same question as <see cref="PowerDemandKw"/> &gt; 0</b>, though that is the
+        /// default answer. The Data Center has no fixed figure - its demand is its installed
+        /// components' - so its kilowatt field is 0, and a screen filtered on it would hide the
+        /// single largest consumer in the base. A type whose draw is dynamic overrides this.
+        /// </summary>
+        public virtual bool DrawsPower => PowerDemandKw > 0f;
+
+        /// <summary>
         /// One-shot CU taken from the reserve each time this building starts a cycle (an
         /// extraction, an RP conversion, burning one unit of fuel), for the Building menu's
         /// consumption preview. 0 by default - a recipe-based production building pays its

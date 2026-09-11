@@ -85,6 +85,32 @@ namespace Game.Tests.EditMode.Gameplay.Power
             CollectionAssert.AreEqual(order.Order, restored.Order, "What is saved is exactly what comes back.");
         }
 
+        /// <summary>
+        /// The screen shows only the types that draw power, so hidden ones sit between visible rows
+        /// in the full order. A drag places the group relative to its visible neighbour - and must
+        /// land exactly there, not somewhere among the hidden types an index would point at.
+        /// </summary>
+        [Test]
+        public void MovingRelativeToAVisibleNeighbour_IgnoresTheHiddenTypesBetweenThem()
+        {
+            var order = new PowerPriorityOrder();
+            // "conveyor" and "storage" draw nothing and are not on screen; the rest are.
+            order.EnsureKnows(new[] { "extractor", "conveyor", "foundry", "storage", "datacenter" });
+
+            // On screen: extractor, foundry, datacenter. The player drags datacenter to the top.
+            order.MoveBefore("datacenter", "extractor");
+
+            CollectionAssert.AreEqual(
+                new[] { "datacenter", "extractor", "conveyor", "foundry", "storage" }, order.Order,
+                "It goes before the row it was dropped on, and the hidden types keep their places.");
+
+            // And to the bottom of what is visible: after foundry, not after the hidden storage.
+            order.MoveAfter("datacenter", "foundry");
+
+            CollectionAssert.AreEqual(
+                new[] { "extractor", "conveyor", "foundry", "datacenter", "storage" }, order.Order);
+        }
+
         /// <summary>A duplicate in a hand-edited or older blob is not a reason to refuse the whole order.</summary>
         [Test]
         public void ADuplicateInTheSavedOrder_IsKeptOnce()
