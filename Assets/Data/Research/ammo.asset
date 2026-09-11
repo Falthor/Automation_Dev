@@ -10,20 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72c3c39fefc96e1488e1fdd7ff1eb525, type: 3}
-  m_Name: extended_bandwidth
+  m_Name: ammo
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
-  id: extended_bandwidth
-  displayName: Bande passante etendue
-  description: Porte le rayon d'action du Noyau a 42 cellules.
+  id: ammo
+  displayName: Munition
+  description: 
   icon: {fileID: 0}
   cuCost: 2000
   prerequisites:
-  - {fileID: 11400000, guid: 5c1e7a2b9d3f4e60a8b4c2d6e0f1a3b5, type: 2}
-  effects:
-  - kind: 2
-    building: {fileID: 0}
-    recipe: {fileID: 0}
-    value: 42
+  - {fileID: 11400000, guid: 54914a95b5be4aa4882a3a83142345e0, type: 2}
+  effects: []
   absorptionRatePerSecond: 40
-  tier: 2
-  angle: 104.2
+  tier: 1.7
+  angle: 290.8
