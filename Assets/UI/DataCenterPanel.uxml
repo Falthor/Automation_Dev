@@ -3,51 +3,101 @@
 
     <ui:VisualElement name="DataCenterPanelRoot" class="overlay-root overlay-root-right hidden" picking-mode="Ignore">
         <ui:VisualElement class="panel panel-accent datacenter-panel" picking-mode="Position">
+
             <ui:VisualElement class="header-row">
-                <ui:Label text="Data Center" class="title title-name" />
+                <ui:Label text="Datacenter" class="title title-name" />
+                <ui:Button name="DataCenterExplainButton" text="Explication" class="dc-explain-button" />
                 <ui:Button name="DataCenterCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
 
+            <!-- Absent from the mockup because it is a state that lasts ninety seconds and then
+                 never returns, but it is real: while priming there is no production and no wear at
+                 all, so it belongs above the figure it explains away. -->
             <ui:VisualElement name="DataCenterPrimingSection" class="datacenter-priming-section hidden">
-                <ui:Label text="AMORÇAGE" class="extractor-section-label section-label-spaced" />
+                <ui:Label text="AMOR&#199;AGE" class="extractor-section-label section-label-spaced" />
                 <ui:VisualElement class="extractor-progress-track">
                     <ui:VisualElement name="DataCenterPrimingFill" class="extractor-progress-fill" />
                 </ui:VisualElement>
                 <ui:Label name="DataCenterPrimingLabel" text="" class="datacenter-priming-label" />
             </ui:VisualElement>
 
-            <ui:VisualElement class="inline-icon-row">
-                <ui:VisualElement name="DataCenterComputeIcon" class="inline-icon" />
-                <ui:Label name="DataCenterComputeLabel" text="Compute produit: 0 CU/s" class="extractor-section-label" />
+            <!-- 1. What I really produce -->
+            <ui:Label text="PRODUCTION" class="extractor-section-label section-label-spaced" />
+            <ui:VisualElement class="dc-production-row">
+                <ui:Label name="DataCenterProductionValue" text="0,0" class="dc-production-value" />
+                <ui:Label text="CU&#160;/&#160;s" class="dc-production-unit" />
             </ui:VisualElement>
+            <ui:Label name="DataCenterProductionBreakdown" text="nominal 0,0 &#183; rendement 1,00" class="dc-breakdown" />
             <ui:VisualElement class="inline-icon-row">
                 <ui:VisualElement name="DataCenterPowerIcon" class="inline-icon" />
-                <ui:Label name="DataCenterPowerLabel" text="Power consommée: 0 kW" class="extractor-section-label" />
+                <ui:Label name="DataCenterPowerLabel" text="consomme 0&#160;kW" class="dc-power-line" />
             </ui:VisualElement>
 
-            <ui:Label text="RÉPARTITION PAR AXE" class="extractor-section-label section-label-spaced" />
-            <ui:VisualElement class="datacenter-axis-row">
-                <ui:Label name="DataCenterResearchAxisLabel" text="Recherche: 0 CU/s" class="datacenter-axis-value" />
-                <ui:Label name="DataCenterBuildingsAxisLabel" text="Batiments: 0 CU/s" class="datacenter-axis-value" />
-            </ui:VisualElement>
-            <ui:Slider name="DataCenterAxisSlider" low-value="0" high-value="100" value="50" class="datacenter-slider" />
+            <ui:VisualElement class="dc-separator" />
 
-            <ui:Label text="SEUIL DE REMPLACEMENT" class="extractor-section-label section-label-spaced" />
+            <!-- 2. Where it goes. The bar is the setting: its colour boundary is the handle. -->
+            <ui:Label text="R&#201;PARTITION" class="extractor-section-label section-label-spaced" />
+            <ui:VisualElement class="dc-axis-row">
+                <ui:VisualElement class="dc-axis-side">
+                    <ui:Label text="Recherche" class="dc-axis-name" />
+                    <ui:Label name="DataCenterResearchAxisValue" text="0,0" class="dc-axis-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="dc-axis-side dc-axis-side-right">
+                    <ui:Label name="DataCenterBuildingsAxisValue" text="0,0" class="dc-axis-value" />
+                    <ui:Label text="B&#226;timents" class="dc-axis-name" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:Slider name="DataCenterAxisSlider" low-value="0" high-value="100" value="50" class="dc-axis-slider" />
+
+            <ui:VisualElement class="dc-separator" />
+
+            <!-- 3. The state of my hardware. One block per unlocked bay, built by the controller. -->
+            <ui:VisualElement class="dc-section-head">
+                <ui:Label text="BAIES" class="extractor-section-label section-label-spaced" />
+                <ui:Label name="DataCenterBayCount" text="" class="dc-section-count" />
+            </ui:VisualElement>
+            <ui:VisualElement name="DataCenterBayList" class="dc-bay-list" />
+
+            <ui:VisualElement class="dc-separator" />
+
+            <!-- 4. What I have in reserve - directly above the sentence that says what it is for. -->
+            <ui:Label text="PI&#200;CES NEUVES" class="extractor-section-label section-label-spaced" />
+            <ui:VisualElement name="DataCenterSpareList" class="dc-spare-list" />
+
+            <ui:VisualElement class="dc-separator" />
+
+            <!-- 5. When to replace -->
+            <ui:Label text="REMPLACER AUTOMATIQUEMENT SOUS" class="extractor-section-label section-label-spaced" />
+            <ui:Label text="Une baie descendue sous ce seuil est remplac&#233;e si une pi&#232;ce neuve est en stock."
+                      class="dc-help-line" />
             <ui:VisualElement class="datacenter-threshold-row">
-                <ui:Label text="CPU" class="datacenter-threshold-name" />
+                <ui:Label text="CPU" class="dc-threshold-name" />
                 <ui:Slider name="DataCenterCpuThresholdSlider" low-value="5" high-value="60" value="25" class="datacenter-slider" />
-                <ui:Label name="DataCenterCpuThresholdValue" text="25%" class="datacenter-threshold-value" />
+                <ui:Label name="DataCenterCpuThresholdValue" text="25&#160;%" class="dc-threshold-value" />
             </ui:VisualElement>
             <ui:VisualElement class="datacenter-threshold-row">
-                <ui:Label text="Memoire" class="datacenter-threshold-name" />
+                <ui:Label text="M&#233;moire" class="dc-threshold-name" />
                 <ui:Slider name="DataCenterMemoryThresholdSlider" low-value="5" high-value="60" value="25" class="datacenter-slider" />
-                <ui:Label name="DataCenterMemoryThresholdValue" text="25%" class="datacenter-threshold-value" />
+                <ui:Label name="DataCenterMemoryThresholdValue" text="25&#160;%" class="dc-threshold-value" />
             </ui:VisualElement>
 
-            <ui:Label text="CPU" class="extractor-section-label section-label-spaced" />
-            <ui:VisualElement name="DataCenterCpuList" class="datacenter-slot-list" />
-            <ui:Label text="MÉMOIRE" class="extractor-section-label section-label-spaced" />
-            <ui:VisualElement name="DataCenterMemoryList" class="datacenter-slot-list" />
+            <!-- The explanation, over the panel it explains. Three paragraphs, no formula: the
+                 curves and the coefficients are in carnets/datacenter-usure.md. -->
+            <ui:VisualElement name="DataCenterExplainOverlay" class="dc-explain-overlay hidden" picking-mode="Position">
+                <ui:VisualElement class="dc-explain-card">
+                    <ui:VisualElement class="header-row">
+                        <ui:Label text="Comment s'usent les pi&#232;ces" class="title title-name" />
+                        <ui:Button name="DataCenterExplainClose" text="&#215;" class="close-button" />
+                    </ui:VisualElement>
+                    <ui:Label text="Une pi&#232;ce install&#233;e s'use avec le temps, et de plus en plus vite : la fin de vie arrive plus rapidement que le d&#233;but ne le laisse croire."
+                              class="dc-explain-paragraph" />
+                    <ui:Label text="Une pi&#232;ce us&#233;e ne meurt pas d'un coup. Elle devient d'abord irr&#233;guli&#232;re : son rendement varie d'un instant &#224; l'autre, et il varie de plus en plus largement &#224; mesure qu'elle vieillit."
+                              class="dc-explain-paragraph" />
+                    <ui:Label text="Sous le seuil que vous r&#233;glez, elle est remplac&#233;e automatiquement &#8212; &#224; condition qu'une pi&#232;ce neuve soit en stock. Sinon l'emplacement se vide et attend la suivante."
+                              class="dc-explain-paragraph" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

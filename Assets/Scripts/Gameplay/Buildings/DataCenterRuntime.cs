@@ -32,12 +32,27 @@ namespace Game.Gameplay.Buildings
         // exists for a third extension research, and guards the restore path meanwhile.
         const int MaxCpuSlots = 4;
         const int MaxMemorySlots = 4;
-        const float StabilityInterval = 5f;
+        /// <summary>
+        /// How often each installed component draws its performance again.
+        ///
+        /// <b>Two seconds, down from five.</b> The panel draws that roll as a tick inside the band
+        /// it can land in, and the movement of that tick is how a worn bay is read before any
+        /// percentage is: at five seconds it sat still long enough to look frozen rather than
+        /// unsteady. It changes nothing about what a component produces on average - the draw itself
+        /// is untouched, only how often it happens, so the variance over a minute narrows and the
+        /// mean does not move.
+        ///
+        /// Not to be confused with ReplacementDuration, which is also five seconds and stays there.
+        /// </summary>
+        const float StabilityInterval = 2f;
         const float ReplacementDuration = 5f;
         const string DataCenterBay1ResearchId = "datacenter_bay_1";
         const string DataCenterBay2ResearchId = "datacenter_bay_2";
-        const string CpuItemId = "cpu_mkI";
-        const string MemoryItemId = "Memory_MK1";
+        /// <summary>What a CPU bay takes. Public because the panel shows how many spares are in stock, and it has to be able to ask while the bay is empty - which is when that count matters most.</summary>
+        public const string CpuItemId = "cpu_mkI";
+
+        /// <summary>What a Memory bay takes - see <see cref="CpuItemId"/>.</summary>
+        public const string MemoryItemId = "Memory_MK1";
 
         const float PrimingCostCu = 1500f;
         const float PrimingDurationSeconds = 90f;
@@ -138,8 +153,36 @@ namespace Game.Gameplay.Buildings
         public override void AddInput(string itemId, int amount, Direction fromDirection) => _input.Add(itemId, amount);
         public override int GetInputAmount(string itemId) => _input.GetAmount(itemId);
 
-        /// <summary>Raw installed capacity (CU/s) at 100% concentration - not what actually gets credited; see GetResearchAxisProduction/GetBuildingsAxisProduction for that.</summary>
+        /// <summary>
+        /// Installed capacity (CU/s) <b>after each component's own stability roll</b> and before the
+        /// axis yield - not what actually gets credited; see GetResearchAxisProduction/
+        /// GetBuildingsAxisProduction for that.
+        ///
+        /// It said "raw capacity at 100% concentration", which reads as untouched by wear and is
+        /// not: TotalComputeOutput sums EffectiveCu(), which is BaseCu times the five-second
+        /// performance roll, and zero for a component being replaced. See
+        /// <see cref="GetNominalComputeOutput"/> for the figure that really is untouched.
+        /// </summary>
         public float GetTotalComputeOutput() => TotalComputeOutput();
+
+        /// <summary>
+        /// What the installed components would produce new, at full concentration: the sum of their
+        /// <c>BaseCu</c>, untouched by wear, by the stability roll, by a replacement in progress or
+        /// by the axis split.
+        ///
+        /// Exists for the panel to show the chain the player cannot otherwise see - nominal, then
+        /// the factor the bays' condition and the axis split apply to it, then what is actually
+        /// produced. A component being replaced is counted: its bay is occupied and its capacity is
+        /// installed, so leaving it out would make the factor jump to 1 at the moment production
+        /// drops to nothing.
+        /// </summary>
+        public float GetNominalComputeOutput()
+        {
+            float total = 0f;
+            foreach (ComponentInstance slot in _cpuSlots) if (slot != null) total += slot.BaseCu;
+            foreach (ComponentInstance slot in _memorySlots) if (slot != null) total += slot.BaseCu;
+            return total;
+        }
         public float GetTotalPowerDemand() => TotalPowerDemand();
 
         /// <summary>Σ(share²) of the two axes - TASK_03_DATACENTER.md §7. 1.0 at either extreme (100/0), lowest at an even split.</summary>

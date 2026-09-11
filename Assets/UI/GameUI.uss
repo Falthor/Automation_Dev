@@ -1339,19 +1339,400 @@
     margin-top: 3px;
 }
 
-.datacenter-axis-row {
-    flex-direction: row;
-    justify-content: space-between;
-    margin-bottom: 2px;
-}
-
-.datacenter-axis-value {
-    color: rgb(159, 225, 203);
-    font-size: 10px;
-}
-
 .datacenter-slider {
     margin: 2px 0 8px;
+}
+
+/* ---------------------------------------------------------------------------------------------
+   Datacenter panel - the five sections (design/maquette-panneau-datacenter.png)
+
+   Production, then where it goes, then the state of the hardware, then the reserve, then when to
+   replace: each section explains the next, so the order is the argument and the styles only have
+   to keep the hierarchy legible. Tokens are the shared ones - the cyan accent, the alert red, the
+   same greys - and every numeric value is monospace, which is the project's rule and the reason
+   two bays can be compared down a column.
+
+   <b>Tight on purpose.</b> The first pass was airy enough that two bays filled a 1080p screen, and
+   the bay count doubles twice over a run. Type is one step smaller than the panel's siblings and
+   the gaps are roughly halved; the hierarchy is carried by the size steps between headline, name
+   and detail rather than by whitespace.
+   --------------------------------------------------------------------------------------------- */
+
+.dc-explain-button {
+    height: 18px;
+    padding-left: 7px;
+    padding-right: 7px;
+    margin-right: 6px;
+    font-size: 9px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 1px;
+    border-radius: 0;
+    border-color: rgb(48, 59, 66);
+    color: rgb(200, 210, 218);
+}
+
+.dc-explain-button:hover {
+    border-color: rgb(85, 221, 245);
+    color: rgb(232, 240, 245);
+}
+
+.dc-separator {
+    height: 1px;
+    background-color: rgb(38, 46, 52);
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.dc-section-head {
+    flex-direction: row;
+    align-items: center;
+}
+
+.dc-section-count {
+    color: rgb(120, 128, 135);
+    font-size: 9px;
+    margin-left: 8px;
+    margin-bottom: 1px;
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+/* --- 1. Production: the real figure, big, with the chain that produced it underneath --- */
+
+.dc-production-row {
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+/* Negative margins, deliberately: a 21px label carries a line box several pixels taller than the
+   digits, UI Toolkit has no line-height to shrink it, and that box was most of the air in this
+   block. Kept at -2/-3 rather than more, because the comma of "10,0" descends below the baseline
+   and would be the first thing clipped. */
+.dc-production-value {
+    font-size: 21px;
+    color: rgb(85, 221, 245);
+    margin-top: -1px;
+    margin-bottom: -2px;
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.dc-production-unit {
+    font-size: 9px;
+    color: rgb(150, 158, 165);
+    margin-left: 4px;
+    margin-bottom: 3px;
+}
+
+.dc-breakdown {
+    font-size: 9px;
+    color: rgb(120, 128, 135);
+    margin-top: -1px;
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.dc-power-line {
+    font-size: 9px;
+    color: rgb(200, 210, 218);
+}
+
+/* --- 2. Where it goes. Each side carries its own value, which is what the old row could not say. --- */
+
+.dc-axis-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 1px;
+}
+
+.dc-axis-side {
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.dc-axis-side-right {
+    justify-content: flex-end;
+}
+
+.dc-axis-name {
+    font-size: 10px;
+    color: rgb(200, 210, 218);
+}
+
+.dc-axis-value {
+    font-size: 12px;
+    color: rgb(85, 221, 245);
+    margin-left: 5px;
+    margin-right: 5px;
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+/* The bar is the control: its tracker is the buildings side, the child fill is the research side,
+   and the dragger is the boundary between them rather than a knob sitting on top. */
+.dc-axis-slider {
+    margin: 0;
+    height: 10px;
+}
+
+.dc-axis-slider #unity-tracker {
+    height: 8px;
+    margin-top: 0;
+    background-color: rgb(85, 221, 245);
+    border-width: 0;
+    border-radius: 0;
+}
+
+.dc-axis-fill-research {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background-color: rgb(26, 92, 110);
+}
+
+.dc-axis-slider #unity-dragger {
+    width: 2px;
+    height: 12px;
+    margin-top: -2px;
+    margin-left: -1px;
+    background-color: rgb(232, 240, 245);
+    border-width: 0;
+    border-radius: 0;
+}
+
+/* --- 3. The bays. A block each, and stability drawn rather than written. --- */
+
+.dc-bay-list {
+    flex-direction: column;
+}
+
+.dc-bay {
+    padding: 5px 6px 6px;
+    margin-bottom: 4px;
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+}
+
+.dc-bay-alert {
+    border-color: rgb(242, 83, 83);
+}
+
+.dc-bay-vacant {
+    background-color: rgb(15, 18, 22);
+}
+
+.dc-bay-head {
+    flex-direction: row;
+    align-items: center;
+}
+
+.dc-bay-icon {
+    width: 22px;
+    height: 22px;
+    background-color: rgb(15, 18, 22);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    margin-right: 6px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.dc-bay-name {
+    flex-grow: 1;
+    font-size: 11px;
+    color: rgb(232, 240, 245);
+}
+
+.dc-bay-performance {
+    font-size: 13px;
+    color: rgb(85, 221, 245);
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.dc-value-alert {
+    color: rgb(242, 83, 83);
+}
+
+/* The track is the whole 0..1 of a bay's output. The band is where the next roll can land - it
+   widens as wear falls - and the tick is the roll it actually landed on, which is why a worn bay
+   is read by its movement before anyone reads its percentage. */
+.dc-range-track {
+    height: 7px;
+    margin-top: 3px;
+    background-color: rgb(15, 18, 22);
+    border-width: 1px;
+    border-color: rgb(38, 46, 52);
+}
+
+.dc-range-band {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background-color: rgb(46, 74, 86);
+}
+
+.dc-range-tick {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 2px;
+    background-color: rgb(85, 221, 245);
+}
+
+/* No fixed height. It was 13px, which is shorter than a 10px font's own line box: the labels
+   overflowed the row and the wear bar underneath was drawn straight across "Usure 70 %". Rows are
+   as tall as their text, and the gaps are margins - which is the only part of this a stylesheet
+   actually controls. */
+.dc-bay-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 3px;
+}
+
+.dc-bay-range {
+    font-size: 9px;
+    color: rgb(120, 128, 135);
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.dc-bay-stability {
+    font-size: 9px;
+    color: rgb(120, 128, 135);
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.dc-bay-wear-name {
+    font-size: 10px;
+    color: rgb(200, 210, 218);
+}
+
+.dc-bay-wear-value {
+    font-size: 10px;
+    color: rgb(232, 240, 245);
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.dc-wear-track {
+    height: 6px;
+    margin-top: 3px;
+    background-color: rgb(15, 18, 22);
+    border-width: 1px;
+    border-color: rgb(38, 46, 52);
+}
+
+.dc-wear-fill {
+    height: 100%;
+    background-color: rgb(215, 224, 229);
+}
+
+.dc-wear-fill-alert {
+    background-color: rgb(242, 83, 83);
+}
+
+.dc-bay-alert-line {
+    font-size: 9px;
+    color: rgb(242, 83, 83);
+    margin-top: 5px;
+    white-space: normal;
+}
+
+/* --- 4. The reserve. Inventory convention: a square tile, the count bottom-right. --- */
+
+.dc-spare-list {
+    flex-direction: row;
+}
+
+.dc-spare-tile {
+    width: 34px;
+    height: 34px;
+    margin-right: 6px;
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    justify-content: flex-end;
+    align-items: flex-end;
+}
+
+.dc-spare-tile-empty {
+    border-color: rgb(242, 83, 83);
+}
+
+.dc-spare-icon {
+    position: absolute;
+    left: 3px;
+    top: 3px;
+    right: 3px;
+    bottom: 3px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* Dimmed rather than hidden: the tile still has to say which component it is the stock of. */
+.dc-spare-icon-empty {
+    opacity: 0.25;
+}
+
+.dc-spare-count {
+    font-size: 9px;
+    color: rgb(215, 224, 229);
+    margin-right: 2px;
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.dc-spare-count-empty {
+    color: rgb(242, 83, 83);
+    border-width: 1px;
+    border-color: rgb(242, 83, 83);
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+/* --- 5. When to replace --- */
+
+.dc-help-line {
+    font-size: 9px;
+    color: rgb(150, 158, 165);
+    white-space: normal;
+    margin-bottom: 3px;
+}
+
+.dc-threshold-name {
+    width: 58px;
+    font-size: 10px;
+    color: rgb(200, 210, 218);
+}
+
+.dc-threshold-value {
+    width: 38px;
+    font-size: 10px;
+    color: rgb(232, 240, 245);
+    -unity-text-align: middle-right;
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+/* --- The explanation, over the panel it explains --- */
+
+.dc-explain-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(9, 11, 14, 0.92);
+    justify-content: center;
+    padding: 10px;
+}
+
+.dc-explain-card {
+    background-color: rgba(16, 20, 25, 0.98);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    padding: 8px 10px 10px;
+}
+
+.dc-explain-paragraph {
+    font-size: 10px;
+    color: rgb(215, 224, 229);
+    white-space: normal;
+    margin-top: 6px;
 }
 
 .datacenter-threshold-row {
@@ -1376,42 +1757,6 @@
     color: rgb(200, 210, 218);
     font-size: 10px;
     -unity-text-align: middle-right;
-}
-
-.datacenter-slot-list {
-    flex-direction: column;
-    margin-bottom: 4px;
-}
-
-.datacenter-slot-row {
-    padding: 3px 4px;
-    margin-bottom: 2px;
-    background-color: rgb(20, 24, 29);
-    border-width: 1px;
-    border-color: rgb(48, 59, 66);
-}
-
-.datacenter-slot-label {
-    color: rgb(215, 224, 229);
-    font-size: 9px;
-    white-space: normal;
-}
-
-.datacenter-slot-empty {
-    background-color: rgb(15, 18, 22);
-    border-color: rgb(38, 46, 52);
-}
-
-.datacenter-slot-empty .datacenter-slot-label {
-    color: rgb(120, 128, 135);
-}
-
-.datacenter-slot-replacing {
-    border-color: rgb(232, 168, 61);
-}
-
-.datacenter-slot-replacing .datacenter-slot-label {
-    color: rgb(232, 168, 61);
 }
 
 /* Building menu - hover details (cost preview) */

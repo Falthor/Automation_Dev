@@ -60,6 +60,8 @@ aux spécifications, les pièges rencontrés et les mesures qui ont tranché.
 - [`expeditions.md`](carnets/expeditions.md) — le processus de mission
 - [`entrees-clavier.md`](carnets/entrees-clavier.md) — clavier et souris : `Key` est une
   position et non une lettre, le focus qui volait Espace, ce qu'un grep ne trouve pas
+- [`datacenter-usure.md`](carnets/datacenter-usure.md) — usure, stabilité et rendement des pièces :
+  les formules, les chiffres qu'elles donnent, et les deux sens du mot « rendement »
 
 **Les directives ont disparu.** Chaque chantier en avait une, qui disait ce qu'il fallait faire ; une
 fois le chantier fini, elle ne pouvait plus que diverger du code sans que rien ne le signale. Ce

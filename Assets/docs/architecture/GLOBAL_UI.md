@@ -150,6 +150,47 @@ A contextual panel and a global panel remain mutually exclusive, exactly as `Sel
 
 ---
 
+## 5a. Datacenter panel
+
+`DataCenterPanelController` + `DataCenterPanel.uxml`, laid out from
+[`../design/maquette-panneau-datacenter.png`](../design/maquette-panneau-datacenter.png). A
+contextual panel like any other (§5); what is worth writing down is the order and one drawing
+decision.
+
+**Five sections, each one explaining the next**: Production (what it really produces), Répartition
+(where that goes), Baies (the state of the hardware), Pièces neuves (what is in reserve), Remplacer
+automatiquement sous (when to replace). The chain reads top to bottom - the bays tire, the factor
+falls, the production follows - and it was unreadable before because the three subjects sat at one
+typographic weight with the headline figure showing the **nominal**, which does not move.
+
+**The headline figure is the real production, and the factor under it is `real / nominal`.** Not
+`DataCenterRuntime.GetYield()`, which is the axis concentration and has nothing to do with wear: a
+figure called "rendement" that stays put while the bays wear out is the defect this panel was
+rebuilt to fix. The two meanings of the word are set out in
+[`../carnets/datacenter-usure.md`](../carnets/datacenter-usure.md).
+
+**Stability is drawn, not written**, and this is the panel's main decision. A bay shows a track
+covering 0..1 of its output, a lighter band from its fluctuation floor to 1,00, and a tick at the
+roll it is currently on - moving on every roll, which is `DataCenterRuntime.StabilityInterval`,
+two seconds. The band
+widens as wear falls, so two bays are comparable at a glance: a new one keeps a narrow band with its
+tick pinned right, a worn one has an open band and a tick that visibly jumps. The wear is read in
+the movement before anyone reads a percentage. The numbers are still there, small, under the track.
+
+**The axis bar is the control.** Its colour boundary is the slider's handle rather than a knob on
+top of a picture of the split, and each side carries its own value - which is what the old row could
+not say, and why "Recherche" on the left of a slider pushed left receiving nothing read as a bug.
+
+A bay at its threshold, or with no spare behind it, carries an alert line and an alert frame; a
+spare stock of zero is alert-coloured with its icon dimmed, and sits directly above the sentence
+that says a bay is only replaced *if a spare is in stock*, so the cause and effect need no wording.
+Bay blocks are built once per unlocked-bay count and updated in place - ten elements per bay rebuilt
+every frame is the kind of per-frame allocation `DEVELOPMENT_RULES.md` rules out.
+
+**The Explication button** opens three paragraphs in plain language and contains no formula: wear
+accelerates, a worn part becomes irregular before it dies, and it is replaced under the threshold if
+a spare exists. The curves and coefficients live in the carnet, for whoever changes the balance.
+
 ## 6. Visual building feedback
 
 Selected (and, in the future, hovered) buildings should show a luminous outline/contour consistent with the Global UI's cyan/blue accent language (§14), clearly distinguishing:

@@ -49,7 +49,7 @@ namespace Game.Gameplay.Buildings
         /// </summary>
         public float FluctuationFloor => 0.70f - 0.40f * (1f - Wear / 100f);
 
-        /// <summary>0..1 multiplier actually applied to BaseCu. Starts at 1 until the first 5s recalculation.</summary>
+        /// <summary>0..1 multiplier actually applied to BaseCu. Starts at 1 until the first recalculation, DataCenterRuntime.StabilityInterval after installation.</summary>
         public float EffectivePerformance { get; private set; } = 1f;
 
         /// <summary>True from the moment Wear crosses the replacement threshold until swapped or hard-removed. While true, EffectiveCu() is forced to 0.</summary>
