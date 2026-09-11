@@ -47,7 +47,7 @@ résolu une fois à la construction pour que l'usure aille de 100 à **`Lifetime
 exactement la durée de vie tirée par cette pièce :
 
 ```
-baseLoss = 100 · ln(2,9) / (2·L)          →  0,887 pt/s pour L = 60 s
+baseLoss = 100 · ln(2,9) / (2·L)          →  0,444 pt/s pour L = 120 s
 t(usure w) = L · ln(3 − 2w) / ln(2,9)
 ```
 
@@ -57,17 +57,17 @@ plus facile à casser en retouchant ceci. Calibrer la courbe sur le seuil rendra
 redresserait pour arriver au seuil au même instant. Le seuil ne décide que d'où l'on s'arrête sur
 une courbe fixe.
 
-Durée de vie **nominale 60 s, dispersée ±25 %** (`ItemDefinition.NominalLifetimeSeconds`, tiré par
-un `System.Random` ensemencé que possède `DataCenterRuntime`) → 45 à 75 s. La dispersion existe pour
+Durée de vie **nominale 120 s, dispersée ±25 %** (`ItemDefinition.NominalLifetimeSeconds`, tiré par
+un `System.Random` ensemencé que possède `DataCenterRuntime`) → 90 à 150 s. La dispersion existe pour
 que deux pièces posées ensemble ne meurent pas ensemble.
 
-Temps jusqu'au remplacement, pour L = 60 s :
+Temps jusqu'au remplacement, pour L = 120 s :
 
 | Seuil | Temps | En fraction de L |
 |---|---|---|
-| 60 % | 33 s | 0,552 |
-| 25 % (défaut) | 52 s | 0,861 |
-| 5 % | 60 s | 1,000 |
+| 60 % | 66 s | 0,552 |
+| 25 % (défaut) | 103 s | 0,861 |
+| 5 % | 120 s | 1,000 |
 
 ## Le remplacement
 
@@ -92,8 +92,8 @@ l'amorçage (1500 CU absorbés sur 90 s) : ni production ni usure.
 
 | | CU/s | kW | Vie nominale |
 |---|---|---|---|
-| CPU MkI | 40 | 5,3 | 60 s |
-| Memory MK1 | 25 | 2,5 | 60 s |
+| CPU MkI | 40 | 5,3 | 120 s |
+| Memory MK1 | 25 | 2,5 | 120 s |
 
 La consommation a suivi la production dans la même proportion quand celle-ci est passée de 15 à
 40 et de 10 à 25 CU/s : **7,5 CU par kW pour le CPU, 10 pour la mémoire**, comme avant. Un

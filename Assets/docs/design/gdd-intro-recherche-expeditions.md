@@ -192,19 +192,19 @@ désirable sans jamais obliger à construire un second bâtiment.
 
 | Composant installé | Production | Durée de vie |
 |---|---|---|
-| CPU MkI | 40 CU/s | 60 s |
-| Memory MK1 | 25 CU/s | 60 s |
+| CPU MkI | 40 CU/s | 120 s |
+| Memory MK1 | 25 CU/s | 120 s |
 
 | Paramètre du MK1 | Valeur |
 |---|---|
 | Amorçage | 1 500 CU consommés sur 90 s, sans production |
 | Baies de départ | 1 CPU + 1 Memory |
-| Production maximale de départ | 25 CU/s à 100 % de concentration |
-| Consommation induite | 1 CPU / 57 s + 1 Memory / 57 s, par baie occupée, au seuil de remplacement par défaut |
+| Production maximale de départ | 65 CU/s à 100 % de concentration |
+| Consommation induite | 1 CPU / 108 s + 1 Memory / 108 s, par baie occupée, au seuil de remplacement par défaut |
 | Répartition par défaut | 50 % recherche / 50 % bâtiments |
 
 **Rentabilité vérifiée.** Un CPU MkI coûte 128 CU à produire, chaîne complète comprise,
-et rend 900 CU sur sa durée de vie. Une Memory MK1 coûte 164 CU et rend 600 CU.
+et rend 4 800 CU sur sa durée de vie. Une Memory MK1 coûte 164 CU et rend 3 000 CU.
 Chaque composant installé est donc largement rentable, comme il se doit — sinon le
 joueur ne remplacerait jamais rien.
 
@@ -644,7 +644,7 @@ Restent ici les points qui n'appartiennent qu'à l'économie de l'introduction :
 
 | Sujet | Question | Recommandation provisoire |
 |---|---|---|
-| Durée de vie des composants | Tranché : 60 s, ratio de rentabilité 7:1 pour le CPU et 3,7:1 pour la mémoire | Raccourcie de 120 s à 60 s en même temps que les baies de départ passaient de 2+2 à 1+1 : l'appro reste la même par baie, mais la production de départ est deux fois plus basse |
+| Durée de vie des composants | Tranché : 120 s, ratio de rentabilité 37:1 pour le CPU et 18:1 pour la mémoire | Une pièce par baie toutes les 108 s environ au seuil par défaut |
 | Second Datacenter | Quand, et avec quel appétit différencié ? | Après les deux extensions de baies, quand l'axe armement existe |
 | Plafond de réserve | Le code livre 70 000, ce chiffrage est bâti sur 60 000 | Voir l'avertissement en §4.4 : trancher demande de jouer, pas de relire |
 
