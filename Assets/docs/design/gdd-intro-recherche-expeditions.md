@@ -192,8 +192,8 @@ désirable sans jamais obliger à construire un second bâtiment.
 
 | Composant installé | Production | Durée de vie |
 |---|---|---|
-| CPU MkI | 15 CU/s | 60 s |
-| Memory MK1 | 10 CU/s | 60 s |
+| CPU MkI | 40 CU/s | 60 s |
+| Memory MK1 | 25 CU/s | 60 s |
 
 | Paramètre du MK1 | Valeur |
 |---|---|

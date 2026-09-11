@@ -299,7 +299,7 @@ namespace Game.UI
             float factor = nominal > 0f ? real / nominal : 0f;
             _productionBreakdown.text = $"nominal {One(nominal)} · rendement {Two(factor)}";
 
-            _powerLabel.text = $"consomme {Mathf.RoundToInt(_selected.GetTotalPowerDemand())} kW";
+            _powerLabel.text = $"consomme {UnitFormat.Kilowatts(_selected.GetTotalPowerDemand())} kW";
         }
 
         void RenderAxes()

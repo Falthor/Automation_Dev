@@ -92,8 +92,13 @@ l'amorçage (1500 CU absorbés sur 90 s) : ni production ni usure.
 
 | | CU/s | kW | Vie nominale |
 |---|---|---|---|
-| CPU MkI | 15 | 2 | 60 s |
-| Memory MK1 | 10 | 1 | 60 s |
+| CPU MkI | 40 | 5,3 | 60 s |
+| Memory MK1 | 25 | 2,5 | 60 s |
+
+La consommation a suivi la production dans la même proportion quand celle-ci est passée de 15 à
+40 et de 10 à 25 CU/s : **7,5 CU par kW pour le CPU, 10 pour la mémoire**, comme avant. Un
+Datacenter plein (4 + 4) tire donc 31,2 kW, soit plus que les 30 kW du Noyau à lui seul — il faut
+une centrale.
 
 CPU et mémoire n'ont **aucune différence de mécanique** : mêmes formules, mêmes seuils, même courbe.
 Seuls les chiffres et la baie changent. Emplacements : 1 + 1 au départ, +1+1 par recherche de baie

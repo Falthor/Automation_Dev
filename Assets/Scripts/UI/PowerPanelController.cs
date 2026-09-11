@@ -193,9 +193,9 @@ namespace Game.UI
             float demand = power.SettledDemand;
             float deficit = supply - demand;
 
-            _headerProduction.text = Whole(supply);
-            _headerDemand.text = Whole(demand);
-            _headerDeficit.text = deficit < 0f ? Whole(deficit) : "+" + Whole(deficit);
+            _headerProduction.text = UnitFormat.Kilowatts(supply);
+            _headerDemand.text = UnitFormat.Kilowatts(demand);
+            _headerDeficit.text = deficit < 0f ? UnitFormat.Kilowatts(deficit) : "+" + UnitFormat.Kilowatts(deficit);
 
             _headerDemand.EnableInClassList("pr-value-warn", demand > supply);
             _headerDeficit.EnableInClassList("pr-value-warn", deficit < 0f);
@@ -214,7 +214,7 @@ namespace Game.UI
 
                 int instances = _instanceCounts.TryGetValue(row.TypeId, out int count) ? count : 0;
                 row.Count.text = instances > 0 ? "×" + instances.ToString(CultureInfo.InvariantCulture) : "–";
-                row.Draw.text = groupDemand > 0f ? Whole(groupDemand) + " kW" : "–";
+                row.Draw.text = groupDemand > 0f ? UnitFormat.Kilowatts(groupDemand) + " kW" : "–";
 
                 bool stopped = groupDemand > 0f && servedInstances == 0;
                 bool partial = servedInstances > 0 && servedInstances < asking;
@@ -380,7 +380,6 @@ namespace Game.UI
             evt.StopPropagation();
         }
 
-        static string Whole(float value) => Mathf.RoundToInt(value).ToString(CultureInfo.InvariantCulture);
 
         void Refresh()
         {
@@ -391,9 +390,9 @@ namespace Game.UI
             float balance = supply - demand;
             string sign = balance >= 0f ? "+" : "";
 
-            _consumption.text = $"Demande : {Mathf.RoundToInt(demand)} kW";
-            _production.text = $"Production : {Mathf.RoundToInt(supply)} kW";
-            _balance.text = $"Bilan : {sign}{Mathf.RoundToInt(balance)} kW";
+            _consumption.text = $"Demande : {UnitFormat.Kilowatts(demand)} kW";
+            _production.text = $"Production : {UnitFormat.Kilowatts(supply)} kW";
+            _balance.text = $"Bilan : {sign}{UnitFormat.Kilowatts(balance)} kW";
             _balance.style.color = deficit ? DeficitColor : NormalColor;
 
             float ratio = supply > 0f ? Mathf.Clamp01(demand / supply) : 0f;
