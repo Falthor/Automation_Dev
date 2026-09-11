@@ -138,7 +138,17 @@ namespace Game.Presentation
         /// It only ever opens. A run that has already earned these keeps them either way, and no
         /// directive is marked done - the Core still asks for its first delivery.
         /// </summary>
-        [SerializeField] bool startWithEverythingUnlocked = true;
+        /// <summary>
+        /// Development bypass: brings the explorer robots out at once and hands over the Research
+        /// menu, skipping the thresholds that normally grant them.
+        ///
+        /// <b>Off by default, deliberately.</b> It used to default to true, which is how a build
+        /// shipped with both already granted at the first frame - the fleet standing at the park
+        /// before the reserve had fallen anywhere near its threshold, and the Research menu present
+        /// before the first directive opened it. A bypass whose resting state is "on" is not a
+        /// bypass, it is the behaviour.
+        /// </summary>
+        [SerializeField] bool startWithEverythingUnlocked;
 
         public GridRuntime Grid { get; private set; }
         public TerrainRuntime Terrain { get; private set; }

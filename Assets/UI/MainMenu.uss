@@ -108,12 +108,18 @@
 }
 
 /* The save name, typed. Monospace like every other value in the game: a save name is a value the
-   player will read back in a list, not prose. */
+   player reads back in a list, not prose. White on the dark input, explicitly - the inherited
+   colour is the panel's body text, which on this background is barely legible.
+
+   Duplicated in MainMenu.uss and GameUI.uss on purpose: the menu and the game are two documents
+   with two stylesheets and nothing shared between them, so a single definition would leave
+   whichever field it did not reach with no styling at all - which is exactly what happened. */
 .save-name-field {
     margin-top: 14px;
     margin-bottom: 4px;
     min-height: 30px;
     font-size: 14px;
+    color: rgb(255, 255, 255);
     -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
 }
 
@@ -126,8 +132,10 @@
     padding-right: 8px;
 }
 
-/* Bounded rather than growing with the number of saves: twenty runs must not push the buttons off
-   the dialog. */
+.save-name-field TextElement {
+    color: rgb(255, 255, 255);
+}
+
 .save-list {
     margin-top: 14px;
     margin-bottom: 4px;

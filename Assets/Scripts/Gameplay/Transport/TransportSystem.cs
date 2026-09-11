@@ -360,9 +360,9 @@ namespace Game.Gameplay.Transport
         bool HasBuildingNeighbor(GridCoord cell) => ActiveBuildingAt(cell) != null;
 
         /// <summary>
-        /// A chest takes material only from a <b>straight</b> conveyor aimed at it - not from a
-        /// corner, not from a splitter or a crossroad, and not from a production building standing
-        /// alongside it.
+        /// A chest takes material from the <b>belt network</b> - a conveyor of either shape, a
+        /// splitter or a crossroad - and only when that piece is aimed at it. Not from a production
+        /// building standing alongside: a chest is fed by a line, not by a machine's output face.
         ///
         /// <b>Stated here rather than in StorageRuntime, because it is a rule about the pair.</b>
         /// <c>CanAcceptInput</c> is handed a direction and never learns who is handing over, so a
@@ -370,7 +370,11 @@ namespace Game.Gameplay.Transport
         /// pull a chest runs for itself, and the push a splitter or crossroad makes.
         ///
         /// "Aimed at it" is already covered by <c>HandsOutTo</c>/<c>TryDeliverItem</c> on the
-        /// delivering side; what this adds is that the source is a belt at all, and a straight one.
+        /// delivering side, which is why nothing here re-checks a direction. What this adds is only
+        /// which kinds of neighbour may feed a chest at all. It was briefly straight conveyors
+        /// alone; a corner ending on a chest, and a splitter or crossroad wired into one, are
+        /// ordinary layouts and were refused for no reason a player could see.
+        ///
         /// The Core chest is stricter still and refuses every conveyor
         /// (<c>StorageDefinition.RejectsConveyorInput</c>); a builder robot bypasses both through
         /// <c>AddFromRobot</c>.
@@ -378,7 +382,7 @@ namespace Game.Gameplay.Transport
         static bool MayFeedStorage(BuildingRuntime consumer, BuildingRuntime source)
         {
             if (!(consumer is StorageRuntime)) return true;
-            return source is ConveyorRuntime belt && belt.Orientation.Shape == ConveyorShapeKind.Straight;
+            return source is ConveyorRuntime || source is SplitterRuntime || source is CrossroadRuntime;
         }
 
         /// <summary>
