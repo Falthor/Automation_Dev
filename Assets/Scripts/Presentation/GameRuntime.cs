@@ -423,6 +423,7 @@ namespace Game.Presentation
             Power.Priority = PowerPriority;
             Compute = new ComputeSystem();
             ResearchCatalog researchCatalog = BuildResearchCatalog();
+            if (Debug.isDebugBuild) ReportResearchTreeDefects();
             Research = new ResearchSystem(Compute, researchCatalog);
             FurthestActionRadiusCells = researchCatalog.HighestActionRadius(
                 worldGenerationSettings != null && worldGenerationSettings.CoreDefinition != null ? worldGenerationSettings.CoreDefinition.ActionRadiusCells : 0);
@@ -748,6 +749,32 @@ namespace Game.Presentation
                 }
             }
             return new ResearchCatalog(known);
+        }
+
+        /// <summary>
+        /// Editor and development builds only: logs an error for any research on a prerequisite
+        /// cycle or out of the cores' reach (ResearchTreeValidation), so a tree broken in the editor
+        /// is caught at Play rather than as a run that silently stops progressing.
+        /// </summary>
+        void ReportResearchTreeDefects()
+        {
+            if (researchDatabase == null) return;
+
+            var tree = new List<ResearchDefinition>(researchDatabase.GetCores());
+            tree.AddRange(researchDatabase.GetAll());
+
+            List<ResearchDefinition> cycles = ResearchTreeValidation.FindCycles(tree);
+            if (cycles.Count > 0) Debug.LogError($"Research tree: prerequisite cycle through {NamesOf(cycles)} - none of these can ever start.", researchDatabase);
+
+            List<ResearchDefinition> unreachable = ResearchTreeValidation.FindUnreachable(researchDatabase.GetCores(), researchDatabase.GetAll());
+            if (unreachable.Count > 0) Debug.LogError($"Research tree: {NamesOf(unreachable)} can never be unlocked from the cores.", researchDatabase);
+        }
+
+        static string NamesOf(List<ResearchDefinition> researches)
+        {
+            var names = new string[researches.Count];
+            for (int i = 0; i < names.Length; i++) names[i] = researches[i].name;
+            return string.Join(", ", names);
         }
 
         /// <summary>

@@ -25,10 +25,10 @@ namespace Game.Data
     /// <summary>
     /// One effect of a research (CONTRACTS.md §11), declared on the research and nowhere else.
     ///
-    /// <b>A tagged record rather than a class hierarchy.</b> The list is short and closed, Unity
-    /// serialises a plain struct without SerializeReference, and the inspector shows it with no
-    /// custom drawer. Only the field its kind names is read: Building for UnlockBuilding, Recipe for
-    /// UnlockRecipe, Value for the three figures.
+    /// <b>A tagged record rather than a class hierarchy.</b> The list is short and closed, and Unity
+    /// serialises a plain struct without SerializeReference. Only the field its kind names is read:
+    /// Building for UnlockBuilding, Recipe for UnlockRecipe, Value for the three figures - and the
+    /// inspector (ResearchEffectDrawer) shows only that one.
     ///
     /// ActionRadius and BuildingCap carry a target, not an increment: the highest target among the
     /// completed researches wins, so the order they complete in never matters.

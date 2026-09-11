@@ -32,7 +32,10 @@ Chaque type est lu par exactement un système, nommé dans le code sur la valeur
 avec un type et trois champs dont un seul est lu selon le type. Une hiérarchie (`SerializeReference`)
 aurait été plus « propre » à lire en code, mais Unity n'offre pas de sélecteur de type pour ces champs
 dans l'inspecteur par défaut : il aurait fallu écrire un tiroir personnalisé avant même d'avoir un
-éditeur. La structure plate se sérialise et s'affiche telle quelle.
+éditeur. La structure plate se sérialise et s'affiche telle quelle. Un tiroir est venu ensuite, pour
+le confort et non par nécessité (`ResearchEffectDrawer`) : il n'affiche que le champ que le type lit,
+vide les deux autres au changement de type, et teinte une référence manquante. Sans lui, chaque
+effet montrait trois champs dont deux ignorés.
 
 **Rayon et plafond sont des cibles, pas des incréments.** La plus haute cible parmi les recherches
 terminées l'emporte. L'ordre de complétion n'a donc jamais d'importance — une directive accordée tard,
@@ -76,7 +79,10 @@ Deux défauts qu'aucune partie ne rattrape, et qu'un éditeur à clics rend faci
 - **une recherche inatteignable** — celle qu'aucune chaîne ne relie aux trois noyaux.
 
 Elles vivent dans `Game.Data` (`ResearchTreeValidation`) plutôt que dans l'éditeur à venir : elles ont
-leur place sans lui, et un test les applique à l'arbre livré, lu dans les assets.
+leur place sans lui, et un test les applique à l'arbre livré, lu dans les assets. Le jeu les appelle
+aussi : dans l'éditeur et en build de développement, `GameRuntime` les passe sur la base au démarrage
+et journalise une erreur. Un cycle créé dans l'éditeur se voit ainsi au lancement, pas au moment où
+une partie cesse d'avancer.
 
 **« Inatteignable » est lu au sens strict : « ne pourra jamais être débloquée ».** Une recherche dont
 un prérequis est sur l'arbre et un autre ne l'est pas a bien un chemin jusqu'aux noyaux — et ne
