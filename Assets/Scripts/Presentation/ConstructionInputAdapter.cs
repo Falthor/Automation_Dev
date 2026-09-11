@@ -3,6 +3,7 @@ using Game.Construction;
 using Game.Core;
 using Game.Data;
 using Game.Gameplay.Buildings;
+using Game.Gameplay.Exploration;
 using Game.Gameplay.Sites;
 using Game.Grid;
 using UnityEngine;
@@ -90,8 +91,27 @@ namespace Game.Presentation
 
         static readonly Direction[] AllDirections = { Direction.North, Direction.East, Direction.South, Direction.West };
 
+        InputAction _rotate;
+        InputAction _moveInputSide;
+
+        /// <summary>Bound to the synthetic control that is either Ctrl key, which is what the two literal reads it replaced meant together.</summary>
+        InputAction _dropDragAxis;
+
+        /// <summary>
+        /// The document consulted to tell a click on the interface from a click on the world -
+        /// found rather than wired, following the camera controllers' precedent: there is one in
+        /// the scene, and a missing one only means the pointer is never considered to be over UI,
+        /// which PointerOverUI already treats as "not over UI" anyway.
+        /// </summary>
+        UnityEngine.UIElements.UIDocument _uiDocument;
+
         void Start()
         {
+            _uiDocument = FindAnyObjectByType<UnityEngine.UIElements.UIDocument>();
+            _rotate = InputBindings.Find(InputActionCatalogue.Rotate);
+            _moveInputSide = InputBindings.Find(InputActionCatalogue.MoveInputSide);
+            _dropDragAxis = InputBindings.Find(InputActionCatalogue.DropDragAxis);
+
             // Cross-object wiring belongs in Start(), not Awake(): Awake ordering between
             // GameRuntime and this adapter is not guaranteed, but Start always runs after
             // every object's Awake, so gameRuntime.Grid is guaranteed to be initialized here.
@@ -152,12 +172,26 @@ namespace Game.Presentation
             // screen while the panel moved on to another building.
             HandleHoverHighlight(cellUnderMouse);
 
+            // Also above the gate, and for a reason the arbiter creates. An armed tool outranks an
+            // open panel for Escape, and a panel can be open with a tool still armed - clicking a
+            // notification opens a robot's own panel without disarming anything. Left below the
+            // gate, this method would never run in exactly the case the arbiter awards to it, and
+            // the key would go to nobody at all.
+            if (gameRuntime.Escape.IsClaimedBy(EscapeClaimant.ArmedTool))
+            {
+                gameRuntime.Construction.Cancel();
+            }
+
+            // The one exception to the rule below, taken before it: right-clicking the very
+            // building whose panel is open removes it.
+            if (TryDemolishTheInspectedBuilding(cellUnderMouse)) return;
+
             // A UI panel (Building menu, Storage panel, ...) owns mouse/keyboard input while
             // open, and for one extra frame after it closes - otherwise the same click that
             // selected a menu item or closed a panel also lands on the world underneath it.
             if (gameRuntime.IsUIBlockingInput || gameRuntime.LastMenuCloseFrame == Time.frameCount) return;
 
-            HandleRotateAndCancel();
+            HandleRotateAndInputSide();
 
             UpdateGhost(cellUnderMouse);
             HandlePlacement(cellUnderMouse);
@@ -190,6 +224,19 @@ namespace Game.Presentation
                 return;
             }
 
+            // A robot under inspection gets the same halo a building does - the player selected a
+            // thing and expects to see which. Asked for by centre rather than by cell because it
+            // stands between cells and keeps moving: the outline follows it instead of jumping a
+            // cell at a time.
+            ExplorerRobotRuntime inspectedRobot = gameRuntime.Selection.SelectedExplorerRobot;
+            if (inspectedRobot != null)
+            {
+                float cellSize = gameRuntime.Grid.CellSize;
+                hoverHighlightView?.ShowAt(inspectedRobot.Position * cellSize, cellSize);
+                depositHoverGlowView?.Hide();
+                return;
+            }
+
             // A site under inspection is marked the same way, on the segment its panel is really
             // about: the one being built. On a dragged run the earlier segments are already
             // buildings and outlining the whole run would claim ground that is no longer the
@@ -206,7 +253,14 @@ namespace Game.Presentation
 
             if (gameRuntime.Selection.ActiveGlobalPanel != null)
             {
-                hoverHighlightView?.Hide();
+                // A global panel usually covers no particular place, so nothing is outlined. The
+                // Storage panel's per-box view is the exception: it is about one box on the map, and
+                // said so through a slot of its own rather than through SelectedBuilding, which a
+                // global panel excludes.
+                BuildingRuntime subject = gameRuntime.Selection.GlobalPanelSubject;
+                if (subject != null) hoverHighlightView?.Show(subject.Cell, subject.Definition.FootprintSize);
+                else hoverHighlightView?.Hide();
+
                 depositHoverGlowView?.Hide();
                 return;
             }
@@ -238,21 +292,46 @@ namespace Game.Presentation
             }
         }
 
-        void HandleRotateAndCancel()
+        /// <summary>
+        /// R and T, which only mean anything while the ghost is up. Escape used to live here and
+        /// moved above the UI gate - see Update.
+        /// </summary>
+        void HandleRotateAndInputSide()
         {
-            var keyboard = Keyboard.current;
-            if (keyboard == null) return;
-
-            if (keyboard.rKey.wasPressedThisFrame)
+            if (InputBindings.WasPressedThisFrame(_rotate))
             {
                 Direction next = gameRuntime.Construction.PreviewRotation.RotateCW(1);
                 gameRuntime.Construction.SetPreviewRotation(next);
             }
 
-            if (keyboard.escapeKey.wasPressedThisFrame)
+            // T moves the single entry arrow round the building, skipping the output side. Only
+            // buildings that declare one input have a side to move; for the rest the key does
+            // nothing rather than something invisible.
+            if (InputBindings.WasPressedThisFrame(_moveInputSide)
+                && gameRuntime.Construction.Selected != null
+                && gameRuntime.Construction.Selected.HasSingleInputArrow)
             {
-                gameRuntime.Construction.Cancel();
+                gameRuntime.Construction.SetPreviewInputSide(NextInputSide(
+                    gameRuntime.Construction.PreviewInputSide, gameRuntime.Construction.PreviewRotation));
             }
+        }
+
+        /// <summary>
+        /// The next side round from <paramref name="current"/>, skipping <paramref name="exit"/>.
+        ///
+        /// Clockwise, so T reads the same way R does, and it steps twice when the next side round is
+        /// the output - which is why this is a loop rather than one RotateCW: three legal sides out
+        /// of four means the skip can land anywhere in the cycle.
+        /// </summary>
+        static Direction NextInputSide(Direction current, Direction exit)
+        {
+            Direction next = current;
+            for (int i = 0; i < 4; i++)
+            {
+                next = next.RotateCW(1);
+                if (next != exit) return next;
+            }
+            return current;
         }
 
         GridCoord CellUnderMouse()
@@ -304,7 +383,10 @@ namespace Game.Presentation
                 // the first one: they differ on every even-width edge, so a 2x2 Foundry previewed
                 // its arrow one cell away from where it grew it.
                 GridCoord outputCell = BuildingRuntime.ComputeOutputCell(cell, selected.FootprintSize, previewRotation);
-                outputArrowWorldPos = gameRuntime.Grid.CellCenterToWorld(outputCell);
+                // Inset the same way the built view does, or the preview would show the arrow a
+                // half-cell further out than where it ends up.
+                outputArrowWorldPos = BuildingSpawner.ArrowPosition(
+                    gameRuntime.Grid.CellCenterToWorld(outputCell), previewRotation, gameRuntime.Grid.CellSize);
                 outputArrowSprite = _spriteFactory.CreateArrowSprite(BuildingSpawner.OutputArrowColor);
             }
 
@@ -314,9 +396,25 @@ namespace Game.Presentation
             {
                 inputArrowSprite = _spriteFactory.CreateArrowSprite(BuildingSpawner.InputArrowColor);
                 inputArrows = new List<(Vector3, Direction)>();
-                foreach ((GridCoord edgeCell, Direction fromMySide) in BuildingRuntime.ComputeInputCells(cell, selected.FootprintSize, previewRotation))
+
+                // One arrow for a single-input building, on the side T has landed on - so the ghost
+                // shows the one face the building will actually take from, rather than three faces
+                // it will refuse two of.
+                if (selected.HasSingleInputArrow)
                 {
-                    inputArrows.Add((gameRuntime.Grid.CellCenterToWorld(edgeCell), fromMySide));
+                    (GridCoord inputCell, Direction inputSide) = BuildingRuntime.ComputeSingleInputCell(
+                        cell, selected.FootprintSize, gameRuntime.Construction.PreviewInputSide);
+
+                    inputArrows.Add((BuildingSpawner.ArrowPosition(
+                        gameRuntime.Grid.CellCenterToWorld(inputCell), inputSide, gameRuntime.Grid.CellSize), inputSide));
+                }
+                else
+                {
+                    foreach ((GridCoord edgeCell, Direction fromMySide) in BuildingRuntime.ComputeInputCells(cell, selected.FootprintSize, previewRotation))
+                    {
+                        inputArrows.Add((BuildingSpawner.ArrowPosition(
+                            gameRuntime.Grid.CellCenterToWorld(edgeCell), fromMySide, gameRuntime.Grid.CellSize), fromMySide));
+                    }
                 }
             }
 
@@ -404,11 +502,8 @@ namespace Game.Presentation
         /// </summary>
         void HandleAxisDropRequest(GridCoord cell)
         {
-            var keyboard = Keyboard.current;
-            if (keyboard == null || !_dragAxis.HasValue || cell != _lastPlacedCell) return;
-
-            bool ctrlPressed = keyboard.leftCtrlKey.wasPressedThisFrame || keyboard.rightCtrlKey.wasPressedThisFrame;
-            if (!ctrlPressed) return;
+            if (!_dragAxis.HasValue || cell != _lastPlacedCell) return;
+            if (!InputBindings.WasPressedThisFrame(_dropDragAxis)) return;
 
             _pendingCornerEntry = _dragAxis.Value.Opposite();
             _dragAxis = null;
@@ -703,6 +798,37 @@ namespace Game.Presentation
         /// drag's axis rather than to the rotation the ghost was showing.
         /// </summary>
         static bool IsDraggableRun(BuildingDefinition definition) => definition is ConveyorDefinition;
+
+        /// <summary>
+        /// Right-clicking the building whose contextual panel is open removes it, panel and all.
+        ///
+        /// <b>Why it needed saying at all.</b> Demolition was never missing - the adapter simply
+        /// never got that far: <c>IsUIBlockingInput</c> is true the moment
+        /// <c>Selection.SelectedBuilding</c> is set, so opening a building's panel made the world
+        /// inert, right button included. Hence one narrow exception rather than a relaxation of the
+        /// rule: it fires only on the press frame, only with no ghost armed, only when the cell
+        /// under the cursor is occupied by <b>that same</b> building, and never while the pointer
+        /// is over the interface - the panel is docked over the world, and a right-click inside it
+        /// must not reach a building that happens to sit behind it.
+        ///
+        /// The selection is cleared first, so the panel goes with the building rather than
+        /// surviving a frame over something that no longer exists.
+        /// </summary>
+        bool TryDemolishTheInspectedBuilding(GridCoord cell)
+        {
+            BuildingRuntime inspected = gameRuntime.Selection.SelectedBuilding;
+            if (inspected == null) return false;
+            if (gameRuntime.Construction.Selected != null) return false; // a ghost is armed: right-click cancels it
+
+            Mouse mouse = Mouse.current;
+            if (mouse == null || !mouse.rightButton.wasPressedThisFrame) return false;
+            if (PointerOverUI.At(_uiDocument, mouse.position.ReadValue())) return false;
+            if (!ReferenceEquals(gameRuntime.Grid.GetOccupant(cell), inspected)) return false;
+
+            gameRuntime.Selection.Clear();
+            DemolishAt(cell);
+            return true;
+        }
 
         void HandleDemolition(GridCoord cell)
         {

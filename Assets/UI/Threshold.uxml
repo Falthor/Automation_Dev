@@ -1,0 +1,45 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <!-- Same family as Awakening.uxml, same stylesheet, same voice. The stylesheet is attached to
+         the overlay rather than to the template's own root, so it survives the controller
+         reparenting the overlay into the document. -->
+    <ui:VisualElement name="ThresholdOverlay" class="narrative-overlay">
+        <Style src="Narrative.uss" />
+
+        <ui:VisualElement name="ThresholdPanel" class="narrative-panel">
+
+            <ui:VisualElement name="ThresholdStepTitle" class="narrative-step">
+                <ui:VisualElement name="ThresholdCore" class="narrative-core" />
+                <ui:Label text="Seuil." class="narrative-title" />
+            </ui:VisualElement>
+
+            <!-- Both figures are written by the controller: the reserve as it actually stands, and
+                 the share consumed derived from it against the cap. -->
+            <ui:VisualElement name="ThresholdStepReadout" class="narrative-step narrative-readout">
+                <ui:VisualElement class="narrative-readout-row">
+                    <ui:Label text="Réserve de calcul" class="narrative-readout-label" />
+                    <ui:Label name="ThresholdReserveValue" text="" class="narrative-readout-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="narrative-readout-row">
+                    <ui:Label text="Consommé" class="narrative-readout-label" />
+                    <ui:Label name="ThresholdConsumedValue" text="" class="narrative-readout-value narrative-readout-value-alert" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:Label text="Ce que je produis ne compense pas ce que je dépense. Continuer ainsi ne suffira pas."
+                      name="ThresholdStepDeficit" class="narrative-step narrative-prose" />
+
+            <ui:Label text="J'ai réaffecté une part de ma capacité au réveil de deux unités mobiles, restées inertes depuis mon arrêt. Elles ne construisent pas. Elles regardent."
+                      name="ThresholdStepUnits" class="narrative-step narrative-prose" />
+
+            <ui:Label text="Ce qu'elles rapporteront — fragments, relevés, mémoire d'autres machines — je saurai le convertir. Ce qui est au-delà de ma portée contient de quoi tenir."
+                      name="ThresholdStepConvert" class="narrative-step narrative-prose" />
+
+            <!-- A reading, not a thought: the result rather than the conclusion, so it takes the
+                 monospace of the table above rather than the prose face. -->
+            <ui:Label text="Deux unités disponibles."
+                      name="ThresholdStepResult" class="narrative-step narrative-result" />
+
+            <ui:Button name="ThresholdSeeButton" text="Voir" class="narrative-begin" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

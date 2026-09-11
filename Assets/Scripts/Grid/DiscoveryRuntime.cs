@@ -142,7 +142,15 @@ namespace Game.Grid
             return chunk;
         }
 
-        /// <summary>The state of one cell. Out of bounds reads as Unknown - there is nothing out there to have discovered.</summary>
+        /// <summary>
+        /// The <b>stored</b> state of one cell: <see cref="DiscoveryState.Unknown"/> or
+        /// <see cref="DiscoveryState.Remembered"/>, and never
+        /// <see cref="DiscoveryState.Observed"/> - whether something is looking at this cell right
+        /// now is not a fact about storage. <see cref="ObservationRuntime.StateOf"/> is what answers
+        /// with all three.
+        ///
+        /// Out of bounds reads as Unknown - there is nothing out there to have discovered.
+        /// </summary>
         public DiscoveryState GetState(GridCoord cell)
         {
             if (!Contains(cell)) return DiscoveryState.Unknown;
@@ -151,7 +159,8 @@ namespace Game.Grid
             return chunk == null ? DiscoveryState.Unknown : chunk[OffsetInChunk(cell)];
         }
 
-        public bool IsDiscovered(GridCoord cell) => GetState(cell) == DiscoveryState.Discovered;
+        /// <summary>Whether this cell has ever been seen - which is what "discovered" means, observed or not. Asked as "not Unknown" rather than "is Remembered" so it stays the right question if another stored value is ever added.</summary>
+        public bool IsDiscovered(GridCoord cell) => GetState(cell) != DiscoveryState.Unknown;
 
         public bool Contains(GridCoord cell)
             => cell.X >= 0 && cell.X < Size && cell.Y >= 0 && cell.Y < Size;
@@ -171,9 +180,9 @@ namespace Game.Grid
         {
             DiscoveryState[] chunk = ChunkForWriting(cell);
             int offset = OffsetInChunk(cell);
-            if (chunk[offset] == DiscoveryState.Discovered) return false;
+            if (chunk[offset] == DiscoveryState.Remembered) return false;
 
-            chunk[offset] = DiscoveryState.Discovered;
+            chunk[offset] = DiscoveryState.Remembered;
             _touchedChunks.Add(ChunkIndexOf(cell));
             return true;
         }
@@ -268,7 +277,7 @@ namespace Game.Grid
             {
                 for (int i = 0; i < chunk.Length; i++)
                 {
-                    if (chunk[i] == DiscoveryState.Discovered) count++;
+                    if (chunk[i] == DiscoveryState.Remembered) count++;
                 }
             }
             return count;

@@ -1,5 +1,6 @@
 using Game.Core;
 using Game.Gameplay.Buildings;
+using Game.Gameplay.Exploration;
 using Game.Gameplay.Sites;
 using Game.Presentation;
 using UnityEngine;
@@ -23,6 +24,21 @@ namespace Game.UI
     /// It is also the single place that implements click-outside-to-close for global panels:
     /// this is the one component that already sees every world-bound click and can tell UI from
     /// world, so the behavior lives here once instead of being duplicated in each panel.
+    ///
+    /// <b>A click is decided on release, not on press, and that is the drag's doing.</b> Committing
+    /// on press cost nothing while the left button only ever selected; once holding it pans the world
+    /// (CameraPanController), every pan begun on a machine also opened that machine's panel. So the
+    /// gesture has to finish before it means anything, and a gesture that travelled is a drag rather
+    /// than a click.
+    ///
+    /// <b>The threshold is read, never copied.</b> How far counts as travelled is the camera's own
+    /// <c>DragSlopPixels</c>, asked of it along with the travel itself - two press-trackers with two
+    /// copies of one number would disagree the day either is touched. Asking for a total that is held
+    /// until the next press also makes the answer independent of which of the two components Unity
+    /// happens to run first on the release frame.
+    ///
+    /// Both figures are pointer travel, not device travel, because that is what the camera panned by
+    /// - so the click and the pan agree about what counts as having moved.
     /// </summary>
     public sealed class BuildingSelectionInput : MonoBehaviour
     {
@@ -31,9 +47,13 @@ namespace Game.UI
         [SerializeField] StoragePanelController storagePanel;
         [SerializeField] UIDocument uiDocument;
 
+        /// <summary>Found rather than wired, following the camera controllers' own precedent: there is one of each in the scene, and a missing one only means no drag can ever suppress a click.</summary>
+        CameraPanController _cameraPan;
+
         void Start()
         {
             if (worldCamera == null) worldCamera = Camera.main;
+            _cameraPan = FindAnyObjectByType<CameraPanController>();
         }
 
         void Update()
@@ -42,7 +62,12 @@ namespace Game.UI
             if (gameRuntime.Construction.Selected != null) return;
 
             Mouse mouse = Mouse.current;
-            if (mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
+            if (mouse == null || !mouse.leftButton.wasReleasedThisFrame) return;
+
+            // A gesture that travelled was a grab on the ground, not a click on what happened to be
+            // under the button when it went down. Asked first, so nothing below does work for a
+            // press that was never a click.
+            if (GestureWasADrag()) return;
 
             Vector2 screenPos = mouse.position.ReadValue();
             bool overUI = IsPointerOverUI(screenPos);
@@ -94,9 +119,33 @@ namespace Game.UI
 
             if (TryShowPanelFor(occupant)) return;
 
+            // An explorer robot is not a grid occupant - it is a continuous position on free ground,
+            // and occupying a cell would stop a building being placed wherever it happened to be
+            // standing - so it is asked for separately, after the occupant lookup came back with
+            // nothing. Clicking one opens its own panel, where the single action is to send it
+            // wandering or call it home.
+            ExplorerRobotRuntime robot = gameRuntime.ExplorerRobotAt(cell);
+            if (robot != null)
+            {
+                storagePanel.Hide();
+                gameRuntime.Selection.SelectExplorerRobot(robot);
+                return;
+            }
+
             storagePanel.Hide();
             gameRuntime.Selection.Clear();
         }
+
+        /// <summary>
+        /// Whether the press that just ended moved far enough to have been a drag rather than a
+        /// click. Both figures come from the camera controller, so there is one accumulator and one
+        /// threshold in the project - see the class summary.
+        ///
+        /// No camera controller means nothing can pan, so nothing can have dragged: every press is a
+        /// click, which is what this component did before the drag existed.
+        /// </summary>
+        bool GestureWasADrag()
+            => _cameraPan != null && _cameraPan.PressTravelPixels > _cameraPan.DragSlopPixels;
 
         /// <summary>
         /// Opens the panel a building deserves, and answers whether it had one at all. The single

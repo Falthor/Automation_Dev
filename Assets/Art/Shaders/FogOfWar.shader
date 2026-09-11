@@ -10,7 +10,18 @@ Shader "Custom/FogOfWar"
         // texels is the only thing that turns it into a boundary a threshold can cut anywhere
         // other than exactly on a cell edge. Point filtering here gives a staircase, and no
         // amount of noise below hides it.
-        _FogTex ("Discovery (R8, 1 = discovered)", 2D) = "black" {}
+        // R = what has ever been discovered. G = what is observed right now. One texel per cell
+        // (or per sub-cell - see FogOfWarView.texelsPerCell), 1 = yes in both. Written by
+        // FogOfWarView from Game.Grid.DiscoveryRuntime and ObservationRuntime.
+        //
+        // Two channels of one texture rather than two textures: the pair costs the same bytes and
+        // buys one upload, one sample, and a window the two fields cannot disagree about. The
+        // packing guarantees G implies R, so this shader is never handed "observed but never
+        // discovered".
+        //
+        // R changes rarely (a revelation); G changes whenever an observer moves, so on most frames
+        // a robot is walking. Both arrive here the same way.
+        _FogTex ("Discovery in R, observation in G (RG16)", 2D) = "black" {}
 
         // World-space rectangle the texture covers: (minX, minY, sizeX, sizeY). This is a WINDOW
         // that follows the camera, not the map - its size is bounded by the zoom-out cap and has
@@ -44,6 +55,13 @@ Shader "Custom/FogOfWar"
         // them at Initialize, and again on any Inspector edit.
         _NoiseScale ("Noise scale (periods per world unit)", Float) = 3
         _NoiseWeight ("Noise weight, in threshold units", Range(0, 1)) = 0.396
+
+        // How heavily discovered-but-unobserved ground is veiled, against the full opacity of the
+        // unknown. This is the whole visible difference between the second and third states: at 1
+        // remembered ground reads as unknown and the map has two states instead of three, at 0 there
+        // is no veil and it has two the other way round. Judged on screen; FogOfWarView pushes the
+        // serialized value over this default.
+        _RememberedVeil ("Remembered veil, share of full fog", Range(0, 1)) = 0.55
     }
 
     SubShader
@@ -94,6 +112,7 @@ Shader "Custom/FogOfWar"
             float _EdgeSoftness;
             float _NoiseScale;
             float _NoiseWeight;
+            float _RememberedVeil;
 
             // The border's own grain. Three octaves because one gives a single scale of detail, and
             // against a smooth threshold that reads as a slow undulation - a rounder circle, not a
@@ -134,30 +153,43 @@ Shader "Custom/FogOfWar"
                 float2 windowSize = max(_WindowBounds.zw, float2(0.0001, 0.0001));
                 float2 uv = (i.worldPos.xy - _WindowBounds.xy) / windowSize;
 
-                float discovered = tex2D(_FogTex, uv).r;
+                float2 field = tex2D(_FogTex, uv).rg;
 
-                // Outside the window, forced to undiscovered. Clamping to the border texel was right
-                // while the texture covered the whole map - its edge was always unknown - but a window
-                // that follows the camera has discovered texels on its border, and clamping would
-                // smear them outwards into a wedge of cleared fog. Anything with no state is unknown,
-                // and outside the window there is no state at all. The window always contains the
-                // view, so this only ever affects what is off screen.
+                // Outside the window, forced to undiscovered AND unobserved. Clamping to the border
+                // texel was right while the texture covered the whole map - its edge was always
+                // unknown - but a window that follows the camera has discovered texels on its border,
+                // and clamping would smear them outwards into a wedge of cleared fog. Anything with
+                // no state is unknown, and outside the window there is no state at all. The window
+                // always contains the view, so this only ever affects what is off screen.
                 float inside = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
-                discovered *= inside;
+                field *= inside;
 
-                // Signed distance to the fog's edge: positive where the map is still hidden.
-                float hidden = _Threshold - discovered;
-                hidden -= FogBorderJitter(i.worldPos.xy, _NoiseScale, _NoiseWeight);
+                // One grain for both edges, so the two boundaries are cut by the same irregularity
+                // rather than by two independent wobbles - and it is world-space, so the observation
+                // edge keeps the same shape as it travels with a robot instead of crawling.
+                float jitter = FogBorderJitter(i.worldPos.xy, _NoiseScale, _NoiseWeight);
 
-                // Discovered ground costs nothing: no blending and no overdraw over the part of the
-                // map the player has actually seen, which is the part they are looking at.
-                clip(hidden);
+                // Two signed distances. `hidden` is positive where the map has never been seen;
+                // `veiled` is positive wherever nothing is watching, which includes the unknown.
+                float hidden = _Threshold - field.r - jitter;
+                float veiled = _Threshold - field.g - jitter;
+
+                // Observed ground costs nothing: no blending and no overdraw over the part of the map
+                // something is actually looking at. Both terms have to be spent before a fragment can
+                // be thrown away - discovered but unobserved still owes a veil.
+                clip(max(hidden, veiled));
 
                 // Never thinner than a pixel, whatever the zoom, so tightening the softness to zero
-                // gives a crisp edge rather than a stair-stepped one.
-                float softness = max(_EdgeSoftness, fwidth(hidden));
+                // gives a crisp edge rather than a stair-stepped one. Measured per boundary: the two
+                // fields have different gradients, so one shared width would alias whichever edge is
+                // the steeper of the pair.
+                float unknownAlpha = saturate(hidden / max(_EdgeSoftness, fwidth(hidden)));
+                float veilAlpha = saturate(veiled / max(_EdgeSoftness, fwidth(veiled))) * _RememberedVeil;
 
-                return fixed4(_FogColor.rgb, _FogColor.a * saturate(hidden / softness));
+                // The stronger of the two, never their sum: the unknown is already fully opaque, and
+                // adding a veil to it would only push past 1 and flatten the very difference the
+                // third state exists to draw.
+                return fixed4(_FogColor.rgb, _FogColor.a * max(unknownAlpha, veilAlpha));
             }
             ENDCG
         }

@@ -1628,6 +1628,18 @@
     max-width: 300px;
 }
 
+/* A row that leads somewhere. Only these take the pointer, so the tint is what says the row is
+   worth clicking - a banner whose items all looked alike would hide that half of them do nothing. */
+.notification-item-actionable {
+    background-color: rgba(24, 32, 39, 0.98);
+    border-color: rgba(85, 221, 245, 0.45);
+}
+
+.notification-item-actionable:hover {
+    background-color: rgba(32, 44, 54, 0.98);
+    border-color: rgb(85, 221, 245);
+}
+
 .notification-item-warning {
     border-left-color: rgb(232, 168, 61);
 }
@@ -1808,9 +1820,15 @@
 
 /* ---- Zoomed-out sector map ---- */
 
+/* The map is the one panel whose content is the whole world rather than one building's numbers, so
+   it takes the screen it needs. Sized in percent with a floor: on a 1080p screen it is close to the
+   940x680 it used to be fixed at, and it grows with anything larger instead of leaving the map a
+   letterbox in the middle of a 4K display. */
 .sector-map-panel {
-    width: 940px;
-    height: 680px;
+    width: 78%;
+    height: 82%;
+    min-width: 940px;
+    min-height: 680px;
 }
 
 /* The viewport clips the map; the map element inside it is what pans. A dark ground so an
@@ -2038,4 +2056,328 @@
     color: rgb(120, 130, 138);
     font-size: 9px;
     margin-right: 6px;
+}
+
+/* The map button's own pulse, on the lit half of NewUnlockPulse's cycle. Green rather than the
+   Research menu's cyan: cyan is this UI's ordinary accent and says "interactive", while the map
+   appearing is a one-off event - somewhere beyond the Core has become reachable. Only the colours
+   change, never the border width, so the button does not twitch a pixel every half second. */
+.bottom-nav-map-button.newly-reachable {
+    color: rgb(100, 210, 130);
+    border-color: rgb(100, 210, 130);
+    background-color: rgb(20, 38, 27);
+}
+
+/* The right-click menu on a storage slot. Absolutely positioned inside the panel so it survives the
+   grid being rebuilt every frame, and drawn over it. */
+.storage-slot-menu {
+    position: absolute;
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-color: rgb(85, 221, 245);
+    padding: 2px;
+}
+
+.storage-slot-menu-item {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    color: rgb(220, 105, 95);
+    font-size: 11px;
+    padding: 4px 10px;
+    -unity-text-align: middle-left;
+}
+
+.storage-slot-menu-item:hover {
+    background-color: rgb(46, 26, 26);
+}
+
+/* --- The map's launch pane -------------------------------------------------------------------
+   The map and the decision about it sit side by side: choosing a target and choosing what to send
+   there is one gesture, and answering must not move the map out from under the pointer. */
+
+.sector-map-body {
+    flex-direction: row;
+    flex-grow: 1;
+    margin: 8px 0;
+}
+
+.sector-map-body .sector-map-viewport {
+    margin: 0 8px 0 0;
+}
+
+.sector-map-aside {
+    width: 240px;
+    flex-direction: column;
+}
+
+.sector-map-target-name {
+    color: rgb(222, 232, 238);
+    font-size: 14px;
+    -unity-font-style: bold;
+}
+
+/* Quiet, like the hover line and for the same reason: on an unreconnoitred sector this says only
+   that nobody has been, and must not read as information being withheld. */
+.sector-map-target-detail {
+    color: rgb(138, 152, 160);
+    font-size: 11px;
+    margin-bottom: 4px;
+    white-space: normal;
+}
+
+.sector-map-mission-list {
+    flex-direction: column;
+}
+
+.sector-map-mission-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.sector-map-mission-name {
+    color: rgb(200, 205, 210);
+    font-size: 11px;
+    flex-grow: 1;
+}
+
+.sector-map-mission-duration {
+    color: rgb(135, 147, 156);
+    font-size: 10px;
+    margin-right: 8px;
+}
+
+.sector-map-mission-launch {
+    height: 22px;
+    padding: 0 10px;
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-color: rgb(85, 221, 245);
+    color: rgb(85, 221, 245);
+    font-size: 10px;
+}
+
+.sector-map-mission-launch:hover {
+    background-color: rgb(26, 40, 46);
+}
+
+/* A refusal is stated, not shouted: it is usually a fact about where the player is pointing, not a
+   mistake they made. */
+.sector-map-mission-refusal {
+    color: rgb(120, 130, 138);
+    font-size: 10px;
+    -unity-text-align: middle-right;
+    min-width: 96px;
+}
+
+.sector-map-mission-none {
+    color: rgb(120, 130, 138);
+    font-size: 11px;
+    white-space: normal;
+}
+
+.sector-map-fleet {
+    color: rgb(135, 147, 156);
+    font-size: 10px;
+    margin-top: 8px;
+}
+
+/* One in-flight mission's remaining time, on the Top Bar's permanent counter. Same shape as the
+   directive's requirement chips - they are the same kind of statement, a thing being waited on. */
+.top-bar-mission-chip {
+    color: rgb(85, 221, 245);
+    font-size: 11px;
+    margin-right: 8px;
+}
+
+/* --- The map screen: breadcrumb, cartography, sites ---
+   Right angles, full-width separators, small caps for section labels only, and every number in the
+   tabular monospace the building panels already use. */
+
+.sector-map-crumbs {
+    flex-direction: row;
+    align-items: center;
+    padding-bottom: 7px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgb(38, 45, 54);
+}
+
+.sector-map-crumb {
+    color: rgb(138, 152, 160);
+    font-size: 11px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.sector-map-crumb:hover {
+    color: rgb(85, 221, 245);
+}
+
+/* Where one is, so inert - it leads nowhere and must not look like it does. */
+.sector-map-crumb-current {
+    color: rgb(222, 232, 238);
+    font-size: 11px;
+    margin: 0;
+}
+
+.sector-map-crumb-separator {
+    color: rgb(78, 88, 96);
+    font-size: 11px;
+    margin: 0 6px;
+}
+
+.sector-map-zone-name {
+    color: rgb(222, 232, 238);
+    font-size: 13px;
+    -unity-font-style: bold;
+    margin-top: 3px;
+}
+
+.sector-map-progress-track {
+    height: 4px;
+    background-color: rgb(28, 34, 41);
+    margin-top: 6px;
+}
+
+.sector-map-progress-fill {
+    height: 4px;
+    background-color: rgb(85, 221, 245);
+    width: 0;
+}
+
+.sector-map-figure {
+    color: rgb(138, 152, 160);
+    font-size: 11px;
+    margin-top: 4px;
+}
+
+.sector-map-counts {
+    flex-direction: column;
+    margin-top: 2px;
+}
+
+.sector-map-count-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 3px;
+}
+
+.sector-map-count-dot {
+    width: 6px;
+    height: 6px;
+    margin-right: 7px;
+}
+
+.sector-map-count-name {
+    color: rgb(200, 205, 210);
+    font-size: 11px;
+    flex-grow: 1;
+}
+
+.sector-map-count-value {
+    color: rgb(222, 232, 238);
+    font-size: 11px;
+}
+
+/* Missions needing units are a line of their own and never enter "available" - a counter that
+   included them would be lying about what can be launched. */
+.sector-map-count-locked .sector-map-count-name,
+.sector-map-count-locked .sector-map-count-value {
+    color: rgb(120, 130, 138);
+}
+
+/* The one label shown without hovering, over the site put forward. */
+.sector-map-site-label {
+    color: rgb(222, 232, 238);
+    font-size: 10px;
+    background-color: rgba(11, 14, 18, 0.85);
+    padding: 2px 5px;
+}
+
+.sector-map-hint {
+    color: rgb(100, 110, 118);
+    font-size: 10px;
+    margin-top: 5px;
+    padding-top: 6px;
+    border-top-width: 1px;
+    border-top-color: rgb(38, 45, 54);
+}
+
+/* The heaviest thing this screen does, said before the click that does it. Amber rather than the
+   refusal grey: it is not a refusal, it is a cost. */
+.sector-map-lock-warning {
+    color: rgb(239, 159, 39);
+    font-size: 10px;
+    white-space: normal;
+    margin-top: 4px;
+    padding-top: 5px;
+    border-top-width: 1px;
+    border-top-color: rgb(48, 42, 28);
+}
+
+/* --- The first screen's card ------------------------------------------------------------------
+   One direction, and the one mission that opens it. It replaces the sections rather than sitting
+   above them: cartography, site counts and a mission list all describe a zone somebody has been
+   to, and printing them empty would say the map is withholding rather than that nothing is known
+   yet. */
+.sector-map-zone-card {
+    flex-direction: column;
+}
+
+/* Full width of the aside. The image is the only thing on this screen that distinguishes one
+   direction from another, so it gets the width it needs to read as a place. */
+.sector-map-zone-image {
+    width: 100%;
+    height: 132px;
+    background-color: rgb(14, 18, 23);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    -unity-background-scale-mode: scale-and-crop;
+    margin-bottom: 8px;
+}
+
+.sector-map-zone-card-name {
+    color: rgb(222, 232, 238);
+    font-size: 15px;
+    -unity-font-style: bold;
+    margin-bottom: 4px;
+}
+
+.sector-map-zone-card-line {
+    color: rgb(150, 160, 168);
+    font-size: 11px;
+    margin-bottom: 2px;
+}
+
+.sector-map-zone-card-mission {
+    color: rgb(200, 208, 214);
+    font-size: 12px;
+    margin-top: 6px;
+}
+
+.sector-map-zone-card-progress {
+    margin-top: 6px;
+}
+
+.sector-map-explore-button {
+    height: 30px;
+    margin: 10px 0 0 0;
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-color: rgb(85, 221, 245);
+    border-radius: 0;
+    color: rgb(85, 221, 245);
+    font-size: 12px;
+    -unity-font-style: bold;
+}
+
+.sector-map-explore-button:hover {
+    background-color: rgb(26, 34, 41);
+}
+
+.sector-map-explore-button:disabled {
+    border-color: rgb(48, 59, 66);
+    color: rgb(90, 96, 102);
 }

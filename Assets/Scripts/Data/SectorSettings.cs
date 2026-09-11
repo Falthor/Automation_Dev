@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Game.Data
 {
     /// <summary>
-    /// How the map is cut up, and how dangerous each part of it reads.
+    /// How the map is cut up, and how much derived ore it holds.
     ///
     /// <b>The one place these numbers exist.</b> They used to be constants in the code, which is the
     /// third path the large-map directive forbids: the generator reads its values from a settings
@@ -28,60 +28,64 @@ namespace Game.Data
         [SerializeField, Min(1)] int chunkSizeCells = 64;
 
         /// <summary>
-        /// The sector: what a mission is aimed at. 16 so that 4x4 of them tile a chunk exactly - the
-        /// old 12 fell on no chunk boundary at all. Its inscribed disc has a radius of 8 and reveals
-        /// 201 cells.
+        /// The sector: the internal unit contents and materialisation work in. 16 so that 4x4 of them
+        /// tile a chunk exactly - the old 12 fell on no chunk boundary at all.
         /// </summary>
         [SerializeField, Min(1)] int sectorSizeCells = 16;
 
+        [Header("Gisements dérivés")]
+
         /// <summary>
-        /// How wide a <b>named region</b> should be, in cells. Sectors inside one share a region name
-        /// and differ by a coordinate suffix, so this is really "how much ground carries one name".
+        /// One sector in this many carries an ore cluster. Everything else derives nothing.
         ///
-        /// An intent, not the answer: a map big enough that this would need more regions than there
-        /// are names gets wider ones instead (SectorCatalog.MaxRegionsPerAxis). At the shipped 10 000
-        /// it is the cap that decides, giving 27 regions of 371 cells across.
+        /// <b>This is the number that decides how often exploring pays.</b> It used to be four
+        /// sectors in eight, and a wreck or a nest produced ore as well, so seven sectors in eight
+        /// held some - and a robot materialises the 3x3 block around every sector it crosses. One
+        /// sortie turned up dozens of scattered tiles, which is not a find, it is scenery.
         /// </summary>
-        [SerializeField, Min(1)] int preferredRegionSizeCells = 384;
-
-        [Header("Risque, en cases depuis le Noyau")]
+        [SerializeField, Min(1)] int oreClusterOneSectorIn = 12;
 
         /// <summary>
-        /// Up to here, a sector reads as the player's own ground. Defaults to the Core's initial
-        /// radius, because that is where the player starts - but it is a <b>balance</b> value, not a
-        /// derived one: deriving it from the radius would couple danger to how far a Core happens to
-        /// reach, which is a different idea entirely and would still be there if radius extension
-        /// were removed tomorrow.
+        /// How many tiles a cluster holds just outside the Core's reach, at least and at most.
+        /// Contiguous, so this is the size of a patch rather than a count of scattered cells - a
+        /// cluster is meant to be worth a trip and an Extractor, and six cells spread over 256 are
+        /// neither.
         /// </summary>
-        [SerializeField, Min(0f)] float lowRiskWithinCells = 40f;
+        [SerializeField, Min(1)] int oreClusterMinTiles = 6;
 
-        /// <summary>The mining ring - far enough to need a mission, close enough to be routine. Defaults to the exploration range.</summary>
-        [SerializeField, Min(0f)] float moderateRiskWithinCells = 250f;
-
-        /// <summary>As far out as a secondary Core's own territory reaches. Past this, everything is Critical.</summary>
-        [SerializeField, Min(0f)] float highRiskWithinCells = 330f;
-
-        [Header("Missions")]
+        [SerializeField, Min(1)] int oreClusterMaxTiles = 10;
 
         /// <summary>
-        /// The empty ground wanted between two Cores' maximum radii, in cells.
-        ///
-        /// <b>This is the only figure of the exploration threshold that is a choice.</b> The threshold
-        /// itself - where mining stops and exploration starts - is two maximum Core radii back to back
-        /// plus this gap, and it is derived in SectorMissionRange rather than written down anywhere.
-        /// Entering the resulting distance as a setting would make it a second copy that stops
-        /// agreeing the day a Core's maximum radius moves.
+        /// And how many at the far limit, with everything in between interpolated
+        /// (<see cref="OreClusterProfile"/>). Distance is the only thing exploring costs, so it has
+        /// to be the thing that pays; a flat size makes the far half of the map the near half with a
+        /// longer walk.
         /// </summary>
-        [SerializeField, Min(0f)] float territorySpacingCells = 90f;
+        [SerializeField, Min(1)] int oreClusterFarMinTiles = 10;
+
+        [SerializeField, Min(1)] int oreClusterFarMaxTiles = 15;
 
         public int ChunkSizeCells => chunkSizeCells;
         public int SectorSizeCells => sectorSizeCells;
-        public int PreferredRegionSizeCells => preferredRegionSizeCells;
 
-        public float LowRiskWithinCells => lowRiskWithinCells;
-        public float ModerateRiskWithinCells => moderateRiskWithinCells;
-        public float HighRiskWithinCells => highRiskWithinCells;
-        public float TerritorySpacingCells => territorySpacingCells;
+        public int OreClusterOneSectorIn => oreClusterOneSectorIn;
+        public int OreClusterMinTiles => oreClusterMinTiles;
+        public int OreClusterMaxTiles => Mathf.Max(oreClusterMinTiles, oreClusterMaxTiles);
+        public int OreClusterFarMinTiles => oreClusterFarMinTiles;
+        public int OreClusterFarMaxTiles => Mathf.Max(oreClusterFarMinTiles, oreClusterFarMaxTiles);
+
+        /// <summary>
+        /// The cluster figures as one value, with the two radii the ramp runs between.
+        ///
+        /// <b>The radii are not this asset's to hold.</b> The near one is the Core's furthest reach
+        /// and the far one is how far a robot wanders - both belong to the systems that own them, and
+        /// a copy here could only ever disagree. They are handed in.
+        /// </summary>
+        public OreClusterProfile ClusterProfile(float nearRadiusCells, float farRadiusCells)
+            => new OreClusterProfile(OreClusterOneSectorIn,
+                OreClusterMinTiles, OreClusterMaxTiles,
+                OreClusterFarMinTiles, OreClusterFarMaxTiles,
+                nearRadiusCells, farRadiusCells);
 
         /// <summary>How many sectors tile a chunk along one axis. 4 at the defaults.</summary>
         public int SectorsPerChunkAxis => Mathf.Max(1, chunkSizeCells / Mathf.Max(1, sectorSizeCells));
@@ -108,10 +112,6 @@ namespace Game.Data
                     + "Sector and chunk boundaries will not line up.", this);
             }
 
-            if (lowRiskWithinCells > moderateRiskWithinCells || moderateRiskWithinCells > highRiskWithinCells)
-            {
-                Debug.LogWarning($"{name}: the risk thresholds are out of order - each has to be at least the previous one.", this);
-            }
         }
     }
 }

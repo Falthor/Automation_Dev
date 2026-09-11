@@ -65,7 +65,10 @@ revanche accueillir des missions ciblant les points d'intérêt qu'il contient.
 | Autonomie | **10 missions chacun**, affiché dès la première |
 | Destruction | **jamais** — un robot explorateur s'éteint, batterie vide |
 | Fin de vie | le dernier robot explorateur s'éteint à la découverte du nid |
-| Troisième robot explorateur | débloqué par le nœud ??? de l'introduction |
+
+Il n'y a **que deux robots explorateurs**. Un troisième, débloqué par le nœud ??? au moment de la
+découverte du signal anormal, figurait ici ; le signal anormal a été retiré de la conception et le
+troisième robot part avec lui (§9).
 
 L'autonomie est comptée en missions et non en temps, ce qui la rend garantissable — et elle est
 **affichée dès la première mission**, pour la même raison : un robot qui tombe en panne sans prévenir
@@ -262,6 +265,7 @@ s'applique ici sans traitement particulier.
 
 | Type | Risque | Durée | Récompense CU intro | Nœud ??? | Exécutants |
 |---|---|---|---|---|---|
+| Découverte | bas | 2 min | 500 | non | robots |
 | Prospection minière | bas | 3 min | 500 | non | robots puis unités |
 | Exploration lointaine | croissant | à définir | 500 | non | robots puis unités |
 | Récupération | moyen | 6 min | 1 500 | non | robots puis unités |
@@ -270,7 +274,16 @@ s'applique ici sans traitement particulier.
 | Restauration de datacenter | élevé | à définir | — | non | unités |
 | Éradication | élevé | à définir | — | non | unités de combat |
 
-**Pendant l'introduction, seules les deux Reconnaissances et la Récupération existent.**
+**Pendant l'introduction, seules la Découverte, les deux Reconnaissances, l'Étude de terrain et la
+Récupération existent.**
+
+> **Ajouté après la rédaction de ce document.** La **Découverte** est la mission qui ouvre une zone
+> d'expédition : une par zone, sans bande, deux minutes forfaitaires, et ce qu'elle rapporte est la
+> liste des sites de la zone — c'est-à-dire tout ce que les autres missions viseront ensuite. Choisir
+> une direction ne la révèle pas ; y aller, si. Elle tire sur le budget de reconnaissance comme les
+> deux Reconnaissances. Voir `architecture/MAP.md` §5 et `architecture/CONTRACTS.md` §16.
+>
+> L'**Étude de terrain** manquait aussi à ce récapitulatif : voir §4.3 et `architecture/MAP.md` §5.
 
 ---
 
@@ -412,20 +425,23 @@ n'atteigne ces secteurs (`architecture/MAP.md` §5).
 
 ## 9. Les temps forts scénarisés
 
-Trois moments ne dépendent d'aucun tirage. Le hasard porte sur ce qu'on ramène, jamais sur
+Deux moments ne dépendent d'aucun tirage. Le hasard porte sur ce qu'on ramène, jamais sur
 ce qu'on révèle.
 
 **1. L'apparition des robots explorateurs.** Déclenchée par le passage sous 25 000 CU. Ouvre la carte
 dézoomée et le système de missions.
 
-**2. La découverte du signal anormal.** Un site posé par le générateur, révélé à coup sûr
-par une reconnaissance. Il débloque le nœud ??? de l'introduction, qui donne la
-**troisième robot explorateur** — une récompense choisie exprès pour faire regretter de ne pas avoir
-exploré plus tôt, sans jamais bloquer quoi que ce soit.
+**2. La découverte du nid dormant.** Site posé par le générateur à une distance donnée, révélé par la
+mission du **signal perturbé**. Celle-ci n'est pas verrouillée : elle est **absente** de la carte
+jusqu'à l'amorçage du Datacenter, puis elle apparaît — c'est le jeu qui bouge plutôt que le joueur qui
+obtient une permission. **Une seule condition, donc, et pas deux.** Il allume la branche armement.
 
-**3. La découverte du nid dormant.** Site posé par le générateur à une distance donnée,
-révélé à coup sûr par une mission précise **une fois le troisième robot acquis**, et
-**uniquement après l'amorçage du Datacenter**. Il allume la branche armement.
+> **Le signal anormal a été retiré de la conception, et sa trace a failli rendre ceci inatteignable.**
+> Il était le deuxième temps fort et donnait, par le nœud ???, un troisième robot explorateur dont
+> l'acquisition conditionnait la découverte du nid. La condition a survécu au retrait dans ce
+> document : rien n'incrémente `MissionSettings.explorerRobotCount`, donc le nid ne serait jamais
+> apparu. Ce qui reste du nœud ??? — sa récompense, sa source, et son existence même — n'est pas
+> tranché ici.
 
 Le nid est découvert **dormant**. Le joueur sait qu'il se réveillera sans savoir quand.
 Être attaqué dans la minute qui suit ferait de la découverte une punition ; savoir qu'une
@@ -434,7 +450,8 @@ defense, et ça donne une raison d'exister aux premières recherches d'armement 
 premier ennemi n'arrive.
 
 Le dernier robot explorateur s'éteint au même moment : le Noyau perd ses yeux à l'instant précis où
-il apprend qu'il est menacé.
+il apprend qu'il est menacé. Avec deux robots et leurs charges, c'est l'épuisement qui l'éteint —
+la phrase garde son sens sans le troisième.
 
 ---
 

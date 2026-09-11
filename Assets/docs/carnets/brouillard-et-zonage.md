@@ -185,3 +185,180 @@ territoire de départ, 250 l'anneau minier, 330 la portée d'un Noyau secondaire
 croît linéairement — acceptable tant que la sauvegarde est manuelle, à reprendre si une sauvegarde
 automatique arrive. Et le premier tracé de l'image de carte sur une partie bien explorée coûte
 ~170 ms, une seule fois, au chargement.
+
+## 6. Le troisième état — ce qui est observé contre ce qui est souvenu
+
+`DiscoveryState` attendait ce moment : il était enum plutôt que booléen pour lui. Il l'est maintenant —
+`Unknown`, `Remembered`, `Observed` — et l'état courant est décrit dans `MAP.md` §2.
+
+**Le point qui rend tout le reste simple : l'observation ne se stocke pas.** La découverte reste
+permanente et acquise ; l'observation est reconstruite de zéro à chaque frame depuis la position des
+observateurs, et `ObservationRuntime` ne garde rien par case. Rien à écrire quand un robot avance, rien
+à effacer quand il s'éloigne : la case sort de la liste. Un état d'observation stocké serait une seconde
+source de vérité, libre de contredire la position réelle des observateurs — et il faudrait le nettoyer,
+ce qui est le bug que cette forme de code produit toujours.
+
+**Conséquence : il n'y a pas de paire Capture/Restore, et cette absence est le contrat.** La première
+frame après un chargement reconstruit tout le champ depuis le Noyau et les robots que le chargement a
+remis. Le test qui garde ça n'assure pas « rien n'est sauvegardé » — impossible à écrire directement —
+mais que ce que la découverte capture est identique à l'octet, avec ou sans observateur.
+
+**Seulement deux des trois valeurs sont stockées.** `Remembered` garde le 1 qu'avait `Discovered`, donc
+les sauvegardes existantes se relisent sans conversion ; `Observed` n'est jamais écrit dans un chunk.
+`GetState` répond donc avec les deux valeurs stockées et `StateOf` avec les trois. Le renommage a coûté
+cinq lignes dans un seul fichier : tout le reste du projet passait déjà par `IsDiscovered()`, ce qui est
+exactement le bénéfice qu'un accesseur nommé achète.
+
+**La découverte commande l'observation, dans cet ordre.** Une case jamais découverte reste noire même
+avec un observateur dessus. Cela ne peut pas arriver en jeu — tout ce qui observe révèle aussi — mais
+c'est ce qui rend « jamais découvert ne devient jamais souvenu » vrai par construction plutôt que par
+un ordre d'appel heureux. La règle est appliquée deux fois exprès : dans `StateOf`, et de nouveau à
+l'empaquetage des texels, pour que le shader ne reçoive jamais la contradiction.
+
+**Deux canaux d'une texture, pas deux textures.** RG16 : R la découverte, G l'observation. Même nombre
+d'octets que deux R8, et trois choses en plus — un seul upload, un seul échantillonnage, et une fenêtre
+sur laquelle les deux champs ne peuvent pas être en désaccord, puisque c'est la même lecture.
+
+**Mais les deux champs ne changent pas à la même horloge, et c'est ce qui a dicté le découpage.** La
+découverte bouge rarement ; l'observation bouge dès qu'un observateur bouge, donc à chaque frame où un
+robot marche. Un repack complet demande au stockage par chunks l'état de chaque texel de la fenêtre —
+65 000 recherches de dictionnaire par frame à la taille livrée. D'où deux chemins : un changement de
+découverte repack les deux canaux, un changement d'observation ne repack que G et relit la découverte
+**dans le canal d'à côté** au lieu de la redemander. Le coût par frame retombe à quelques distances au
+carré par texel.
+
+**Le voile est le seul écart visible entre le deuxième et le troisième état**, donc c'est lui qui peut
+faire disparaître toute la fonctionnalité : à 1 le souvenu se lit comme de l'inconnu et la carte n'a
+plus que deux états, à 0 il n'y a pas de voile et elle n'en a que deux dans l'autre sens. Posé à 0,55,
+et ça se juge à l'écran.
+
+**Le shader prend le plus fort des deux alphas, jamais leur somme.** L'inconnu est déjà parfaitement
+opaque ; lui ajouter un voile ne ferait que dépasser 1 et aplatir précisément la différence que le
+troisième état existe pour dessiner. Les deux frontières sont coupées par le **même** grain en espace
+monde : deux bruits indépendants auraient donné deux ondulations sans rapport, et un grain en espace
+écran aurait fait ramper le bord de l'observation en suivant le robot.
+
+**Un coût assumé.** `clip` demande maintenant que les deux termes soient dépensés, donc le sol observé
+ne coûte toujours rien, mais le sol souvenu — c'est-à-dire l'essentiel de la carte explorée — paie un
+blend qu'il ne payait pas. C'est le prix de la fonctionnalité, pas un oubli.
+
+## 8. Un gisement qui existait sans appartenir à personne
+
+Les robots ouvraient bien des gisements : la surbrillance jaune au survol se déclenchait. Mais rien
+n'était dessiné, et — ce que le symptôme ne disait pas — rien n'était sauvegardé.
+
+`SectorMaterialisation` appelait `GridRuntime.PlaceDeposit` et **jetait la valeur de retour**. Or
+`PlaceDeposit` crée le `DepositRuntime` et le rend ; c'est `WorldGenerator.OreDeposits` qui est lu par
+les deux seuls consommateurs qui comptent : la boucle de `GameRuntime.Start` qui instancie les vues, et
+la capture de sauvegarde.
+
+Donc le gisement était **réel pour tout ce qui interroge la grille** - le survol le trouvait, un
+extracteur aurait pu être posé dessus - et **inexistant pour tout le reste**. Aucune exception, aucun
+log, aucun test rouge. Le seul indice visible était une surbrillance sur du vide.
+
+**Le correctif ne rajoute pas un appel, il déplace la frontière.** `WorldGenerator.AddDeposit` place
+et enregistre en un seul appel, puis annonce par `DepositAppeared`. Un appelant n'a plus le droit
+d'atteindre `PlaceDeposit` : la seule façon de faire naître un gisement passe par son propriétaire.
+Ajouter un `_oreDeposits.Add(...)` à côté de l'appel existant aurait marché aujourd'hui et laissé la
+même porte ouverte au suivant.
+
+**Deux assertions, pas une.** Le test vérifie le compte dans la liste *et* le nombre d'annonces,
+parce que la vue est pilotée par l'événement et la sauvegarde par la liste : n'en tenir qu'une aurait
+corrigé la moitié du défaut, et la moitié restante se serait vue au rechargement suivant, des heures
+plus tard.
+
+**Et sans monde, on n'écrit rien.** Une scène sans génération de monde n'a nulle part où enregistrer
+un gisement : `Materialise` retourne 0 plutôt que d'écrire dans la grille ce que personne ne
+possède - ce qui est exactement la forme du défaut d'origine.
+
+## 9. Sept taches de minerai, et pourquoi
+
+Le correctif du 8 a rendu les gisements visibles, et c'est là qu'on a vu le vrai problème : une
+première sortie en faisait apparaître des dizaines, éparpillés, à quelques cases de la base.
+
+**Le calcul, une fois écrit, ne laissait aucun doute.** Le tirage était `% 8` avec 0 = rien, 1-4 =
+minerai, 5-6 = épave, 7 = nid - et le nombre de gisements était `feature != None ? 2 + hash%4 : 0`.
+Donc une épave et un nid produisaient du minerai aussi : **sept secteurs sur huit** en portaient, 2 à
+5 tuiles chacun, tirées **indépendamment** n'importe où dans le carré de 256 cases. Multiplié par le
+bloc de 3×3 secteurs que le robot matérialise à chaque franchissement, ça donne des dizaines de
+tuiles isolées. Ce n'est pas une trouvaille, c'est du décor.
+
+Trois choses étaient fausses en même temps, et une seule était visible.
+
+**La fréquence.** Un secteur sur douze, et le réglage dit exactement ça. Les épaves et les nids ne
+sont plus tirés du tout : rien ne les dessine, la matérialisation ignore la cellule de la
+caractéristique, et leur seul effet était de diviser le taux de minerai par trois - donc de faire
+mentir le réglage.
+
+**La forme.** Une grappe est **poussée**, pas semée : on prend une cellule déjà dans la grappe, on
+tire une direction, et la voisine rejoint si elle est libre et encore dans le secteur. Mesuré sur
+1591 grappes : **zéro cellule sans voisine**. Les formes sont compactes et toutes différentes.
+
+**La distance.** La taille monte avec l'éloignement : 6-10 tuiles à la sortie du rayon du Noyau,
+10-15 à la limite d'errance. C'est la seule chose que l'exploration coûte, donc c'est ce qui doit
+payer — une taille plate fait de la moitié lointaine de la carte la moitié proche avec plus de
+marche. Mesuré sur la carte livrée : **8,0 tuiles en moyenne en dedans de 100 cases, 12,3 au-delà de
+260**, et aucune grappe à l'étroit dans son secteur même à 15 tuiles.
+
+**Et l'exclusion.** Rien de dérivé à moins de 32 cases du Noyau. Un secteur est sauté dès qu'une
+partie de lui tombe dans le rayon, pas quand son centre y tombe : un secteur de 16 dont le centre
+dégage a encore un bord bien dedans, et une grappe rognée serait deux tuiles contre un mur.
+
+**Le catalogue reconnaît le Noyau, et cette fois il le mérite.** Il portait un centre pour un
+gradient de risque que personne ne lisait, et ce centre a été supprimé avec le reste du code mort. Une
+grappe qui grandit avec la distance en a un besoin réel. Il reste une fonction pure du monde : la
+position du Noyau est fixée à la génération et restaurée avec la sauvegarde.
+
+**Le profil est un objet plutôt que sept paramètres.** L'alternative était un constructeur à neuf
+arguments sur le catalogue avec la formule enterrée dans une méthode privée. Groupé, la formule a un
+nom et un test peut la conduire sans construire un monde — et les deux bouts de la rampe sont
+épinglés en littéraux une seule fois, là où la décision vit.
+
+**Deux erreurs d'arithmétique de ma part en chemin**, toutes deux attrapées en mesurant plutôt qu'en
+supposant. `% (taux × 3)` donnait du minerai une fois sur 48 et non sur 16 — une demi-grappe par
+sortie, trop rare. Et `Mathf.RoundToInt(12.5f)` arrondit au **pair** : le milieu de 10-15 est 12, pas
+13. La deuxième est dans un test, en littéral, avec la raison écrite à côté : c'est exactement le
+genre de détail qu'une attente recalculée aurait validé en étant fausse avec le code.
+
+## 10. Huit débris, et pourquoi ce n'est pas une densité
+
+Une densité uniforme sur le disque de 330 cases ne peut pas répondre aux deux questions à la fois.
+Le chiffre qui fait trouver un débris dans les premières minutes en met une centaine sur la carte ;
+celui qui rend huit débris rares place le premier trois quarts d'heure plus tard. Ce ne sont pas deux
+réglages d'un même curseur, ce sont deux exigences contradictoires pour un seul nombre.
+
+**Les anneaux découplent les deux.** L'anneau intérieur est resserré exprès — le robot y commence
+forcément, donc il en croise un presque tout de suite — et la bande extérieure est large au point
+que ses quatre sont une perspective lointaine.
+
+**La structure fait le travail qu'une boucle de rejet ferait plus mal.** Les anneaux séparent
+radialement. L'angle d'un débris est la part du cercle de son rang plus une gigue bornée au tiers de
+cette part : c'est la borne qui sépare angulairement, par construction. Aucun test de proximité,
+aucun registre de ce qui est déjà posé, aucune boucle de rejet — une boucle aurait fait dépendre le
+résultat de l'ordre des tirages, ce qui est exactement ce qu'une dérivation ne doit jamais faire.
+
+**La séparation minimale est dérivée et délibérément pas un réglage.** Elle vaut la part du cercle
+moins deux fois la gigue : 60° pour un anneau de deux, 30° pour un anneau de quatre. L'exposer
+aussi permettrait trois nombres qui se contredisent — et c'est le genre de contradiction qui ne se
+voit qu'en jouant.
+
+**Ce que la mesure a dit, et que l'intention ne disait pas.** Sur la graine livrée, les rayons tirés
+se groupent vers l'extérieur de chaque anneau : les deux premiers débris sont à 57 et 58 cases, pas
+à 40 ; les deux suivants à 152 et 152, pas à 75. Le tirage du rayon est uniforme entre les bornes,
+donc rien n'est cassé — mais la distance effective du premier débris est de 57 cases et non de 40, et
+l'estimation de quatre minutes se lit contre 57.
+
+**Un débris est trouvé en révélant le sol qu'il occupe**, sur le même battement et contre le même
+rayon que la révélation. Une portée de proximité séparée aurait été une deuxième règle, libre de
+laisser un robot passer sur un débris sans le voir, ou de lui en faire repérer un à travers le
+brouillard.
+
+**Seul l'ensemble découvert se stocke.** La position et le type se redérivent : c'est la frontière
+habituelle du projet, et elle a une conséquence utile — changer le nombre d'un anneau coûte les
+débris qui n'existent plus, pas la sauvegarde, parce que la restauration ignore un indice qu'elle ne
+reconnaît plus.
+
+**Et le format de sauvegarde a défendu sa forme.** Ajouter le champ a fait échouer deux tests qui
+épinglent la liste exacte des clés — exactement leur travail. Pas de bump de version : un champ
+additif avec son propre repli laisse charger les anciennes sauvegardes, alors que bumper les
+refuserait toutes pour ajouter un champ qui se lit très bien à null. Même appel que `DecorRemoved`.

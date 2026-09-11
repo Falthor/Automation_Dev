@@ -1,5 +1,6 @@
 using System;
 using Game.Gameplay.Buildings;
+using Game.Gameplay.Exploration;
 using Game.Gameplay.Sites;
 
 namespace Game.Gameplay.Selection
@@ -21,19 +22,53 @@ namespace Game.Gameplay.Selection
     {
         public BuildingRuntime SelectedBuilding { get; private set; }
         public ConstructionSiteRuntime SelectedSite { get; private set; }
+
+        /// <summary>
+        /// The explorer robot being inspected. Its own slot for the same reason a site has one: it
+        /// is not a building, so every per-building panel keying off <see cref="SelectionChanged"/>
+        /// with an <c>as</c> cast would have had to learn to ignore it, and a robot occupies no cell
+        /// for the world to mark.
+        /// </summary>
+        public ExplorerRobotRuntime SelectedExplorerRobot { get; private set; }
+
         public string ActiveGlobalPanel { get; private set; }
+
+        /// <summary>
+        /// The one building an open global panel is about, when it is about one.
+        ///
+        /// Not the same slot as <see cref="SelectedBuilding"/>, and deliberately so: that one is
+        /// mutually exclusive with a global panel - <see cref="Select"/> closes any open panel - while
+        /// this one accompanies it. The Storage panel is the case that needs it. It serves two views
+        /// through the same global slot, the aggregate over every container and one specific box, and
+        /// only the second is about a place on the map. Without this, a box being inspected was a
+        /// building nothing in the world could point at, and the hover outline had no cell to draw on.
+        /// </summary>
+        public BuildingRuntime GlobalPanelSubject { get; private set; }
 
         public event Action<BuildingRuntime> SelectionChanged;
         public event Action<ConstructionSiteRuntime> SiteSelectionChanged;
+        public event Action<ExplorerRobotRuntime> ExplorerRobotSelectionChanged;
         public event Action<string> GlobalPanelChanged;
 
         public void Select(BuildingRuntime building)
         {
             if (ActiveGlobalPanel != null) CloseGlobalPanel();
             ClearSite();
+            ClearExplorerRobot();
 
             SelectedBuilding = building;
             SelectionChanged?.Invoke(building);
+        }
+
+        /// <summary>Inspects an explorer robot - what it is doing and the one action it offers, rather than anything about the ground it is standing on.</summary>
+        public void SelectExplorerRobot(ExplorerRobotRuntime robot)
+        {
+            if (ActiveGlobalPanel != null) CloseGlobalPanel();
+            ClearBuilding();
+            ClearSite();
+
+            SelectedExplorerRobot = robot;
+            ExplorerRobotSelectionChanged?.Invoke(robot);
         }
 
         /// <summary>Inspects a construction site - its bill of materials rather than a building's production.</summary>
@@ -41,6 +76,7 @@ namespace Game.Gameplay.Selection
         {
             if (ActiveGlobalPanel != null) CloseGlobalPanel();
             ClearBuilding();
+            ClearExplorerRobot();
 
             SelectedSite = site;
             SiteSelectionChanged?.Invoke(site);
@@ -51,6 +87,7 @@ namespace Game.Gameplay.Selection
         {
             ClearBuilding();
             ClearSite();
+            ClearExplorerRobot();
         }
 
         void ClearBuilding()
@@ -69,6 +106,14 @@ namespace Game.Gameplay.Selection
             SiteSelectionChanged?.Invoke(null);
         }
 
+        void ClearExplorerRobot()
+        {
+            if (SelectedExplorerRobot == null) return;
+
+            SelectedExplorerRobot = null;
+            ExplorerRobotSelectionChanged?.Invoke(null);
+        }
+
         public BuildingRuntime GetSelectedBuilding() => SelectedBuilding;
 
         /// <summary>Opens a named global panel, closing whichever one was open before (no-op if already active).</summary>
@@ -77,14 +122,26 @@ namespace Game.Gameplay.Selection
             if (ActiveGlobalPanel == name) return;
             Clear();
 
+            // A newly opened panel is about nothing until whoever opened it says otherwise, so the
+            // subject never survives from the panel before.
+            GlobalPanelSubject = null;
             ActiveGlobalPanel = name;
             GlobalPanelChanged?.Invoke(name);
+        }
+
+        /// <summary>Names the building the open panel is about, so the world can mark it. Cleared with the panel.</summary>
+        public void SetGlobalPanelSubject(BuildingRuntime building)
+        {
+            if (ActiveGlobalPanel == null) return;
+
+            GlobalPanelSubject = building;
         }
 
         public void CloseGlobalPanel()
         {
             if (ActiveGlobalPanel == null) return;
 
+            GlobalPanelSubject = null;
             ActiveGlobalPanel = null;
             GlobalPanelChanged?.Invoke(null);
         }

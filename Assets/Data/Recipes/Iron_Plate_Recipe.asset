@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.RecipeDefinition
   id: Iron_Plate
   ingredients:
-  - item: {fileID: 11400000, guid: b96b1a8817e8abf4bacd918c5be7b859, type: 2}
+  - item: {fileID: 11400000, guid: 929b7f451c0471e4792a67bdfa782512, type: 2}
     amount: 1
   outputAmount: 1
   timeSeconds: 4

@@ -34,7 +34,7 @@ namespace Game.Tests.EditMode.Save
             TerrainProportion = 0.5f,
             Discovered = "0:120,1:16,0:120",
             DecorRemoved = "4096,4097,131072",
-            Missions = new JObject { ["nextId"] = 4, ["appeared"] = true },
+            ExplorerRobots = new JObject { ["robots"] = new JArray { new JObject { ["x"] = 40f, ["state"] = 1 } } },
             ComputeReserve = 12.5f,
             ResearchActiveId = "automation",
             ResearchProgress = 0.75f,
@@ -69,7 +69,12 @@ namespace Game.Tests.EditMode.Save
         {
             "Version", "SavedAtUtc",
             "TerrainSeed", "TerrainSize", "TerrainScale", "TerrainProportion", "Discovered", "DecorRemoved",
-            "Missions",
+            // Which wrecks have been found. Additive, with its own fallback - an absent key is a
+            // world nobody has found anything in - so CurrentVersion is deliberately not bumped:
+            // bumping it would refuse every existing save to add a field that reads fine as null.
+            // Same call as DecorRemoved above.
+            "WrecksDiscovered",
+            "ExplorerRobots",
             "ComputeReserve",
             "ResearchActiveId", "ResearchProgress", "ResearchQueue", "ResearchUnlocked",
             "ConstructionSites", "CoreDirectives",
@@ -107,7 +112,7 @@ namespace Game.Tests.EditMode.Save
             var buildingKeys = new List<string>();
             foreach (JProperty property in building.Properties()) buildingKeys.Add(property.Name);
             CollectionAssert.AreEquivalent(
-                new[] { "DefinitionId", "CellX", "CellY", "FacingRotation", "State" }, buildingKeys);
+                new[] { "DefinitionId", "CellX", "CellY", "FacingRotation", "InputSide", "State" }, buildingKeys);
 
             Assert.AreEqual("Iron_Ingot", building["State"]["recipe"].Value<string>(),
                 "A per-building blob is stored verbatim and never interpreted by the save layer.");
@@ -160,8 +165,11 @@ namespace Game.Tests.EditMode.Save
             // Asserted through the round trip, not merely present in the fixture: Discovered sat in
             // this fixture for months without ever being compared, so it could have been lost in
             // transit with nothing turning red.
-            Assert.AreEqual(4, restored.Missions["nextId"].Value<int>());
-            Assert.IsTrue(restored.Missions["appeared"].Value<bool>());
+
+            // The zone choice and the radius the six were cut against. Asserted through the round trip
+            // for the same reason as the line above: sitting in the fixture proves only that the fixture
+            // has a value, and a key lost in transit would show up in play as a run finding all six zones
+            // on offer again with half of one already mapped.
 
             Assert.AreEqual(original.ComputeReserve, restored.ComputeReserve);
             Assert.AreEqual(original.ResearchActiveId, restored.ResearchActiveId);
@@ -197,7 +205,6 @@ namespace Game.Tests.EditMode.Save
             Assert.IsNull(restored.BuildingCap, "Absent means absent, never 0.");
             Assert.IsNull(restored.PlayTimeSeconds, "A save from before the run clock is not a run that lasted zero seconds.");
             Assert.IsNull(restored.ConstructionSites, "A save from before the robots restores without one.");
-            Assert.IsNull(restored.Missions, "a save from before the expeditions restores as a game whose probes have not arrived.");
             Assert.IsNull(restored.DecorRemoved,
                 "A save from before the decor recorded no clearing, which DecorRuntime.RestoreState reads as a world nobody has cleared anything in.");
         }

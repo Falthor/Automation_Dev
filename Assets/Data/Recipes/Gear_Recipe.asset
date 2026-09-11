@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.RecipeDefinition
   id: Gear
   ingredients:
-  - item: {fileID: 11400000, guid: b96b1a8817e8abf4bacd918c5be7b859, type: 2}
-    amount: 1
-  outputAmount: 2
-  timeSeconds: 4
-  computeCost: 4
-  unlockResearch: {fileID: 11400000, guid: 7da5509ab8e403b46baa0bb47edbe69a, type: 2}
+  - item: {fileID: 11400000, guid: 4e7a1c93b5d2f8460a1c3e5079b2d4f6, type: 2}
+    amount: 2
+  outputAmount: 1
+  timeSeconds: 12
+  computeCost: 20
+  unlockResearch: {fileID: 11400000, guid: 93df61e80a274d9b5f6183a5c0427941, type: 2}

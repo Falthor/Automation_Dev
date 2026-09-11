@@ -102,7 +102,17 @@ public (GridCoord cell, Direction fromMySide)[] GetInputCells()
 public virtual bool FeedsCell(GridCoord cell)
 ```
 
-`GetOutputCells()` returns the cells items actually leave through. For a building declaring an output arrow (`BuildingDefinition.HasOutputArrow`) that is the single cell the arrow is drawn on — the mirror of the entry-arrow rule below, and for the same reason: what is drawn is what happens, and there are no invisible outlets. For one declaring none (Storage, Core, a belt) it is the whole output edge. `GetEdgeCells()` returns every cell touching any of the 4 sides, paired with which side (from this building's own perspective) it touches - used as the `fromDirection` argument to `CanAcceptInput`/`AddInput`. `GetInputCells()` returns the subset items are actually taken from: for a building declaring directional input (`BuildingDefinition.HasInputArrows`) that is one cell per side other than its output side - exactly the cells its entry arrows are drawn on, so an arrow always marks a real intake point and there are no invisible ones; for a building declaring none (Storage, Core) it is every edge cell, matching the "input from any side" behavior those are defined with.
+`GetOutputCells()` returns the cells items actually leave through. For a building declaring an output arrow (`BuildingDefinition.HasOutputArrow`) that is the single cell the arrow is drawn on — the mirror of the entry-arrow rule below, and for the same reason: what is drawn is what happens, and there are no invisible outlets. For one declaring none (Storage, Core, a belt) it is the whole output edge. `GetEdgeCells()` returns every cell touching any of the 4 sides, paired with which side (from this building's own perspective) it touches - used as the `fromDirection` argument to `CanAcceptInput`/`AddInput`. `GetInputCells()` returns the subset items are actually taken from, and it now has **three** shapes, each a different promise:
+
+| Declaration | Takes from | Who |
+|---|---|---|
+| `HasSingleInputArrow` | **one** cell, on `BuildingRuntime.InputSide`, and nowhere else | Foundry, Constructor |
+| `HasInputArrows` | one cell per side other than its output side | Factory, Assembler, Advanced Foundry |
+| neither | every edge cell — "input from any side" | Storage, Core |
+
+In all three, an arrow marks a real intake point and there are no invisible ones. The single-input case makes that promise much stronger: a belt touching any other face is **refused**, however full it is. That refusal is enforced twice on purpose - by this list, and again in `ProductionBuildingRuntime.CanAcceptInput` - because the generic push and the belt hand-over both ask the target directly rather than consulting the list.
+
+**`InputSide` is per-building state, chosen at placement.** It defaults to the opposite of the output (what a belt running straight through wants) and is moved with `T` while the placement ghost is up; `SetInputSide` refuses the output side, since a side that both took and gave would feed the building its own production. `SetFacingRotation` puts it back to the default if a rotation leaves it sitting on the new output side - the alternative is a building that silently takes nothing. It travels in the save as `BuildingSaveData.InputSide` (nullable: absent restores to the default, not to North).
 
 `FeedsCell(cell)` answers whether items leaving this building land in `cell` - the question "is this cell fed by that neighbour", which conveyor placement asks to inherit a belt's direction from whatever already flows into it. The default is the whole output edge. **Splitter and Crossroad override it**, and must: neither has a single output side, and both inherit `ExitDirection` from `FacingRotation`, which on those two types names an *entry* (`SplitterRuntime.EntrySide`, `CrossroadRuntime.EntryB`). Any code asking "where does this building output" through `GetOutputCell()` gets a wrong answer for them; ask `FeedsCell` instead.
 
@@ -233,13 +243,14 @@ Extractor does not need to implement this player-selected-recipe contract - its 
 
 ## 7. Selection
 
-Selection owns what is currently inspected and the global UI-panel selection state. Three slots - an inspected **building**, an inspected **construction site**, and a named **global panel** - of which at most one is ever set: opening any of them closes the other two.
+Selection owns what is currently inspected and the global UI-panel selection state. Four slots - an inspected **building**, an inspected **construction site**, an inspected **explorer robot**, and a named **global panel** - of which at most one is ever set: opening any of them closes the others.
 
 The public API must support the equivalent behavior of:
 
 ```text
 Select(building)
 SelectSite(site)
+SelectExplorerRobot(robot)
 Clear()
 GetSelectedBuilding()
 OpenGlobalPanel(name) / CloseGlobalPanel()
@@ -251,7 +262,9 @@ and one observable changed-notification per inspection slot.
 
 A construction site gets a slot of its own rather than being carried in the building slot. Its segments *are* `BuildingRuntime`s, and are what the grid returns for those cells, so routing one through `Select` would open the panel of the building it is going to become - a production panel over a machine that does not exist yet. What a site is waiting for and what a building is doing are different questions about the same cell.
 
-`GameRuntime.IsUIBlockingInput` is true while any of the three slots is set.
+An explorer robot gets one for the same reason read the other way round: it is **not** a `BuildingRuntime` at all, and every per-building panel keys off the building slot's notification with an `as` cast - so riding that slot would have needed each of them to learn to ignore it. It is also not a grid occupant, so unlike the other two slots there is no cell for the world to mark: a robot is found by distance from the click, not by lookup (`MAP.md` §2.1).
+
+`GameRuntime.IsUIBlockingInput` is true while any of the four slots is set.
 
 **Routing a world click to a panel** is one map, owned by whichever component resolves clicks, and reused rather than copied - notably by the construction site panel's handover (§15). Only building types that actually have a panel may become the selection: selecting one that has none would block world input with nothing able to clear it.
 
@@ -274,7 +287,7 @@ public bool TryDemolish(GridCoord cell, out BuildingRuntime removed)
 public bool CanAfford(BuildingDefinition definition)   // the placement gate, and the menu's styling
 public int GetAvailableAmount(string itemId)           // reads GlobalStock's aggregate (§15)
 
-public int BuildingCap { get; }              // 40 by default, 52 after memory_allocation
+public int BuildingCap { get; }              // 30 by default, 36 after memory_allocation
 public int OccupiedBuildingSlots { get; }    // live count against BuildingCap
 public void RestoreBuildingCap(int? cap)
 ```
@@ -304,7 +317,7 @@ Owning ground and being operational are two different states, and the flag is wh
 
 `GetPlacementRefusalReason` (TASK_04_PLAFOND_RAYON.md §3.2) is the explanatory counterpart to `CanPlace`: same checks, same order, but returns a `PlacementRefusalReason` (`None`/`NotUnlocked`/`OutOfActionRadius`/`CannotAfford`/`BuildingCapReached`/`CellOccupied`) instead of a bare bool, for player-facing messaging - meaningful only while `Selected != null`. `CannotAfford` reads the aggregate **minus what other sites have already reserved**, so placing four buildings with stock for three refuses the fourth rather than letting four sites fight over one stock afterwards. Placing still does not pay - it opens a site that reserves the whole bill and waits for robots to carry it - but the bill must be coverable at that instant, which is what makes a placed site's `missing` count zero in ordinary play.
 
-`BuildingCap` (TASK_04_PLAFOND_RAYON.md §3) is runtime state owned by `ConstructionService`, not any definition: starts at 40, raised to 52 by `memory_allocation` (via `ResearchSystem.ResearchCompleted`, same pattern as `DataCenterRuntime`'s bay/threshold subscriptions), and restored directly from a save (`RestoreBuildingCap`) rather than re-derived from `ResearchSystem.IsUnlocked`. `OccupiedBuildingSlots` counts every building currently registered with the constructor-injected `TransportSystem` except the Core and every `ConveyorRuntime`/`SplitterRuntime`/`CrossroadRuntime` - computed live from `TransportSystem.GetAllBuildings()`, never a separately tracked counter, so placing and demolishing can never drift out of sync with it. `IsPlaceable`'s cap check applies to every other building type.
+`BuildingCap` (TASK_04_PLAFOND_RAYON.md §3) is runtime state owned by `ConstructionService`, not any definition: starts at 30, raised to 36 by `memory_allocation` (via `ResearchSystem.ResearchCompleted`, same pattern as `DataCenterRuntime`'s bay/threshold subscriptions), and restored directly from a save (`RestoreBuildingCap`) rather than re-derived from `ResearchSystem.IsUnlocked`. `OccupiedBuildingSlots` counts every building currently registered with the constructor-injected `TransportSystem` except the Core and every `ConveyorRuntime`/`SplitterRuntime`/`CrossroadRuntime` - computed live from `TransportSystem.GetAllBuildings()`, never a separately tracked counter, so placing and demolishing can never drift out of sync with it. `IsPlaceable`'s cap check applies to every other building type.
 
 The Core's action radius (`CoreDefinition.ActionRadiusCells` is only the starting value) is runtime state on `CoreRuntime.ActionRadiusCells` instead - `IsWithinActionRadius` reads that, never the definition. `CoreRuntime` owns and extends it via `extended_bandwidth` (`ResearchSystem.ResearchCompleted`), exactly like `BuildingCap` above; `WorldGenerator.ActionRadiusCells` is a plain pass-through of it.
 
@@ -406,6 +419,30 @@ UI may:
 - display static definition data
 - react to selection/state notifications
 
+### 12a. Escape
+
+**`GameRuntime.Escape` is the only reader of the Escape key, and the only place the priority between the things Escape can close is written down.** A consumer asks `IsClaimedBy(EscapeClaimant)` with its own tier and acts only if it gets `true`; it must not read the key itself, and it must not infer its turn from its own state alone.
+
+The stack is **armed construction tool, then contextual panel, then global panel**. `EscapeArbiter.Claimant` derives it from `ConstructionService.Selected` and `SelectionRuntime`'s slots, so exactly one tier is ever the claimant - there is no consumed flag, and no dependence on which component's `Update` runs first. `EscapeClaimant.None` is a description of the state and never something a consumer can claim.
+
+Two consequences a new consumer has to know. A contextual and a global panel cannot both be open (§7's mutual exclusion), so their relative order never decides anything today - it is stated so that it stays decided here if that changes. And an armed tool **can** coexist with an open panel, since nothing disarms a tool when a panel opens: a consumer serving the `ArmedTool` tier must therefore not sit behind a gate on `IsUIBlockingInput`, or the key is awarded to a reader that never runs.
+
+### 12b. Input bindings
+
+**Every keyboard shortcut is an action in one table, and nothing reads a key directly.** The table is `InputSystem_Actions.inputactions`, the Input System's **project-wide actions asset** (named from `ProjectSettings/ProjectSettings.asset` and `EditorBuildSettings.asset` - two references that do not look like code). `InputBindings` is the only way in: `Find(name)` resolves an action, `IsPressed`/`WasPressedThisFrame` read it null-tolerantly. A consumer resolves once in `Start` and holds the reference; `FindAction` walks the maps and has no business running per frame.
+
+`InputActionCatalogue` names every reassignable action once, with its French label and its section, in display order. **The names appear both there and in the asset, and that is the one duplication here that could not be designed away** - the asset format has nowhere to put a label. `InputBindingTableTests` asserts the two sets are exactly equal in both directions, so an action added to one and forgotten in the other fails the suite instead of reaching play as a blank row or a dead shortcut.
+
+**The table is keyboard-only, and a test enforces it.** The mouse buttons and the wheel are read straight from the device and are deliberately not reassignable: the click/drag arbitration is a contract between `CameraPanController`, `BuildingSelectionInput` and `ConstructionInputAdapter` sharing one slop threshold, and a reassignable button could produce a configuration in which clicking selects nothing. The map's pointer drag could not be in the table even if it were reassignable - it is a UI Toolkit `PointerDownEvent`, not an Input System read - and it is pinned to the left button by a named constant. The intro and Genesis screens answer to any key at all, which is not a binding.
+
+**The camera and the map share four pan actions rather than owning four each.** They always read the same physical keys, and used to hold two literal copies of them; reassigning "vers le nord" now moves both, which is what reassigning it means.
+
+`Game.Save.PreferencesService` owns `preferences.json`, **beside `save.json` and never inside it**: a keyboard layout belongs to the person playing, not to the run, so it has to survive starting a new game and must not travel with a save file. One JSON object, one key per concern (`inputBindings` holds the Input System's own override blob, opaque here). An absent or unreadable file means "no preferences", which is the truthful default; writing an empty override set **erases** the key rather than keeping the last non-default value.
+
+**Reassigning goes through `ShortcutsPanel`** (`Game.UI`), and two of its pieces are public surface. `ActionSharingTheKeyWith(actionName)` names the other catalogue action currently on that key, or null - it compares **effective** paths, so two actions agreeing only on their asset defaults are a clash while one whose override moved it away is not, and several unbound actions do not clash with each other. `InputBindings.Suspend`/`Resume` turn the whole table off **for as long as the shortcuts screen is open**, not only during a capture: `PerformInteractiveRebinding` refuses to run on an enabled action, the key being assigned must not also do its old job, and in game the screen sits over a running world where a live shortcut would act behind it. `Show` suspends, `Hide` resumes, and that is the only path that restores them - so **Escape does not close the screen**, being an action itself. A capture still cancels on Escape, which the rebinding operation handles below the action layer. An **empty override path** is how an action is left with no key, which is what overwriting a shortcut does to the row that held it.
+
+**`InputBindings.ApplyStoredOverrides` clears every override before applying.** Domain Reload is disabled (`DEVELOPMENT_RULES.md` §5), so the actions asset instance survives Play sessions - applying on top of what was left would let a session's unsaved reassignment leak into the next one. Idempotence is the requirement, not a nicety.
+
 ## 13. Contract evolution
 
 Changing a public contract is an architectural change.
@@ -446,6 +483,10 @@ public void RestoreBuildingCap(int? cap)                                // Const
 public void Restore(float? elapsedSeconds)                              // PlayClock
 ```
 
+**`ObservationRuntime` has no `Capture`/`Restore` pair, and that absence is the contract** (`MAP.md` §2). Which cells are being observed is recomputed every frame from where the observers are, so there is nothing to round-trip: a loaded game rebuilds the whole field on its first frame from the Core and the robots the load put back. Adding a save field for it would create a second source of truth able to contradict the observers' real positions - and it would need clearing, which is the defect that shape of code always produces. `ObservationRuntimeTests` pins the half that could break silently: what discovery captures is byte-identical whether anything is watching or not.
+
+`SaveData.ExplorerRobots` is a `JObject` blob of the same kind, owned by `Game.Gameplay.Exploration.ExplorerRobotSystem` (`MAP.md` §2.1): per robot its position, heading, state, drift phase and sortie count. No `Version` bump - additive with a per-field fallback, and an absent key restores as a fleet standing at the base, which is the truthful default rather than a convenient one: a robot nobody has sent anywhere is at home. A blob listing fewer robots than the configured fleet restores the rest at home too.
+
 `CoreRuntime`'s own `CaptureState`/`RestoreState` (TASK_04_PLAFOND_RAYON.md §6) now also round-trips `actionRadiusCells` alongside `cuTimer`/`contents` - absent falls back to `CoreDefinition.ActionRadiusCells`, never to 0. `SaveData.BuildingCap` (nullable) is the matching top-level field for `ConstructionService.BuildingCap`, restored via `RestoreBuildingCap`; absent falls back to `ConstructionService.DefaultBuildingCap` (40). Neither addition bumped `SaveData.Version` - both are simple additive fields with a per-field fallback, not the kind of structural reshaping the Version gate exists for. `SaveData.PlayTimeSeconds` (nullable, `Game.Gameplay.Session.PlayClock`) is a third of the same kind: how long the run has been played, in simulated seconds; absent restores as a run starting its count, never as one that lasted zero seconds. `DepositSaveData` lost its `RemainingQuantity` for the opposite reason: a deposit never runs out (ALIGNEMENT_PROJET.md §8), so it holds no mutable state and there is nothing to round-trip - only where it is and what it is. No `Version` bump either: an older save's key is simply ignored, which is exactly right now that the answer is "infinite" whatever number it carried.
 
 `BuildingRuntime.CaptureState()`/`RestoreState(JObject)` are virtual, empty by default; each subclass with real mutable state overrides both (`ProductionBuildingRuntime` and its subclasses, `StorageRuntime`, `ConveyorRuntime`, `CoreRuntime`, `ExtractorRuntime`, `PowerplantGazRuntime`, `DataCenterRuntime`, `SplitterRuntime`, `CrossroadRuntime`). A building's envelope (`Definition.Id`, `Cell`, `FacingRotation`) is captured generically by `GameRuntime`, not by the building itself - only its type-specific payload goes through `CaptureState()`.
@@ -466,17 +507,17 @@ Restore is tolerant like every other: a null, an empty string or a malformed run
 
 `SaveData.DecorRemoved` round-trips what the player has cleared of the wild decor (`DecorRuntime.CaptureState()`/`RestoreState(string)`), as a comma-separated list of cell indices. A string, for the same `Game.Grid` dependency reason as `Discovered`. **Only the removals are stored**: what grows is a pure function of the seed and re-derives itself at load, so storing it would be storing what the seed already says — but the seed cannot say that a rock was cleared to make room for a building, and without the delta set that rock returns the moment the camera's decor window leaves and comes back. Nothing is recorded for ground that grew nothing, and nothing is recorded for a cell an ore deposit covers (that is filtered live, so the ground comes back when the deposit is mined out). Restore is tolerant; a save predating the field loads as a world nobody has cleared anything in, which is exactly what it recorded. No `Version` bump — an additive field with a per-field fallback. See [`TERRAIN.md`](TERRAIN.md) §4.
 
-`SaveData.Missions` (a `JObject`) round-trips the expedition system: missions in flight with their clock and their **already-drawn outcome**, the charges left on each probe, the sites already recovered, and the introduction's reward budgets (`MissionSystem.CaptureState()`/`RestoreState(JObject)`).
-
-**The outcome is stored, not a seed.** A mission saved in flight has to land identically — neither redrawn, which would let a reload buy a better result, nor lost. Carrying the drawn outcome makes that structural: there is nothing left to decide at landing, so nothing a reload can decide differently. A seed drawn at arrival would instead depend on the state of the world at that moment, and a reload moves that moment relative to everything else.
-
-Reports waiting to be read are deliberately absent from the save: an unread one is delivered again at the next landing rather than lost. No `Version` bump — an additive field with a per-field fallback, which restores as a game whose probes have not yet arrived. See [`../expeditions.md`](../expeditions.md).
+`SaveData.WrecksDiscovered` round-trips which wrecks the player has found, as comma-separated indices (`WreckField.CaptureState()`/`RestoreState(string)`). **Only the discovered set**: where a wreck is and which of the three sprites it draws are pure functions of `SaveData.TerrainSeed`, re-derived at load, so storing them would be storing what the seed already says. Restore is tolerant - an absent value is a world nobody has found anything in, and an index the current ring settings no longer produce is ignored rather than throwing, so changing a ring's count costs the wrecks that no longer exist and not the save. No `Version` bump: an additive field with its own fallback. See [`MAP.md`](MAP.md) §4a.
 
 `SaveData`'s four terrain fields (`TerrainSeed`, `TerrainSize`, `TerrainScale`, `TerrainProportion`) are captured from the **running world** (`GameRuntime.Terrain`), never from the settings asset. The two agree on a fresh game and diverge on a loaded one, which runs on the values its save carried. Terrain is not stored anywhere - it is re-derived from exactly these four numbers - so writing the asset's values back would re-stamp a save with whatever the asset happens to say today, and regenerate a different world underneath buildings already placed.
 
-The sectors add nothing to the save. Their names, risk and contents are pure functions of the world seed and the sector index, so they are re-derived at load rather than stored; `SaveData.TerrainSeed` is what actually has to survive for them to come back identical.
+**`WorldGenerator` owns every deposit, and `AddDeposit` is the only way to add one after generation.** It places into `Game.Grid` and registers in `OreDeposits` in one call, then raises `DepositAppeared` so presentation can spawn the view. A caller must not reach for `GridRuntime.PlaceDeposit` itself: it returns the runtime it created, and dropping that return value leaves a deposit that the grid knows about while the view and the save do not - drawn nowhere and lost on the next load, with nothing failing anywhere. `SectorMaterialisation` with no world writes nothing at all rather than writing where nothing owns it.
+
+The sectors add nothing to the save. What a sector holds is a pure function of the world seed and the sector index, so it is re-derived at load rather than stored; `SaveData.TerrainSeed` is what actually has to survive for it to come back identical. What a robot has already materialised is a different matter and travels with the deposits themselves.
 
 `Game.Save.PendingGameStart` carries the player's New Game/Load choice across the `MainMenu.unity → Bootstrap.unity` scene load. It is the one deliberately mutable static field the save system introduces (DEVELOPMENT_RULES.md §5): a single field, consumed and cleared at the very start of `GameRuntime.Awake()`, never read anywhere else.
+
+Because it is cleared there, anything later in the frame that must tell a fresh run from a restored one has to be told by `GameRuntime` or not at all: `GameRuntime.StartedFromNewGame` is that answer, set from `loadedSave == null` in `Awake()` and read-only afterwards. Its one consumer is the awakening message (GLOBAL_UI.md §4a), which belongs to the birth of the Core rather than to the launch of the game.
 
 `SaveData.ConstructionSites` (a `JObject`) round-trips every construction site (segments, delivered totals, reservations) and both builder robots (position, state, cargo) plus any repatriation still in flight, via `ConstructionSiteSystem.CaptureState()`/`RestoreState(...)` (§15). It restores last, after every real building is back in `Game.Grid` and registered, because a site's segments are rebuilt with the same `CreateForRestore` factory and its reservations are re-resolved by container cell. An absent key restores as two idle robots with no site, without throwing. `SaveData.GlobalStock` no longer exists: the aggregate holds nothing, so there is nothing to serialize - it is recomputed from the real containers at load. Both changes bumped `SaveData.CurrentVersion` to 3.
 
@@ -520,7 +561,11 @@ Assembled here rather than left to the reader for the same reason as `SegmentPro
 
 **Inspecting a site.** Clicking a not-yet-materialized segment opens the site's supply panel through `Selection.SelectSite` (§7), never the panel of the building it will become. When the site finishes, that panel hands over to the finished building's own panel instead of closing - completion and cancellation are the same event only from the code's side, and `IsComplete` tells them apart (cancelling frees the segments that were never built, so a cancelled site is by construction one whose segments did not all materialize).
 
-**Robots.** Two `BuilderRobotRuntime` (4-unit capacity, 4.4 cells/s, free diagonal movement, no pathfinding), driven only by this system's tick - never by their own `Update()`; the view reads `Position` and converts it to world space, nothing more. They always serve the **oldest site that currently has something reserved and not yet delivered**: a site blocked on a material nobody has is skipped rather than blocking the queue, and reclaims the robots as soon as it can be served again. "One chantier at a time" is about simultaneous execution (both robots serve the same one), not about strict queue order. Each robot claims its share of a site's reservations before leaving, so two robots never fetch the same promised piece twice.
+**Robots.** Two `BuilderRobotRuntime` (4.4 cells/s, free diagonal movement, no pathfinding), driven only by this system's tick - never by their own `Update()`; the view reads `Position` and converts it to world space, nothing more. They always serve the **oldest site that currently has something reserved and not yet delivered**: a site blocked on a material nobody has is skipped rather than blocking the queue, and reclaims the robots as soon as it can be served again. "One chantier at a time" is about simultaneous execution (both robots serve the same one), not about strict queue order. Each robot claims its share of a site's reservations before leaving, so two robots never fetch the same promised piece twice.
+
+**Cargo is uncapped for construction and capped at `BuilderRobotRuntime.DirectiveCargoCapacity` (5) for a Core directive.** The two are different kinds of job: a building waiting on its materials should not take five waves to receive a bill one robot could carry, while a directive is a hand-over the player chose to take on and how many waves it asks for is part of what it asks. Repatriation follows construction, being the same bill read backwards.
+
+**One source container per round trip, and everything it holds for that job.** A trip is multi-item now, not one ingredient: with the materials in one chest - which is where the player's are, in the Core's own reserve - a whole building's bill arrives in one trip. Spread across two chests it is two trips. There are still no multi-stop tours, which is the decision that rule comes from. A consequence worth knowing: a long conveyor drag is one site, so a funded run now completes from a single delivery rather than a wave per five units.
 
 A dispatched robot's claim moves out of the site's reservations and into its own `PendingAmount`, which counts against a container's reserved total for the whole outbound trip - otherwise the units sit claimed by nobody between dispatch and pickup, and one stack gets promised twice. The counterpart is that **a site leaving the queue must release the robots working for it**: cargo already picked up is dropped off like a repatriation, and a robot merely on its way to fetch drops its `PendingAmount` claim. A claim left standing is unreachable stock for the rest of the game - no reservation pass can see past it, so no site is served, so no robot is ever reassigned to clear it.
 

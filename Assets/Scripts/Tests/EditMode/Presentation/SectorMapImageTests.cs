@@ -8,11 +8,13 @@ using UnityEngine;
 namespace Game.Tests.EditMode.Presentation
 {
     /// <summary>
-    /// The zoomed-out map's image: one texel per sector, for the whole map.
+    /// The zoomed-out map's terrain: one tile per discovered chunk, one texel per cell, nothing
+    /// anywhere else.
     ///
-    /// Two properties carry it, and both fail quietly. It must walk only the chunks that exist, or
-    /// a 10 000-cell map costs 390 625 sector tests per rebuild instead of a handful. And it must not
-    /// re-upload when nothing has been discovered, or a still frame pays for a texture upload forever.
+    /// Three properties carry it, and each fails quietly. Nothing may be drawn where nothing is
+    /// discovered, or the black stops being absence and becomes a surface. A rebuild must cost the
+    /// chunk that changed rather than everything ever seen. And a refresh that discovered nothing must
+    /// not upload, or a still frame pays for a texture upload forever.
     /// </summary>
     public class SectorMapImageTests
     {
@@ -24,97 +26,99 @@ namespace Game.Tests.EditMode.Presentation
 
         static DiscoveryRuntime NewDiscovery(int mapSize = MapSize) => new DiscoveryRuntime(mapSize, ChunkSize);
 
-        [Test]
-        public void TheImageIsOneTexelPerSector()
-        {
-            SectorGrid grid = NewGrid();
-            var image = new SectorMapImage(grid, NewDiscovery());
-
-            Assert.AreEqual(grid.Columns, image.SizeSectors, "625 sectors along an axis of a 10 000-cell map");
-            Assert.AreEqual(grid.Columns, image.Texture.width);
-            Assert.AreEqual(grid.Columns, image.Texture.height);
-
-            image.Dispose();
-        }
-
-        [Test]
-        public void AnUntouchedMapIsWhollyUnknown()
-        {
-            var image = new SectorMapImage(NewGrid(), NewDiscovery());
-            image.Refresh();
-
-            Assert.AreEqual(SectorMapImage.UnknownTexel, image.TexelAt(0, 0));
-            Assert.AreEqual(SectorMapImage.UnknownTexel, image.TexelAt(312, 312));
-            Assert.AreEqual(0, image.LastVisitedSectorCount, "nothing has been written, so there is nothing to walk");
-
-            image.Dispose();
-        }
+        /// <summary>
+        /// Reveals the disc inscribed in one sector. Purely a fixture convenience: it puts a patch of
+        /// known size on a known chunk boundary, which is what these tests need to arrange. The game
+        /// itself never reveals by sector - a wandering robot reveals a disc wherever it happens to
+        /// be, and the sector grid has nothing to do with it.
+        /// </summary>
+        static int RevealSector(SectorGrid grid, int index, DiscoveryRuntime discovery)
+            => discovery.RevealDisc(grid.CenterCells(index), grid.InscribedRadiusCells);
 
         /// <summary>
-        /// A sector opened by a mission rests at Partial forever - the inscribed disc cannot cover the
-        /// corners - so Partial is the normal state on this map, not a transient.
+        /// The rewrite's whole point. One texture for a 10 000-cell world is 400 MB per cell; one tile
+        /// per discovered chunk is 16 KB each, and only for chunks that exist.
         /// </summary>
         [Test]
-        public void ARevealedSectorReadsAsPartial()
+        public void ATileIsOneChunk_OneTexelPerCell()
         {
             SectorGrid grid = NewGrid();
             DiscoveryRuntime discovery = NewDiscovery();
             var image = new SectorMapImage(grid, discovery);
 
-            int index = grid.IndexAt(312, 312);
-            grid.RevealInscribedDisc(index, discovery);
+            Assert.AreEqual(0, image.Tiles.Count, "an untouched world has no tiles at all");
+
+            RevealSector(grid, grid.IndexAt(312, 312), discovery);
             image.Refresh();
 
-            Assert.AreEqual(SectorMapImage.PartialTexel, image.TexelAt(312, 312));
-
-            image.Dispose();
-        }
-
-        [Test]
-        public void AFullyRevealedSectorReadsAsDiscovered()
-        {
-            SectorGrid grid = NewGrid();
-            DiscoveryRuntime discovery = NewDiscovery();
-            var image = new SectorMapImage(grid, discovery);
-
-            const int Column = 100;
-            const int Row = 100;
-            foreach (GridCoord cell in grid.CellsOf(grid.IndexAt(Column, Row))) discovery.Reveal(cell);
-
-            image.Refresh();
-            Assert.AreEqual(SectorMapImage.DiscoveredTexel, image.TexelAt(Column, Row));
+            Assert.AreEqual(1, image.Tiles.Count);
+            Assert.AreEqual(ChunkSize, image.Tiles[0].Texture.width);
+            Assert.AreEqual(ChunkSize, image.Tiles[0].Texture.height);
+            Assert.AreEqual(ChunkSize, image.ChunkSizeCells);
 
             image.Dispose();
         }
 
         /// <summary>
-        /// The property that makes drawing a 390 625-sector map affordable. A chunk holds 4x4 sectors,
-        /// so revealing one sector should cost sixteen sector tests - not the whole map.
+        /// <b>Nothing is drawn where nothing is discovered.</b> The earlier image painted unknown
+        /// ground a shade above the panel background so a sector could be aimed at; missions are aimed
+        /// at sites now, and the black has to be the absence of a map rather than a dark shape on one.
         /// </summary>
         [Test]
-        public void OnlyTheChunksThatExistAreWalked()
+        public void UndiscoveredGround_IsNotDrawnAtAll()
         {
             SectorGrid grid = NewGrid();
             DiscoveryRuntime discovery = NewDiscovery();
             var image = new SectorMapImage(grid, discovery);
 
-            grid.RevealInscribedDisc(grid.IndexAt(312, 312), discovery);
+            discovery.RevealDisc(new Vector2(5000f, 5000f), 10f);
             image.Refresh();
 
-            Assert.AreEqual(1, discovery.MaterialisedChunkCount);
-            Assert.AreEqual(16, image.LastVisitedSectorCount,
-                "one chunk holds 4x4 sectors, and nothing outside a materialised chunk can be anything but unknown");
+            Assert.IsTrue(image.IsDrawnAt(new GridCoord(5000, 5000)), "the middle of the revealed disc is drawn");
 
-            Assert.Less(image.LastVisitedSectorCount, grid.Count / 1000,
-                $"{image.LastVisitedSectorCount} sectors walked out of {grid.Count} - the sparse walk is not holding");
+            // Inside the same chunk, outside the disc: the tile exists, and this cell is still absent.
+            Assert.IsFalse(image.IsDrawnAt(new GridCoord(4970, 4970)),
+                "a cell in a discovered chunk that was never revealed must stay transparent");
+
+            // And a cell in no tile at all.
+            Assert.IsFalse(image.IsDrawnAt(new GridCoord(100, 100)));
 
             image.Dispose();
         }
 
         /// <summary>
-        /// The property that keeps the map affordable once a player has explored: a rebuild must cost
-        /// the chunk that changed, not everything ever seen. Walking all materialised chunks measured
-        /// 154 ms on a well-explored map - a dropped frame every time a mission reports back.
+        /// The reason the sector image had to go. A mission reveals a disc of radius 8 in a 16-cell
+        /// sector, so at one texel per sector the whole square took one flat colour and the map read as
+        /// a grid of blocks. Per cell, the revelation has an edge.
+        /// </summary>
+        [Test]
+        public void ARevealedDisc_HasAnEdge_RatherThanFillingItsSquare()
+        {
+            SectorGrid grid = NewGrid();
+            DiscoveryRuntime discovery = NewDiscovery();
+            var image = new SectorMapImage(grid, discovery);
+
+            int sector = grid.IndexAt(312, 312);
+            RevealSector(grid, sector, discovery);
+            image.Refresh();
+
+            int drawn = 0;
+            int absent = 0;
+            foreach (GridCoord cell in grid.CellsOf(sector))
+            {
+                if (image.IsDrawnAt(cell)) drawn++;
+                else absent++;
+            }
+
+            Assert.Greater(drawn, 0, "the disc was drawn");
+            Assert.Greater(absent, 0, "and its square's corners were not - which is the whole difference");
+
+            image.Dispose();
+        }
+
+        /// <summary>
+        /// The property that keeps the map affordable once a player has explored: a rebuild costs the
+        /// chunk that changed, not everything ever seen.
         /// </summary>
         [Test]
         public void ARebuildCostsWhatChanged_NotWhatExists()
@@ -123,36 +127,31 @@ namespace Game.Tests.EditMode.Presentation
             DiscoveryRuntime discovery = NewDiscovery();
             var image = new SectorMapImage(grid, discovery);
 
-            // A wide explored area first, all of it drawn once.
-            for (int i = 0; i < 400; i++) grid.RevealInscribedDisc(grid.IndexAt(200 + i % 20, 200 + i / 20), discovery);
+            for (int i = 0; i < 400; i++) RevealSector(grid, grid.IndexAt(200 + i % 20, 200 + i / 20), discovery);
             image.Refresh();
 
-            int walkedForEverything = image.LastVisitedSectorCount;
-            Assert.Greater(walkedForEverything, 300, "the fixture needs a decent area explored to be worth anything");
+            int cellsForEverything = image.LastVisitedCellCount;
+            int tilesForEverything = image.Tiles.Count;
+            Assert.Greater(tilesForEverything, 1, "the fixture needs several chunks to be worth anything");
 
-            // Then one more sector, far from the rest so it lands in a chunk of its own.
-            grid.RevealInscribedDisc(grid.IndexAt(500, 500), discovery);
+            // One more sector, far from the rest so it lands in a chunk of its own.
+            RevealSector(grid, grid.IndexAt(500, 500), discovery);
             Assert.IsTrue(image.Refresh());
 
-            Assert.AreEqual(16, image.LastVisitedSectorCount,
-                $"revealing one sector walked {image.LastVisitedSectorCount} sectors - the rebuild is still "
-                + "pricing everything the player has ever seen, not what moved");
+            Assert.AreEqual(ChunkSize * ChunkSize, image.LastVisitedCellCount,
+                $"revealing one sector repainted {image.LastVisitedCellCount} cells - the rebuild is pricing "
+                + "everything the player has ever seen, not what moved");
+            Assert.Less(image.LastVisitedCellCount, cellsForEverything);
 
-            Assert.AreEqual(SectorMapImage.PartialTexel, image.TexelAt(500, 500), "the new sector was drawn");
-            Assert.AreEqual(SectorMapImage.PartialTexel, image.TexelAt(200, 200), "and the old ones were not wiped");
+            Assert.IsTrue(image.IsDrawnAt(new GridCoord(500 * SectorSize + 8, 500 * SectorSize + 8)), "the new ground was drawn");
+            Assert.IsTrue(image.IsDrawnAt(new GridCoord(200 * SectorSize + 8, 200 * SectorSize + 8)), "and the old was not wiped");
 
             image.Dispose();
         }
 
         /// <summary>
         /// Every way of writing discovery has to reach the image, not just the one it was built
-        /// against.
-        ///
-        /// This is the test that was missing when the incremental rebuild went in: per-chunk stamps
-        /// were written by <c>Reveal</c> only, while the Core's starting disc goes through
-        /// <c>RevealDisc</c> and a mission through <c>RevealInscribedDisc</c>. The version moved, no
-        /// chunk looked changed, and the map drew nothing - indistinguishable from nothing having
-        /// happened.
+        /// against. This is the test that was missing when the incremental rebuild first went in.
         /// </summary>
         [Test]
         public void EveryWayOfRevealing_ReachesTheImage()
@@ -161,12 +160,10 @@ namespace Game.Tests.EditMode.Presentation
             DiscoveryRuntime discovery = NewDiscovery();
             var image = new SectorMapImage(grid, discovery);
 
-            // RevealDisc - the Core's own radius.
             discovery.RevealDisc(new Vector2(5000f, 5000f), 40f);
             Assert.IsTrue(image.Refresh());
-            Assert.AreNotEqual(SectorMapImage.UnknownTexel, image.TexelAt(312, 312), "the Core's starting disc never reached the image");
+            Assert.IsTrue(image.IsDrawnAt(new GridCoord(5000, 5000)), "the Core's starting disc never reached the image");
 
-            // RevealCells - an arbitrary region.
             var cells = new List<GridCoord>();
             for (int y = 1600; y < 1616; y++)
                 for (int x = 1600; x < 1616; x++)
@@ -174,38 +171,33 @@ namespace Game.Tests.EditMode.Presentation
 
             discovery.RevealCells(cells);
             Assert.IsTrue(image.Refresh());
-            Assert.AreEqual(SectorMapImage.DiscoveredTexel, image.TexelAt(100, 100), "a region revelation never reached the image");
+            Assert.IsTrue(image.IsDrawnAt(new GridCoord(1608, 1608)), "a region revelation never reached the image");
 
-            // Reveal - one cell.
             discovery.Reveal(new GridCoord(3200, 3200));
             Assert.IsTrue(image.Refresh());
-            Assert.AreEqual(SectorMapImage.PartialTexel, image.TexelAt(200, 200), "a single-cell revelation never reached the image");
+            Assert.IsTrue(image.IsDrawnAt(new GridCoord(3200, 3200)), "a single-cell revelation never reached the image");
 
             image.Dispose();
         }
 
-        /// <summary>
-        /// Restoring a save replaces every chunk. The stamps are taken from a version that only ever
-        /// increases, so a restored chunk cannot be mistaken for the one already drawn - which a
-        /// per-chunk counter starting again at zero would have allowed.
-        /// </summary>
+        /// <summary>Restoring a save replaces every chunk, and the stamps come from a version that only ever increases - so a restored chunk cannot be mistaken for one already drawn.</summary>
         [Test]
         public void AfterARestore_TheImageRedraws()
         {
             SectorGrid grid = NewGrid();
             DiscoveryRuntime discovery = NewDiscovery();
 
-            grid.RevealInscribedDisc(grid.IndexAt(312, 312), discovery);
+            RevealSector(grid, grid.IndexAt(312, 312), discovery);
             string saved = discovery.CaptureState();
 
             var fresh = new DiscoveryRuntime(MapSize, ChunkSize);
             var image = new SectorMapImage(grid, fresh);
             image.Refresh();
-            Assert.AreEqual(SectorMapImage.UnknownTexel, image.TexelAt(312, 312));
+            Assert.AreEqual(0, image.Tiles.Count, "nothing discovered, nothing drawn");
 
             fresh.RestoreState(saved);
             Assert.IsTrue(image.Refresh());
-            Assert.AreEqual(SectorMapImage.PartialTexel, image.TexelAt(312, 312));
+            Assert.IsTrue(image.IsDrawnAt(new GridCoord(312 * SectorSize + 8, 312 * SectorSize + 8)));
 
             image.Dispose();
         }
@@ -217,7 +209,7 @@ namespace Game.Tests.EditMode.Presentation
             DiscoveryRuntime discovery = NewDiscovery();
             var image = new SectorMapImage(grid, discovery);
 
-            grid.RevealInscribedDisc(grid.IndexAt(312, 312), discovery);
+            RevealSector(grid, grid.IndexAt(312, 312), discovery);
             Assert.IsTrue(image.Refresh());
 
             int uploads = image.UploadCount;
@@ -236,44 +228,45 @@ namespace Game.Tests.EditMode.Presentation
             DiscoveryRuntime discovery = NewDiscovery();
             var image = new SectorMapImage(grid, discovery);
 
-            grid.RevealInscribedDisc(grid.IndexAt(312, 312), discovery);
+            RevealSector(grid, grid.IndexAt(312, 312), discovery);
             image.Refresh();
             int uploads = image.UploadCount;
 
-            grid.RevealInscribedDisc(grid.IndexAt(320, 312), discovery);
+            RevealSector(grid, grid.IndexAt(320, 312), discovery);
 
             Assert.IsTrue(image.Refresh());
             Assert.AreEqual(uploads + 1, image.UploadCount);
-            Assert.AreEqual(SectorMapImage.PartialTexel, image.TexelAt(320, 312));
-            Assert.AreEqual(SectorMapImage.PartialTexel, image.TexelAt(312, 312), "and the first one is still there");
+            Assert.IsTrue(image.IsDrawnAt(new GridCoord(320 * SectorSize + 8, 312 * SectorSize + 8)));
+            Assert.IsTrue(image.IsDrawnAt(new GridCoord(312 * SectorSize + 8, 312 * SectorSize + 8)), "and the first one is still there");
 
             image.Dispose();
         }
 
-        /// <summary>Sectors clipped by the map's edge must not be written outside the image, nor drop a real sector.</summary>
+        /// <summary>A tile is square even where the world is not: cells past the map's edge are simply never discovered, so they stay absent.</summary>
         [Test]
         public void TheMapsEdgeIsHandled()
         {
-            SectorGrid grid = NewGrid(300);   // 300 is not a whole number of 16s
-            DiscoveryRuntime discovery = new DiscoveryRuntime(300, ChunkSize);
+            SectorGrid grid = NewGrid(300);
+            var discovery = new DiscoveryRuntime(300, ChunkSize);
             var image = new SectorMapImage(grid, discovery);
 
             int last = grid.Columns - 1;
-            grid.RevealInscribedDisc(grid.IndexAt(last, last), discovery);
+            RevealSector(grid, grid.IndexAt(last, last), discovery);
 
             Assert.DoesNotThrow(() => image.Refresh());
-            Assert.AreNotEqual(SectorMapImage.UnknownTexel, image.TexelAt(last, last));
+            Assert.AreEqual(1, image.Tiles.Count);
+            Assert.IsFalse(image.IsDrawnAt(new GridCoord(400, 400)), "past the world's edge there is nothing to draw");
 
             image.Dispose();
         }
 
         [Test]
-        public void ReadingOutsideTheImageIsUnknown()
+        public void ReadingOutsideTheWorldIsNotDrawn()
         {
             var image = new SectorMapImage(NewGrid(), NewDiscovery());
 
-            Assert.AreEqual(SectorMapImage.UnknownTexel, image.TexelAt(-1, 0));
-            Assert.AreEqual(SectorMapImage.UnknownTexel, image.TexelAt(0, 99999));
+            Assert.IsFalse(image.IsDrawnAt(new GridCoord(-1, 0)));
+            Assert.IsFalse(image.IsDrawnAt(new GridCoord(0, 99999)));
 
             image.Dispose();
         }

@@ -66,6 +66,12 @@ namespace Game.Gameplay.Buildings
             Definition = definition;
             Cell = cell;
             FacingRotation = facingRotation;
+
+            // Opposite the output, which is what a belt running straight through wants. The
+            // placement path overwrites it with whatever the player chose with T.
+            // facingRotation rather than ExitDirection: that one is virtual, and calling an
+            // override from a base constructor reads a derived field before it is assigned.
+            InputSide = DefaultInputSideFor(facingRotation);
         }
 
         /// <summary>
@@ -96,6 +102,12 @@ namespace Game.Gameplay.Buildings
         public virtual void SetFacingRotation(Direction rotation)
         {
             FacingRotation = rotation;
+
+            // The single input is stored absolutely, so a rotation can leave it sitting on the new
+            // output side - which SetInputSide refuses, leaving the building quietly taking nothing.
+            // Put back to the default whenever the facing moves; the placement ghost re-applies the
+            // player's choice on top after it has rotated.
+            if (Definition.HasSingleInputArrow && InputSide == ExitDirection) ResetInputSideToDefault();
         }
 
         /// <summary>
@@ -121,6 +133,14 @@ namespace Game.Gameplay.Buildings
 
         /// <summary>Whether this building participates in directional flow. False by default.</summary>
         public virtual bool IsFlowReceiver() => false;
+
+        /// <summary>
+        /// Puts the single input back opposite the output. Called when the facing changes, because
+        /// the input side is stored absolutely rather than relative to the exit: rotating a building
+        /// whose input sat opposite would otherwise leave it pointing at the new output side, which
+        /// SetInputSide refuses - and the building would silently keep taking nothing.
+        /// </summary>
+        protected void ResetInputSideToDefault() => InputSide = DefaultInputSideFor(ExitDirection);
 
         /// <summary>
         /// The true direction items leave from. Equal to FacingRotation for every building
@@ -230,18 +250,67 @@ namespace Game.Gameplay.Buildings
         public (GridCoord cell, Direction fromMySide)[] GetEdgeCells() => ComputeEdgeCells(Cell, Definition.FootprintSize);
 
         /// <summary>
+        /// Which side this building takes deliveries on, for one declaring a single input
+        /// (<see cref="Data.BuildingDefinition.HasSingleInputArrow"/>). Meaningless for anything
+        /// else, and ignored by them.
+        ///
+        /// <b>Defaults to the opposite of the output</b>, which is the arrangement a belt running
+        /// through wants, and is moved with <c>T</c> while the placement ghost is up. It can never
+        /// equal <see cref="ExitDirection"/> - <see cref="SetInputSide"/> refuses that, because a
+        /// side that both takes and gives would feed the building its own production.
+        /// </summary>
+        public Direction InputSide { get; private set; }
+
+        /// <summary>
+        /// Points the single input at a side. Refuses the output side, and refuses silently: the
+        /// caller is a key press or a restored save, and neither has anywhere to report to.
+        /// </summary>
+        public void SetInputSide(Direction side)
+        {
+            if (side == ExitDirection) return;
+            InputSide = side;
+        }
+
+        /// <summary>
         /// The cells this building actually takes input from - exactly the cells its input arrows
-        /// are drawn on, so what the player sees is what transport does. A building declaring
-        /// directional input (HasInputArrows) accepts on one cell per side other than its output
-        /// side, and nowhere else; one declaring none (Storage, Core) keeps accepting on every
-        /// edge cell, matching the "input from any side" behavior it is defined with.
+        /// are drawn on, so what the player sees is what transport does.
+        ///
+        /// Three shapes, and each is a different promise. A <b>single</b> input
+        /// (HasSingleInputArrow) accepts on one cell of one side and nowhere else. <b>Directional</b>
+        /// input (HasInputArrows) accepts on one cell per side other than its output side. Declaring
+        /// <b>neither</b> (Storage, Core) keeps accepting on every edge cell, matching the "input
+        /// from any side" behaviour those are defined with.
         /// </summary>
         public (GridCoord cell, Direction fromMySide)[] GetInputCells()
         {
+            if (Definition.HasSingleInputArrow)
+            {
+                return new[] { ComputeSingleInputCell(Cell, Definition.FootprintSize, InputSide) };
+            }
+
             return Definition.HasInputArrows
                 ? ComputeInputCells(Cell, Definition.FootprintSize, ExitDirection)
                 : GetEdgeCells();
         }
+
+        /// <summary>
+        /// The one cell a single-input building takes deliveries on, for a given side - the middle
+        /// cell of that side, the same rule the output arrow follows. Static so the placement ghost
+        /// previews exactly the cell the built building will use.
+        /// </summary>
+        public static (GridCoord cell, Direction fromMySide) ComputeSingleInputCell(
+            GridCoord cell, UnityEngine.Vector2Int footprintSize, Direction inputSide)
+        {
+            GridCoord[] sideCells = ComputeOutputCells(cell, footprintSize, inputSide);
+            return (sideCells[MiddleIndex(sideCells.Length)], inputSide);
+        }
+
+        /// <summary>
+        /// The side a single input starts on for a given output: the opposite one, which is what a
+        /// belt running straight through wants. Stated once here so the ghost, the placement and a
+        /// restored save cannot each pick a different default.
+        /// </summary>
+        public static Direction DefaultInputSideFor(Direction exitDirection) => exitDirection.Opposite();
 
         /// <summary>
         /// Footprint-aware output cells for a given cell/footprint/exit direction, with no

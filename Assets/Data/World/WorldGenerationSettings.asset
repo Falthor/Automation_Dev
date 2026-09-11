@@ -19,10 +19,8 @@ MonoBehaviour:
   randomizeResourceSeed: 1
   resourceSeed: 12345
   startingStock:
-  - item: {fileID: 11400000, guid: d5be11fa9d151e345a38f4254d3f1430, type: 2}
-    amount: 25
   - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
-    amount: 70
-  - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
-    amount: 15
+    amount: 60
+  - item: {fileID: 11400000, guid: a1c4e07b3f5d42a1b8e6c9d0f2a4b6c8, type: 2}
+    amount: 20
   coreStorageDefinition: {fileID: 11400000, guid: b32fa419afa8927e913cf91edff080bb, type: 2}

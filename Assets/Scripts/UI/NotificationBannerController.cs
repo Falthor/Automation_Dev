@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Game.Gameplay.Notifications;
 using Game.Presentation;
@@ -9,11 +10,15 @@ namespace Game.UI
     /// <summary>
     /// Left-edge notification banner (TASK_05_ROBOT_CONSTRUCTEUR.md §6). Deliberately generic: it
     /// renders whatever NotificationSystem currently holds - severity, message, optional countdown -
-    /// and knows nothing about robots, construction sites, or any other specific source. It never
-    /// blocks interaction (the whole banner is picking-mode Ignore, no buttons).
+    /// and knows nothing about robots, construction sites, or any other specific source.
     ///
     /// Rows are rebuilt only when the set of live notifications changes; countdown labels are
     /// refreshed in place every frame, so a ticking countdown never rebuilds the hierarchy.
+    ///
+    /// <b>A row that carries an action is clickable, and only that row.</b> The banner root stays
+    /// picking-mode Ignore and so does every informational row, so the promise that it blocks nothing
+    /// survives - what changed is that an event can now lead to the action it is about instead of
+    /// only announcing itself. What the click does belongs entirely to whoever posted.
     /// </summary>
     public sealed class NotificationBannerController : MonoBehaviour
     {
@@ -73,10 +78,26 @@ namespace Game.UI
                 var item = new VisualElement();
                 item.AddToClassList("notification-item");
                 item.AddToClassList(SeverityClass(notification.Severity));
-                item.pickingMode = PickingMode.Ignore;
+
+                // Only a row that has somewhere to go takes the pointer. Everything else stays
+                // transparent to it, so the banner keeps its promise of never blocking interaction -
+                // the whole point of the root being Ignore.
+                if (notification.IsActionable)
+                {
+                    item.pickingMode = PickingMode.Position;
+                    item.AddToClassList("notification-item-actionable");
+
+                    Action activate = notification.OnActivated;
+                    item.RegisterCallback<ClickEvent>(_ => activate());
+                }
+                else
+                {
+                    item.pickingMode = PickingMode.Ignore;
+                }
 
                 var message = new Label(notification.Message);
                 message.AddToClassList("notification-message");
+                message.pickingMode = PickingMode.Ignore;   // the row handles the click, not its text
                 item.Add(message);
 
                 if (notification.CountdownRemainingSeconds.HasValue)

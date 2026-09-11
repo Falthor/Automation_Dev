@@ -170,7 +170,7 @@ namespace Game.Gameplay.Sites
         /// <summary>
         /// Takes a site out of the queue and releases every robot still working for it. Cargo
         /// already picked up is dropped off rather than lost; a robot merely on its way to fetch
-        /// also drops the claim it was carrying on that container, since PendingAmount counts
+        /// also drops the claim it was carrying on that container, since what is pending counts
         /// against TotalReserved and a claim left standing would keep that stock unclaimable by
         /// anything, forever - the robot has nowhere to bring it and no reservation pass can see
         /// past it.
@@ -185,8 +185,7 @@ namespace Game.Gameplay.Sites
 
                 robot.TargetSite = null;
                 robot.SourceContainer = null;
-                robot.PendingItemId = null;
-                robot.PendingAmount = 0;
+                robot.ClearPending();
 
                 if (robot.CargoTotal > 0 && robot.State != BuilderRobotState.Repatriating)
                 {
@@ -344,7 +343,7 @@ namespace Game.Gameplay.Sites
                 int remaining = _coreHaul.RemainingToReserve(itemId);
                 if (remaining <= 0) continue;
 
-                foreach (StorageRuntime storage in StoragesInCollectionOrder())
+                foreach (StorageRuntime storage in StoragesForCoreHaul())
                 {
                     if (remaining <= 0) break;
                     int available = storage.GetInputAmount(itemId) - TotalReserved(storage, itemId);
@@ -399,10 +398,9 @@ namespace Game.Gameplay.Sites
             {
                 // Zero the instant the cargo is actually taken, which is also when the container's
                 // own contents drop - so the claim is continuous and never double-counted.
-                if (robot.PendingAmount <= 0) continue;
-                if (!ReferenceEquals(robot.SourceContainer, container) || robot.PendingItemId != itemId) continue;
+                if (!ReferenceEquals(robot.SourceContainer, container)) continue;
 
-                total += robot.PendingAmount;
+                total += robot.PendingOf(itemId);
             }
 
             return total;
@@ -430,6 +428,16 @@ namespace Game.Gameplay.Sites
             }
         }
 
+        /// <summary>Collection order with the Core's own reserve left out - see <see cref="GetAvailableForCoreHaul"/> for why a Core delivery may not draw on it.</summary>
+        IEnumerable<StorageRuntime> StoragesForCoreHaul()
+        {
+            foreach (StorageRuntime storage in StoragesInCollectionOrder())
+            {
+                if (storage.Definition.Id == CoreStorageDefinitionId) continue;
+                yield return storage;
+            }
+        }
+
         IEnumerable<ProductionBuildingRuntime> ProductionOutputsInOrder()
         {
             if (_transport == null) yield break;
@@ -446,11 +454,28 @@ namespace Game.Gameplay.Sites
         /// already reserved - exactly what a robot could still go claim right now. Never includes
         /// items in transit on a conveyor or in a robot's cargo, by design (§1's invariant).
         /// </summary>
-        public IReadOnlyDictionary<string, int> GetAvailableAggregate()
+        public IReadOnlyDictionary<string, int> GetAvailableAggregate() => Aggregate(StoragesInCollectionOrder());
+
+        /// <summary>
+        /// What a Core delivery may draw on: the same aggregate <b>minus the Core's own reserve</b>.
+        ///
+        /// A directive asks the player to bring the Core something. Material already sitting in the
+        /// hatch under it has not been brought anywhere - it started there - so counting it would
+        /// let the opening directive be satisfied by the starting stock without a single machine
+        /// being built. The reserve still funds construction: <see cref="GetAvailableAggregate"/> is
+        /// unchanged, and that is what a building's bill reads.
+        ///
+        /// Paired with <see cref="StoragesForCoreHaul"/>, which excludes the same container from the
+        /// reservation pass. The two must exclude identically, or the Validate button would grey out
+        /// on stock the haul would then happily claim.
+        /// </summary>
+        public IReadOnlyDictionary<string, int> GetAvailableForCoreHaul() => Aggregate(StoragesForCoreHaul());
+
+        IReadOnlyDictionary<string, int> Aggregate(IEnumerable<StorageRuntime> storages)
         {
             var totals = new Dictionary<string, int>();
 
-            foreach (StorageRuntime storage in StoragesInCollectionOrder())
+            foreach (StorageRuntime storage in storages)
             {
                 var seen = new HashSet<string>();
                 foreach (InventorySlot slot in storage.Slots)
@@ -543,18 +568,18 @@ namespace Game.Gameplay.Sites
             ConstructionSiteRuntime site = FindSiteAwaitingCollection();
             if (site != null)
             {
-                // One source container per round trip, filled to the robot's capacity - a robot
-                // never leaves with one unit when four of the same item are earmarked in the same
-                // chest (that is the difference between seven waves and fifty-five for a belt run).
+                // <b>One source container per round trip, and everything it holds for this site.</b>
+                // Uncapped and multi-item: a robot is meant to fetch a whole building's bill in one
+                // trip, which it does whenever the materials sit in one chest - and the player's do,
+                // being in the Core's own reserve. Spread across two chests it is two trips, because
+                // a trip still visits one source; that is the multi-stop tour this deliberately
+                // does not do.
                 Reservation chosen = site.Reservations[0];
-                int available = site.ReservedIn(chosen.Container, chosen.ItemId);
-                int amount = Mathf.Min(BuilderRobotRuntime.Capacity, available);
-                site.ReleaseReservationForPickup(chosen.Container, chosen.ItemId, amount);
+                LoadPendingFromContainer(robot, chosen.Container, site.Reservations,
+                    (item, amount) => site.ReleaseReservationForPickup(chosen.Container, item, amount));
 
                 robot.TargetSite = site;
                 robot.SourceContainer = chosen.Container;
-                robot.PendingItemId = chosen.ItemId;
-                robot.PendingAmount = amount;
                 robot.MoveTarget = ContainerPosition(chosen.Container);
                 robot.State = BuilderRobotState.MovingToSource;
                 return;
@@ -564,15 +589,18 @@ namespace Game.Gameplay.Sites
             // player chose to take on, and it must not starve the buildings already waiting.
             if (_coreHaul != null && _coreHaul.Reservations.Count > 0)
             {
+                // <b>Still capped, and this is the one place the cap survives.</b> A directive is a
+                // hand-over the player chose to take on rather than a building waiting on its
+                // materials, and how many waves it takes is part of what it asks.
                 Reservation chosen = _coreHaul.Reservations[0];
                 int available = _coreHaul.ReservedIn(chosen.Container, chosen.ItemId);
-                int amount = Mathf.Min(BuilderRobotRuntime.Capacity, available);
+                int amount = Mathf.Min(BuilderRobotRuntime.DirectiveCargoCapacity, available);
                 _coreHaul.ReleaseReservationForPickup(chosen.Container, chosen.ItemId, amount);
 
                 robot.TargetHaul = _coreHaul;
                 robot.SourceContainer = chosen.Container;
-                robot.PendingItemId = chosen.ItemId;
-                robot.PendingAmount = amount;
+                robot.ClearPending();
+                robot.AddPending(chosen.ItemId, amount);
                 robot.MoveTarget = ContainerPosition(chosen.Container);
                 robot.State = BuilderRobotState.MovingToSource;
                 return;
@@ -584,23 +612,54 @@ namespace Game.Gameplay.Sites
             }
         }
 
+        /// <summary>
+        /// Fills a robot's pending set with everything <paramref name="reservations"/> earmarks in one
+        /// container, and hands each amount to <paramref name="release"/> so the job's own books move
+        /// with it.
+        ///
+        /// Uncapped on purpose - see BuilderRobotRuntime.DirectiveCargoCapacity for the one job kind
+        /// that is not. The list is copied first because releasing mutates it.
+        /// </summary>
+        static void LoadPendingFromContainer(BuilderRobotRuntime robot, object container,
+            IReadOnlyList<Reservation> reservations, System.Action<string, int> release)
+        {
+            robot.ClearPending();
+
+            var forThisContainer = new List<Reservation>();
+            for (int i = 0; i < reservations.Count; i++)
+            {
+                if (ReferenceEquals(reservations[i].Container, container)) forThisContainer.Add(reservations[i]);
+            }
+
+            foreach (Reservation reservation in forThisContainer)
+            {
+                if (reservation.Amount <= 0) continue;
+
+                robot.AddPending(reservation.ItemId, reservation.Amount);
+                release(reservation.ItemId, reservation.Amount);
+            }
+        }
+
         void PerformPickup(BuilderRobotRuntime robot)
         {
             robot.State = BuilderRobotState.Loading;
 
-            int taken = ContainerTake(robot.SourceContainer, robot.PendingItemId, robot.PendingAmount);
-            robot.AddCargo(robot.PendingItemId, taken);
-
-            int shortfall = robot.PendingAmount - taken;
-            if (shortfall > 0)
+            // Copied out before taking anything: the pending set is cleared below, and a shortfall
+            // has to be released against what was promised rather than against what is left.
+            foreach (var kvp in new List<KeyValuePair<string, int>>(robot.Pending))
             {
-                robot.TargetSite?.ReleaseCommitment(robot.PendingItemId, shortfall);
-                robot.TargetHaul?.ReleaseCommitment(robot.PendingItemId, shortfall);
+                int taken = ContainerTake(robot.SourceContainer, kvp.Key, kvp.Value);
+                robot.AddCargo(kvp.Key, taken);
+
+                int shortfall = kvp.Value - taken;
+                if (shortfall <= 0) continue;
+
+                robot.TargetSite?.ReleaseCommitment(kvp.Key, shortfall);
+                robot.TargetHaul?.ReleaseCommitment(kvp.Key, shortfall);
             }
 
             robot.SourceContainer = null;
-            robot.PendingItemId = null;
-            robot.PendingAmount = 0;
+            robot.ClearPending();
             robot.MoveTarget = robot.TargetHaul != null
                 ? ContainerPosition(robot.TargetHaul.Destination)
                 : SitePosition(robot.TargetSite);
@@ -660,18 +719,14 @@ namespace Game.Gameplay.Sites
         {
             RepatriationJob job = _repatriationJobs[0];
 
+            // Uncapped, like a construction pickup and for the same reason read backwards: a
+            // demolished building's materials are the bill that built it, and a robot that can carry
+            // one can carry the other.
             var cargo = new Dictionary<string, int>();
-            int remainingCapacity = BuilderRobotRuntime.Capacity;
             foreach (var kvp in new List<KeyValuePair<string, int>>(job.Remaining))
             {
-                if (remainingCapacity <= 0) break;
-                int take = Mathf.Min(kvp.Value, remainingCapacity);
-                cargo[kvp.Key] = take;
-                remainingCapacity -= take;
-
-                int left = kvp.Value - take;
-                if (left <= 0) job.Remaining.Remove(kvp.Key);
-                else job.Remaining[kvp.Key] = left;
+                cargo[kvp.Key] = kvp.Value;
+                job.Remaining.Remove(kvp.Key);
             }
 
             if (job.Remaining.Count == 0) _repatriationJobs.Remove(job);
@@ -916,8 +971,7 @@ namespace Game.Gameplay.Sites
                 ["moveTargetY"] = robot.MoveTarget.y,
                 ["state"] = robot.State.ToString(),
                 ["cargo"] = JObject.FromObject(robot.Cargo),
-                ["pendingItemId"] = robot.PendingItemId,
-                ["pendingAmount"] = robot.PendingAmount,
+                ["pending"] = JObject.FromObject(robot.Pending),
                 ["targetSiteId"] = robot.TargetSite?.Id,
                 ["blockedCountdownRemaining"] = robot.BlockedCountdownRemaining
             };
@@ -1039,8 +1093,14 @@ namespace Game.Gameplay.Sites
                 }
             }
 
-            robot.PendingItemId = robotJson.Value<string>("pendingItemId");
-            robot.PendingAmount = robotJson.Value<int?>("pendingAmount") ?? 0;
+            robot.ClearPending();
+            if (robotJson["pending"] is JObject pending)
+            {
+                foreach (JProperty property in pending.Properties())
+                {
+                    robot.AddPending(property.Name, property.Value.Value<int>());
+                }
+            }
 
             int? targetSiteId = robotJson.Value<int?>("targetSiteId");
             if (targetSiteId.HasValue)

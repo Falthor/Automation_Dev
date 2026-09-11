@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 768dc22d07d6a804d8d86da88ec6e9d4, type: 3}
+  m_Name: FourthDirective
+  m_EditorClassIdentifier: Game.Data::Game.Data.CoreDirectiveDefinition
+  id: fourth_motors
+  requirements:
+  - item: {fileID: 11400000, guid: 71bd4fc6e8052b793d4f6183ae205729, type: 2}
+    amount: 8
+  - item: {fileID: 11400000, guid: 82ce50d7f9163c8a4e507294bf316830, type: 2}
+    amount: 8
+  rewardItem: {fileID: 0}
+  grants: {fileID: 11400000, guid: c6029416385a70ce8294b6d8f375ac74, type: 2}
+  unlocksResearchMenu: 0
+  rewardLabels:
+  - CPU Mk.I
+  - Memoire Mk.I
+  - Datacenter

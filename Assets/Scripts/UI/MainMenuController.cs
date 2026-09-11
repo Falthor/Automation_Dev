@@ -11,6 +11,10 @@ namespace Game.UI
     /// the existing save and enters Play mode directly, skipping Intro. Mono-save system
     /// (CONTRACTS.md §14) - one fixed save file, so New Game over an existing save asks for
     /// confirmation before overwriting it, and Load is disabled whenever no save exists.
+    ///
+    /// It also carries the shortcuts screen (<see cref="ShortcutsPanel"/>), which lives here rather
+    /// than in the game because a keyboard layout is not part of a run: it has to be reachable before
+    /// there is a world, and it survives starting a new one.
     /// </summary>
     public sealed class MainMenuController : MonoBehaviour
     {
@@ -22,6 +26,14 @@ namespace Game.UI
 
         Button _newGameButton;
         Button _loadButton;
+        Button _shortcutsButton;
+
+        /// <summary>
+        /// Owns the shortcuts overlay. A plain object rather than a second component: its markup is
+        /// already in this screen's UXML, so it needs the element and nothing else - no scene wiring,
+        /// no serialized reference.
+        /// </summary>
+        ShortcutsPanel _shortcuts;
         VisualElement _confirmOverlay;
         Button _confirmCancelButton;
         Button _confirmAcceptButton;
@@ -39,14 +51,18 @@ namespace Game.UI
 
             _newGameButton = root.Q<Button>("NewGameButton");
             _loadButton = root.Q<Button>("LoadButton");
+            _shortcutsButton = root.Q<Button>("ShortcutsButton");
             _confirmOverlay = root.Q<VisualElement>("ConfirmOverlay");
             _confirmCancelButton = root.Q<Button>("ConfirmCancelButton");
             _confirmAcceptButton = root.Q<Button>("ConfirmAcceptButton");
 
             _loadButton.SetEnabled(SaveService.SaveExists());
 
+            _shortcuts = new ShortcutsPanel(root.Q<VisualElement>("ShortcutsOverlay"));
+
             _newGameButton.clicked += OnNewGameClicked;
             _loadButton.clicked += OnLoadClicked;
+            _shortcutsButton.clicked += _shortcuts.Show;
             _confirmCancelButton.clicked += HideConfirm;
             _confirmAcceptButton.clicked += OnConfirmOverwrite;
         }

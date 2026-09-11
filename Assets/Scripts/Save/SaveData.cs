@@ -73,20 +73,25 @@ namespace Game.Save
         public string DecorRemoved;
 
         /// <summary>
-        /// The expedition system: missions in flight with their clock and their already-drawn outcome,
-        /// the charges left on each probe, and the sites already recovered
-        /// (<c>MissionSystem.CaptureState</c>).
+        /// Which wrecks the player has found, comma-separated indices - the same shape
+        /// <see cref="Discovered"/> and <see cref="DecorRemoved"/> use.
         ///
-        /// <b>The outcome is stored, not a seed.</b> A mission saved in flight has to come back
-        /// identical - neither redrawn nor lost - and carrying the result is what makes that
-        /// structural: there is nothing left to decide at landing, so nothing a reload can decide
-        /// differently.
-        ///
-        /// Reports waiting to be read are deliberately absent: an unread one is delivered again on the
-        /// next landing rather than lost. No <c>Version</c> bump - an additive field with a per-field
-        /// fallback, which restores as a game whose probes have not yet arrived.
+        /// <b>Only the discovered set.</b> Where a wreck is and which of the three it is are pure
+        /// functions of the world seed, re-derived at load; storing them would be storing what the
+        /// seed already says. Absent means a world nobody has found anything in, which is what it
+        /// recorded - no Version bump, an additive field with its own fallback.
         /// </summary>
-        public JObject Missions;
+        public string WrecksDiscovered;
+
+        /// <summary>
+        /// Every explorer robot: position, heading, state, the datacards it carries and its progress
+        /// towards the next, plus whether the fleet has arrived at all. An opaque blob owned by
+        /// Game.Gameplay.Exploration.ExplorerRobotSystem's own Capture/Restore pair.
+        ///
+        /// Absent restores as a fleet that has not arrived, standing at the base with nothing - the
+        /// truthful default rather than a convenient one.
+        /// </summary>
+        public JObject ExplorerRobots;
 
         public float ComputeReserve;
 
@@ -156,6 +161,18 @@ namespace Game.Save
         public int CellX;
         public int CellY;
         public int FacingRotation;
+
+        /// <summary>
+        /// Which side a single-input building takes deliveries on
+        /// (<c>BuildingRuntime.InputSide</c>) - a placement choice, so it belongs beside the
+        /// rotation rather than inside the per-building blob.
+        ///
+        /// Nullable: absent means a save from before the choice existed, which restores to the
+        /// default (opposite the output) rather than to North, which would have been a side the
+        /// building may never have taken anything from.
+        /// </summary>
+        public int? InputSide;
+
         public JObject State = new JObject();
     }
 }

@@ -87,8 +87,8 @@ namespace Game.Tests.EditMode.Gameplay.Research
         /// <summary>
         /// A prerequisite the Core granted counts exactly like one the player researched. That is
         /// what lets a directive gate a branch of the tree without a second notion of "done": the
-        /// Assembler waits on Circuit Imprime and on the Core's second directive, and neither of the
-        /// two is special-cased anywhere.
+        /// Datacenter research waits on Modules de calcul and on the Core's fourth directive, and
+        /// neither of the two is special-cased anywhere.
         /// </summary>
         [Test]
         public void AGrantedUnlock_SatisfiesAPrerequisite_LikeAResearchedOne()

@@ -61,6 +61,8 @@ namespace Game.Gameplay.Directives
         {
             get
             {
+                if (ResearchMenuForcedOpen) return true;
+
                 for (int i = 0; i < _index && i < _directives.Count; i++)
                 {
                     if (_directives[i] != null && _directives[i].UnlocksResearchMenu) return true;
@@ -69,18 +71,42 @@ namespace Game.Gameplay.Directives
             }
         }
 
+        /// <summary>
+        /// Hands the Research menu over without the directive that grants it. Development only.
+        ///
+        /// It moves what is visible and nothing else: no directive is marked done, the first one is
+        /// still asked for and still grants what it grants. That is why it is a flag beside the
+        /// derivation rather than a nudge to <c>_index</c>, which would silently skip a directive.
+        /// </summary>
+        public bool ResearchMenuForcedOpen { get; set; }
+
         /// <summary>How much of one requirement has physically reached the Core, once validated. Zero before that: nothing has been carried yet.</summary>
         public int DeliveredOf(string itemId)
             => _sites != null && _sites.CoreHaul != null ? _sites.CoreHaul.DeliveredOf(itemId) : 0;
 
         /// <summary>
-        /// Whether the current directive can be validated right now: every requirement covered by
-        /// stock a robot could actually go and claim. The same aggregate the player is shown, so the
-        /// button is grey exactly when the numbers underneath say it should be.
+        /// What a directive may be satisfied from: the aggregate minus the Core's own reserve, which
+        /// is the same view <c>ReserveForCoreHaul</c> then draws on.
+        ///
+        /// <b>Read here rather than handed in, and that is the repair.</b> While the caller chose the
+        /// dictionary it could choose the wrong one - and did. The tests passed the full aggregate
+        /// while the reservation pass that follows used the narrowed one, so validating accepted stock
+        /// the haul had no right to claim, reserved nothing, and sent the robots out empty. Asking
+        /// <see cref="ConstructionSiteSystem"/> for the one view makes the decision and the
+        /// reservation agree by construction instead of by every caller remembering.
         /// </summary>
-        public bool CanValidate(IReadOnlyDictionary<string, int> availableStock)
+        IReadOnlyDictionary<string, int> AvailableForDirective
+            => _sites != null ? _sites.GetAvailableForCoreHaul() : null;
+
+        /// <summary>
+        /// Whether the current directive can be validated right now: every requirement covered by
+        /// stock a robot could actually go and claim. The same view the haul reserves from, so the
+        /// button is grey exactly when the delivery would find nothing.
+        /// </summary>
+        public bool CanValidate()
         {
             CoreDirectiveDefinition directive = Current;
+            IReadOnlyDictionary<string, int> availableStock = AvailableForDirective;
             if (directive == null || IsDelivering || availableStock == null) return false;
 
             foreach (RecipeIngredient requirement in directive.Requirements)
@@ -96,9 +122,9 @@ namespace Game.Gameplay.Directives
         /// when the stock is not there or a delivery is already running, so the button being enabled
         /// and this succeeding are the same condition.
         /// </summary>
-        public bool Validate(IReadOnlyDictionary<string, int> availableStock, BuildingRuntime core)
+        public bool Validate(BuildingRuntime core)
         {
-            if (core == null || !CanValidate(availableStock)) return false;
+            if (core == null || !CanValidate()) return false;
 
             var bill = new Dictionary<string, int>();
             foreach (RecipeIngredient requirement in Current.Requirements)

@@ -1,4 +1,5 @@
 using Game.Data;
+using Game.Gameplay.Wrecks;
 using Game.Gameplay.Buildings;
 using Game.Grid;
 using UnityEngine;
@@ -97,7 +98,8 @@ namespace Game.Presentation
             // extra cell overhang upward, which is what the sprite's own pivot is placed for -
             // it sits at the footprint's centre, 2/5 up the art, so the base lands on the cells the
             // Core actually occupies. The concrete slab above stays on footprintWorldSize.
-            BuildingSpawner.FitSpriteUniform(renderer, sprite, BuildingSpawner.ArtWorldSize(definition, _grid.CellSize));
+            BuildingSpawner.FitSpriteUniform(renderer, sprite,
+                BuildingSpawner.ArtWorldSize(definition, _grid.CellSize));
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
@@ -129,6 +131,32 @@ namespace Game.Presentation
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
             renderer.color = Color.white;
             SetSpriteToWorldSize(renderer, sprite, WorldFootprintSize(definition.FootprintSize));
+        }
+
+        /// <summary>
+        /// Draws a wreck the player has just found.
+        ///
+        /// <b>Static, like a deposit, and that is what makes it stay visible outside observation.</b>
+        /// The veil is drawn over cells; a wreck is its own object and simply keeps being rendered -
+        /// which is right for a thing that does not change. Once found, it is a place on the map.
+        ///
+        /// Fitted uniformly to its 3x3 footprint: the three sprites are near enough square that the
+        /// box carries their own proportion, so nothing is distorted.
+        /// </summary>
+        public void SpawnWreck(WreckSite site, Sprite sprite)
+        {
+            if (sprite == null) return;
+
+            var footprint = new Vector2Int(WreckSite.FootprintCells, WreckSite.FootprintCells);
+
+            var go = new GameObject($"Wreck_{site.Index}_type{site.TypeIndex}");
+            go.transform.position = _grid.FootprintCenterToWorld(site.Origin, footprint);
+
+            var renderer = go.AddComponent<SpriteRenderer>();
+            renderer.sortingOrder = SortingBands.Deposit;
+            renderer.color = Color.white;
+
+            BuildingSpawner.FitSpriteUniform(renderer, sprite, WorldFootprintSize(footprint));
         }
 
         Vector2 WorldFootprintSize(Vector2Int footprintCells)

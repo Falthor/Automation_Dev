@@ -70,8 +70,12 @@ namespace Game.UI
 
         public event Action ToolbarChanged;
 
+        InputAction _openMenu;
+
         void Start()
         {
+            _openMenu = InputBindings.Find(InputActionCatalogue.BuildingMenu);
+
             // Start(), not OnEnable(): GameRuntime.Awake() (which constructs Selection) is not
             // guaranteed to run before this object's OnEnable, but Start() always runs after
             // every object's Awake() - see ConstructionInputAdapter for the same reasoning.
@@ -312,14 +316,15 @@ namespace Game.UI
                 if (HoveredCardDefinition != null) PopulateDetails(HoveredCardDefinition);
             }
 
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard == null || IsTextFieldFocused()) return;
+            if (UIFocus.IsTypingInAField(uiDocument)) return;
 
-            if (keyboard.bKey.wasPressedThisFrame)
+            if (InputBindings.WasPressedThisFrame(_openMenu))
             {
                 Toggle();
             }
-            else if (_isOpen && keyboard.escapeKey.wasPressedThisFrame)
+            // Not gated on _isOpen any more: the arbiter already knows a global panel is open, and
+            // this controller's own flag is only a mirror of that (see EscapeArbiter).
+            else if (gameRuntime.Escape.IsClaimedBy(EscapeClaimant.GlobalPanel))
             {
                 gameRuntime.Selection.CloseGlobalPanel();
             }
@@ -425,7 +430,7 @@ namespace Game.UI
         /// conveyor shapes quote the same figure because they are the same belt: that turning a line
         /// costs nothing is itself the answer.
         ///
-        /// Null for a Foundry/Factory/Assembler on purpose. Their rate is a property of the recipe
+        /// Null for a Foundry/Factory on purpose. Their rate is a property of the recipe
         /// currently selected, not of the building, so there is no honest number to put on a
         /// catalogue card - it belongs in the production panel, beside the recipe.
         /// </summary>
@@ -479,11 +484,6 @@ namespace Game.UI
             return row;
         }
 
-        bool IsTextFieldFocused()
-        {
-            VisualElement focused = uiDocument.rootVisualElement.panel?.focusController?.focusedElement as VisualElement;
-            return focused is TextField;
-        }
 
         void Toggle()
         {

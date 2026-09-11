@@ -38,6 +38,31 @@ namespace Game.Gameplay.Buildings
         {
         }
 
+        /// <summary>
+        /// Whichever lane that side is the entry of, if that lane is free.
+        ///
+        /// <b>Without this a crossroad could not be handed anything.</b> The base answer is
+        /// <c>false</c>, and a crossroad overrode neither this nor <c>PeekPullableItem</c> - so a
+        /// splitter (or a production building) wired straight into one had its push refused, while
+        /// the crossroad's own pull found nothing on the splitter's side either, since a splitter
+        /// exposes no pullable item. Belts worked because a conveyor implements both halves. This
+        /// is the receiving half, and it is deliberately the same two-line shape as
+        /// <see cref="SplitterRuntime.CanAcceptInput"/>.
+        /// </summary>
+        public override bool CanAcceptInput(string itemId, int amount, Direction fromDirection)
+        {
+            if (fromDirection == EntryA) return !HasItemA;
+            if (fromDirection == EntryB) return !HasItemB;
+            return false;
+        }
+
+        /// <summary>Routes to the lane the side belongs to. Only ever called after CanAcceptInput agreed, so the lane is free.</summary>
+        public override void AddInput(string itemId, int amount, Direction fromDirection)
+        {
+            if (fromDirection == EntryA) ReceiveA(itemId);
+            else if (fromDirection == EntryB) ReceiveB(itemId);
+        }
+
         public GridCoord ArmCell(Direction direction) => CrossFootprint.ArmCell(Cell, direction);
         public GridCoord NeighborCell(Direction direction) => CrossFootprint.NeighborCell(Cell, direction);
 

@@ -5,13 +5,14 @@ using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Directives;
-using Game.Gameplay.Missions;
+using Game.Gameplay.Exploration;
 using Game.Gameplay.Notifications;
 using Game.Gameplay.Power;
 using Game.Gameplay.Research;
 using Game.Gameplay.Session;
 using Game.Gameplay.Sectors;
 using Game.Gameplay.Selection;
+using Game.Gameplay.Wrecks;
 using Game.Gameplay.Sites;
 using Game.Gameplay.Transport;
 using Game.Gameplay.WorldGeneration;
@@ -87,8 +88,12 @@ namespace Game.Presentation
         /// </summary>
         [SerializeField] SectorSettings sectorSettings;
 
-        /// <summary>How the expedition system is tuned. Optional: null means a world without expeditions.</summary>
-        [SerializeField] MissionSettings missionSettings;
+        /// <summary>
+        /// How an explorer robot wanders when the player sends it out freely. Optional: null means a
+        /// world with no explorer robots on the ground at all, which is a world without free
+        /// exploration rather than a broken one.
+        /// </summary>
+        [SerializeField] ExplorerRobotSettings explorerRobotSettings;
 
         /// <summary>What grows on the ground and how thickly. Optional: null means a world with no decor, which is a plain world rather than a broken one.</summary>
         [SerializeField] DecorSettings decorSettings;
@@ -119,11 +124,36 @@ namespace Game.Presentation
         [Header("Core directives - what the Core asks the player for, in order")]
         [SerializeField] CoreDirectiveDatabase coreDirectiveDatabase;
 
+        [Header("Débogage")]
+
+        /// <summary>
+        /// Hands over everything the introduction normally hands over slowly: the explorer robots,
+        /// and with them the map and the Research menu. On while the expedition brick is being built
+        /// - reaching the map today means draining 70 000 CU down to 25 000 first, which is minutes
+        /// of waiting before any test of the map can even begin.
+        ///
+        /// One switch rather than one per unlock, because they are one thing: the state a run is in
+        /// once its opening is over. Uncheck it to play the opening as a player meets it.
+        ///
+        /// It only ever opens. A run that has already earned these keeps them either way, and no
+        /// directive is marked done - the Core still asks for its first delivery.
+        /// </summary>
+        [SerializeField] bool startWithEverythingUnlocked = true;
+
         public GridRuntime Grid { get; private set; }
         public TerrainRuntime Terrain { get; private set; }
 
         /// <summary>What the player has discovered, one state per cell. Written by the Core's radius (RevealDiscoveredByCore) and later by missions; read by the fog renderer, which must never recompute a distance to the Core instead.</summary>
         public DiscoveryRuntime Discovery { get; private set; }
+
+        /// <summary>
+        /// Who is looking at what, this frame. Rebuilt by <see cref="RebuildObservers"/> from the
+        /// observers' current positions and stored per cell nowhere - see ObservationRuntime.
+        ///
+        /// Nothing of it enters the save, and there is nothing to restore: the first frame after a
+        /// load rebuilds it from the Core and the robots the load put back.
+        /// </summary>
+        public ObservationRuntime Observation { get; private set; }
 
         /// <summary>What grows on the ground, derived per chunk, minus what the player has cleared. Null when no decor settings are configured.</summary>
         public DecorRuntime Decor { get; private set; }
@@ -135,13 +165,36 @@ namespace Game.Presentation
         public SectorCatalog SectorCatalog { get; private set; }
 
         /// <summary>Which sectors are currently within mission reach. Reads the Core's radius at call time, so extending it moves the ring on its own.</summary>
-        public SectorMissionRange MissionRange { get; private set; }
-
-        /// <summary>The expedition process: probes, missions in flight, reports. Null when no mission settings are configured, which is a world without expeditions rather than a broken one.</summary>
-        public MissionSystem Missions { get; private set; }
+        /// <summary>
+        /// How far a robot will wander from the Core, in cells. What the map draws as its outer ring,
+        /// and the only reach figure left in the game now the mission bands are gone.
+        /// </summary>
+        public float ExplorerRangeCells => explorerRobotSettings != null ? explorerRobotSettings.MaxRadiusCells : 0f;
 
         /// <summary>One texel per sector, for the whole map - what the zoomed-out map draws. Rebuilds only the chunks discovery actually moved, so a still frame costs one comparison.</summary>
         public SectorMapImage SectorMap { get; private set; }
+
+        /// <summary>
+        /// Free exploration: robots the player sends out to wander, which uncover ground as they go.
+        /// Null when no explorer settings are configured.
+        ///
+        /// The only thing in the game that goes anywhere, and what turns derived deposits into real
+        /// ones - see ExplorerRobotSystem.
+        /// </summary>
+        public ExplorerRobotSystem ExplorerRobots { get; private set; }
+
+        /// <summary>Draws the explorer robots wherever they are. A view over ExplorerRobots, refreshed from the tick below and authoritative for nothing.</summary>
+        ExplorerRobotFleetView _explorerFleet;
+
+        /// <summary>
+        /// The explorer robot under a cell, or null. What lets a click on one open its panel instead
+        /// of falling through to empty ground.
+        ///
+        /// The cell's centre is what is asked for, because a wandering robot stands between cells -
+        /// it is a continuous position, not a grid occupant.
+        /// </summary>
+        public ExplorerRobotRuntime ExplorerRobotAt(GridCoord cell)
+            => ExplorerRobots?.At(new Vector2(cell.X + 0.5f, cell.Y + 0.5f));
 
         /// <summary>
         /// The scene's one depth ladder - every sorted-band rank comes from it. There must be
@@ -161,6 +214,31 @@ namespace Game.Presentation
         public WorldGenerator World { get; private set; }
         public TransportSystem Transport { get; private set; }
         public SelectionRuntime Selection { get; private set; }
+
+        /// <summary>
+        /// The wrecks in the disc around the Core. Derived from the terrain seed like the sector
+        /// contents, so a loaded world finds them in the same places; only which ones have been found
+        /// is restored.
+        /// </summary>
+        public WreckField Wrecks { get; private set; }
+
+        /// <summary>
+        /// Who Escape belongs to this frame. The one reader of the key, and the one place the
+        /// priority between an armed tool, a contextual panel and a global panel is written down -
+        /// see <see cref="EscapeArbiter"/> for why fourteen independent readers could not hold it.
+        /// </summary>
+        public EscapeArbiter Escape { get; private set; }
+
+        /// <summary>
+        /// Whether this session began as a fresh game rather than a restored save.
+        ///
+        /// Read by the awakening message, which belongs to the birth of the Core and not to the
+        /// launch of the game - a player reloading a two-hour run must not see it again. The
+        /// distinction exists nowhere else: by the time any view runs, PendingGameStart has already
+        /// been consumed and cleared, so anything downstream that needs to tell the two apart has
+        /// to be told here or not at all.
+        /// </summary>
+        public bool StartedFromNewGame { get; private set; }
         public ItemVisualSync ItemVisuals => itemVisuals;
         public ConstructionSiteVisualSync ConstructionSiteVisuals => constructionSiteVisuals;
         public ItemDatabase Items => itemDatabase;
@@ -206,6 +284,34 @@ namespace Game.Presentation
         public IReadOnlyDictionary<string, int> GlobalStock =>
             ConstructionSites != null ? ConstructionSites.GetAvailableAggregate() : new Dictionary<string, int>();
 
+        /// <summary>
+        /// What a Core directive counts: <see cref="GlobalStock"/> minus the Core's own reserve.
+        ///
+        /// A directive asks for material to be brought to the Core, and what already sits in the
+        /// hatch beneath it was never brought anywhere - counting it let the opening directive be
+        /// satisfied by the starting stock alone. The reserve still funds construction, which is
+        /// what GlobalStock is for.
+        ///
+        /// Here rather than in a panel because two places display it - the Top Bar's chips and the
+        /// Core panel's figures - and a rule split across its readers is a rule that will disagree
+        /// with itself.
+        ///
+        /// <b>Display only.</b> Whether a directive may be validated is not asked of this: it is asked
+        /// of <c>CoreDirectiveSystem.CanValidate()</c>, which reads the same view for itself. While the
+        /// decision took a dictionary from its caller, a caller could hand in the wrong one - and the
+        /// directive tests did, accepting on stock the haul was then forbidden to claim.
+        /// </summary>
+        public IReadOnlyDictionary<string, int> DirectiveStock =>
+            ConstructionSites != null ? ConstructionSites.GetAvailableForCoreHaul() : new Dictionary<string, int>();
+
+        /// <summary>
+        /// True while an open panel is navigating with the keyboard itself - the zoomed-out map is
+        /// the only one today, where ZQSD moves the map. The world camera stands down for as long as
+        /// it is set, so the two never move at once. Set by the panel that takes the keys, cleared
+        /// when it closes.
+        /// </summary>
+        public bool KeyboardOwnedByPanel { get; set; }
+
         /// <summary>Construction sites + the two builder robots (TASK_05_ROBOT_CONSTRUCTEUR.md), ticked from this object's central Update() like every other simulation system.</summary>
         public ConstructionSiteSystem ConstructionSites { get; private set; }
 
@@ -226,7 +332,8 @@ namespace Game.Presentation
         /// </summary>
         public bool IsUIBlockingInput => Selection.ActiveGlobalPanel != null
             || Selection.SelectedBuilding != null
-            || Selection.SelectedSite != null;
+            || Selection.SelectedSite != null
+            || Selection.SelectedExplorerRobot != null;
 
         /// <summary>
         /// The frame a UI panel last closed. World input adapters also skip their click handling
@@ -259,6 +366,7 @@ namespace Game.Presentation
 
             SaveData loadedSave = PendingGameStart.LoadedSave;
             PendingGameStart.RequestNewGame(); // consume immediately - never read a second time this session
+            StartedFromNewGame = loadedSave == null;
 
             if (loadedSave != null)
             {
@@ -266,6 +374,7 @@ namespace Game.Presentation
                 Discovery = new DiscoveryRuntime(Terrain.Size, sectorSettings.ChunkSizeCells);
                 Discovery.RestoreState(loadedSave.Discovered);
                 _pendingDecorRemoved = loadedSave.DecorRemoved;
+                _pendingWrecksDiscovered = loadedSave.WrecksDiscovered;
                 Compute.RestoreReserve(loadedSave.ComputeReserve);
 
                 var restoredQueue = new List<ResearchDefinition>();
@@ -280,7 +389,16 @@ namespace Game.Presentation
             }
             else
             {
-                Terrain = new TerrainRuntime(terrainSettings.Size, terrainSettings.Seed, terrainSettings.TerrainScale, terrainSettings.Proportion);
+                // <b>A new run draws its own seed.</b> The settings asset carries 0, so every new game
+                // was the same world down to the last site on the map - three runs in a row put the far
+                // explorations on the same cells. The draw happens here, once, and goes straight into
+                // the save (SaveData.TerrainSeed); everything downstream is derived from it through
+                // DeterministicHash, which is what keeps a reloaded run identical to itself.
+                int runSeed = terrainSettings.RandomiseSeedEachRun
+                    ? Random.Range(int.MinValue, int.MaxValue)
+                    : terrainSettings.Seed;
+
+                Terrain = new TerrainRuntime(terrainSettings.Size, runSeed, terrainSettings.TerrainScale, terrainSettings.Proportion);
                 Discovery = new DiscoveryRuntime(Terrain.Size, sectorSettings.ChunkSizeCells);
 
                 // The player's starting resources live in the Core chest fixture placed by
@@ -305,38 +423,103 @@ namespace Game.Presentation
             // radius has a disc to write before the first frame is drawn.
             RevealDiscoveredByCore();
 
-            // Built here rather than in either branch because both need it and neither owns it. All
-            // three are stateless views over the map: SectorGrid is arithmetic, SectorCatalog is a
-            // pure function of Terrain.Seed, and SectorMissionRange reads the radius it is handed.
-            // Nothing here is restored from the save, and nothing here needs to be - the seed is,
-            // and everything else follows from it.
-            Sectors = new SectorGrid(Terrain.Size, sectorSettings.SectorSizeCells);
-            SectorCatalog = new SectorCatalog(Sectors, Terrain.Seed, World?.CoreCenterCells ?? Vector2.zero,
-                sectorSettings.LowRiskWithinCells, sectorSettings.ModerateRiskWithinCells, sectorSettings.HighRiskWithinCells,
-                sectorSettings.PreferredRegionSizeCells);
+            // Holds nothing until it is filled, and is filled from scratch every frame - so it is
+            // built here with no argument and restored from nothing. Before the first Update it
+            // reports no observers, which reads as "the discovered map is all remembered": truthful
+            // for a frame in which nothing has yet said what it can see.
+            Observation = new ObservationRuntime();
+            RebuildObservers();
 
-            // The maximum radius comes from the Core, which owns it, so the exploration threshold
-            // follows it on its own rather than being a second figure to keep in step.
-            MissionRange = new SectorMissionRange(CoreRuntime.ExtendedActionRadiusCells, sectorSettings.TerritorySpacingCells);
+            // Built here rather than in either branch because both need it and neither owns it. Both
+            // are stateless views over the map: SectorGrid is arithmetic and SectorCatalog is a pure
+            // function of Terrain.Seed. Nothing here is restored from the save, and nothing here needs
+            // to be - the seed is, and everything else follows from it.
+            Sectors = new SectorGrid(Terrain.Size, sectorSettings.SectorSizeCells);
+            // Assembled here because this is the one place that holds all three: the sector
+            // settings' cluster figures, the Core's furthest reach, and how far a robot wanders.
+            // Each figure stays owned by its own system - nothing is copied.
+            SectorCatalog = new SectorCatalog(Sectors, Terrain.Seed,
+                World?.CoreCenterCells ?? Vector2.zero,
+                sectorSettings.ClusterProfile(
+                    CoreRuntime.ExtendedActionRadiusCells,
+                    explorerRobotSettings != null ? explorerRobotSettings.MaxRadiusCells : CoreRuntime.ExtendedActionRadiusCells * 10f));
+
             SectorMap = new SectorMapImage(Sectors, Discovery);
 
-            if (missionSettings != null)
+            // Free exploration, and since the missions were removed it is the only thing that goes
+            // anywhere: it opens ground, it finds the deposits, and the map screen is about it.
+            if (explorerRobotSettings != null)
             {
-                Missions = new MissionSystem(missionSettings, Sectors, Discovery, SectorCatalog, Compute, MissionRange, Terrain.Seed);
+                // The measurement log only exists when its switch is on, which it is not by default.
+                // A development instrument - see ExplorerHarvestLog, and delete this line with it.
+                ExplorerHarvestLog harvestLog = explorerRobotSettings.LogHarvestMeasurements
+                    ? new ExplorerHarvestLog()
+                    : null;
+
+                ExplorerRobots = new ExplorerRobotSystem(explorerRobotSettings, Discovery, Compute,
+                    World?.CoreCenterCells ?? Vector2.zero, ExplorerParkOrigin(), Terrain.Seed,
+                    Sectors, harvestLog);
+
+                if (worldGenerationSettings != null)
+                {
+                    // Terrain.Seed, not the resource seed: it is the one a save restores, so the
+                    // wrecks are in the same places in a loaded world - the same reason SectorCatalog
+                    // uses it.
+                    Wrecks = new WreckField(Terrain.Seed, World?.CoreCenterCells ?? Vector2.zero,
+                        worldGenerationSettings.WreckProfile);
+
+                    ExplorerRobots.Wrecks = Wrecks;
+
+                    // Restored before the instrument below and before anything can be drawn, so a
+                    // loaded world starts with exactly the set it saved.
+                    Wrecks.RestoreState(_pendingWrecksDiscovered);
+                    _pendingWrecksDiscovered = null;
+
+                    // A development instrument - see WorldGenerationSettings, and delete this with it.
+                    if (worldGenerationSettings.DiscoverEveryWreckAtStart) Wrecks.DiscoverEverything();
+
+                    if (harvestLog != null)
+                    {
+                        Wrecks.Discovered += site => harvestLog.RecordWreck(site.DistanceFromCoreCells);
+                    }
+                }
 
                 // Set after construction because it needs the ore definitions world generation owns.
                 // Placed content wins over the derivation, and World has already run - which is the
                 // ordering constraint that keeps the starting area from being overwritten.
+                //
+                // <b>The robots are the only caller.</b> Nothing else reports on a sector, so without
+                // this a world's derived ore would never become real however far anything explored.
                 if (worldGenerationSettings != null)
                 {
-                    Missions.Materialisation = new SectorMaterialisation(Sectors, Grid, SectorCatalog, new[]
+                    ExplorerRobots.Materialisation = new SectorMaterialisation(Sectors, Grid, SectorCatalog, new[]
                     {
                         worldGenerationSettings.IronOreDefinition,
                         worldGenerationSettings.CopperOreDefinition,
                         worldGenerationSettings.CoalOreDefinition
-                    });
+                    },
+                    World,
+                    World?.CoreCenterCells ?? Vector2.zero,
+                    // The Core's furthest reach, not its current one: derived ore must not appear in
+                    // ground the Core will eventually cover, or extending the radius would swallow a
+                    // cluster the player had already built around.
+                    CoreRuntime.ExtendedActionRadiusCells);
                 }
-                Missions.RestoreState(loadedSave?.Missions);
+
+                ExplorerRobots.RestoreState(loadedSave?.ExplorerRobots);
+                ExplorerRobots.StockFilled += AnnounceFullStock;
+
+                _explorerFleet = new ExplorerRobotFleetView(Grid, explorerRobotSettings, buildingShadowSettings);
+
+                if (harvestLog != null) Debug.Log($"ExplorerHarvestLog: measuring to {harvestLog.Path}");
+            }
+
+            // Last, so it applies to the restored state rather than being overwritten by it: a save
+            // written before the switch was on still opens, and a save written after loses nothing.
+            if (startWithEverythingUnlocked)
+            {
+                ExplorerRobots?.MakeRobotsAppear();
+                if (CoreDirectives != null) CoreDirectives.ResearchMenuForcedOpen = true;
             }
 
             Selection = new SelectionRuntime();
@@ -348,6 +531,11 @@ namespace Game.Presentation
             {
                 if (building == null) LastMenuCloseFrame = Time.frameCount;
             };
+
+            // Built here rather than beside Construction because both branches above assign that
+            // field, and the arbiter holds a reference: constructed any earlier, a loaded game
+            // would have handed it the service the new-game branch made and thrown away.
+            Escape = new EscapeArbiter(Selection, Construction);
 
             // New Game "generates a save" (per the main-menu contract) - the initial state is
             // written immediately so a Load right after New Game (without ever quitting) still
@@ -405,6 +593,9 @@ namespace Game.Presentation
                 BuildingRuntime runtime = Construction.CreateForRestore(definition, cell, rotation);
                 if (runtime == null) continue;
 
+                // Absent restores as the default the constructor already set, rather than as North.
+                if (buildingSave.InputSide.HasValue) runtime.SetInputSide((Direction)buildingSave.InputSide.Value);
+
                 runtime.RestoreState(buildingSave.State ?? new JObject());
                 Transport.Register(runtime);
                 _restoredBuildings.Add(runtime);
@@ -423,6 +614,16 @@ namespace Game.Presentation
             Vector2Int footprint = World.Core.Definition.FootprintSize;
             return new Vector2(World.Core.Cell.X + footprint.x / 2f, World.Core.Cell.Y - 2f);
         }
+
+        /// <summary>
+        /// Where the explorer robots rest: the builder robots' park, shifted clear of it.
+        ///
+        /// Derived from the same origin rather than given coordinates of its own, so both fleets stay
+        /// at the Core's hatch if that ever moves - but shifted, because they were standing on exactly
+        /// the same cell. Two sprites in one place is not just untidy: the player cannot tell which
+        /// machine they are about to click.
+        /// </summary>
+        Vector2 ExplorerParkOrigin() => RobotParkOrigin() + new Vector2(3f, 0f);
 
         BuildingDefinition FindBuildingDefinition(string id)
         {
@@ -468,7 +669,11 @@ namespace Game.Presentation
                 // Only what the player cleared. What grows re-derives itself from the seed, so
                 // storing it would be storing what the seed already says.
                 DecorRemoved = Decor?.CaptureState(),
-                Missions = Missions?.CaptureState(),
+
+                // Only what has been found. Where a wreck is and which of the three it is are pure
+                // functions of the seed - the same boundary as the decor above.
+                WrecksDiscovered = Wrecks?.CaptureState(),
+                ExplorerRobots = ExplorerRobots?.CaptureState(),
                 ComputeReserve = Compute.Reserve,
                 ResearchActiveId = Research.ActiveResearch != null ? Research.ActiveResearch.Id : null,
                 ResearchProgress = Research.AbsorbedCu,
@@ -511,6 +716,7 @@ namespace Game.Presentation
                     CellX = building.Cell.X,
                     CellY = building.Cell.Y,
                     FacingRotation = (int)building.FacingRotation,
+                    InputSide = building.Definition.HasSingleInputArrow ? (int)building.InputSide : (int?)null,
                     State = building.CaptureState()
                 });
             }
@@ -540,6 +746,13 @@ namespace Game.Presentation
         /// applied where the runtime can exist.
         /// </summary>
         string _pendingDecorRemoved;
+
+        /// <summary>
+        /// Which wrecks a loaded save had found, held until the field exists. Read in Awake and
+        /// applied once WreckField is built, for the same reason the decor's set is: the save is read
+        /// before the thing it describes has been made.
+        /// </summary>
+        string _pendingWrecksDiscovered;
 
         /// <summary>The radius last written into the discovery state, so a repeat pass costs one comparison. NaN until the first pass, which no real radius equals.</summary>
         float _lastRevealedCoreRadius = float.NaN;
@@ -696,6 +909,95 @@ namespace Game.Presentation
         /// Called from the tick and idempotent: the disc is only walked when the radius has actually
         /// moved since the last pass, so repeating it every frame allocates nothing and walks nothing.
         /// </summary>
+        /// <summary>
+        /// A robot has filled up. Posted from here rather than from the robot system because the
+        /// notification <b>leads to the action</b>: clicking it takes the camera to that robot and
+        /// opens its panel, ready for the recall - and only this side of the project knows what a
+        /// camera or a selection is. The gameplay side raises an event and stays clear of both.
+        ///
+        /// <b>It names the robot</b>, there being two of them, and it never repeats: the system fires
+        /// once per filling and re-arms only when the robot unloads. Repeating it would be nagging
+        /// about a decision the player has already made by ignoring it.
+        /// </summary>
+        void AnnounceFullStock(ExplorerRobotRuntime robot)
+        {
+            if (Notifications == null || robot == null) return;
+
+            Notifications.Post(NotificationSeverity.Info,
+                $"Robot {robot.Index + 1} : {ExplorerRobots.MaxCards} datacards. Rappelez-le pour les encaisser.",
+                FullStockNoticeSeconds,
+                countdownSeconds: null,
+                onActivated: () => GoToRobot(robot));
+        }
+
+        /// <summary>How long the full-stock notice stays up. Long enough to be read while the eye is elsewhere on a factory, short enough not to sit there.</summary>
+        const float FullStockNoticeSeconds = 12f;
+
+        /// <summary>
+        /// Puts the camera on a robot and opens its panel. The notification's whole point - an event
+        /// that hands over the action instead of only announcing it.
+        ///
+        /// The camera is snapped rather than eased: the robot is moving, so the position is only true
+        /// at the instant it is asked for.
+        /// </summary>
+        void GoToRobot(ExplorerRobotRuntime robot)
+        {
+            Camera worldCamera = _depthSortCamera != null ? _depthSortCamera : Camera.main;
+            if (worldCamera != null && Grid != null)
+            {
+                Vector3 target = new Vector3(robot.Position.x * Grid.CellSize, robot.Position.y * Grid.CellSize,
+                    worldCamera.transform.position.z);
+                worldCamera.transform.position = target;
+            }
+
+            Selection?.SelectExplorerRobot(robot);
+        }
+
+        /// <summary>
+        /// Says what can see, and from where. The whole of the observation field: everything else
+        /// derives from this list.
+        ///
+        /// <b>Rebuilt from scratch rather than maintained.</b> Nothing is added when a robot sets out
+        /// and nothing removed when it comes home - the list is simply what it is this frame, which
+        /// is what makes it impossible for it to disagree with where the observers really are.
+        ///
+        /// <b>No allocation.</b> Indexed loops rather than <c>foreach</c>: iterating the robots
+        /// through their read-only interface would box an enumerator once a frame, and this runs
+        /// every frame for the life of the process.
+        ///
+        /// Two kinds of observer today, and adding a third is one line here and nothing anywhere
+        /// else:
+        /// <list type="bullet">
+        /// <item>the Core, at its live action radius - so a radius extended by research widens what
+        /// is observed the frame it is granted, the same way it widens what is revealed.</item>
+        /// <item>every explorer robot that is out, at the radius it uncovers with. Derived from the
+        /// reveal radius rather than given its own setting: what a robot sees is what it uncovers,
+        /// and two numbers would drift. A robot resting at the base is skipped because it is inside
+        /// the Core's disc anyway - and a robot walking home still has eyes, so Returning counts as
+        /// much as Exploring even though it reveals nothing new.</item>
+        /// </list>
+        /// </summary>
+        void RebuildObservers()
+        {
+            if (Observation == null) return;
+
+            Observation.BeginRebuild();
+
+            if (World?.Core != null) Observation.Add(World.CoreCenterCells, World.ActionRadiusCells);
+
+            if (ExplorerRobots != null && explorerRobotSettings != null)
+            {
+                IReadOnlyList<ExplorerRobotRuntime> robots = ExplorerRobots.Robots;
+                for (int i = 0; i < robots.Count; i++)
+                {
+                    if (robots[i].State == ExplorerRobotState.Idle) continue;
+                    Observation.Add(robots[i].Position, explorerRobotSettings.RevealRadiusCells);
+                }
+            }
+
+            Observation.EndRebuild();
+        }
+
         void RevealDiscoveredByCore()
         {
             if (Discovery == null || World?.Core == null) return;
@@ -732,10 +1034,17 @@ namespace Game.Presentation
             // frame it is granted rather than one frame later.
             RevealDiscoveredByCore();
 
-            // After the Core's disc, so a mission landing this frame reveals on top of an up-to-date
-            // map rather than under it. The reserve and its cap are handed over rather than read,
-            // because the probe threshold is a fraction of the cap - see MissionSettings.
-            Missions?.Tick(Time.deltaTime, Compute.Reserve, ComputeSystem.ReserveCap);
+            // Free exploration, after the Core's disc for the same reason a mission is: a robot
+            // uncovering ground this frame writes on top of an up-to-date map rather than under it.
+            // Driven from here and only from here - no robot has an Update of its own
+            // (PROJECT_ARCHITECTURE.md §17).
+            ExplorerRobots?.Tick(Time.deltaTime);
+            _explorerFleet?.Refresh(ExplorerRobots, Time.deltaTime);
+
+            // Last of the world's changes, so the observers match the positions this frame actually
+            // ended on rather than the ones it started from. The fog reads it in LateUpdate, after
+            // every Update has run.
+            RebuildObservers();
 
             // Scaled deltaTime, like every system above it - which is the whole of how the run
             // clock pauses and resumes. Pause sets Time.timeScale to 0, so this is fed 0 and stops
@@ -754,6 +1063,18 @@ namespace Game.Presentation
             // and lifecycle, and the adapter stops updating while a UI panel owns input - which
             // would strand the lines on screen with a tool still armed behind the panel.
             if (gridLineView != null) gridLineView.SetVisible(Construction.Selected != null);
+        }
+
+        /// <summary>
+        /// Which of the three sprites a wreck draws. Modulo rather than a bounds check: a settings
+        /// asset with two sprites should draw two kinds of wreck, not throw on the third.
+        /// </summary>
+        Sprite WreckSpriteFor(WreckSite site)
+        {
+            Sprite[] sprites = worldGenerationSettings?.WreckSprites;
+            if (sprites == null || sprites.Length == 0) return null;
+
+            return sprites[site.TypeIndex % sprites.Length];
         }
 
         void Start()
@@ -801,6 +1122,24 @@ namespace Game.Presentation
                     contentSpawner.SpawnOreDeposit(deposit);
                 }
 
+                // And every one that turns up later. A robot opening a sector materialises ore hours
+                // into a run, long after this loop has run once - without this the deposit was in the
+                // grid and on no screen.
+                World.DepositAppeared += contentSpawner.SpawnOreDeposit;
+
+                if (Wrecks != null)
+                {
+                    // Already-found wrecks first (a loaded game), then every one found from here on.
+                    // Both go through one call, so a restored wreck and a freshly found one can never
+                    // be drawn differently.
+                    foreach (WreckSite site in Wrecks.Sites)
+                    {
+                        if (site.Discovered) contentSpawner.SpawnWreck(site, WreckSpriteFor(site));
+                    }
+
+                    Wrecks.Discovered += site => contentSpawner.SpawnWreck(site, WreckSpriteFor(site));
+                }
+
                 Vector3 coreCenter = Grid.FootprintCenterToWorld(World.CoreOrigin, worldGenerationSettings.CoreDefinition.FootprintSize);
 
                 if (actionRadiusView != null)
@@ -826,7 +1165,11 @@ namespace Game.Presentation
                     // follows the view rather than a copy of the map - see FogOfWarView. Same two
                     // inputs the depth ladder is built from, and for the same reason: how much world
                     // can be on screen at once is what bounds both.
-                    fogOfWarView.Initialize(Discovery, Grid, _depthSortCamera, _maxOrthographicSize);
+                    // Observation alongside discovery, and it is the same distinction: discovery is
+                    // what the fog remembers, observation is what it is being shown right now. Also
+                    // not the Core and not a radius - RebuildObservers is what turns those into
+                    // observers, once a frame, and this view still recomputes no distance of its own.
+                    fogOfWarView.Initialize(Discovery, Observation, Grid, _depthSortCamera, _maxOrthographicSize);
                 }
 
                 // Start the camera centered on the Core - otherwise its fixed scene position

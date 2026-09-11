@@ -40,7 +40,7 @@ namespace Game.Construction
     {
         public const int DefaultBuildingCap = 30;
         const string MemoryAllocationResearchId = "memory_allocation";
-        const int ExtendedBuildingCap = 52;
+        const int ExtendedBuildingCap = 36;
 
         readonly GridRuntime _grid;
         readonly ItemDatabase _itemDatabase;
@@ -54,6 +54,16 @@ namespace Game.Construction
 
         public BuildingDefinition Selected { get; private set; }
         public Direction PreviewRotation { get; private set; } = Direction.North;
+
+        /// <summary>
+        /// Which side the next single-input building will take deliveries on
+        /// (<c>BuildingDefinition.HasSingleInputArrow</c>). Moved with <c>T</c> while the ghost is
+        /// up; meaningless for anything else, and ignored by it.
+        ///
+        /// Held here rather than on the ghost because it is a placement parameter exactly like the
+        /// rotation - the ghost previews it, this applies it, and both read one value.
+        /// </summary>
+        public Direction PreviewInputSide { get; private set; } = Direction.South;
 
         /// <summary>
         /// Current building slot cap (TASK_04_PLAFOND_RAYON.md §3) - starts at 40, raised to 52 by
@@ -151,6 +161,7 @@ namespace Game.Construction
             RelocationTarget = null;
             Selected = definition;
             PreviewRotation = Direction.North;
+            PreviewInputSide = BuildingRuntime.DefaultInputSideFor(Direction.North);
         }
 
         public void Cancel()
@@ -159,9 +170,24 @@ namespace Game.Construction
             Selected = null;
         }
 
+        /// <summary>
+        /// Points the next single input at a side, refusing the output side - a side that both took
+        /// and gave would feed the building its own production.
+        /// </summary>
+        public void SetPreviewInputSide(Direction side)
+        {
+            if (side == PreviewRotation) return;
+            PreviewInputSide = side;
+        }
+
         public void SetPreviewRotation(Direction rotation)
         {
             PreviewRotation = rotation;
+
+            // Rotating can leave the chosen input on the new output side. Rather than refuse the
+            // rotation - the player asked for it - the input follows to the default, which is what
+            // they would have to press T for anyway.
+            if (PreviewInputSide == PreviewRotation) PreviewInputSide = BuildingRuntime.DefaultInputSideFor(rotation);
         }
 
         /// <summary>Non-mutating check used by ghost-preview valid/invalid tinting.</summary>
@@ -233,6 +259,12 @@ namespace Game.Construction
 
             BuildingRuntime segment = CreateAndRegister(Selected, cell, rotation);
             if (segment == null) return false;
+
+            // Applied here rather than in the factory: the factory serves the save restore and the
+            // robot's materialisation too, and neither of those has a preview to read. A segment is
+            // already the real BuildingRuntime, so setting it now means the arrow is right from the
+            // moment the silhouette appears.
+            if (Selected.HasSingleInputArrow) segment.SetInputSide(PreviewInputSide);
 
             if (conveyorRunSite != null)
             {
@@ -390,6 +422,7 @@ namespace Game.Construction
             _grid.ClearOccupantFootprint(building.Cell, building.Definition.FootprintCells);
             building.MoveTo(destination);
             building.SetFacingRotation(PreviewRotation);
+            if (building.Definition.HasSingleInputArrow) building.SetInputSide(PreviewInputSide);
             _grid.SetOccupantFootprint(destination, building.Definition.FootprintCells, building);
 
             RelocationTarget = null;
@@ -524,18 +557,18 @@ namespace Game.Construction
                 return factory;
             }
 
+            if (definition is ConstructorDefinition constructorDefinition)
+            {
+                var constructor = new ConstructorRuntime(constructorDefinition, cell, rotation, _recipeDatabase, _computeSystem, _powerSystem, _researchSystem);
+                _grid.SetOccupantFootprint(cell, constructorDefinition.FootprintSize, constructor);
+                return constructor;
+            }
+
             if (definition is AdvancedFoundryDefinition advancedFoundryDefinition)
             {
                 var advancedFoundry = new AdvancedFoundryRuntime(advancedFoundryDefinition, cell, rotation, _recipeDatabase, _computeSystem, _powerSystem, _researchSystem);
                 _grid.SetOccupantFootprint(cell, advancedFoundryDefinition.FootprintSize, advancedFoundry);
                 return advancedFoundry;
-            }
-
-            if (definition is AssemblerDefinition assemblerDefinition)
-            {
-                var assembler = new AssemblerRuntime(assemblerDefinition, cell, rotation, _recipeDatabase, _computeSystem, _powerSystem, _researchSystem);
-                _grid.SetOccupantFootprint(cell, assemblerDefinition.FootprintSize, assembler);
-                return assembler;
             }
 
             if (definition is PowerplantGazDefinition powerplantGazDefinition)
@@ -601,7 +634,7 @@ namespace Game.Construction
         /// fresh reference to it then. Demolishing the Core was already unreachable in practice,
         /// but nothing previously stopped it explicitly.
         /// </summary>
-        static bool IsProtectedFromDemolition(BuildingRuntime building) =>
+        public static bool IsProtectedFromDemolition(BuildingRuntime building) =>
             building is CoreRuntime || building.Definition.Id == CoreStorageDefinitionId;
 
         const string CoreStorageDefinitionId = "core_storage";
@@ -727,24 +760,41 @@ namespace Game.Construction
         }
 
         /// <summary>
-        /// True when every cell of the footprint is within the Core's action radius - a plain
-        /// distance-from-Core's-origin-cell check per cell, matching the source project exactly.
-        /// No Core in this scene (e.g. a headless test) means no restriction at all. Reads
-        /// _core.ActionRadiusCells (runtime, extendable by research), never CoreDefinition's own
-        /// ActionRadiusCells (the starting value only) - TASK_04_PLAFOND_RAYON.md §4.1/§4.3.
+        /// True when every cell of the footprint is within the Core's action radius. No Core in this
+        /// scene (e.g. a headless test) means no restriction at all. Reads _core.ActionRadiusCells
+        /// (runtime, extendable by research), never CoreDefinition's own ActionRadiusCells (the
+        /// starting value only) - TASK_04_PLAFOND_RAYON.md §4.1/§4.3.
+        ///
+        /// <b>Measured from the same point the ring is drawn around, which it used not to be.</b>
+        /// ActionRadiusView is centred on the Core's footprint centre
+        /// (<c>GridRuntime.FootprintCenterToWorld</c>); this measured from <c>_core.Cell</c>, the
+        /// lowest-left cell of that footprint. On a 4x4 Core the two are two cells apart, so the
+        /// buildable disc sat two cells off the circle the player was looking at - reaching two cells
+        /// <i>past</i> it on one side and stopping two cells <i>short</i> on the other. Neither number
+        /// was wrong; they were measured from different places, and only one of them is visible.
+        ///
+        /// <b>And to the cell's centre, not its coordinate.</b> A cell whose corner was inside the
+        /// circle and whose body was not counted as inside, which put the edge another half cell out
+        /// on top of the two.
         /// </summary>
         bool IsWithinActionRadius(GridCoord origin, Vector2Int[] cells)
         {
             if (_core == null) return true;
 
             float radius = _core.ActionRadiusCells;
-            GridCoord coreOrigin = _core.Cell;
+
+            Vector2Int coreSize = _core.Definition.FootprintSize;
+            float coreX = _core.Cell.X + coreSize.x * 0.5f;
+            float coreY = _core.Cell.Y + coreSize.y * 0.5f;
+
+            // Squared, so the ghost's per-frame check over a footprint costs no square roots.
+            float limit = radius * radius;
 
             foreach (Vector2Int offset in cells)
             {
-                float dx = origin.X + offset.x - coreOrigin.X;
-                float dy = origin.Y + offset.y - coreOrigin.Y;
-                if (Mathf.Sqrt(dx * dx + dy * dy) > radius) return false;
+                float dx = origin.X + offset.x + 0.5f - coreX;
+                float dy = origin.Y + offset.y + 0.5f - coreY;
+                if (dx * dx + dy * dy > limit) return false;
             }
 
             return true;

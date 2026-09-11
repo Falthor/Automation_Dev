@@ -4,7 +4,6 @@ using Game.Gameplay.Buildings;
 using Game.Gameplay.Directives;
 using Game.Presentation;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 namespace Game.UI
@@ -36,8 +35,7 @@ namespace Game.UI
         VisualElement _rewardTitle;
         VisualElement _rewardItem;
         VisualElement _rewardMenu;
-        VisualElement _rewardResearch;
-        Label _rewardResearchName;
+        VisualElement _rewardResearchList;
         VisualElement _rewardIcon;
         Label _rewardName;
         Button _validateButton;
@@ -62,8 +60,7 @@ namespace Game.UI
             _rewardTitle = panelRoot.Q<Label>("CoreDirectiveRewardTitle");
             _rewardItem = panelRoot.Q<VisualElement>("CoreDirectiveRewardItem");
             _rewardMenu = panelRoot.Q<VisualElement>("CoreDirectiveRewardMenu");
-            _rewardResearch = panelRoot.Q<VisualElement>("CoreDirectiveRewardResearch");
-            _rewardResearchName = panelRoot.Q<Label>("CoreDirectiveRewardResearchName");
+            _rewardResearchList = panelRoot.Q<VisualElement>("CoreDirectiveRewardResearchList");
             _rewardIcon = panelRoot.Q<VisualElement>("CoreDirectiveRewardIcon");
             _rewardName = panelRoot.Q<Label>("CoreDirectiveRewardName");
             _validateButton = panelRoot.Q<Button>("CoreDirectiveValidate");
@@ -88,8 +85,7 @@ namespace Game.UI
         {
             if (_selected == null) return;
 
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            if (gameRuntime.Escape.IsClaimedBy(EscapeClaimant.ContextualPanel))
             {
                 Close();
                 return;
@@ -100,7 +96,7 @@ namespace Game.UI
 
         void OnValidateClicked()
         {
-            gameRuntime.CoreDirectives?.Validate(gameRuntime.GlobalStock, _selected);
+            gameRuntime.CoreDirectives?.Validate(_selected);
         }
 
         /// <summary>
@@ -122,7 +118,7 @@ namespace Game.UI
             if (current == null) return;
 
             bool delivering = directives.IsDelivering;
-            IReadOnlyDictionary<string, int> available = gameRuntime.GlobalStock;
+            IReadOnlyDictionary<string, int> available = gameRuntime.DirectiveStock;
 
             _requirements.Clear();
             foreach (RecipeIngredient requirement in current.Requirements)
@@ -150,17 +146,51 @@ namespace Game.UI
 
             if (hasItemReward && reward.Icon != null) _rewardIcon.style.backgroundImage = new StyleBackground(reward.Icon);
             _rewardName.text = hasItemReward ? reward.DisplayName : string.Empty;
-            _rewardResearchName.text = hasResearchReward
-                ? (string.IsNullOrEmpty(current.RewardLabel) ? GenericResearchReward : current.RewardLabel)
-                : string.Empty;
+            RebuildResearchRewardRows(hasResearchReward ? current.RewardLabels : null);
 
             _rewardItem.EnableInClassList("hidden", !hasItemReward);
-            _rewardResearch.EnableInClassList("hidden", !hasResearchReward);
+            _rewardResearchList.EnableInClassList("hidden", !hasResearchReward);
             _rewardMenu.EnableInClassList("hidden", !hasMenuReward);
             _rewardTitle.EnableInClassList("hidden", !hasItemReward && !hasMenuReward && !hasResearchReward);
 
             _validateButton.text = delivering ? "LIVRAISON EN COURS" : "VALIDER";
-            _validateButton.SetEnabled(directives.CanValidate(available));
+            // No stock handed in: the system reads the one view the haul reserves from. `available`
+            // above is the same figure, shown - but showing and deciding are now the same answer by
+            // construction rather than by this panel passing the right dictionary.
+            _validateButton.SetEnabled(directives.CanValidate());
+        }
+
+        /// <summary>
+        /// One row per thing the directive opens, rebuilt from scratch each refresh - there are at
+        /// most a handful and they only change when the directive does.
+        ///
+        /// An empty or absent list still gets one row, worded generically: a directive always grants
+        /// an unlock, so saying nothing at all would be the one wrong answer.
+        /// </summary>
+        void RebuildResearchRewardRows(string[] labels)
+        {
+            _rewardResearchList.Clear();
+
+            if (labels == null) return;
+            if (labels.Length == 0) labels = new[] { GenericResearchReward };
+
+            foreach (string label in labels)
+            {
+                if (string.IsNullOrEmpty(label)) continue;
+
+                var row = new VisualElement();
+                row.AddToClassList("core-directive-reward");
+
+                var glyph = new VisualElement();
+                glyph.AddToClassList("core-directive-reward-glyph");
+                row.Add(glyph);
+
+                var name = new Label(label);
+                name.AddToClassList("core-directive-reward-name");
+                row.Add(name);
+
+                _rewardResearchList.Add(row);
+            }
         }
 
         /// <summary>One requirement: a large icon with stock-over-target underneath, per the Core panel's own layout rather than the compact ingredient rows used elsewhere.</summary>

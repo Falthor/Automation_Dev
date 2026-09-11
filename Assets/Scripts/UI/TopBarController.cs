@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Data;
+using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Directives;
 using Game.Gameplay.Session;
@@ -14,8 +15,9 @@ namespace Game.UI
     /// Global Top Bar (GLOBAL_UI.md §2-4): three compact status cards (Power/Compute/Research),
     /// each a pure view over an existing runtime system - no duplicated state, no new
     /// simulation. Hover expands a card in place to reveal its detail block; click opens the
-    /// matching global panel through the same Selection routing every other panel uses. Menu is
-    /// a reserved, non-functional icon (per spec); Pause freezes simulation via Time.timeScale,
+    /// matching global panel through the same Selection routing every other panel uses. Menu opens
+    /// the shortcuts screen (<see cref="ShortcutsPanel"/>) - a deliberate deviation from the imported
+    /// spec, where it is a reserved placeholder; Pause freezes simulation via Time.timeScale,
     /// which every deltaTime-scaled system (Transport/Research/Power/Compute) already respects
     /// with no new per-system pause flag needed.
     /// </summary>
@@ -78,8 +80,22 @@ namespace Game.UI
             public float DetailHeight;
         }
 
+        InputAction _pause;
+
+        /// <summary>
+        /// The shortcuts screen, opened by the Menu button. The same template the main menu
+        /// instantiates, so there is one list rather than two that can drift.
+        ///
+        /// Moved out of the Top Bar's own tree and onto the document root: it is a full-screen
+        /// overlay, and left inside a bar that other controllers draw over it would have opened
+        /// underneath them.
+        /// </summary>
+        ShortcutsPanel _shortcuts;
+
         void Start()
         {
+            _pause = InputBindings.Find(InputActionCatalogue.Pause);
+
             VisualElement panelRoot = visualTree.CloneTree();
             uiDocument.rootVisualElement.Add(panelRoot);
             panelRoot.StretchToParentSize();
@@ -90,8 +106,9 @@ namespace Game.UI
             _pauseOverlay = panelRoot.Q<Label>("TopBarPauseOverlay");
             _refusalMessage = panelRoot.Q<Label>("TopBarRefusalMessage");
 
-            // Menu is a reserved, non-functional placeholder (GLOBAL_UI.md §3) - no handler.
             panelRoot.Q<Button>("TopBarPauseButton").clicked += TogglePause;
+
+            ReleaseFocusAfterAClick();
 
             // Base widths reduced per user feedback ("moins large") - hover only expands height
             // (SetExpanded below), never width, so this has no effect on the hover-expand behavior.
@@ -105,6 +122,36 @@ namespace Game.UI
             _buildingCard = BuildCard(buildingIcon, BuildingMenuController.PanelName, 150f, 115f, 190f, 40f, 1, "top-bar-card-bar-fill-buildings");
 
             if (constructionInputAdapter != null) constructionInputAdapter.PlacementRefused += ShowRefusalMessage;
+
+            BuildShortcutsScreen(panelRoot);
+        }
+
+        /// <summary>
+        /// Hands the Menu button the shortcuts screen.
+        ///
+        /// <b>Last in Start, and guarded.</b> The overlay is reparented onto the document root, and
+        /// an <c>Add(null)</c> in the middle of this method would have thrown before the cards were
+        /// built - costing the clock, the five status cards and Pause for a missing element that only
+        /// the options screen needs. A screen that cannot be opened is the right price; a Top Bar that
+        /// does not exist is not.
+        /// </summary>
+        void BuildShortcutsScreen(VisualElement panelRoot)
+        {
+            VisualElement overlay = panelRoot.Q<VisualElement>("ShortcutsOverlay");
+            var menuButton = panelRoot.Q<Button>("TopBarMenuButton");
+
+            if (overlay == null || menuButton == null)
+            {
+                Debug.LogError("TopBar.uxml no longer instantiates the Shortcuts template - the Menu button has nothing to open.", this);
+                return;
+            }
+
+            // Moved out of the Top Bar's own tree: it is a full-screen overlay, and left inside a bar
+            // that every other controller draws over, it would have opened underneath them.
+            uiDocument.rootVisualElement.Add(overlay);
+
+            _shortcuts = new ShortcutsPanel(overlay);
+            menuButton.clicked += _shortcuts.Show;
         }
 
         /// <summary>Flashes an explicit refusal reason (e.g. the building cap) near the cards row for RefusalMessageSeconds, then auto-hides (TASK_04_PLAFOND_RAYON.md §3.2). Re-showing while already visible just resets the timer.</summary>
@@ -176,14 +223,20 @@ namespace Game.UI
         /// is already fully said in the collapsed header, so there would be nothing behind the
         /// expansion but the same numbers written out again.
         ///
-        /// Not a Button either: every other card opens a global panel, and a directive lives in the
-        /// Core's own inspector, reached by clicking the Core in the world.
+        /// <b>A Button, like the other four cards.</b> It used to be a plain VisualElement with a
+        /// ClickEvent callback, and clicking it did nothing: a Button carries the Clickable
+        /// manipulator that captures the pointer between press and release, which is what the four
+        /// working cards rely on. Written as the same thing they are, rather than as a second way of
+        /// being clickable that only looks equivalent.
         /// </summary>
         Card BuildDirectiveCard()
         {
             var card = new Card { RefWidth = 200f, MinWidth = 150f, MaxWidth = 250f, DetailHeight = 0f };
 
-            var root = new VisualElement();
+            // The card states a bill; the Core panel is where it is read in full and accepted. The
+            // player who reads "0/40" on the bar is already asking about the directive, and having to
+            // go find the Core on the map to answer that is a detour the bar can spare them.
+            var root = new Button(OpenCorePanel) { text = string.Empty };
             root.AddToClassList("top-bar-card");
             card.Root = root;
 
@@ -203,9 +256,29 @@ namespace Game.UI
             card.Requirements = requirements;
 
             root.Add(header);
+            root.AddToClassList("top-bar-card-clickable");
 
             _cardsRow.Add(root);
             return card;
+        }
+
+        /// <summary>
+        /// Selects the Core, which is what CorePanelController listens for - the same route a click on
+        /// the Core itself takes, so there is one way in and not two.
+        ///
+        /// A missing Core is logged rather than shrugged off: this is reached by a deliberate click,
+        /// and a click that silently does nothing is the hardest kind of defect to report.
+        /// </summary>
+        void OpenCorePanel()
+        {
+            CoreRuntime core = gameRuntime.World?.Core;
+            if (core == null)
+            {
+                Debug.LogError("The Top Bar's directive card was clicked with no Core in the world - nothing to open.", this);
+                return;
+            }
+
+            gameRuntime.Selection.Select(core);
         }
 
         static void SetExpanded(Card card, bool expanded)
@@ -228,11 +301,49 @@ namespace Game.UI
             _pauseOverlay.EnableInClassList("hidden", !_paused);
         }
 
+        /// <summary>
+        /// Drops the focus a click just handed to a button.
+        ///
+        /// <b>Space belongs to the pause, and a focused button was quietly taking it.</b> UI Toolkit
+        /// activates a focused <see cref="Button"/> on Space (a NavigationSubmitEvent), so after
+        /// clicking anything in the interface, pausing also re-fired that button - the Bottom Nav
+        /// reopening a panel, or, at its sharpest, the Pause button itself toggling a second time so
+        /// that Space appeared to do nothing at all.
+        ///
+        /// The focus is what is wrong here, not the pause: <see cref="Update"/> reads Space
+        /// deliberately ungated, because pausing from behind an open panel is expected. And this
+        /// project activates buttons by clicking them or by their digit shortcut, never by
+        /// submitting a focused one, so a clicked button has no use for the focus it was given.
+        ///
+        /// <b>Registered on the document root rather than per button.</b> Every controller clones
+        /// its tree into the same root, so one callback in the bubble phase covers the Top Bar, the
+        /// Bottom Nav, the building menu and every panel - eight places to edit, and eight places to
+        /// forget, become one. It lives here because this is the component that claims Space.
+        ///
+        /// Only a <see cref="Button"/> is blurred. A text field must keep the focus a click gives
+        /// it, or typing into it would be impossible - which matters from the shortcuts menu on.
+        ///
+        /// <b>It asks what holds the focus, not what was clicked.</b> A Top Bar card is a Button
+        /// containing an icon and labels, and those children take the click for themselves - so the
+        /// event's own target is usually not the Button that ended up focused. Reading the focus
+        /// controller is the same question the digit shortcuts already ask (UIFocus), and
+        /// it is the only form of the question that survives a button with children.
+        /// </summary>
+        void ReleaseFocusAfterAClick()
+        {
+            uiDocument.rootVisualElement.RegisterCallback<ClickEvent>(_ =>
+            {
+                FocusController focus = uiDocument.rootVisualElement.panel?.focusController;
+                if (focus?.focusedElement is Button button) button.Blur();
+            });
+        }
+
         void Update()
         {
             // Same gesture as the Pause button (GLOBAL_UI.md's Top Bar) - not gated on
             // IsUIBlockingInput, since pausing/resuming from behind an open panel is expected.
-            if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
+            // A clicked button no longer competes for this key - see ReleaseFocusAfterAClick.
+            if (InputBindings.WasPressedThisFrame(_pause))
             {
                 TogglePause();
             }
@@ -365,7 +476,7 @@ namespace Game.UI
                 return;
             }
 
-            IReadOnlyDictionary<string, int> available = gameRuntime.GlobalStock;
+            IReadOnlyDictionary<string, int> available = gameRuntime.DirectiveStock;
             foreach (RecipeIngredient requirement in current.Requirements)
             {
                 if (requirement.Item == null || requirement.Amount <= 0) continue;

@@ -37,6 +37,38 @@ namespace Game.Data
         [Header("Core Storage - a fixture placed one cell south of the Core at world generation, holding StartingStock")]
         [SerializeField] StorageDefinition coreStorageDefinition;
 
+        [Header("Débris")]
+
+        /// <summary>
+        /// The three wreck sprites. Drawn from freely - the same one may appear more than once, which
+        /// is what keeps eight wrecks from reading as a set of eight different things.
+        /// </summary>
+        [SerializeField] Sprite[] wreckSprites = System.Array.Empty<Sprite>();
+
+        /// <summary>
+        /// The rings the wrecks are spread over, innermost first - see <see cref="WreckRingProfile"/>
+        /// for why rings rather than a density.
+        ///
+        /// The innermost is deliberately tight: a robot always starts there, so it crosses one almost
+        /// at once. The outer band is wide enough that its four are a long-term prospect.
+        /// </summary>
+        [SerializeField] WreckRing[] wreckRings =
+        {
+            new WreckRing(40f, 75f, 2),
+            new WreckRing(75f, 160f, 2),
+            new WreckRing(160f, 330f, 4)
+        };
+
+        /// <summary>
+        /// <b>A development instrument, and it is meant to be deleted.</b> Finds every wreck the
+        /// moment the world starts, so the spread of eight points over a 330-cell disc can be judged
+        /// on the map without playing the three quarters of an hour the outer ring is tuned for.
+        ///
+        /// Off by default. Delete this field, the line that reads it in GameRuntime, and
+        /// WreckField.DiscoverEverything together.
+        /// </summary>
+        [SerializeField] bool discoverEveryWreckAtStart;
+
         public CoreDefinition CoreDefinition => coreDefinition;
         public OreDepositDefinition IronOreDefinition => ironOreDefinition;
         public OreDepositDefinition CopperOreDefinition => copperOreDefinition;
@@ -52,5 +84,12 @@ namespace Game.Data
 
         /// <summary>Definition for the fixture WorldGenerator places one cell south of the Core and seeds with StartingStock. Null skips creating it (e.g. an older settings asset, or a test that doesn't need it).</summary>
         public StorageDefinition CoreStorageDefinition => coreStorageDefinition;
+
+        public Sprite[] WreckSprites => wreckSprites;
+        public WreckRing[] WreckRings => wreckRings;
+        public bool DiscoverEveryWreckAtStart => discoverEveryWreckAtStart;
+
+        /// <summary>The rings as one value, with the derived angular separation they imply.</summary>
+        public WreckRingProfile WreckProfile => new WreckRingProfile(wreckRings);
     }
 }

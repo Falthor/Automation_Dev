@@ -56,13 +56,13 @@ namespace Game.Tests.EditMode.UI
         [Test]
         public void AResearchWithUnmetPrerequisites_IsStillListed_WhenItDeclaresNoMilestone()
         {
-            ResearchDefinition circuitBoard = TestDataFactory.NewResearch("circuit_board", 500f);
-            ResearchDefinition assembler = TestDataFactory.NewResearch("assembler", 800f, 1_000_000f, circuitBoard);
+            ResearchDefinition computeModules = TestDataFactory.NewResearch("compute_modules", 500f);
+            ResearchDefinition datacenter = TestDataFactory.NewResearch("datacenter", 800f, 1_000_000f, computeModules);
 
             ResearchSystem research = Unlocked();
 
-            Assert.IsFalse(research.ArePrerequisitesMet(assembler), "Precondition: it cannot be started.");
-            Assert.IsTrue(ResearchPanelController.IsRevealed(assembler, research), "And it is listed all the same, locked.");
+            Assert.IsFalse(research.ArePrerequisitesMet(datacenter), "Precondition: it cannot be started.");
+            Assert.IsTrue(ResearchPanelController.IsRevealed(datacenter, research), "And it is listed all the same, locked.");
         }
 
         // --- Building menu category rail ---

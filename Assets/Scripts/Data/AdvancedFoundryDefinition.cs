@@ -7,8 +7,8 @@ namespace Game.Data
     public sealed class AdvancedFoundryDefinition : BuildingDefinition
     {
         [SerializeField, Min(0f)] float powerDemandKw = 4f;
-        [SerializeField] string[] recipeIds = { "Steel" };
-        [SerializeField] string[] acceptedItemIds = { "iron_ore", "Coal_ore" };
+        [SerializeField] string[] recipeIds = System.Array.Empty<string>();
+        [SerializeField] string[] acceptedItemIds = System.Array.Empty<string>();
 
         public override float PowerDemandKw => powerDemandKw;
         public string[] RecipeIds => recipeIds;

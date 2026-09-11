@@ -3,7 +3,6 @@ using Game.Data;
 using Game.Presentation;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.Controls;
 using UnityEngine.UIElements;
 
 namespace Game.UI
@@ -37,14 +36,28 @@ namespace Game.UI
         /// <summary>Opens the zoomed-out map. Hidden until the explorer robots arrive.</summary>
         Button _mapButton;
 
+        /// <summary>The slot the map button lives in. Hidden with the button, so before the robots arrive there is no empty frame sitting where a control will one day be.</summary>
+        VisualElement _mapSlot;
+
+        /// <summary>False until the player has opened the map once - what ends the green pulse announcing that somewhere else has become reachable.</summary>
+        bool _mapSeen;
+
         /// <summary>False until the player has opened the Research panel once - what ends the "this is new" pulse on the icon that just appeared.</summary>
         bool _researchMenuSeen;
         readonly VisualElement[] _slotRoots = new VisualElement[BuildingMenuController.ToolbarSlotCount];
         readonly VisualElement[] _slotIcons = new VisualElement[BuildingMenuController.ToolbarSlotCount];
         readonly Label[] _slotBadges = new Label[BuildingMenuController.ToolbarSlotCount];
 
+        /// <summary>One action per slot, in slot order. Resolved once - see InputBindings.</summary>
+        readonly InputAction[] _slotShortcuts = new InputAction[BuildingMenuController.ToolbarSlotCount];
+
         void Start()
         {
+            for (int slot = 0; slot < _slotShortcuts.Length; slot++)
+            {
+                _slotShortcuts[slot] = InputBindings.Find(InputActionCatalogue.Slot(slot + 1));
+            }
+
             // Start(), not OnEnable() - GameRuntime.Awake() (which constructs Selection) is not
             // guaranteed to run before this object's OnEnable, but Start() always runs after
             // every object's Awake() - see ConstructionInputAdapter/BuildingMenuController.
@@ -118,6 +131,7 @@ namespace Game.UI
         {
             if (slot == null) return;
 
+            _mapSlot = slot;
             _mapButton = new Button(() => ToggleGlobalPanel(SectorMapPanelController.PanelName)) { text = "CARTE" };
             _mapButton.AddToClassList("bottom-nav-map-button");
 
@@ -125,13 +139,27 @@ namespace Game.UI
             slot.Add(_mapButton);
         }
 
-        /// <summary>The map exists once the robots do: before that there is nowhere to send anything, and §9 makes their arrival what opens it.</summary>
+        /// <summary>
+        /// The map exists once the robots do: before that there is nothing out there to look at, and
+        /// their arrival - the CU reserve having fallen far enough - is what opens it.
+        ///
+        /// The whole slot goes, not just the button inside it. Hiding only the button left its empty
+        /// frame drawn in the corner for the entire opening - a control-shaped hole announcing a
+        /// control the player has not been given, which is the announcement the pulse below is for.
+        ///
+        /// Green rather than the Research menu's tint: this is not another menu being handed over,
+        /// it is the world beyond the Core becoming reachable at all.
+        /// </summary>
         void RefreshMapAvailability()
         {
             if (_mapButton == null) return;
 
-            bool available = gameRuntime.Missions != null && gameRuntime.Missions.RobotsHaveAppeared;
+            bool available = gameRuntime.ExplorerRobots != null && gameRuntime.ExplorerRobots.RobotsHaveAppeared;
+            _mapSlot?.EnableInClassList("hidden", !available);
             _mapButton.EnableInClassList("hidden", !available);
+
+            if (gameRuntime.Selection.ActiveGlobalPanel == SectorMapPanelController.PanelName) _mapSeen = true;
+            _mapButton.EnableInClassList("newly-reachable", available && !_mapSeen && NewUnlockPulse.IsOn);
         }
 
         void AddCategoryButton(int index, string panelName, Sprite icon)
@@ -254,32 +282,15 @@ namespace Game.UI
             RefreshResearchAvailability();
             RefreshMapAvailability();
 
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard == null || IsTextFieldFocused()) return;
+            if (UIFocus.IsTypingInAField(uiDocument)) return;
 
-            for (int i = 0; i < BuildingMenuController.ToolbarSlotCount; i++)
+            for (int i = 0; i < _slotShortcuts.Length; i++)
             {
-                if (!DigitKey(keyboard, i).wasPressedThisFrame) continue;
+                if (!InputBindings.WasPressedThisFrame(_slotShortcuts[i])) continue;
                 OnSlotClicked(i);
             }
         }
 
-        bool IsTextFieldFocused()
-        {
-            VisualElement focused = uiDocument.rootVisualElement.panel?.focusController?.focusedElement as VisualElement;
-            return focused is TextField;
-        }
 
-        static ButtonControl DigitKey(Keyboard keyboard, int slotIndex) => slotIndex switch
-        {
-            0 => keyboard.digit1Key,
-            1 => keyboard.digit2Key,
-            2 => keyboard.digit3Key,
-            3 => keyboard.digit4Key,
-            4 => keyboard.digit5Key,
-            5 => keyboard.digit6Key,
-            6 => keyboard.digit7Key,
-            _ => keyboard.digit8Key,
-        };
     }
 }

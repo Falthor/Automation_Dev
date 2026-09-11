@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Game.Core;
 using Game.Data;
@@ -104,6 +105,36 @@ namespace Game.Gameplay.WorldGeneration
         public IReadOnlyList<DepositRuntime> OreDeposits => _oreDeposits;
 
         readonly List<DepositRuntime> _oreDeposits = new List<DepositRuntime>();
+
+        /// <summary>
+        /// A deposit that has just come into existence after generation - what an explorer robot
+        /// opening a sector produces. Presentation subscribes to spawn its view.
+        ///
+        /// It exists because the list and the grid have to stay one thing. A deposit written straight
+        /// into <see cref="GridRuntime"/> is real to everything that asks the grid - the hover glow
+        /// finds it, an Extractor could be placed on it - and invisible to everything that reads this
+        /// list, which is the view and the save. That was exactly the defect: ore appeared, could be
+        /// pointed at, was never drawn, and did not survive a reload.
+        /// </summary>
+        public event Action<DepositRuntime> DepositAppeared;
+
+        /// <summary>
+        /// Places a deposit and registers it, in that order and in one call.
+        ///
+        /// <b>The only way to add a deposit after generation.</b> Callers must not reach for
+        /// <see cref="GridRuntime.PlaceDeposit"/> themselves: it returns the runtime it created, and
+        /// dropping that return value is what makes a deposit exist without being owned by anything.
+        /// </summary>
+        public DepositRuntime AddDeposit(GridRuntime grid, GridCoord origin, OreDepositDefinition definition)
+        {
+            if (grid == null || definition == null) return null;
+
+            DepositRuntime deposit = grid.PlaceDeposit(origin, definition);
+            _oreDeposits.Add(deposit);
+            DepositAppeared?.Invoke(deposit);
+
+            return deposit;
+        }
 
         public void Generate(GridRuntime grid, int mapSizeCells, WorldGenerationSettings settings, ComputeSystem computeSystem, PowerSystem powerSystem, ResearchSystem researchSystem)
         {

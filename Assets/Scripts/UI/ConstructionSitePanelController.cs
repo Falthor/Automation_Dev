@@ -3,7 +3,6 @@ using Game.Data;
 using Game.Gameplay.Sites;
 using Game.Presentation;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 using SupplyLine = Game.Gameplay.Sites.ConstructionSiteRuntime.SupplyLine;
@@ -152,8 +151,7 @@ namespace Game.UI
         {
             if (_selected == null) return;
 
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            if (gameRuntime.Escape.IsClaimedBy(EscapeClaimant.ContextualPanel))
             {
                 Close();
                 return;

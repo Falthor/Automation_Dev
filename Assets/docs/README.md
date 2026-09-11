@@ -56,6 +56,8 @@ aux spécifications, les pièges rencontrés et les mesures qui ont tranché.
   puis le passage de la carte à 10 000
 - [`materialisation-nano.md`](carnets/materialisation-nano.md) — dissolve et couverture au sol
 - [`expeditions.md`](carnets/expeditions.md) — le processus de mission
+- [`entrees-clavier.md`](carnets/entrees-clavier.md) — clavier et souris : `Key` est une
+  position et non une lettre, le focus qui volait Espace, ce qu'un grep ne trouve pas
 
 **Les directives ont disparu.** Chaque chantier en avait une, qui disait ce qu'il fallait faire ; une
 fois le chantier fini, elle ne pouvait plus que diverger du code sans que rien ne le signale. Ce

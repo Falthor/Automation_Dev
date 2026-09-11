@@ -35,9 +35,16 @@ namespace Game.Tests.EditMode.Gameplay.Directives
             public ConstructionSiteSystem Sites;
             public ResearchSystem Research;
             public CoreDirectiveSystem Directives;
+
+            /// <summary>The hatch under the Core. Its contents fund construction and are <b>invisible to a directive</b> - see <see cref="TheCoreReserve_CannotSatisfyADirective"/>.</summary>
             public StorageRuntime CoreChest;
+
+            /// <summary>An ordinary player-placed box, which is where a directive's material has to come from.</summary>
+            public StorageRuntime Chest;
+
             public BuildingRuntime Core;
 
+            /// <summary>Everything a construction site could claim, hatch included. What a directive may claim is narrower - and is the system's own business now, not something a caller passes in.</summary>
             public IReadOnlyDictionary<string, int> Stock => Sites.GetAvailableAggregate();
 
             public void Simulate(float seconds)
@@ -80,15 +87,33 @@ namespace Game.Tests.EditMode.Gameplay.Directives
         static Fixture NewFixture(int wire, int plate, out ResearchDefinition gate)
             => NewFixture(wire, plate, out gate, unlocksResearchMenu: false);
 
-        static Fixture NewFixture(int wire, int plate, out ResearchDefinition gate, bool unlocksResearchMenu)
+        /// <summary>
+        /// <paramref name="wire"/> and <paramref name="plate"/> go into an <b>ordinary</b> box, because
+        /// that is where a directive's material has to come from; <paramref name="reserveWire"/> and
+        /// <paramref name="reservePlate"/> go into the Core's hatch, which a directive may not touch.
+        ///
+        /// The two used to be one: everything was seeded into the hatch and the tests handed
+        /// <c>GetAvailableAggregate()</c> to Validate, so they accepted on stock the haul was then
+        /// forbidden to claim. Seven tests went red the day that rule was posed and stayed red because
+        /// nothing here distinguished the two containers.
+        /// </summary>
+        static Fixture NewFixture(int wire, int plate, out ResearchDefinition gate, bool unlocksResearchMenu,
+            int reserveWire = 0, int reservePlate = 0)
         {
             var grid = new GridRuntime(1f);
             var transport = new TransportSystem(grid);
             var sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
             var research = new ResearchSystem(new ComputeSystem());
 
-            StorageDefinition chestDefinition = TestDataFactory.NewStorage(ConstructionSiteSystem.CoreStorageDefinitionId, 6, 200, rejectsConveyorInput: true);
-            var chest = new StorageRuntime(chestDefinition, new GridCoord(0, 0), Direction.North);
+            StorageDefinition coreChestDefinition = TestDataFactory.NewStorage(ConstructionSiteSystem.CoreStorageDefinitionId, 6, 200, rejectsConveyorInput: true);
+            var coreChest = new StorageRuntime(coreChestDefinition, new GridCoord(0, 0), Direction.North);
+            grid.SetOccupantFootprint(coreChest.Cell, coreChestDefinition.FootprintSize, coreChest);
+            transport.Register(coreChest);
+            if (reserveWire > 0) coreChest.SeedInitialContents(WireId, reserveWire);
+            if (reservePlate > 0) coreChest.SeedInitialContents(PlateId, reservePlate);
+
+            StorageDefinition chestDefinition = TestDataFactory.NewStorage("storage_box", 6, 200);
+            var chest = new StorageRuntime(chestDefinition, new GridCoord(4, 0), Direction.North);
             grid.SetOccupantFootprint(chest.Cell, chestDefinition.FootprintSize, chest);
             transport.Register(chest);
             if (wire > 0) chest.SeedInitialContents(WireId, wire);
@@ -111,7 +136,8 @@ namespace Game.Tests.EditMode.Gameplay.Directives
                 Sites = sites,
                 Research = research,
                 Core = core,
-                CoreChest = chest,
+                CoreChest = coreChest,
+                Chest = chest,
                 Directives = new CoreDirectiveSystem(NewDatabase(directive), sites, research)
             };
         }
@@ -121,13 +147,61 @@ namespace Game.Tests.EditMode.Gameplay.Directives
         {
             Fixture fixture = NewFixture(wire: 5, plate: 4, out _);
 
-            Assert.IsFalse(fixture.Directives.CanValidate(fixture.Stock), "Four plates of the five asked for: the button stays grey.");
-            Assert.IsFalse(fixture.Directives.Validate(fixture.Stock, fixture.Core),
+            Assert.IsFalse(fixture.Directives.CanValidate(), "Four plates of the five asked for: the button stays grey.");
+            Assert.IsFalse(fixture.Directives.Validate(fixture.Core),
                 "And pressing it anyway does nothing - enabled and accepted are the same condition.");
 
-            fixture.CoreChest.SeedInitialContents(PlateId, 1);
+            fixture.Chest.SeedInitialContents(PlateId, 1);
 
-            Assert.IsTrue(fixture.Directives.CanValidate(fixture.Stock));
+            Assert.IsTrue(fixture.Directives.CanValidate());
+        }
+
+        /// <summary>
+        /// <b>The rule the seven red tests were hiding.</b> Material already sitting in the hatch under
+        /// the Core has not been brought anywhere - it started there - so it cannot satisfy a request to
+        /// bring the Core something. Without this the opening directive is answered by the starting
+        /// stock alone, with no machine built.
+        ///
+        /// This had no green coverage at all: the suite validated against the wide aggregate, which
+        /// includes the hatch, so it was asserting the opposite of the rule and failing further down for
+        /// a reason nobody read.
+        /// </summary>
+        [Test]
+        public void TheCoreReserve_CannotSatisfyADirective()
+        {
+            Fixture fixture = NewFixture(wire: 0, plate: 0, out _, unlocksResearchMenu: false,
+                reserveWire: 50, reservePlate: 50);
+
+            Assert.AreEqual(50, fixture.Stock[WireId], "Precondition: a construction site could still spend it.");
+
+            Assert.IsFalse(fixture.Directives.CanValidate(),
+                "Fifty of each in the hatch, and the Core still asks for five: the reserve is not an answer.");
+            Assert.IsFalse(fixture.Directives.Validate(fixture.Core));
+
+            fixture.Chest.SeedInitialContents(WireId, 5);
+            fixture.Chest.SeedInitialContents(PlateId, 5);
+
+            Assert.IsTrue(fixture.Directives.CanValidate(), "Brought into an ordinary box, the same material counts.");
+        }
+
+        /// <summary>
+        /// And the haul respects the same boundary once it is running: the ordinary box is drained, the
+        /// hatch is not touched. Checked separately from the decision above, because deciding and
+        /// reserving are two passes and it is their disagreement that broke the suite.
+        /// </summary>
+        [Test]
+        public void TheHaul_DrainsTheBox_AndLeavesTheCoreReserveAlone()
+        {
+            Fixture fixture = NewFixture(wire: 5, plate: 5, out _, unlocksResearchMenu: false,
+                reserveWire: 40, reservePlate: 40);
+
+            Assert.IsTrue(fixture.Directives.Validate(fixture.Core));
+            fixture.Simulate(30f);
+
+            Assert.AreEqual(0, fixture.Chest.GetInputAmount(WireId), "Five held, five asked for.");
+            Assert.AreEqual(0, fixture.Chest.GetInputAmount(PlateId));
+            Assert.AreEqual(40, fixture.CoreChest.GetInputAmount(WireId), "The reserve is untouched.");
+            Assert.AreEqual(40, fixture.CoreChest.GetInputAmount(PlateId));
         }
 
         [Test]
@@ -135,7 +209,7 @@ namespace Game.Tests.EditMode.Gameplay.Directives
         {
             Fixture fixture = NewFixture(wire: 5, plate: 5, out ResearchDefinition gate);
 
-            Assert.IsTrue(fixture.Directives.Validate(fixture.Stock, fixture.Core));
+            Assert.IsTrue(fixture.Directives.Validate(fixture.Core));
             Assert.IsTrue(fixture.Directives.IsDelivering, "The haul is in flight.");
             Assert.IsFalse(fixture.Research.IsUnlocked(gate.Id), "Nothing is granted at the moment of validating.");
 
@@ -158,11 +232,11 @@ namespace Game.Tests.EditMode.Gameplay.Directives
         {
             Fixture fixture = NewFixture(wire: 8, plate: 8, out _);
 
-            Assert.IsTrue(fixture.Directives.Validate(fixture.Stock, fixture.Core));
+            Assert.IsTrue(fixture.Directives.Validate(fixture.Core));
             fixture.Simulate(30f);
 
-            Assert.AreEqual(3, fixture.CoreChest.GetInputAmount(WireId), "Eight held, five asked for.");
-            Assert.AreEqual(3, fixture.CoreChest.GetInputAmount(PlateId));
+            Assert.AreEqual(3, fixture.Chest.GetInputAmount(WireId), "Eight held, five asked for.");
+            Assert.AreEqual(3, fixture.Chest.GetInputAmount(PlateId));
         }
 
         /// <summary>
@@ -177,7 +251,7 @@ namespace Game.Tests.EditMode.Gameplay.Directives
 
             Assert.AreEqual(5, fixture.Stock[PlateId]);
 
-            Assert.IsTrue(fixture.Directives.Validate(fixture.Stock, fixture.Core));
+            Assert.IsTrue(fixture.Directives.Validate(fixture.Core));
 
             Assert.IsFalse(fixture.Stock.ContainsKey(PlateId),
                 "Every plate is spoken for by the directive, so nothing else may count on one.");
@@ -188,9 +262,9 @@ namespace Game.Tests.EditMode.Gameplay.Directives
         {
             Fixture fixture = NewFixture(wire: 20, plate: 20, out _);
 
-            Assert.IsTrue(fixture.Directives.Validate(fixture.Stock, fixture.Core));
-            Assert.IsFalse(fixture.Directives.CanValidate(fixture.Stock), "The Core asks for one thing at a time.");
-            Assert.IsFalse(fixture.Directives.Validate(fixture.Stock, fixture.Core));
+            Assert.IsTrue(fixture.Directives.Validate(fixture.Core));
+            Assert.IsFalse(fixture.Directives.CanValidate(), "The Core asks for one thing at a time.");
+            Assert.IsFalse(fixture.Directives.Validate(fixture.Core));
         }
 
         [Test]
@@ -199,7 +273,7 @@ namespace Game.Tests.EditMode.Gameplay.Directives
             Fixture fixture = NewFixture(wire: 5, plate: 5, out _);
             Assert.IsNotNull(fixture.Directives.Current);
 
-            fixture.Directives.Validate(fixture.Stock, fixture.Core);
+            fixture.Directives.Validate(fixture.Core);
             fixture.Simulate(30f);
             Assert.IsNull(fixture.Directives.Current, "Precondition: it is done.");
 
@@ -224,12 +298,30 @@ namespace Game.Tests.EditMode.Gameplay.Directives
 
             Assert.IsFalse(fixture.Directives.IsResearchMenuUnlocked, "A new run has no Research menu.");
 
-            Assert.IsTrue(fixture.Directives.Validate(fixture.Stock, fixture.Core));
+            Assert.IsTrue(fixture.Directives.Validate(fixture.Core));
             Assert.IsFalse(fixture.Directives.IsResearchMenuUnlocked, "Nor while the robots are still carrying it.");
 
             fixture.Simulate(30f);
 
             Assert.IsTrue(fixture.Directives.IsResearchMenuUnlocked);
+        }
+
+        /// <summary>
+        /// The development bypass opens the menu and touches nothing else. What is being pinned is the
+        /// "nothing else": a shortcut that nudged the directive index would silently hand the player a
+        /// directive's reward and skip its ask, and the run would no longer be the run being debugged.
+        /// </summary>
+        [Test]
+        public void ForcingTheResearchMenu_OpensIt_WithoutCompletingTheDirectiveThatGrantsIt()
+        {
+            Fixture fixture = NewFixture(wire: 5, plate: 5, out _, unlocksResearchMenu: true);
+            CoreDirectiveDefinition asked = fixture.Directives.Current;
+
+            fixture.Directives.ResearchMenuForcedOpen = true;
+
+            Assert.IsTrue(fixture.Directives.IsResearchMenuUnlocked);
+            Assert.AreSame(asked, fixture.Directives.Current, "The Core still asks for the same directive.");
+            Assert.AreEqual(1, fixture.Directives.CurrentNumber, "and it is still the first one.");
         }
 
         /// <summary>A directive that grants no menu never opens one, however many of them complete.</summary>
@@ -238,7 +330,7 @@ namespace Game.Tests.EditMode.Gameplay.Directives
         {
             Fixture fixture = NewFixture(wire: 5, plate: 5, out _, unlocksResearchMenu: false);
 
-            fixture.Directives.Validate(fixture.Stock, fixture.Core);
+            fixture.Directives.Validate(fixture.Core);
             fixture.Simulate(30f);
 
             Assert.IsNull(fixture.Directives.Current, "Precondition: it completed.");
@@ -253,7 +345,7 @@ namespace Game.Tests.EditMode.Gameplay.Directives
         public void TheResearchMenu_SurvivesASave_ThroughTheDirectiveIndexAlone()
         {
             Fixture fixture = NewFixture(wire: 5, plate: 5, out _, unlocksResearchMenu: true);
-            fixture.Directives.Validate(fixture.Stock, fixture.Core);
+            fixture.Directives.Validate(fixture.Core);
             fixture.Simulate(30f);
             Assert.IsTrue(fixture.Directives.IsResearchMenuUnlocked, "Precondition.");
 

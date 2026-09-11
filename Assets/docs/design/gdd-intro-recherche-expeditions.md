@@ -199,19 +199,19 @@ désirable sans jamais obliger à construire un second bâtiment.
 
 | Composant installé | Production | Durée de vie |
 |---|---|---|
-| CPU MkI | 15 CU/s | 120 s |
-| Memory MK1 | 10 CU/s | 120 s |
+| CPU MkI | 15 CU/s | 60 s |
+| Memory MK1 | 10 CU/s | 60 s |
 
 | Paramètre du MK1 | Valeur |
 |---|---|
 | Amorçage | 1 500 CU consommés sur 90 s, sans production |
-| Baies de départ | 2 CPU + 2 Memory |
-| Production maximale de départ | 50 CU/s à 100 % de concentration |
-| Consommation induite | 1 CPU / 60 s + 1 Memory / 60 s |
+| Baies de départ | 1 CPU + 1 Memory |
+| Production maximale de départ | 25 CU/s à 100 % de concentration |
+| Consommation induite | 1 CPU / 57 s + 1 Memory / 57 s, par baie occupée, au seuil de remplacement par défaut |
 | Répartition par défaut | 50 % recherche / 50 % bâtiments |
 
 **Rentabilité vérifiée.** Un CPU MkI coûte 128 CU à produire, chaîne complète comprise,
-et rend 1 800 CU sur sa durée de vie. Une Memory MK1 coûte 164 CU et rend 1 200 CU.
+et rend 900 CU sur sa durée de vie. Une Memory MK1 coûte 164 CU et rend 600 CU.
 Chaque composant installé est donc largement rentable, comme il se doit — sinon le
 joueur ne remplacerait jamais rien.
 
@@ -221,12 +221,14 @@ paliers d'extension sont prévus :
 
 | Recherche | Coût | Absorption max | Effet | Production résultante |
 |---|---|---|---|---|
-| Extension de baies I | 2 000 | 30 CU/s | +1 baie CPU, +1 baie Memory | 75 CU/s |
-| Extension de baies II | 2 000 | 30 CU/s | +1 baie CPU, +1 baie Memory | 100 CU/s |
+| Extension de baies I | 2 000 | 30 CU/s | +1 baie CPU, +1 baie Memory | 50 CU/s |
+| Extension de baies II | 2 000 | 30 CU/s | +1 baie CPU, +1 baie Memory | 75 CU/s |
 
-À pleine extension, le Datacenter monte à 4 CPU et 4 Memory, soit 100 CU/s maximum et
-une consommation de 1 CPU et 1 Memory toutes les 30 secondes. Le joueur ne construit pas
-un second Datacenter, il fait grandir le sien.
+Les deux extensions portent le Datacenter à 3 CPU et 3 Memory, soit 75 CU/s maximum et
+une consommation de 1 CPU et 1 Memory toutes les 19 secondes. Le code garde une
+quatrième baie de chaque type en réserve, qu'aucune recherche actuelle n'atteint : une
+troisième extension y a sa place le jour où elle existera. Le joueur ne construit pas un
+second Datacenter, il fait grandir le sien.
 
 **La tension réelle est ailleurs** : les CPU et les mémoires ne servent pas qu'à nourrir
 le Datacenter, ils entrent aussi dans la construction des bâtiments à venir — la Forge
@@ -649,7 +651,7 @@ Restent ici les points qui n'appartiennent qu'à l'économie de l'introduction :
 
 | Sujet | Question | Recommandation provisoire |
 |---|---|---|
-| Durée de vie des composants | 120 s donne un ratio de rentabilité de 14:1 pour le CPU et 7:1 pour la mémoire | Volontairement large : le facteur limitant doit rester le nombre de baies. À raccourcir si le stock de CPU devient trivial |
+| Durée de vie des composants | Tranché : 60 s, ratio de rentabilité 7:1 pour le CPU et 3,7:1 pour la mémoire | Raccourcie de 120 s à 60 s en même temps que les baies de départ passaient de 2+2 à 1+1 : l'appro reste la même par baie, mais la production de départ est deux fois plus basse |
 | Second Datacenter | Quand, et avec quel appétit différencié ? | Après les deux extensions de baies, quand l'axe armement existe |
 | Plafond de réserve | Le code livre 70 000, ce chiffrage est bâti sur 60 000 | Voir l'avertissement en §4.4 : trancher demande de jouer, pas de relire |
 

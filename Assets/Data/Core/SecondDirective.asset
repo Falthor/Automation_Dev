@@ -12,11 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 768dc22d07d6a804d8d86da88ec6e9d4, type: 3}
   m_Name: SecondDirective
   m_EditorClassIdentifier: Game.Data::Game.Data.CoreDirectiveDefinition
-  id: second_circuits
+  id: second_coils
   requirements:
-  - item: {fileID: 11400000, guid: 0ff6217112897ef44ae6bdf7d7d711de, type: 2}
-    amount: 15
+  - item: {fileID: 11400000, guid: d5be11fa9d151e345a38f4254d3f1430, type: 2}
+    amount: 20
+  - item: {fileID: 11400000, guid: 5f8b2da4c6e309571b2d4f6180c3e507, type: 2}
+    amount: 20
   rewardItem: {fileID: 0}
-  grants: {fileID: 11400000, guid: 3e8f61b427ad4c07ab5d92f4c1770ae9, type: 2}
+  grants: {fileID: 11400000, guid: a4e072f91b385eac607294b6d1538a52, type: 2}
   unlocksResearchMenu: 0
-  rewardLabel: 
+  rewardLabels:
+  - Usine
+  - Repartiteur
+  - Electroaimant
+  - Mecanisme electrique

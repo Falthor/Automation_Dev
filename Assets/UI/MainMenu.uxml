@@ -1,5 +1,6 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <Style src="MainMenu.uss" />
+    <ui:Template name="Shortcuts" src="Shortcuts.uxml" />
 
     <ui:VisualElement name="MainMenuRoot" class="main-menu-root">
         <ui:VisualElement name="MainMenuBackground" class="main-menu-background" picking-mode="Ignore" />
@@ -8,7 +9,10 @@
             <ui:Label text="FALTHOR" class="main-menu-title" />
             <ui:Button name="NewGameButton" text="NOUVELLE PARTIE" class="main-menu-button" />
             <ui:Button name="LoadButton" text="CHARGER" class="main-menu-button" />
+            <ui:Button name="ShortcutsButton" text="RACCOURCIS" class="main-menu-button" />
         </ui:VisualElement>
+
+        <ui:Instance template="Shortcuts" name="ShortcutsHost" />
 
         <ui:VisualElement name="ConfirmOverlay" class="confirm-overlay hidden">
             <ui:VisualElement class="confirm-dialog">

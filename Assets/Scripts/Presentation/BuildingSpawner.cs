@@ -43,8 +43,32 @@ namespace Game.Presentation
         /// </summary>
         public const float ArrowSizeCells = 0.25f;
 
+        /// <summary>The pause badge's size, in cells. Big enough to read on a 1x1 at a glance, small enough not to hide what a 4x4 is.</summary>
+        public const float PausedBadgeSizeCells = 0.7f;
+
+        /// <summary>The same yellow the Top Bar and the pause button use for "someone stopped this" - not the red of a fault, because nothing is wrong.</summary>
+        public static readonly Color PausedBadgeColor = new Color(1f, 0.847f, 0.4f, 1f);
+
         /// <summary>The arrow's world-space scale on a given grid - what both the built view and the ghost set on the transform.</summary>
         public static float ArrowWorldSize(float cellSize) => cellSize * ArrowSizeCells;
+
+        /// <summary>
+        /// How far back from the centre of the cell it marks an arrow is drawn, in cells.
+        ///
+        /// The cell an arrow marks is the one <b>outside</b> the footprint - where items leave to, or
+        /// arrive from - and drawing at its centre put the arrow a full half-cell clear of the
+        /// building, floating in open ground. Half a cell brings it exactly onto the footprint edge;
+        /// the arrow's own half-size then leaves it sitting against that edge rather than straddling
+        /// it, which is what makes it read as belonging to the building rather than to the ground.
+        /// </summary>
+        public static float ArrowEdgeInset(float cellSize) => cellSize * (0.5f - ArrowSizeCells * 0.5f);
+
+        /// <summary>Where an arrow is actually drawn: the marked cell's centre, pulled back towards the building it belongs to. Shared with the placement ghost so the preview and the built thing agree.</summary>
+        public static Vector3 ArrowPosition(Vector3 markedCellCentre, Direction outwardDirection, float cellSize)
+        {
+            GridCoord offset = outwardDirection.ToOffset();
+            return markedCellCentre - new Vector3(offset.X, offset.Y, 0f) * ArrowEdgeInset(cellSize);
+        }
 
         readonly GridRuntime _grid;
         readonly ProceduralSpriteFactory _spriteFactory;
@@ -186,7 +210,7 @@ namespace Game.Presentation
         /// Generic view for every non-conveyor building: a sprite sized to its footprint, plus
         /// an output arrow (and, for a recipe-based production building, entry arrows on every
         /// other side) if its Definition declares one. Covers Extractor/Storage/Foundry/Factory/
-        /// AdvancedFoundry/Assembler/PowerplantGaz/DataCenter - the only per-type
+        /// AdvancedFoundry/PowerplantGaz/DataCenter - the only per-type
         /// differences (HasOutputArrow/HasInputArrows) already live on BuildingDefinition, so no
         /// concrete-type dispatch is needed here at all.
         ///
@@ -221,6 +245,7 @@ namespace Game.Presentation
             }
 
             AttachShadow(runtime, renderer);
+            AttachPausedBadge(runtime, root.transform);
 
             if (definition.HasOutputArrow)
             {
@@ -367,10 +392,33 @@ namespace Game.Presentation
         /// </summary>
         static bool CastsShadow(BuildingRuntime runtime) => !(runtime is StorageRuntime);
 
+        /// <summary>
+        /// Gives a building that can be switched off a badge saying so, sat on its centre. Only
+        /// production buildings can be paused today, so only they get one - a badge that could never
+        /// light is a renderer per building for nothing.
+        /// </summary>
+        void AttachPausedBadge(BuildingRuntime runtime, Transform parent)
+        {
+            if (!(runtime is ProductionBuildingRuntime production)) return;
+
+            var badgeGo = new GameObject("PausedBadge");
+            badgeGo.transform.SetParent(parent, false);
+            badgeGo.transform.localPosition = Vector3.zero;
+            badgeGo.transform.localScale = Vector3.one * (_grid.CellSize * PausedBadgeSizeCells);
+
+            var badgeRenderer = badgeGo.AddComponent<SpriteRenderer>();
+            badgeRenderer.sprite = _spriteFactory.CreatePauseSprite(PausedBadgeColor);
+            _depthSort?.Register(badgeRenderer, BottomEdgeY(runtime), SortingBands.HoverOutline);
+
+            badgeGo.AddComponent<PausedBadgeView>().Bind(production);
+        }
+
         void SpawnDirectionalArrow(Transform parent, Vector3 worldPosition, Direction direction, Color color, GridCoord rankCell, bool inward)
         {
             var arrowGo = new GameObject(inward ? "InputArrow" : "OutputArrow");
-            arrowGo.transform.position = worldPosition;
+            // `direction` points away from the building on both paths - it is the exit side for an
+            // output and the side a delivery comes from for an input - so one inset serves both.
+            arrowGo.transform.position = ArrowPosition(worldPosition, direction, _grid.CellSize);
             Direction pointingDirection = inward ? direction.Opposite() : direction;
             arrowGo.transform.rotation = Quaternion.Euler(0f, 0f, -pointingDirection.ToRotationDegrees());
             arrowGo.transform.localScale = Vector3.one * ArrowWorldSize(_grid.CellSize);
@@ -404,8 +452,18 @@ namespace Game.Presentation
         /// _BuildBounds, which is the visual AABB precisely because it normalises a gradient over
         /// what is drawn.
         /// </summary>
+        /// <summary>
+        /// How big to draw a building's art, in world units.
+        ///
+        /// <b>ArtCellSize rather than FootprintSize</b>, which are the same thing for every building
+        /// whose art is the shape of its ground and differ for one that is taller than it - see
+        /// BuildingDefinition.ArtCellSize. <see cref="FitSpriteUniform"/> then lands exactly on this
+        /// box when it carries the art's own aspect ratio, rather than covering it and overflowing
+        /// sideways - which is what makes the box a statement about the art rather than a decision
+        /// about how the building should look.
+        /// </summary>
         public static Vector2 ArtWorldSize(BuildingDefinition definition, float cellSize, bool overscanned = true)
-            => new Vector2(cellSize, cellSize) * definition.FootprintSize * (overscanned ? definition.RenderOverscan : 1f);
+            => new Vector2(cellSize, cellSize) * definition.ArtCellSize * (overscanned ? definition.RenderOverscan : 1f);
 
         /// <summary>
         /// True when a belt is drawn with its own art rather than the procedural shape sprite - a
@@ -427,7 +485,13 @@ namespace Game.Presentation
         /// Preserves the sign of the existing scale on neither axis: callers that mirror (a
         /// corner's chirality) re-apply the flip after fitting.
         /// </summary>
-        internal static void FitSpriteUniform(SpriteRenderer renderer, Sprite sprite, Vector2 desiredWorldSize)
+        /// <summary>
+        /// Public rather than internal because it is the one entry point for sizing a building's art -
+        /// four production paths call it, and the test that pins its arithmetic has to reach it. It
+        /// used to be internal behind a public wrapper; the wrapper existed only to choose between two
+        /// fits, and there is only one now.
+        /// </summary>
+        public static void FitSpriteUniform(SpriteRenderer renderer, Sprite sprite, Vector2 desiredWorldSize)
         {
             renderer.sprite = sprite;
             Vector2 nativeSize = sprite.bounds.size;

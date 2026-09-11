@@ -5,23 +5,23 @@ using UnityEngine;
 namespace Game.Grid
 {
     /// <summary>
-    /// The map cut into square sectors - the unit a mission is aimed at.
+    /// The map cut into square sectors - the internal unit sector contents and materialisation work
+    /// in. Nothing is aimed at a sector and the player never points at one.
     ///
     /// <b>Called a sector, not a zone.</b> "Zone" is already taken by the Core and AI-agent signal
-    /// zones, which are a different thing entirely (see the directive, §4).
+    /// zones, which are a different thing entirely.
     ///
     /// <b>A regular tiling, and it is meant to be.</b> Index, origin, centre and cells are plain
     /// arithmetic on a coordinate: nothing is walked, nothing is stored, and there is no list of
-    /// sectors anywhere. That is what makes the lazy generation the directive asks for fall out for
-    /// free rather than being something to engineer - 625 sectors on the current map, and a run only
-    /// ever asks about the handful it can reach.
+    /// sectors anywhere. That is what makes the generation lazy by construction rather than by
+    /// bookkeeping - a run only ever asks about the handful of sectors a robot has reached.
     ///
-    /// The regularity is never visible, because a mission does not reveal the square: it reveals the
-    /// disc inscribed in it (<see cref="RevealInscribedDisc"/>). The player sees round patches
-    /// joining up, never a grid.
+    /// The regularity is never visible, because nothing ever reveals the square. Discovery is
+    /// written as discs (<see cref="DiscoveryRuntime.RevealDisc"/>), whose overlapping patches leave
+    /// no straight edge for the tiling to show through.
     ///
-    /// Pure geometry - it holds no identity, no risk and no contents. Those are derived from the
-    /// world seed in Game.Gameplay, which is where the game's own meaning lives.
+    /// Pure geometry - it holds no identity and no contents. Those are derived from the world seed
+    /// in Game.Gameplay, which is where the game's own meaning lives.
     /// </summary>
     public sealed class SectorGrid
     {
@@ -75,9 +75,9 @@ namespace Game.Grid
         /// The middle of the sector, in cell space - the same space
         /// <see cref="DiscoveryRuntime.RevealDisc"/> and WorldGenerator.CoreCenterCells use.
         ///
-        /// Always the middle of the full square, even where the map's edge clips the sector: the
-        /// centre is what mission range is measured against, and one that moved with the clipping
-        /// would make the last row of sectors closer than it looks.
+        /// Always the middle of the full square, even where the map's edge clips the sector. A centre
+        /// that moved with the clipping would put the last row's contents off-centre against every
+        /// other row's, for no reason the arithmetic anywhere else knows about.
         /// </summary>
         public Vector2 CenterCells(int index)
         {
@@ -90,7 +90,8 @@ namespace Game.Grid
         ///
         /// Allocates an iterator, so it is for tests, for scattering contents and for the zoomed map
         /// - never for a per-frame read. Nothing in the reveal path calls it: revealing goes through
-        /// the disc below, which walks a bounding box and allocates nothing.
+        /// <see cref="DiscoveryRuntime.RevealDisc"/>, which walks a bounding box and allocates
+        /// nothing.
         /// </summary>
         public IEnumerable<GridCoord> CellsOf(int index)
         {
@@ -104,88 +105,6 @@ namespace Game.Grid
             {
                 for (int x = origin.X; x < maxX; x++) yield return new GridCoord(x, y);
             }
-        }
-
-        /// <summary>
-        /// What a mission reveals: the disc inscribed in the sector, not the sector.
-        ///
-        /// The four corners stay hidden, so two revealed neighbours leave an undiscovered fringe
-        /// between them that only exploring fills in. The map opens as round patches that join up,
-        /// and the tiling underneath never shows - which is the whole reason the partition is allowed
-        /// to be a plain grid.
-        ///
-        /// Returns how many cells this actually changed, so a caller can tell a real revelation from
-        /// re-revealing a sector already seen.
-        /// </summary>
-        public int RevealInscribedDisc(int index, DiscoveryRuntime discovery)
-        {
-            if (discovery == null || !ContainsIndex(index)) return 0;
-            return discovery.RevealDisc(CenterCells(index), InscribedRadiusCells);
-        }
-
-        /// <summary>
-        /// Whether nothing in the sector has been seen - what "is this still a mission destination?"
-        /// actually asks.
-        ///
-        /// Separate from <see cref="DiscoveryOf"/> rather than derived from it because it can stop
-        /// at the first discovered cell instead of counting all 144, and because it walks the cells
-        /// with plain loops rather than the iterator: the mission range asks this of every sector in
-        /// a ring, and an enumerator per sector would be an allocation per query.
-        /// </summary>
-        public bool IsWhollyUnknown(int index, DiscoveryRuntime discovery)
-        {
-            if (!ContainsIndex(index)) return false;
-            if (discovery == null) return true;
-
-            GridCoord origin = OriginOf(index);
-            int maxX = Mathf.Min(origin.X + SectorSizeCells, MapSizeCells);
-            int maxY = Mathf.Min(origin.Y + SectorSizeCells, MapSizeCells);
-
-            for (int y = origin.Y; y < maxY; y++)
-            {
-                for (int x = origin.X; x < maxX; x++)
-                {
-                    if (discovery.IsDiscovered(new GridCoord(x, y))) return false;
-                }
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// How much of the sector the player has seen, derived from the cells and stored nowhere -
-        /// the cells are the authority, exactly as the directive requires.
-        ///
-        /// <see cref="SectorDiscovery.Partial"/> is the normal resting state of a sector revealed by
-        /// a mission, not a transient: the inscribed disc can never cover the corners. It is the
-        /// state that says "there is something here and you have not seen all of it".
-        /// </summary>
-        public SectorDiscovery DiscoveryOf(int index, DiscoveryRuntime discovery)
-        {
-            if (discovery == null || !ContainsIndex(index)) return SectorDiscovery.Unknown;
-
-            GridCoord origin = OriginOf(index);
-            int maxX = Mathf.Min(origin.X + SectorSizeCells, MapSizeCells);
-            int maxY = Mathf.Min(origin.Y + SectorSizeCells, MapSizeCells);
-
-            int total = 0;
-            int discovered = 0;
-
-            // Plain loops rather than CellsOf, for the reason IsWhollyUnknown above already gives: the
-            // iterator allocates once per sector, and the zoomed-out map asks this of every sector in
-            // every materialised chunk. Measured on a map with 144 such chunks, the iterator was most
-            // of a 20 ms rebuild.
-            for (int y = origin.Y; y < maxY; y++)
-            {
-                for (int x = origin.X; x < maxX; x++)
-                {
-                    total++;
-                    if (discovery.IsDiscovered(new GridCoord(x, y))) discovered++;
-                }
-            }
-
-            if (total == 0 || discovered == 0) return SectorDiscovery.Unknown;
-            return discovered == total ? SectorDiscovery.Discovered : SectorDiscovery.Partial;
         }
     }
 }

@@ -14,5 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.TerrainGenerationSettings
   size: 10000
   seed: 0
+  randomiseSeedEachRun: 1
   terrainScale: 45
   proportion: 0.3

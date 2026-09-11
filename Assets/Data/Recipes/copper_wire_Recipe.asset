@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.RecipeDefinition
   id: copper_wire
   ingredients:
-  - item: {fileID: 11400000, guid: 65d78e7c331fda945b089ab7a130f97c, type: 2}
+  - item: {fileID: 11400000, guid: a1c4e07b3f5d42a1b8e6c9d0f2a4b6c8, type: 2}
     amount: 1
   outputAmount: 2
-  timeSeconds: 3
-  computeCost: 4
+  timeSeconds: 4
+  computeCost: 6
   unlockResearch: {fileID: 0}

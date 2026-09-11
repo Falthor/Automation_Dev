@@ -1,0 +1,134 @@
+/* Shared by the Core's narrative screens - the awakening at the start of a run, the threshold
+   when the reserve runs low. Named for the family rather than for either one: a stylesheet named
+   after one of its two users is read as belonging to it.
+
+   Tokens are GameUI.uss's: the same near-black ground, the same border grey, the same cyan
+   accent, and the red kept for something actually going wrong rather than the amber used for
+   "not yet". Right angles throughout, like every other panel. */
+
+.narrative-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgb(9, 11, 14);
+    align-items: center;
+    justify-content: center;
+}
+
+.narrative-panel {
+    width: 720px;
+    max-width: 92%;
+    padding: 40px 44px 36px 44px;
+    background-color: rgba(16, 20, 25, 0.98);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+    align-items: flex-start;
+}
+
+/* Every revealed block starts invisible. The controller sets opacity to 1 and the transition
+   duration, so the fade length is an Inspector value rather than a number buried here. */
+.narrative-step {
+    opacity: 0;
+    transition-property: opacity;
+    transition-timing-function: ease-out;
+    width: 100%;
+}
+
+/* --- The Core --- */
+
+.narrative-core {
+    width: 128px;
+    height: 128px;
+    align-self: center;
+    margin-bottom: 18px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.narrative-title {
+    font-size: 26px;
+    -unity-font-style: bold;
+    color: rgb(228, 233, 237);
+    align-self: center;
+    margin-bottom: 26px;
+}
+
+/* --- The readout: a table, in the tabular monospace every value in the game uses --- */
+
+.narrative-readout {
+    margin-bottom: 26px;
+    padding: 14px 16px;
+    background-color: rgb(13, 16, 20);
+    border-left-width: 2px;
+    border-left-color: rgb(48, 59, 66);
+}
+
+.narrative-readout-row {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    height: 22px;
+}
+
+.narrative-readout-label {
+    font-size: 13px;
+    color: rgb(150, 158, 165);
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+/* Fixed width and right-aligned so the three values form a column that does not shift when the
+   reserve loses a digit. */
+.narrative-readout-value {
+    width: 150px;
+    font-size: 13px;
+    color: rgb(215, 224, 229);
+    -unity-text-align: middle-right;
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.narrative-readout-value-alert {
+    color: rgb(220, 105, 95);
+}
+
+/* --- The prose: the current face, not the monospace. It is thinking, not reading. --- */
+
+.narrative-prose {
+    font-size: 15px;
+    color: rgb(200, 205, 210);
+    white-space: normal;
+    margin-bottom: 18px;
+}
+
+.narrative-prose-last {
+    color: rgb(220, 226, 231);
+    margin-bottom: 30px;
+}
+
+/* --- The button, in the accent cyan the rest of the interface uses for an action --- */
+
+.narrative-begin {
+    align-self: center;
+    min-width: 190px;
+    height: 38px;
+    font-size: 14px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 1px;
+    border-radius: 0;
+    border-color: rgb(85, 221, 245);
+    color: rgb(85, 221, 245);
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.narrative-begin:hover {
+    background-color: rgb(26, 34, 40);
+}
+
+/* A closing line that is a reading, not a thought: monospace like the table above it, because it
+   is the result rather than the conclusion. */
+.narrative-result {
+    font-size: 14px;
+    color: rgb(215, 224, 229);
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+    margin-bottom: 30px;
+}

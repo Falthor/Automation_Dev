@@ -12,7 +12,7 @@ namespace Game.Gameplay.Buildings
 {
     /// <summary>
     /// Generic single-active-recipe production contract (CONTRACTS.md §6), shared by every
-    /// recipe-based production building (Foundry today; Factory/AdvancedFoundry/Assembler in
+    /// recipe-based production building (Foundry today; Factory/AdvancedFoundry in
     /// later phases). A recipe cycle takes ALL its ingredients and its one-shot Compute cost at
     /// once, the moment it starts (transition into Producing) - switching recipes mid-cycle
     /// abandons it without refunding what was already taken (CONTRACTS.md §6). Power demand is
@@ -296,6 +296,16 @@ namespace Game.Gameplay.Buildings
 
         public override bool CanAcceptInput(string itemId, int amount, Direction fromDirection)
         {
+            // <b>One side, and nowhere else.</b> The arrow is the whole promise for a
+            // single-input building: a belt touching any other face is refused however full it is.
+            // Gated here as well as in GetInputCells because the generic push and the belt
+            // hand-over both arrive without consulting that list - they ask the target directly.
+            // Paused means paused on both sides. Refusing production while still draining the
+            // belt into a buffer nobody spends is how a paused building empties the line feeding
+            // it - the pause is meant to hold the material upstream, not to hoard it.
+            if (IsPaused) return false;
+
+            if (Definition.HasSingleInputArrow && fromDirection != InputSide) return false;
             if (BlocksInputOnOutputSide && fromDirection == ExitDirection) return false;
             if (!AcceptsItemType(itemId)) return false;
             if (!GetRequiredIngredients().ContainsKey(itemId)) return false;

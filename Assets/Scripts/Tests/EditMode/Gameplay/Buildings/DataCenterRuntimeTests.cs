@@ -75,12 +75,12 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         }
 
         [Test]
-        public void StartsWithTwoCpuAndTwoMemorySlots()
+        public void StartsWithOneCpuAndOneMemorySlot()
         {
             DataCenterRuntime dataCenter = NewDataCenter();
 
-            Assert.AreEqual(2, dataCenter.CpuSlots.Count);
-            Assert.AreEqual(2, dataCenter.MemorySlots.Count);
+            Assert.AreEqual(1, dataCenter.CpuSlots.Count);
+            Assert.AreEqual(1, dataCenter.MemorySlots.Count);
         }
 
         [Test]
@@ -92,12 +92,12 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _research.Enqueue(bay1);
             _research.Tick(60f);
 
-            Assert.AreEqual(3, dataCenter.CpuSlots.Count);
-            Assert.AreEqual(3, dataCenter.MemorySlots.Count);
+            Assert.AreEqual(2, dataCenter.CpuSlots.Count);
+            Assert.AreEqual(2, dataCenter.MemorySlots.Count);
         }
 
         [Test]
-        public void DatacenterBay2_AfterBay1_BringsItToFourAndFour_TheStatedCeiling()
+        public void DatacenterBay2_AfterBay1_BringsItToThreeAndThree_AllTheTwoResearchesReach()
         {
             DataCenterRuntime dataCenter = NewDataCenter();
             ResearchDefinition bay1 = TestDataFactory.NewResearch("datacenter_bay_1", 10f);
@@ -108,12 +108,12 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _research.Enqueue(bay2);
             _research.Tick(60f);
 
-            Assert.AreEqual(4, dataCenter.CpuSlots.Count);
-            Assert.AreEqual(4, dataCenter.MemorySlots.Count);
+            Assert.AreEqual(3, dataCenter.CpuSlots.Count);
+            Assert.AreEqual(3, dataCenter.MemorySlots.Count);
         }
 
         [Test]
-        public void NewDataCenter_StartsAtFourAndFour_IfBothBaysAlreadyUnlockedAtConstruction()
+        public void NewDataCenter_StartsAtThreeAndThree_IfBothBaysAlreadyUnlockedAtConstruction()
         {
             ResearchDefinition bay1 = TestDataFactory.NewResearch("datacenter_bay_1", 10f);
             ResearchDefinition bay2 = TestDataFactory.NewResearch("datacenter_bay_2", 10f, prerequisites: new[] { bay1 });
@@ -126,8 +126,8 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             DataCenterRuntime dataCenter = NewDataCenter();
 
-            Assert.AreEqual(4, dataCenter.CpuSlots.Count);
-            Assert.AreEqual(4, dataCenter.MemorySlots.Count);
+            Assert.AreEqual(3, dataCenter.CpuSlots.Count);
+            Assert.AreEqual(3, dataCenter.MemorySlots.Count);
         }
 
         [Test]
@@ -140,8 +140,8 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _research.Enqueue(bay1);
             _research.Tick(60f);
 
-            Assert.AreEqual(2, dataCenter.CpuSlots.Count);
-            Assert.AreEqual(2, dataCenter.MemorySlots.Count);
+            Assert.AreEqual(1, dataCenter.CpuSlots.Count);
+            Assert.AreEqual(1, dataCenter.MemorySlots.Count);
         }
 
         [Test]
@@ -161,11 +161,11 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         public void Tick_ExcessDelivered_StaysInInput_WhenNoEmptySlotLeft()
         {
             DataCenterRuntime dataCenter = NewDataCenter(maxStackPerItem: 10);
-            dataCenter.AddInput("cpu_mkI", 5, Direction.South); // only 2 initial CPU slots
+            dataCenter.AddInput("cpu_mkI", 5, Direction.South); // only 1 initial CPU slot
 
             dataCenter.Tick(0f);
 
-            Assert.AreEqual(3, dataCenter.GetInputAmount("cpu_mkI"));
+            Assert.AreEqual(4, dataCenter.GetInputAmount("cpu_mkI"));
         }
 
         [Test]

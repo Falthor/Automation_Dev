@@ -35,8 +35,10 @@ MonoBehaviour:
   cost:
   - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
     amount: 6
+  - item: {fileID: 11400000, guid: a1c4e07b3f5d42a1b8e6c9d0f2a4b6c8, type: 2}
+    amount: 2
   powerDemandKw: 2
   intakeIntervalSeconds: 1
   recipeIds:
-  - Iron_Ingot
-  - copper_Ingot
+  - Iron_Plate
+  - copper_plate

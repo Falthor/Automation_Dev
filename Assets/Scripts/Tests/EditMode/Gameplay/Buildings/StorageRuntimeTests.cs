@@ -18,39 +18,57 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             return definition;
         }
 
+        /// <summary>
+        /// A Storage has no absorption rate. It used to carry the same intake cooldown a Foundry
+        /// has, so a box parked against an output could not drain it faster than a belt would - but
+        /// that also made the box slower than the belt feeding it, and items queued in front of a
+        /// container that was visibly empty. A container's only limit is being full.
+        ///
+        /// The definition still carries an interval and it is deliberately non-zero here: the point
+        /// is that nothing reads it any more, which a zero would not prove.
+        /// </summary>
         [Test]
-        public void AddInput_ThenImmediateSecondDelivery_IsRefusedByTheIntakeCooldown()
+        public void DeliveriesAreAcceptedBackToBack_WhateverTheDefinitionsInterval()
         {
-            // Reproduces the reported bug: a Storage placed directly against a production
-            // building's raw pooled output (no conveyor, no belt-speed gating in between) could
-            // drain it in a single tick. IntakeIntervalSeconds caps Storage's own absorption at
-            // the fastest conveyor's throughput regardless of what feeds it.
             var storage = new StorageRuntime(NewStorageDefinition(1f), new GridCoord(0, 0), Direction.North);
 
             Assert.IsTrue(storage.CanAcceptInput("iron_ore", 1, Direction.South));
             storage.AddInput("iron_ore", 1, Direction.South);
 
-            Assert.IsFalse(storage.CanAcceptInput("iron_ore", 1, Direction.South), "A second delivery within the same tick must be refused.");
-        }
-
-        [Test]
-        public void Tick_PastTheIntakeInterval_AllowsAnotherDelivery()
-        {
-            var storage = new StorageRuntime(NewStorageDefinition(1f), new GridCoord(0, 0), Direction.North);
+            Assert.IsTrue(storage.CanAcceptInput("iron_ore", 1, Direction.South), "A second delivery in the same tick must be accepted.");
             storage.AddInput("iron_ore", 1, Direction.South);
 
-            storage.Tick(0.5f);
-            Assert.IsFalse(storage.CanAcceptInput("iron_ore", 1, Direction.South), "Half the interval must not be enough yet.");
-
-            storage.Tick(0.51f);
-            Assert.IsTrue(storage.CanAcceptInput("iron_ore", 1, Direction.South), "Once the full interval has elapsed, another delivery must be accepted.");
+            Assert.IsTrue(storage.CanAcceptInput("iron_ore", 1, Direction.South), "And a third, without any tick in between.");
+            Assert.AreEqual(2, storage.GetInputAmount("iron_ore"));
         }
 
         [Test]
-        public void IntakeCooldown_DoesNotBlockFirstDelivery()
+        public void AFullStorageIsTheOnlyThingThatRefuses()
         {
-            var storage = new StorageRuntime(NewStorageDefinition(1f), new GridCoord(0, 0), Direction.North);
-            Assert.IsTrue(storage.CanAcceptInput("iron_ore", 1, Direction.South));
+            StorageDefinition definition = NewStorageDefinition(0f);
+            var so = new SerializedObject(definition);
+            so.FindProperty("slotCountOverride").intValue = 1;
+            so.FindProperty("capacityPerSlotOverride").intValue = 2;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            var storage = new StorageRuntime(definition, new GridCoord(0, 0), Direction.North);
+            storage.AddInput("iron_ore", 2, Direction.South);
+
+            Assert.IsFalse(storage.CanAcceptInput("iron_ore", 1, Direction.South));
+        }
+
+        [Test]
+        public void AConveyorRejectingStorageStillRefusesTheBelt()
+        {
+            StorageDefinition definition = NewStorageDefinition(0f);
+            var so = new SerializedObject(definition);
+            so.FindProperty("rejectsConveyorInput").boolValue = true;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            var storage = new StorageRuntime(definition, new GridCoord(0, 0), Direction.North);
+
+            Assert.IsFalse(storage.CanAcceptInput("iron_ore", 1, Direction.South), "Removing the cooldown must not also remove the conveyor lock.");
+            Assert.IsTrue(storage.CanAcceptFromRobot("iron_ore", 1), "A robot was never subject to it.");
         }
     }
 }

@@ -8,11 +8,15 @@
                 <ui:Button name="SectorMapCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
 
+            <!-- The map, and nothing beside it. There is no target to designate and nothing to
+                 describe: what this screen answers is what has been opened and where the robots
+                 are, and both of those are drawn rather than written. -->
             <ui:VisualElement name="SectorMapViewport" class="sector-map-viewport" />
 
             <ui:VisualElement class="sector-map-footer">
-                <ui:Label name="SectorMapHoverName" text="" class="sector-map-hover-name" />
-                <ui:Label name="SectorMapHoverDetail" text="" class="sector-map-hover-detail" />
+                <ui:Label name="SectorMapFleet" text="" class="sector-map-hover-name" />
+                <ui:Label name="SectorMapHint" text="molette pour zoomer · glisser pour déplacer"
+                          class="sector-map-hint" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

@@ -10,6 +10,7 @@
         "Game.Presentation",
         "Game.Save",
         "Game.UI",
+        "Unity.InputSystem",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
