@@ -180,7 +180,7 @@ This logic must not be duplicated per-panel. `Selection` (`open_global_panel`/`c
 ## 8a. Awakening message (new game only)
 
 The Core's first seconds, shown once over the running game as a new run begins
-(`AwakeningController`, `Awakening.uxml`/`.uss`). Not a scene: `Intro.unity` and
+(`AwakeningController`, `Awakening.uxml`, styled by the shared `Narrative.uss`). Not a scene: `Intro.unity` and
 `Genesis.unity` are scenes played before Bootstrap, this is an overlay inside it, added to
 the same `UIDocument` every other HUD controller uses and brought to the front.
 
@@ -206,6 +206,29 @@ own - the first figure is true, the drift is presentation and never touches the 
 Pacing is six serialized fields on the component (fade, ordinary pause, the two longer
 pauses, the pause before the button, and the reserve's tick), adjustable in the Inspector
 while the game runs.
+
+## 8b. In-game menu (Top Bar's Menu button)
+
+`GameMenuPanel` + `GameMenu.uxml`, instanced by `TopBar.uxml` and reparented onto the document
+root by `TopBarController` - the same move the shortcuts overlay makes, and for the same reason:
+left inside the bar every other controller draws over, a full-screen overlay would open
+underneath them.
+
+Four entries. **Sauvegarder** asks for a name, prefilled with the name the session is already
+writing to, so the ordinary gesture overwrites your own run rather than quietly making a second
+copy of it; it reports a failed write instead of closing, because a write can fail on a locked
+file and a menu that lies about it is how a run gets lost. **Charger** lists the saves on disk,
+rebuilt on every open since this very session may have written one. **Options** hands over to the
+shortcuts screen (§8a's neighbour, `ShortcutsPanel`), which the Menu button used to open directly.
+**Quitter** calls `Application.Quit`, a no-op in the Editor by design.
+
+Named saves, one folder each, are `CONTRACTS.md` §14's contract; the name travels on
+`PendingGameStart` and lives on as `GameRuntime.CurrentSaveName`.
+
+**The save-name field is the project's first in-game text field**, and that is why Pause is now
+gated on `UIFocus.IsTypingInAField`: Pause is bound to Space, so naming a save would otherwise
+pause and unpause the game once per word. The digit and letter readers were already gated; this one
+was not.
 
 ## 9. Storage global interface
 

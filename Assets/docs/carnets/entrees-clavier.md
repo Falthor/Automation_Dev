@@ -53,7 +53,8 @@ bâtiments et tous les panneaux. Huit endroits à éditer — et huit à oublier
 contient une icône et des libellés, et ces enfants prennent le clic pour eux : la cible de
 l'événement n'est presque jamais le `Button` qui se retrouve focalisé. Lire le `focusController` est
 la seule forme de la question qui survive à un bouton avec des enfants — et c'est déjà celle que les
-raccourcis chiffrés posent (`IsTextFieldFocused`).
+raccourcis chiffrés posent (`UIFocus.IsTypingInAField`, qui a remplacé `IsTextFieldFocused` —
+voir §6).
 
 Seul un `Button` est défocalisé. Un champ de texte doit garder le focus qu'un clic lui donne, sans
 quoi on ne peut pas y écrire.

@@ -126,28 +126,21 @@ punition au moment précis où le joueur en a le plus besoin.
 Tous les autres bâtiments ne paient que le `computeCost` de leur recette. Convoyeurs,
 storage, splitters et crossroads sont gratuits à l'usage.
 
-### 3.2 Ingrédients par recette
+### 3.2 Ingrédients par recette — remplacés
 
-| Recette | Bâtiment | Entrées | Sortie | Temps |
-|---|---|---|---|---|
-| Iron Ingot | Fonderie | 1 Iron Ore | 1 | 3 s |
-| Copper Ingot | Fonderie | 1 Copper Ore | 1 | 3 s |
-| Gear | Factory | 1 Iron Ingot | 2 | 2 s |
-| Iron Plate | Factory | 2 Iron Ingot | 2 | 3 s |
-| Copper Wire | Factory | 1 Copper Ingot | 2 | 2 s |
-| Screw | Factory | 1 Iron Ingot + 1 Copper Ingot | 2 | 3 s |
-| Printed Circuit Board | Factory | 2 Screw + 3 Copper Wire | 1 | 6 s |
-| CPU MkI | Assembleur | 3 Copper Ingot + 2 Gear + 3 PCB | 2 | 6 s |
-| Memory MK1 | Assembleur | 2 PCB + 3 Iron Ingot | 1 | 4 s |
-| Mechanical Component | Assembleur | 2 Gear + 4 Screw + 2 Iron Plate | 1 | 4 s |
-| Steel | Fonderie avancée | 2 Iron Ore + 1 Coal Ore | 1 | 4 s |
+**Cette chaîne a été construite, puis remplacée entièrement.** Elle n'est plus une intention : les
+lingots, la vis, le circuit imprimé, le composant mécanique et l'Assembleur qui les assemblait
+n'existent plus dans le projet. Les tables qui se trouvaient ici les décrivaient, et un lecteur les
+prenant pour la cible ré-implémenterait un étage supprimé.
 
-Le composant mécanique ne contient plus ni CPU ni mémoire. C'est ce changement qui
-remet toute la facture d'aplomb, et il rend le composant réellement réutilisable
-ailleurs — tourelles, structures, véhicules.
+La chaîne livrée compte **douze recettes** et va du minerai au CPU sans étage de lingot : le minerai
+fond directement en plaque à la Fonderie, le Constructeur fait tige, fil, engrenage et bobine,
+l'Usine fait tout le reste jusqu'au CPU et à la mémoire. **Les recettes elles-mêmes font foi**
+(`Assets/Data/Recipes/`), et non une copie ici : une table recopiée cesse de décrire ce qu'elle
+nomme au premier ajustement, ce qui est déjà arrivé à celle-ci.
 
-Le ratio à retenir, et que le joueur apprendra : **quatre extracteurs alimentent trois
-fonderies**.
+Ce que le GDD garde de vrai sur ce point : chaque étage doit coûter un peu plus de CU par seconde
+que le précédent, et le cuivre doit rester le goulot. Les deux tiennent toujours.
 
 ### 3.3 Coût CU par item produit
 
