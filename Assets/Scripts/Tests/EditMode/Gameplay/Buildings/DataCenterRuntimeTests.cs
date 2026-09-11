@@ -18,6 +18,14 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         PowerSystem _power;
         ResearchSystem _research;
 
+        // Test researches, named for what they do - never after a shipped research.
+        ResearchDefinition _bays1;
+        ResearchDefinition _bays2;
+        ResearchDefinition _unrelated;
+        ResearchDefinition _researchCore;
+        ResearchDefinition _buildingsCore;
+        ResearchDefinition _darkCore;
+
         [SetUp]
         public void SetUp()
         {
@@ -29,7 +37,13 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             _compute = new ComputeSystem();
             _power = new PowerSystem();
-            _research = new ResearchSystem(_compute);
+            _bays1 = TestDataFactory.WithEffects(TestDataFactory.NewResearch("bays_a", 10f), new ResearchEffect(ResearchEffectKind.DataCenterBayPairs, value: 1));
+            _bays2 = TestDataFactory.WithEffects(TestDataFactory.NewResearch("bays_b", 10f, prerequisites: new[] { _bays1 }), new ResearchEffect(ResearchEffectKind.DataCenterBayPairs, value: 1));
+            _unrelated = TestDataFactory.NewResearch("unrelated", 10f);
+            _researchCore = TestDataFactory.NewResearch("core_a", 0f);
+            _buildingsCore = TestDataFactory.NewResearch("core_b", 0f);
+            _darkCore = TestDataFactory.NewResearch("core_c", 0f);
+            _research = new ResearchSystem(_compute, new ResearchCatalog(new[] { _bays1, _bays2, _unrelated, _researchCore, _buildingsCore, _darkCore }));
         }
 
         static void SetCuPowerLifetime(ItemDefinition item, float cu, float pw, float lifetimeSeconds)
@@ -43,7 +57,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
         DataCenterRuntime NewDataCenter(int maxStackPerItem = 10)
         {
-            DataCenterDefinition definition = TestDataFactory.NewDataCenter(maxStackPerItem, new[] { "cpu_mkI", "Memory_MK1" }, null);
+            DataCenterDefinition definition = TestDataFactory.NewDataCenter(maxStackPerItem, new[] { "cpu_mkI", "Memory_MK1" }, new[] { _researchCore, _buildingsCore });
             return new DataCenterRuntime(definition, new GridCoord(0, 0), Direction.North, _itemDatabase, _compute, _power, _research);
         }
 
@@ -69,28 +83,21 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _power.Settle();
         }
 
-        /// <summary>
-        /// TASK_03_DATACENTER.md §1 - debt check, written before any other modification. Task 02
-        /// renamed the extra_cpu_slot research asset to storage_box via git mv (GUID preserved,
-        /// id changed); DataCenterRuntime recognizes its bay-granting research by a literal
-        /// string ("extra_cpu_slot"), not by asset reference, so the renamed asset's new id
-        /// should already be a dead match - completing storage_box must add no bay of any kind.
-        /// If it did, a stray asset-reference lookup would be hiding somewhere.
-        /// </summary>
+        /// <summary>A research with no bay effect adds no bay, whether it completes before the Datacenter exists or after.</summary>
         [Test]
-        public void CompletingStorageBox_AddsNoDataCenterBay()
+        public void AResearchWithNoBayEffect_AddsNoBay()
         {
-            DataCenterRuntime withoutStorageBox = NewDataCenter();
+            DataCenterRuntime builtBefore = NewDataCenter();
 
-            ResearchDefinition storageBox = TestDataFactory.NewResearch("storage_box", 10f);
-            _research.Enqueue(storageBox);
+            _research.Enqueue(_unrelated);
             _research.Tick(60f);
-            Assert.IsTrue(_research.IsUnlocked("storage_box"));
 
-            DataCenterRuntime withStorageBoxAlreadyUnlocked = NewDataCenter();
+            DataCenterRuntime builtAfter = NewDataCenter();
 
-            Assert.AreEqual(withoutStorageBox.CpuSlots.Count, withStorageBoxAlreadyUnlocked.CpuSlots.Count);
-            Assert.AreEqual(withoutStorageBox.MemorySlots.Count, withStorageBoxAlreadyUnlocked.MemorySlots.Count);
+            Assert.AreEqual(1, builtBefore.CpuSlots.Count);
+            Assert.AreEqual(1, builtBefore.MemorySlots.Count);
+            Assert.AreEqual(1, builtAfter.CpuSlots.Count);
+            Assert.AreEqual(1, builtAfter.MemorySlots.Count);
         }
 
         [Test]
@@ -104,33 +111,32 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
         /// <summary>
         /// The research menu opens when the Datacenter finishes priming (GDD §5.4), because that is
-        /// when it powers the Research and Buildings cores. Not at placement, not partway through -
-        /// and never the armament core, which is waiting for something else.
+        /// when it powers the cores its definition names. Not at placement, not partway through - and
+        /// never a core it does not name, which waits for something else.
         /// </summary>
         [Test]
-        public void FinishingPriming_PowersTheResearchAndBuildingsCores_AndNotBefore()
+        public void FinishingPriming_PowersTheCoresItsDefinitionNames_AndNotBefore()
         {
             DataCenterRuntime dataCenter = NewDataCenter();
 
             dataCenter.Tick(1f);
             Assert.IsTrue(dataCenter.IsPriming, "Precondition: one second into ninety.");
-            Assert.IsFalse(_research.IsUnlocked(DataCenterRuntime.ResearchCoreId), "Nothing is powered while priming.");
+            Assert.IsFalse(_research.IsUnlocked(_researchCore.Id), "Nothing is powered while priming.");
 
             FinishPriming(dataCenter);
             dataCenter.Tick(0.1f);
 
-            Assert.IsTrue(_research.IsUnlocked(DataCenterRuntime.ResearchCoreId));
-            Assert.IsTrue(_research.IsUnlocked(DataCenterRuntime.BuildingsCoreId));
-            Assert.IsFalse(_research.IsUnlocked("cortex_armament"));
+            Assert.IsTrue(_research.IsUnlocked(_researchCore.Id));
+            Assert.IsTrue(_research.IsUnlocked(_buildingsCore.Id));
+            Assert.IsFalse(_research.IsUnlocked(_darkCore.Id));
         }
 
         [Test]
-        public void DatacenterBay1_AddsOneCpuBayAndOneMemoryBay()
+        public void ABayPairEffect_AddsOneCpuBayAndOneMemoryBay()
         {
             DataCenterRuntime dataCenter = NewDataCenter();
-            ResearchDefinition bay1 = TestDataFactory.NewResearch("datacenter_bay_1", 10f);
 
-            _research.Enqueue(bay1);
+            _research.Enqueue(_bays1);
             _research.Tick(60f);
 
             Assert.AreEqual(2, dataCenter.CpuSlots.Count);
@@ -138,32 +144,27 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         }
 
         [Test]
-        public void DatacenterBay2_AfterBay1_BringsItToThreeAndThree_AllTheTwoResearchesReach()
+        public void TwoBayPairEffects_BringItToThreeAndThree()
         {
             DataCenterRuntime dataCenter = NewDataCenter();
-            ResearchDefinition bay1 = TestDataFactory.NewResearch("datacenter_bay_1", 10f);
-            ResearchDefinition bay2 = TestDataFactory.NewResearch("datacenter_bay_2", 10f, prerequisites: new[] { bay1 });
 
-            _research.Enqueue(bay1);
+            _research.Enqueue(_bays1);
             _research.Tick(60f);
-            _research.Enqueue(bay2);
+            _research.Enqueue(_bays2);
             _research.Tick(60f);
 
             Assert.AreEqual(3, dataCenter.CpuSlots.Count);
             Assert.AreEqual(3, dataCenter.MemorySlots.Count);
         }
 
+        /// <summary>The bays of researches completed before this Datacenter was built are there from the start - it is not only the completion event that grants them.</summary>
         [Test]
-        public void NewDataCenter_StartsAtThreeAndThree_IfBothBaysAlreadyUnlockedAtConstruction()
+        public void NewDataCenter_StartsWithTheBaysOfResearchesAlreadyCompleted()
         {
-            ResearchDefinition bay1 = TestDataFactory.NewResearch("datacenter_bay_1", 10f);
-            ResearchDefinition bay2 = TestDataFactory.NewResearch("datacenter_bay_2", 10f, prerequisites: new[] { bay1 });
-            _research.Enqueue(bay1);
+            _research.Enqueue(_bays1);
             _research.Tick(60f);
-            _research.Enqueue(bay2);
+            _research.Enqueue(_bays2);
             _research.Tick(60f);
-            Assert.IsTrue(_research.IsUnlocked("datacenter_bay_1"));
-            Assert.IsTrue(_research.IsUnlocked("datacenter_bay_2"));
 
             DataCenterRuntime dataCenter = NewDataCenter();
 
@@ -177,8 +178,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             DataCenterRuntime dataCenter = NewDataCenter();
             dataCenter.OnUnregistered();
 
-            ResearchDefinition bay1 = TestDataFactory.NewResearch("datacenter_bay_1", 10f);
-            _research.Enqueue(bay1);
+            _research.Enqueue(_bays1);
             _research.Tick(60f);
 
             Assert.AreEqual(1, dataCenter.CpuSlots.Count);

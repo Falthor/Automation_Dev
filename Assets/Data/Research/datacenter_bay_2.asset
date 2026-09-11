@@ -19,5 +19,10 @@ MonoBehaviour:
   cuCost: 2000
   prerequisites:
   - {fileID: 11400000, guid: b4504efb95934dc9b042f00ca6cff1f8, type: 2}
+  effects:
+  - kind: 4
+    building: {fileID: 0}
+    recipe: {fileID: 0}
+    value: 1
   absorptionRatePerSecond: 40
   tier: 3

@@ -26,7 +26,7 @@ namespace Game.Gameplay.Buildings
     ///
     /// Also the sole owner of the action radius as runtime state (TASK_04_PLAFOND_RAYON.md §4):
     /// CoreDefinition.ActionRadiusCells is only the starting value. ActionRadiusCells here is what
-    /// every placement check must read - the bandwidth researches grow it in place, live, no reload
+    /// every placement check must read - ActionRadius research effects grow it in place, live, no reload
     /// needed. Persisted directly in CaptureState/RestoreState rather than re-derived from
     /// ResearchSystem.IsUnlocked at construction, matching that task's save decision.
     /// </summary>
@@ -46,14 +46,6 @@ namespace Game.Gameplay.Buildings
         /// </summary>
         public const int ExtendedActionRadiusCells = 80;
 
-        /// <summary>The radius each bandwidth research brings the Core to. The highest one completed wins, so the order they land in can never shrink anything.</summary>
-        static readonly (string researchId, int radiusCells)[] RadiusResearches =
-        {
-            ("extended_bandwidth", FirstExtendedActionRadiusCells),
-            ("extended_bandwidth_2", 60),
-            ("extended_bandwidth_3", ExtendedActionRadiusCells)
-        };
-
         readonly CoreDefinition _definition;
         readonly ComputeSystem _computeSystem;
         readonly PowerSystem _powerSystem;
@@ -63,7 +55,7 @@ namespace Game.Gameplay.Buildings
 
         float _cuTimer;
 
-        /// <summary>Current action radius in cells - starts at CoreDefinition.ActionRadiusCells, grows with each bandwidth research (RadiusResearches).</summary>
+        /// <summary>Current action radius in cells - starts at CoreDefinition.ActionRadiusCells, grows with each ActionRadius effect completed.</summary>
         public int ActionRadiusCells { get; private set; }
 
         public CoreRuntime(CoreDefinition definition, GridCoord cell, Direction facingRotation,
@@ -82,10 +74,14 @@ namespace Game.Gameplay.Buildings
 
         void OnResearchCompleted(string researchId)
         {
-            for (int i = 0; i < RadiusResearches.Length; i++)
+            ResearchDefinition research = _researchSystem.Definition(researchId);
+            if (research == null) return;
+
+            // A target, not a step: the highest completed wins, so the order never shrinks anything.
+            IReadOnlyList<ResearchEffect> effects = research.Effects;
+            for (int i = 0; i < effects.Count; i++)
             {
-                if (RadiusResearches[i].researchId == researchId)
-                    ActionRadiusCells = System.Math.Max(ActionRadiusCells, RadiusResearches[i].radiusCells);
+                if (effects[i].Kind == ResearchEffectKind.ActionRadius) ActionRadiusCells = System.Math.Max(ActionRadiusCells, effects[i].Value);
             }
         }
 

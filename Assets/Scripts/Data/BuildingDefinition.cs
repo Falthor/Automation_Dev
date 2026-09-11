@@ -9,7 +9,6 @@ namespace Game.Data
         [SerializeField] string displayName;
         [SerializeField] Vector2Int footprintSize = new Vector2Int(1, 1);
         [SerializeField] Color placeholderColor = Color.white;
-        [SerializeField] ResearchDefinition unlockResearch;
         [SerializeField] Sprite sprite;
         [SerializeField] Sprite[] animationFrames = System.Array.Empty<Sprite>();
         [SerializeField] float animationFps = 8f;
@@ -72,9 +71,6 @@ namespace Game.Data
         public Vector2 ArtCellSize =>
             artCellSize.x > 0f && artCellSize.y > 0f ? artCellSize : (Vector2)FootprintSize;
 
-
-        /// <summary>Research required before this building type may be placed at all. Null means buildable from the start (CONTRACTS.md §11).</summary>
-        public ResearchDefinition UnlockResearch => unlockResearch;
 
         /// <summary>Items required (from Core + every Storage) to place one of this building. Empty means free.</summary>
         public RecipeIngredient[] Cost => cost;

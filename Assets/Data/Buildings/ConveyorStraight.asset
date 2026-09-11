@@ -16,7 +16,6 @@ MonoBehaviour:
   displayName: Convoyeur
   footprintSize: {x: 1, y: 1}
   placeholderColor: {r: 0.85, g: 0.65, b: 0.2, a: 1}
-  unlockResearch: {fileID: 0}
   sprite: {fileID: -3107164642997654838, guid: 0d56e1d22225c2c47a6343ea44e4f9ca, type: 3}
   animationFrames:
   - {fileID: -1450562369403550687, guid: ee5233b470e986549a42aa10114373b0, type: 3}

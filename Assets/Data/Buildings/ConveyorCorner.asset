@@ -16,7 +16,6 @@ MonoBehaviour:
   displayName: Convoyeur d'angle
   footprintSize: {x: 1, y: 1}
   placeholderColor: {r: 0.3, g: 0.6, b: 0.9, a: 1}
-  unlockResearch: {fileID: 0}
   sprite: {fileID: 0}
   animationFrames:
   - {fileID: 8034552057565475545, guid: 39110b7293edae04da6e998ea92b81d5, type: 3}

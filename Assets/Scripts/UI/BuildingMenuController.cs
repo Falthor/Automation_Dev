@@ -135,7 +135,7 @@ namespace Game.UI
         /// what exists.
         /// </summary>
         public static bool IsUnlocked(BuildingDefinition definition, ResearchSystem research)
-            => definition.UnlockResearch == null || research.IsUnlocked(definition.UnlockResearch.Id);
+            => research.IsBuildingUnlocked(definition);
 
         bool IsUnlocked(BuildingDefinition definition) => IsUnlocked(definition, gameRuntime.Research);
 
@@ -275,7 +275,7 @@ namespace Game.UI
         {
             foreach (var (card, definition) in _cardStates)
             {
-                bool locked = definition.UnlockResearch != null && !gameRuntime.Research.IsUnlocked(definition.UnlockResearch.Id);
+                bool locked = !gameRuntime.Research.IsBuildingUnlocked(definition);
                 bool affordable = locked || gameRuntime.Construction.CanAfford(definition);
                 card.EnableInClassList("building-card-locked", locked);
                 card.EnableInClassList("building-card-unaffordable", !locked && !affordable);
@@ -398,7 +398,7 @@ namespace Game.UI
 
             var status = new Label();
             status.AddToClassList("building-details-status");
-            bool locked = definition.UnlockResearch != null && !gameRuntime.Research.IsUnlocked(definition.UnlockResearch.Id);
+            bool locked = !gameRuntime.Research.IsBuildingUnlocked(definition);
             bool affordable = gameRuntime.Construction.CanAfford(definition);
             if (locked)
             {

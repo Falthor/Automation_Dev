@@ -19,4 +19,3 @@ MonoBehaviour:
   outputAmount: 1
   timeSeconds: 4
   computeCost: 6
-  unlockResearch: {fileID: 0}

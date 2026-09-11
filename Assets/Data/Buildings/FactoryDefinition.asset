@@ -16,7 +16,6 @@ MonoBehaviour:
   displayName: Usine
   footprintSize: {x: 3, y: 3}
   placeholderColor: {r: 0.5, g: 0.5, b: 0.55, a: 1}
-  unlockResearch: {fileID: 11400000, guid: a4e072f91b385eac607294b6d1538a52, type: 2}
   sprite: {fileID: -6622863259242664493, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
   animationFrames:
   - {fileID: -6622863259242664493, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}

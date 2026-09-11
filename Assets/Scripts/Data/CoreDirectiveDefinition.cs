@@ -26,7 +26,7 @@ namespace Game.Data
         [Tooltip("Shown on the REWARD line - what the player gets out of it, in one icon.")]
         [SerializeField] ItemDefinition rewardItem;
 
-        [Tooltip("The unlock granted on completion, through ResearchSystem.Grant. Referenced by whatever it opens (e.g. Gear_Recipe.unlockResearch) exactly like a real research.")]
+        [Tooltip("The unlock granted on completion, through ResearchSystem.Grant. What it opens is that research's own effects (ResearchDefinition.Effects), exactly like a research in the tree.")]
         [SerializeField] ResearchDefinition grants;
 
         [Tooltip("What this directive opens, one entry per line of the REWARD block. Left empty, a directive that grants an unlock says so in general terms.")]

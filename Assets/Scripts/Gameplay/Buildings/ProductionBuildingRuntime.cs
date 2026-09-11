@@ -114,7 +114,7 @@ namespace Game.Gameplay.Buildings
             {
                 RecipeDefinition recipe = _recipeDatabase.Get(id);
                 if (recipe == null) continue;
-                if (recipe.UnlockResearch != null && !_researchSystem.IsUnlocked(recipe.UnlockResearch.Id)) continue;
+                if (!_researchSystem.IsRecipeUnlocked(recipe)) continue;
                 result.Add(id);
             }
             return result;

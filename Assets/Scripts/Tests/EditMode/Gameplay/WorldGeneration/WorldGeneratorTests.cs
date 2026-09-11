@@ -137,7 +137,7 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
         /// (InvitationMinDistanceCells/MaxDistanceCells) must sit entirely beyond the starting
         /// 22-cell radius, entirely within the fog's starting reveal (22 + fogRadiusMarginCells,
         /// mirrored here from GameRuntime), and entirely within the first extension (42, the first
-        /// extended_bandwidth) - on every seed, not just the one that happened to pass before.
+        /// radius research) - on every seed, not just the one that happened to pass before.
         /// A cluster drawn past the extended radius would be permanently unreachable regardless of
         /// how the player plays; a cluster under the starting radius would be constructible before
         /// the research exists to explain why it wasn't.
@@ -179,9 +179,9 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
                 foreach (DepositRuntime deposit in invitationDeposits)
                 {
                     float distance = Distance(deposit);
-                    Assert.Greater(distance, startingRadius, $"seed {seed}, {itemId}: an invitation deposit must not be constructible before extended_bandwidth.");
+                    Assert.Greater(distance, startingRadius, $"seed {seed}, {itemId}: an invitation deposit must not be constructible before the first radius research.");
                     Assert.LessOrEqual(distance, startingRadius + fogRadiusMarginCells, $"seed {seed}, {itemId}: an invitation deposit must be visible under the starting fog.");
-                    Assert.LessOrEqual(distance, extendedRadius, $"seed {seed}, {itemId}: an invitation deposit must be constructible after extended_bandwidth.");
+                    Assert.LessOrEqual(distance, extendedRadius, $"seed {seed}, {itemId}: an invitation deposit must be constructible after the first radius research.");
                 }
             }
         }

@@ -141,12 +141,11 @@ namespace Game.Tests.EditMode.Construction
             Assert.IsNull(removed);
         }
 
-        static StorageDefinition NewGatedStorageDefinition(ResearchDefinition unlockResearch)
+        /// <summary>A Storage the given research unlocks. The research names the building - never the reverse.</summary>
+        static StorageDefinition NewGatedStorageDefinition(ResearchDefinition unlockedBy)
         {
             var definition = ScriptableObject.CreateInstance<StorageDefinition>();
-            var so = new UnityEditor.SerializedObject(definition);
-            so.FindProperty("unlockResearch").objectReferenceValue = unlockResearch;
-            so.ApplyModifiedPropertiesWithoutUndo();
+            TestDataFactory.WithEffects(unlockedBy, ResearchEffect.UnlockBuilding(definition));
             return definition;
         }
 
@@ -154,12 +153,13 @@ namespace Game.Tests.EditMode.Construction
         public void CanPlace_False_WhenUnlockResearchNotUnlocked()
         {
             var grid = new GridRuntime(1f);
-            var research = new ResearchSystem(new ComputeSystem());
-            var service = NewServiceWithResearch(grid, research);
-            var definition = NewGatedStorageDefinition(TestDataFactory.NewResearch("test_gate", 10f));
+            ResearchDefinition gate = TestDataFactory.NewResearch("test_gate", 10f);
+            var definition = NewGatedStorageDefinition(gate);
+            var service = NewServiceWithResearch(grid, new ResearchSystem(new ComputeSystem(), new ResearchCatalog(new[] { gate })));
             service.SelectBuilding(definition);
 
             Assert.IsFalse(service.CanPlace(new GridCoord(0, 0)));
+            Assert.AreEqual(PlacementRefusalReason.NotUnlocked, service.GetPlacementRefusalReason(new GridCoord(0, 0)));
         }
 
         static ConstructionService NewServiceWithResearch(GridRuntime grid, ResearchSystem research)
@@ -173,16 +173,15 @@ namespace Game.Tests.EditMode.Construction
         public void CanPlace_True_AfterUnlockResearchIsUnlocked()
         {
             var grid = new GridRuntime(1f);
-            var research = new ResearchSystem(new ComputeSystem());
+            ResearchDefinition gate = TestDataFactory.NewResearch("test_gate", 10f);
+            var definition = NewGatedStorageDefinition(gate);
+            var research = new ResearchSystem(new ComputeSystem(), new ResearchCatalog(new[] { gate }));
             var service = NewServiceWithResearch(grid, research);
-            var unlockResearch = TestDataFactory.NewResearch("test_gate", 10f);
-            var definition = NewGatedStorageDefinition(unlockResearch);
             service.SelectBuilding(definition);
             Assert.IsFalse(service.CanPlace(new GridCoord(0, 0)));
 
-            research.Enqueue(unlockResearch);
+            research.Enqueue(gate);
             research.Tick(60f);
-            Assert.IsTrue(research.IsUnlocked("test_gate"));
 
             Assert.IsTrue(service.CanPlace(new GridCoord(0, 0)));
         }
@@ -280,13 +279,13 @@ namespace Game.Tests.EditMode.Construction
 
         // --- TASK_04_PLAFOND_RAYON.md: building cap + action radius as runtime state ---
 
-        static (ConstructionService service, TransportSystem transport, ResearchSystem research, CoreRuntime core) NewServiceWithCore(int actionRadiusCells)
-            => NewServiceWithCore(actionRadiusCells, out _);
+        static (ConstructionService service, TransportSystem transport, ResearchSystem research, CoreRuntime core) NewServiceWithCore(int actionRadiusCells, params ResearchDefinition[] known)
+            => NewServiceWithCore(actionRadiusCells, out _, known);
 
-        static (ConstructionService service, TransportSystem transport, ResearchSystem research, CoreRuntime core) NewServiceWithCore(int actionRadiusCells, out ConstructionSiteSystem siteSystem)
+        static (ConstructionService service, TransportSystem transport, ResearchSystem research, CoreRuntime core) NewServiceWithCore(int actionRadiusCells, out ConstructionSiteSystem siteSystem, params ResearchDefinition[] known)
         {
             var grid = new GridRuntime(1f);
-            var research = new ResearchSystem(new ComputeSystem());
+            var research = new ResearchSystem(new ComputeSystem(), new ResearchCatalog(known));
             var coreDefinition = TestDataFactory.NewCore(actionRadiusCells, new Vector2Int(4, 4));
             var core = new CoreRuntime(coreDefinition, new GridCoord(0, 0), Direction.North, new ComputeSystem(), new PowerSystem(), research);
             grid.SetOccupantFootprint(core.Cell, coreDefinition.FootprintSize, core);
@@ -398,48 +397,54 @@ namespace Game.Tests.EditMode.Construction
             Assert.AreEqual(0, service.OccupiedBuildingSlots);
         }
 
+        /// <summary>A test research carrying one figure. Named for what it does, never after a shipped research: the id is not what the effect hangs on.</summary>
+        static ResearchDefinition Raising(ResearchEffectKind kind, int value)
+            => TestDataFactory.WithEffects(TestDataFactory.NewResearch(kind + "_" + value, 10f), new ResearchEffect(kind, value: value));
+
         [Test]
-        public void MemoryAllocation_Completed_RaisesBuildingCapTo75()
+        public void ABuildingCapEffect_RaisesTheCapToItsTarget()
         {
-            var (service, _, research, _) = NewServiceWithCore(1000);
+            ResearchDefinition cap75 = Raising(ResearchEffectKind.BuildingCap, 75);
+            var (service, _, research, _) = NewServiceWithCore(1000, cap75);
             Assert.AreEqual(36, service.BuildingCap, "A run starts at 36 slots.");
 
-            ResearchDefinition memoryAllocation = TestDataFactory.NewResearch("memory_allocation", 10f);
-            research.Enqueue(memoryAllocation);
+            research.Enqueue(cap75);
             research.Tick(60f);
 
-            Assert.IsTrue(research.IsUnlocked("memory_allocation"));
-            Assert.AreEqual(75, service.BuildingCap, "The first allocation takes the base to 75.");
+            Assert.AreEqual(75, service.BuildingCap);
         }
 
-        /// <summary>Each level sets its own figure, and the highest reached wins: a lower level landing after a higher one never takes slots away.</summary>
+        /// <summary>Each research sets its own target and the highest completed wins: a lower one landing after a higher one never takes slots away.</summary>
         [Test]
-        public void TheAllocationLevels_Reach100Then200_AndNeverLowerTheCap()
+        public void BuildingCapTargets_TheHighestReachedWins_WhateverTheOrder()
         {
-            var (service, _, research, _) = NewServiceWithCore(1000);
+            ResearchDefinition cap75 = Raising(ResearchEffectKind.BuildingCap, 75);
+            ResearchDefinition cap100 = Raising(ResearchEffectKind.BuildingCap, 100);
+            ResearchDefinition cap200 = Raising(ResearchEffectKind.BuildingCap, 200);
+            var (service, _, research, _) = NewServiceWithCore(1000, cap75, cap100, cap200);
 
-            research.Grant("memory_allocation_2");
+            research.Grant(cap100.Id);
             Assert.AreEqual(100, service.BuildingCap);
 
-            research.Grant("memory_allocation_3");
+            research.Grant(cap200.Id);
             Assert.AreEqual(200, service.BuildingCap);
 
-            research.Grant("memory_allocation");
-            Assert.AreEqual(200, service.BuildingCap, "A lower level after a higher one changes nothing.");
+            research.Grant(cap75.Id);
+            Assert.AreEqual(200, service.BuildingCap, "A lower target after a higher one changes nothing.");
         }
 
         [Test]
-        public void ExtendedBandwidth_MakesACellAt27CellsFromCore_PlaceableWhereItWasRefusedBefore()
+        public void ARadiusEffect_MakesACellAt27CellsFromCore_PlaceableWhereItWasRefusedBefore()
         {
-            var (service, _, research, _) = NewServiceWithCore(22);
-            var farCell = new GridCoord(27, 0); // beyond the starting 22-cell radius, within the first extension (42)
+            ResearchDefinition radius42 = Raising(ResearchEffectKind.ActionRadius, 42);
+            var (service, _, research, _) = NewServiceWithCore(22, radius42);
+            var farCell = new GridCoord(27, 0); // beyond the starting 22-cell radius, within 42
 
             service.SelectBuilding(NewConveyorDefinition());
             Assert.AreEqual(PlacementRefusalReason.OutOfActionRadius, service.GetPlacementRefusalReason(farCell));
             Assert.IsFalse(service.CanPlace(farCell));
 
-            ResearchDefinition extendedBandwidth = TestDataFactory.NewResearch("extended_bandwidth", 10f);
-            research.Enqueue(extendedBandwidth);
+            research.Enqueue(radius42);
             research.Tick(60f);
 
             Assert.IsTrue(service.CanPlace(farCell), "A cell at 27 cells from the Core must become placeable once the radius extends to 42 - this is the exact promise the invitation ore clusters make.");
@@ -502,9 +507,9 @@ namespace Game.Tests.EditMode.Construction
         [Test]
         public void IsWithinActionRadius_ReadsCoreRuntimeValue_NotTheFrozenDefinitionValue()
         {
-            var (service, _, research, core) = NewServiceWithCore(22);
-            ResearchDefinition extendedBandwidth = TestDataFactory.NewResearch("extended_bandwidth", 10f);
-            research.Enqueue(extendedBandwidth);
+            ResearchDefinition radius42 = Raising(ResearchEffectKind.ActionRadius, 42);
+            var (service, _, research, core) = NewServiceWithCore(22, radius42);
+            research.Enqueue(radius42);
             research.Tick(60f);
 
             var coreDefinition = (CoreDefinition)core.Definition;

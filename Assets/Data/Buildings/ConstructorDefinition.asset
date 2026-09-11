@@ -16,7 +16,6 @@ MonoBehaviour:
   displayName: Constructeur
   footprintSize: {x: 2, y: 2}
   placeholderColor: {r: 1, g: 1, b: 1, a: 1}
-  unlockResearch: {fileID: 0}
   sprite: {fileID: -6622863259242664493, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
   animationFrames:
   - {fileID: -6622863259242664493, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}

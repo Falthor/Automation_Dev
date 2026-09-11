@@ -40,14 +40,6 @@ namespace Game.Construction
     {
         public const int DefaultBuildingCap = 36;
 
-        /// <summary>The cap each memory allocation research raises the base to. The highest one completed wins, so the order they land in can never lower anything.</summary>
-        static readonly (string researchId, int cap)[] CapResearches =
-        {
-            ("memory_allocation", 75),
-            ("memory_allocation_2", 100),
-            ("memory_allocation_3", 200)
-        };
-
         readonly GridRuntime _grid;
         readonly ItemDatabase _itemDatabase;
         readonly RecipeDatabase _recipeDatabase;
@@ -73,7 +65,7 @@ namespace Game.Construction
 
         /// <summary>
         /// Current building slot cap (TASK_04_PLAFOND_RAYON.md §3) - starts at
-        /// DefaultBuildingCap, raised by the memory allocation researches (CapResearches). Runtime state
+        /// DefaultBuildingCap, raised by each BuildingCap research effect completed. Runtime state
         /// owned here (the same layer that enforces it), not on
         /// any definition; persisted directly by the save layer via RestoreBuildingCap, with a
         /// fallback to DefaultBuildingCap for a save predating this task.
@@ -136,9 +128,14 @@ namespace Game.Construction
         /// </summary>
         void OnResearchCompleted(string researchId)
         {
-            for (int i = 0; i < CapResearches.Length; i++)
+            ResearchDefinition research = _researchSystem.Definition(researchId);
+            if (research == null) return;
+
+            // A target, not a step: the highest completed wins, so the order never lowers anything.
+            var effects = research.Effects;
+            for (int i = 0; i < effects.Count; i++)
             {
-                if (CapResearches[i].researchId == researchId) BuildingCap = System.Math.Max(BuildingCap, CapResearches[i].cap);
+                if (effects[i].Kind == ResearchEffectKind.BuildingCap) BuildingCap = System.Math.Max(BuildingCap, effects[i].Value);
             }
         }
 
@@ -659,7 +656,7 @@ namespace Game.Construction
         /// </summary>
         public PlacementRefusalReason GetPlacementRefusalReason(GridCoord cell)
         {
-            if (Selected.UnlockResearch != null && !_researchSystem.IsUnlocked(Selected.UnlockResearch.Id))
+            if (!_researchSystem.IsBuildingUnlocked(Selected))
             {
                 return PlacementRefusalReason.NotUnlocked;
             }

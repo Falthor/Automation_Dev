@@ -29,7 +29,6 @@ namespace Game.Data
         [SerializeField, Min(1)] int outputAmount = 1;
         [SerializeField, Min(0.01f)] float timeSeconds = 1f;
         [SerializeField, Min(0f)] float computeCost;
-        [SerializeField] ResearchDefinition unlockResearch;
 
         public string Id => id;
         public RecipeIngredient[] Ingredients => ingredients;
@@ -58,8 +57,5 @@ namespace Game.Data
         /// amount times CraftsPerMinute.
         /// </summary>
         public float OutputPerMinute => outputAmount * CraftsPerMinute;
-
-        /// <summary>Research required before this recipe is offered by GetRecipeIds(). Null means available from the start.</summary>
-        public ResearchDefinition UnlockResearch => unlockResearch;
     }
 }

@@ -201,7 +201,7 @@ Implemented by `ProductionBuildingRuntime` (`Game.Gameplay.Buildings`), extended
 
 ### `GetRecipeIds()`
 
-Returns recipes offered by the production building.
+Returns recipes offered by the production building - leaving out any recipe a research unlocks until one of those researches is completed (`ResearchSystem.IsRecipeUnlocked`, §11).
 
 ### `GetSelectedRecipe()`
 
@@ -299,7 +299,7 @@ public bool TryDemolish(GridCoord cell, out BuildingRuntime removed)
 public bool CanAfford(BuildingDefinition definition)   // the placement gate, and the menu's styling
 public int GetAvailableAmount(string itemId)           // reads GlobalStock's aggregate (§15)
 
-public int BuildingCap { get; }              // 36 by default; 75 / 100 / 200 after memory_allocation 1 / 2 / 3
+public int BuildingCap { get; }              // 36 by default, raised by BuildingCap research effects (§11)
 public int OccupiedBuildingSlots { get; }    // live count against BuildingCap
 public void RestoreBuildingCap(int? cap)
 ```
@@ -329,9 +329,9 @@ Owning ground and being operational are two different states, and the flag is wh
 
 `GetPlacementRefusalReason` (TASK_04_PLAFOND_RAYON.md §3.2) is the explanatory counterpart to `CanPlace`: same checks, same order, but returns a `PlacementRefusalReason` (`None`/`NotUnlocked`/`OutOfActionRadius`/`CannotAfford`/`BuildingCapReached`/`CellOccupied`) instead of a bare bool, for player-facing messaging - meaningful only while `Selected != null`. `CannotAfford` reads the aggregate **minus what other sites have already reserved**, so placing four buildings with stock for three refuses the fourth rather than letting four sites fight over one stock afterwards. Placing still does not pay - it opens a site that reserves the whole bill and waits for robots to carry it - but the bill must be coverable at that instant, which is what makes a placed site's `missing` count zero in ordinary play.
 
-`BuildingCap` (TASK_04_PLAFOND_RAYON.md §3) is runtime state owned by `ConstructionService`, not any definition: starts at 36, raised to 75, 100 and 200 by `memory_allocation`, `memory_allocation_2` and `memory_allocation_3` - the highest reached wins, so a level landing late never lowers it - (via `ResearchSystem.ResearchCompleted`, same pattern as `DataCenterRuntime`'s bay/threshold subscriptions), and restored directly from a save (`RestoreBuildingCap`) rather than re-derived from `ResearchSystem.IsUnlocked`. `OccupiedBuildingSlots` counts every building currently registered with the constructor-injected `TransportSystem` except the Core and every `ConveyorRuntime`/`SplitterRuntime`/`CrossroadRuntime` - computed live from `TransportSystem.GetAllBuildings()`, never a separately tracked counter, so placing and demolishing can never drift out of sync with it. `IsPlaceable`'s cap check applies to every other building type.
+`BuildingCap` (TASK_04_PLAFOND_RAYON.md §3) is runtime state owned by `ConstructionService`, not any definition: starts at 36 and is raised by `BuildingCap` research effects (§11) - the highest target completed wins, so one landing late never lowers it - (via `ResearchSystem.ResearchCompleted`, same pattern as `DataCenterRuntime`'s bay/threshold subscriptions), and restored directly from a save (`RestoreBuildingCap`) rather than re-derived from `ResearchSystem.IsUnlocked`. `OccupiedBuildingSlots` counts every building currently registered with the constructor-injected `TransportSystem` except the Core and every `ConveyorRuntime`/`SplitterRuntime`/`CrossroadRuntime` - computed live from `TransportSystem.GetAllBuildings()`, never a separately tracked counter, so placing and demolishing can never drift out of sync with it. `IsPlaceable`'s cap check applies to every other building type.
 
-The Core's action radius (`CoreDefinition.ActionRadiusCells` is only the starting value) is runtime state on `CoreRuntime.ActionRadiusCells` instead - `IsWithinActionRadius` reads that, never the definition. `CoreRuntime` owns and extends it via `extended_bandwidth`, `extended_bandwidth_2` and `extended_bandwidth_3` - 42, 60 and 80 cells, the highest reached wins - (`ResearchSystem.ResearchCompleted`), exactly like `BuildingCap` above. The last figure is also `CoreRuntime.ExtendedActionRadiusCells`, the Core's furthest reach, which world generation reads as the edge of the starting territory (`MAP.md`); the invitation ore clusters must lie within the first, `FirstExtendedActionRadiusCells`; `WorldGenerator.ActionRadiusCells` is a plain pass-through of it.
+The Core's action radius (`CoreDefinition.ActionRadiusCells` is only the starting value) is runtime state on `CoreRuntime.ActionRadiusCells` instead - `IsWithinActionRadius` reads that, never the definition. `CoreRuntime` owns and extends it through `ActionRadius` research effects (§11) - the highest target completed wins - (`ResearchSystem.ResearchCompleted`), exactly like `BuildingCap` above. The highest figure (80 today) is also `CoreRuntime.ExtendedActionRadiusCells`, the Core's furthest reach, which world generation reads as the edge of the starting territory (`MAP.md`); the invitation ore clusters must lie within the first, `FirstExtendedActionRadiusCells`; `WorldGenerator.ActionRadiusCells` is a plain pass-through of it.
 
 Drag-gesture decoding (turning a mouse drag into a sequence of single-cell `TryPlace` calls, and detecting when to reshape the drag anchor into a corner) is input-interpretation and lives in the Presentation-layer input adapter, not in `ConstructionService` itself, which stays single-cell and Unity-input-agnostic.
 
@@ -418,7 +418,11 @@ public float AbsorbedCu
 public float GetProgress()
 public float GetEstimatedSecondsRemaining()
 public IReadOnlyList<ResearchDefinition> GetQueue()
+public ResearchSystem(ComputeSystem computeSystem, ResearchCatalog catalog = null)
 public bool IsUnlocked(string researchId)
+public bool IsBuildingUnlocked(BuildingDefinition building)
+public bool IsRecipeUnlocked(RecipeDefinition recipe)
+public ResearchDefinition Definition(string researchId)
 public IEnumerable<string> GetUnlockedIds()
 public void Grant(string researchId)
 public bool ArePrerequisitesMet(ResearchDefinition research)
@@ -437,9 +441,13 @@ One active research at a time (`ActiveResearch`); everything else waits in a reo
 
 A research may require any number of other researches to be completed first (`ResearchDefinition.Prerequisites`, a list - not the single-reference chain of the old RP model). `ArePrerequisitesMet` is the read-only form the UI uses to show *why* a row is unavailable instead of only greying it out, and to highlight specifically which prerequisites are missing when a locked node is clicked.
 
-`ResearchDatabase.GetCores()` lists the roots of the research network (GDD §5.4) - Research, Buildings, Armament, in the order the panel lays them out around the Datacenter. A core is never bought: it is an ordinary unlock id granted through `Grant` by whatever powers it, and a research belongs to a branch by naming its core as a prerequisite. `DataCenterRuntime` grants the Research and Buildings cores (`ResearchCoreId`, `BuildingsCoreId`) once its priming is done; nothing grants the armament core yet. `GetAll()` excludes the cores, so nothing lists or counts them as research; `Get(id)` still finds them. **The research menu exists only once a core is powered** (`ResearchPanelController.IsAvailable`) - the Top Bar card and the Bottom Nav entry alike; before that the introduction runs on the Core directives alone. A research left out of the database is on no branch and cannot be reached.
+`ResearchDatabase.GetCores()` lists the roots of the research network (GDD §5.4) - Research, Buildings, Armament, in the order the panel lays them out around the Datacenter. A core is never bought: it is an ordinary unlock id granted through `Grant` by whatever powers it, and a research belongs to a branch by naming its core as a prerequisite. `DataCenterRuntime` grants the cores its definition lists (`DataCenterDefinition.PoweredCores` - Research and Buildings) once its priming is done; nothing grants the armament core yet. `GetAll()` excludes the cores, so nothing lists or counts them as research; `Get(id)` still finds them. **The research menu exists only once a core is powered** (`ResearchPanelController.IsAvailable`) - the Top Bar card and the Bottom Nav entry alike; before that the introduction runs on the Core directives alone. A research left out of the database is on no branch and cannot be reached.
 
-`ResearchDatabase` (`Game.Data`) is the id-keyed registry, on the same model as `ItemDatabase`/`RecipeDatabase` - one asset assigned on `GameRuntime`, `Get(id)` for a single lookup, `GetAll()` for the UI to enumerate the whole tree. A gate itself still references a `ResearchDefinition` directly, exactly as before: `BuildingDefinition.UnlockResearch` (checked by `ConstructionService.IsPlaceable`, not by any runtime) and `RecipeDefinition.UnlockResearch` (checked by `ProductionBuildingRuntime.GetRecipeIds()`). Building placement and recipe availability both query unlock state through `IsUnlocked(id)` rather than reading internal research collections.
+`ResearchDatabase` (`Game.Data`) is the id-keyed registry, on the same model as `ItemDatabase`/`RecipeDatabase` - one asset assigned on `GameRuntime`, `Get(id)` for a single lookup, `GetAll()` for the UI to enumerate the whole tree.
+
+**A research carries its effects** (`ResearchDefinition.Effects`, a list of `ResearchEffect`), and nothing else carries them: a building or a recipe does not name the research that opens it, the research names it. The list is closed - `UnlockBuilding` (a `BuildingDefinition`), `UnlockRecipe` (a `RecipeDefinition`), `ActionRadius` and `BuildingCap` (target values: the highest completed wins, so completion order never matters) and `DataCenterBayPairs` (a number of pairs, summed). `ResearchCatalog` (`Game.Data`) indexes every research the game knows - the tree, its cores, and the unlocks the Core directives grant, which are researches too - by id and by what it unlocks; `GameRuntime` builds it once and hands it to `ResearchSystem`.
+
+Gates ask `IsBuildingUnlocked` (`ConstructionService.GetPlacementRefusalReason`, the building menu) and `IsRecipeUnlocked` (`ProductionBuildingRuntime.GetRecipeIds`): a type no research names is not gated, one that is named opens when any research naming it is completed. The figures are applied by their owners on `ResearchCompleted`, reading the completed research's effects through `Definition(id)`: `CoreRuntime` the radius, `ConstructionService` the cap, `DataCenterRuntime` the bays - including, for a Datacenter built later, those of every research already completed (`GetUnlockedIds`). **No system compares a research id.** An id is how a save names an unlock and how `ResearchCompleted` reports one, never what an effect is keyed on: renaming a research cannot silently detach its effect.
 
 ## 12. UI contract
 

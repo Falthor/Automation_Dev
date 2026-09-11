@@ -19,15 +19,18 @@ namespace Game.Tests.EditMode.UI
     /// </summary>
     public class MenuVisibilityTests
     {
-        /// <summary>A ResearchSystem with exactly these researches already completed.</summary>
-        static ResearchSystem Unlocked(params ResearchDefinition[] unlocked)
+        /// <summary>A ResearchSystem that knows <paramref name="known"/> - so the gates their effects declare exist - with exactly <paramref name="unlocked"/> already completed.</summary>
+        static ResearchSystem Knowing(ResearchDefinition[] known, params ResearchDefinition[] unlocked)
         {
-            var research = new ResearchSystem(new ComputeSystem());
+            var research = new ResearchSystem(new ComputeSystem(), new ResearchCatalog(known));
             var unlockedIds = new string[unlocked.Length];
             for (int i = 0; i < unlocked.Length; i++) unlockedIds[i] = unlocked[i].Id;
             research.RestoreState(null, 0f, Array.Empty<ResearchDefinition>(), unlockedIds);
             return research;
         }
+
+        /// <summary>A ResearchSystem with exactly these researches completed, and knowing nothing else.</summary>
+        static ResearchSystem Unlocked(params ResearchDefinition[] unlocked) => Knowing(unlocked, unlocked);
 
         // --- Research menu ---
 
@@ -55,26 +58,26 @@ namespace Game.Tests.EditMode.UI
         [Test]
         public void TheResearchMenu_ExistsOnlyOnceACoreIsPowered()
         {
-            ResearchDefinition researchCore = TestDataFactory.NewResearch("cortex_research", 0f);
-            ResearchDefinition armament = TestDataFactory.NewResearch("cortex_armament", 0f);
-            ResearchDefinition bays = TestDataFactory.NewResearch("datacenter_bay_1", 2000f, 1_000_000f, researchCore);
-            ResearchDatabase database = NewDatabase(new[] { researchCore, armament }, bays);
+            ResearchDefinition firstCore = TestDataFactory.NewResearch("core_a", 0f);
+            ResearchDefinition darkCore = TestDataFactory.NewResearch("core_c", 0f);
+            ResearchDefinition branch = TestDataFactory.NewResearch("branch_a", 2000f, 1_000_000f, firstCore);
+            ResearchDatabase database = NewDatabase(new[] { firstCore, darkCore }, branch);
 
             Assert.IsFalse(ResearchPanelController.IsAvailable(database, Unlocked()), "A new run has no research menu.");
-            Assert.IsTrue(ResearchPanelController.IsAvailable(database, Unlocked(researchCore)));
+            Assert.IsTrue(ResearchPanelController.IsAvailable(database, Unlocked(firstCore)));
         }
 
         /// <summary>A core is a root of the network, not a research: nothing lists or counts it as one - but a save naming it still resolves.</summary>
         [Test]
         public void TheCores_AreNotInTheResearchList_ButAreStillFoundById()
         {
-            ResearchDefinition researchCore = TestDataFactory.NewResearch("cortex_research", 0f);
-            ResearchDefinition bays = TestDataFactory.NewResearch("datacenter_bay_1", 2000f, 1_000_000f, researchCore);
-            ResearchDatabase database = NewDatabase(new[] { researchCore }, bays);
+            ResearchDefinition core = TestDataFactory.NewResearch("core_a", 0f);
+            ResearchDefinition branch = TestDataFactory.NewResearch("branch_a", 2000f, 1_000_000f, core);
+            ResearchDatabase database = NewDatabase(new[] { core }, branch);
 
             Assert.AreEqual(1, database.GetAll().Count);
-            Assert.AreSame(bays, database.GetAll()[0]);
-            Assert.AreSame(researchCore, database.Get("cortex_research"));
+            Assert.AreSame(branch, database.GetAll()[0]);
+            Assert.AreSame(core, database.Get(core.Id));
         }
 
         // --- Building menu category rail ---
@@ -82,36 +85,36 @@ namespace Game.Tests.EditMode.UI
         static BuildingMenuEntry Entry(BuildingDefinition definition, BuildingCategory category)
             => new BuildingMenuEntry { definition = definition, category = category };
 
-        static BuildingDefinition NewBuilding(ResearchDefinition unlockResearch)
+        static BuildingDefinition NewBuilding()
         {
             var definition = ScriptableObject.CreateInstance<StorageDefinition>();
             var so = new UnityEditor.SerializedObject(definition);
             so.FindProperty("id").stringValue = "storage";
-            so.FindProperty("unlockResearch").objectReferenceValue = unlockResearch;
             so.ApplyModifiedPropertiesWithoutUndo();
             return definition;
         }
 
         /// <summary>
         /// A category tab is exactly as available as its contents. Organisation holds the Storage Box
-        /// alone, so before that research it was a tab onto an empty grid - the menu announcing a
-        /// section of the game the player cannot reach.
+        /// alone, so before the research that unlocks it the tab was onto an empty grid - the menu
+        /// announcing a section of the game the player cannot reach.
         /// </summary>
         [Test]
         public void ACategoryTab_AppearsOnlyOnceSomethingInItIsUnlocked()
         {
-            ResearchDefinition storageBox = TestDataFactory.NewResearch("storage_box", 400f);
-            BuildingMenuEntry[] entries = { Entry(NewBuilding(storageBox), BuildingCategory.Organisation) };
+            BuildingDefinition storage = NewBuilding();
+            ResearchDefinition gate = TestDataFactory.WithEffects(TestDataFactory.NewResearch("gate", 400f), ResearchEffect.UnlockBuilding(storage));
+            BuildingMenuEntry[] entries = { Entry(storage, BuildingCategory.Organisation) };
 
-            Assert.IsFalse(BuildingMenuController.HasVisibleBuilding(entries, BuildingCategory.Organisation, Unlocked()));
-            Assert.IsTrue(BuildingMenuController.HasVisibleBuilding(entries, BuildingCategory.Organisation, Unlocked(storageBox)));
+            Assert.IsFalse(BuildingMenuController.HasVisibleBuilding(entries, BuildingCategory.Organisation, Knowing(new[] { gate })));
+            Assert.IsTrue(BuildingMenuController.HasVisibleBuilding(entries, BuildingCategory.Organisation, Knowing(new[] { gate }, gate)));
         }
 
-        /// <summary>A category holding something ungated is always there - the rail must not vanish for a player who has researched nothing.</summary>
+        /// <summary>A category holding something no research names is always there - the rail must not vanish for a player who has researched nothing.</summary>
         [Test]
         public void ACategoryHoldingAnUngatedBuilding_IsAlwaysThere()
         {
-            BuildingMenuEntry[] entries = { Entry(NewBuilding(null), BuildingCategory.Production) };
+            BuildingMenuEntry[] entries = { Entry(NewBuilding(), BuildingCategory.Production) };
 
             Assert.IsTrue(BuildingMenuController.HasVisibleBuilding(entries, BuildingCategory.Production, Unlocked()));
         }
@@ -120,7 +123,7 @@ namespace Game.Tests.EditMode.UI
         [Test]
         public void ACategoryWithNoEntryAtAll_HasNoTab()
         {
-            BuildingMenuEntry[] entries = { Entry(NewBuilding(null), BuildingCategory.Production) };
+            BuildingMenuEntry[] entries = { Entry(NewBuilding(), BuildingCategory.Production) };
 
             Assert.IsFalse(BuildingMenuController.HasVisibleBuilding(entries, BuildingCategory.Power, Unlocked()));
         }

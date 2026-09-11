@@ -16,7 +16,6 @@ MonoBehaviour:
   displayName: Centrale à gaz
   footprintSize: {x: 3, y: 3}
   placeholderColor: {r: 0.85, g: 0.6, b: 0.1, a: 1}
-  unlockResearch: {fileID: 0}
   sprite: {fileID: -6622863259242664493, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
   animationFrames:
   - {fileID: -6622863259242664493, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}

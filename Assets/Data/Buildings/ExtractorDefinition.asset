@@ -16,7 +16,6 @@ MonoBehaviour:
   displayName: Extracteur
   footprintSize: {x: 2, y: 2}
   placeholderColor: {r: 0.6, g: 0.6, b: 0.65, a: 1}
-  unlockResearch: {fileID: 0}
   sprite: {fileID: -6622863259242664493, guid: 46738ccd62a84b24d8d48f71d10898a3, type: 3}
   animationFrames:
   - {fileID: -6622863259242664493, guid: 46738ccd62a84b24d8d48f71d10898a3, type: 3}

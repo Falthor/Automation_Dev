@@ -18,6 +18,9 @@ namespace Game.Gameplay.Research
     public sealed class ResearchSystem
     {
         readonly ComputeSystem _computeSystem;
+
+        /// <summary>Every research this system can resolve an id to. Null in a test that needs none: then nothing is gated and no effect is found.</summary>
+        readonly ResearchCatalog _catalog;
         readonly HashSet<string> _unlocked = new HashSet<string>();
         readonly List<ResearchDefinition> _queue = new List<ResearchDefinition>();
 
@@ -28,9 +31,10 @@ namespace Game.Gameplay.Research
 
         public event Action<string> ResearchCompleted;
 
-        public ResearchSystem(ComputeSystem computeSystem)
+        public ResearchSystem(ComputeSystem computeSystem, ResearchCatalog catalog = null)
         {
             _computeSystem = computeSystem;
+            _catalog = catalog;
         }
 
         public bool HasActiveResearch() => ActiveResearch != null;
@@ -50,8 +54,34 @@ namespace Game.Gameplay.Research
 
         public bool IsUnlocked(string researchId) => researchId != null && _unlocked.Contains(researchId);
 
-        /// <summary>Every unlocked research id, for the save/load system (CONTRACTS.md §14). No other consumer should need to enumerate this - query IsUnlocked(id) instead.</summary>
+        /// <summary>Every unlocked research id: for the save/load system (CONTRACTS.md §14), and for a building that must count what was completed before it existed (DataCenterRuntime's bays). Anything else queries IsUnlocked instead.</summary>
         public IEnumerable<string> GetUnlockedIds() => _unlocked;
+
+        /// <summary>
+        /// The definition behind an unlock id, or null when this system knows none by it. How a system
+        /// applies an effect: ResearchCompleted hands it an id, and it reads the effects of the
+        /// definition - it never compares the id to anything.
+        /// </summary>
+        public ResearchDefinition Definition(string researchId) => _catalog?.Get(researchId);
+
+        /// <summary>Whether this building type may be placed: no research unlocks it (it is not gated), or one that does is completed.</summary>
+        public bool IsBuildingUnlocked(BuildingDefinition building)
+            => building == null || IsUnlockedByAny(_catalog?.UnlockersOf(building));
+
+        /// <summary>Whether this recipe may be offered: no research unlocks it (it is not gated), or one that does is completed.</summary>
+        public bool IsRecipeUnlocked(RecipeDefinition recipe)
+            => recipe == null || IsUnlockedByAny(_catalog?.UnlockersOf(recipe));
+
+        bool IsUnlockedByAny(IReadOnlyList<ResearchDefinition> unlockers)
+        {
+            if (unlockers == null || unlockers.Count == 0) return true;
+
+            for (int i = 0; i < unlockers.Count; i++)
+            {
+                if (unlockers[i] != null && IsUnlocked(unlockers[i].Id)) return true;
+            }
+            return false;
+        }
 
         /// <summary>
         /// Grants an unlock that was never queued and never cost CU - how a source other than the

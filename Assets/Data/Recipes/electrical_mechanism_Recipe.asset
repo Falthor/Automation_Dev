@@ -21,4 +21,3 @@ MonoBehaviour:
   outputAmount: 1
   timeSeconds: 20
   computeCost: 45
-  unlockResearch: {fileID: 11400000, guid: a4e072f91b385eac607294b6d1538a52, type: 2}

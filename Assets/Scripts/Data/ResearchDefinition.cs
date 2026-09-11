@@ -4,10 +4,12 @@ using UnityEngine;
 namespace Game.Data
 {
     /// <summary>
-    /// Static definition of one research (CONTRACTS.md §11). Enumerated as a whole by
-    /// ResearchDatabase, which is what the UI reads to build the tree - this asset itself is
-    /// still what BuildingDefinition.UnlockResearch/RecipeDefinition.UnlockResearch reference
-    /// directly for a gate check, exactly as before.
+    /// Static definition of one research (CONTRACTS.md §11): its cost, its prerequisites and its
+    /// effects. Enumerated by ResearchDatabase for the tree, and by ResearchCatalog for everything
+    /// the game asks about researches.
+    ///
+    /// <b>The effects live here and nowhere else.</b> A building or a recipe does not name the
+    /// research that opens it - the research names it - and no system keys anything on the id.
     /// </summary>
     [CreateAssetMenu(fileName = "ResearchDefinition", menuName = "Game/Research/Research Definition")]
     public sealed class ResearchDefinition : ScriptableObject
@@ -18,6 +20,9 @@ namespace Game.Data
         [SerializeField] Sprite icon;
         [SerializeField, Min(0f)] float cuCost;
         [SerializeField] ResearchDefinition[] prerequisites = System.Array.Empty<ResearchDefinition>();
+
+        /// <summary>What completing this research does - see ResearchEffect.</summary>
+        [SerializeField] ResearchEffect[] effects = System.Array.Empty<ResearchEffect>();
 
         /// <summary>Ceiling on how many CU per second this research can absorb, even when the reserve holds far more - the runtime rate is min(this, whatever the reserve can currently give).</summary>
         [SerializeField, Min(0f)] float absorptionRatePerSecond;
@@ -33,6 +38,9 @@ namespace Game.Data
 
         /// <summary>Every research that must already be completed before this one may be started. Empty means available from the start.</summary>
         public IReadOnlyList<ResearchDefinition> Prerequisites => prerequisites;
+
+        /// <summary>What completing this research does. Empty for a research that only opens the way to others.</summary>
+        public IReadOnlyList<ResearchEffect> Effects => effects ?? (IReadOnlyList<ResearchEffect>)System.Array.Empty<ResearchEffect>();
 
         public float AbsorptionRatePerSecond => absorptionRatePerSecond;
         public int Tier => tier;

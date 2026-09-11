@@ -29,14 +29,15 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _ironPlate = TestDataFactory.NewItem("Iron_Plate", ItemType.Component);
             _itemDatabase = TestDataFactory.NewItemDatabase(_ironIngot, _ironPlate);
 
-            _memoireResearch = TestDataFactory.NewResearch("memoire", 100f);
+            _memoireResearch = TestDataFactory.NewResearch("memory_gate", 100f);
             _ironPlateRecipe = TestDataFactory.NewRecipe("Iron_Plate", 3f, 300f, 2, (_ironIngot, 2));
-            _memoryRecipe = TestDataFactory.NewRecipe("Memory_MK1", 3f, 1500f, 1, _memoireResearch, (_ironPlate, 3));
+            _memoryRecipe = TestDataFactory.NewRecipe("Memory_MK1", 3f, 1500f, 1, (_ironPlate, 3));
+            TestDataFactory.WithEffects(_memoireResearch, ResearchEffect.UnlockRecipe(_memoryRecipe));
             _recipeDatabase = TestDataFactory.NewRecipeDatabase(_ironPlateRecipe, _memoryRecipe);
 
             _compute = new ComputeSystem();
             _power = new PowerSystem();
-            _research = new ResearchSystem(_compute);
+            _research = new ResearchSystem(_compute, new ResearchCatalog(new[] { _memoireResearch }));
         }
 
         FactoryRuntime NewFactory()
@@ -63,7 +64,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             FactoryRuntime factory = NewFactory();
             _research.Enqueue(_memoireResearch);
             _research.Tick(60f);
-            Assert.IsTrue(_research.IsUnlocked("memoire"));
+            Assert.IsTrue(_research.IsUnlocked(_memoireResearch.Id));
 
             CollectionAssert.Contains(factory.GetRecipeIds(), "Memory_MK1");
         }

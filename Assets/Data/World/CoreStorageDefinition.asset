@@ -16,7 +16,6 @@ MonoBehaviour:
   displayName: Reserve
   footprintSize: {x: 2, y: 2}
   placeholderColor: {r: 0.7, g: 0.55, b: 0.3, a: 1}
-  unlockResearch: {fileID: 0}
   sprite: {fileID: -6622863259242664493, guid: b4dd38d18259350408095bf291434813, type: 3}
   animationFrames:
   - {fileID: -6622863259242664493, guid: b4dd38d18259350408095bf291434813, type: 3}

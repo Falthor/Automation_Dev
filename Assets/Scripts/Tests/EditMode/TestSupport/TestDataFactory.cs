@@ -35,11 +35,6 @@ namespace Game.Tests.EditMode.TestSupport
             return database;
         }
 
-        public static RecipeDefinition NewRecipe(string id, float timeSeconds, float computeCost, int outputAmount, params (ItemDefinition item, int amount)[] ingredients)
-        {
-            return NewRecipe(id, timeSeconds, computeCost, outputAmount, null, ingredients);
-        }
-
         /// <summary>
         /// Storage Box definition, with the shape overrides TASK_05_ROBOT_CONSTRUCTEUR.md's Core
         /// chest needs (6 slots x 200, refusing every conveyor connection). slotCountOverride /
@@ -122,7 +117,7 @@ namespace Game.Tests.EditMode.TestSupport
             return definition;
         }
 
-        public static RecipeDefinition NewRecipe(string id, float timeSeconds, float computeCost, int outputAmount, ResearchDefinition unlockResearch, params (ItemDefinition item, int amount)[] ingredients)
+        public static RecipeDefinition NewRecipe(string id, float timeSeconds, float computeCost, int outputAmount, params (ItemDefinition item, int amount)[] ingredients)
         {
             var recipe = ScriptableObject.CreateInstance<RecipeDefinition>();
             var so = new SerializedObject(recipe);
@@ -130,7 +125,6 @@ namespace Game.Tests.EditMode.TestSupport
             so.FindProperty("timeSeconds").floatValue = timeSeconds;
             so.FindProperty("computeCost").floatValue = computeCost;
             so.FindProperty("outputAmount").intValue = outputAmount;
-            so.FindProperty("unlockResearch").objectReferenceValue = unlockResearch;
 
             SerializedProperty array = so.FindProperty("ingredients");
             array.arraySize = ingredients.Length;
@@ -163,6 +157,28 @@ namespace Game.Tests.EditMode.TestSupport
             for (int i = 0; i < prerequisites.Length; i++)
             {
                 array.GetArrayElementAtIndex(i).objectReferenceValue = prerequisites[i];
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return research;
+        }
+
+        /// <summary>
+        /// Gives an existing research these effects, replacing any it had - the only place a test
+        /// declares what a research does, exactly as an asset would. Separate from NewResearch because
+        /// that one's trailing params is already the prerequisites.
+        /// </summary>
+        public static ResearchDefinition WithEffects(ResearchDefinition research, params ResearchEffect[] effects)
+        {
+            var so = new SerializedObject(research);
+            SerializedProperty array = so.FindProperty("effects");
+            array.arraySize = effects.Length;
+            for (int i = 0; i < effects.Length; i++)
+            {
+                SerializedProperty element = array.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("kind").enumValueIndex = (int)effects[i].Kind;
+                element.FindPropertyRelative("building").objectReferenceValue = effects[i].Building;
+                element.FindPropertyRelative("recipe").objectReferenceValue = effects[i].Recipe;
+                element.FindPropertyRelative("value").intValue = effects[i].Value;
             }
             so.ApplyModifiedPropertiesWithoutUndo();
             return research;
@@ -306,7 +322,7 @@ namespace Game.Tests.EditMode.TestSupport
             return settings;
         }
 
-        public static DataCenterDefinition NewDataCenter(int maxStackPerItem, string[] acceptedItemIds, ResearchDefinition unlockResearch)
+        public static DataCenterDefinition NewDataCenter(int maxStackPerItem, string[] acceptedItemIds, ResearchDefinition[] poweredCores = null)
         {
             var dataCenter = ScriptableObject.CreateInstance<DataCenterDefinition>();
             var so = new SerializedObject(dataCenter);
@@ -314,7 +330,9 @@ namespace Game.Tests.EditMode.TestSupport
             // own group called "", which is legal and unhelpful to read in a failure message.
             so.FindProperty("id").stringValue = "datacenter";
             so.FindProperty("maxStackPerItem").intValue = maxStackPerItem;
-            so.FindProperty("unlockResearch").objectReferenceValue = unlockResearch;
+            SerializedProperty cores = so.FindProperty("poweredCores");
+            cores.arraySize = poweredCores?.Length ?? 0;
+            for (int i = 0; i < cores.arraySize; i++) cores.GetArrayElementAtIndex(i).objectReferenceValue = poweredCores[i];
             SetStringArray(so, "acceptedItemIds", acceptedItemIds);
             so.ApplyModifiedPropertiesWithoutUndo();
             return dataCenter;

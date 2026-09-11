@@ -400,7 +400,7 @@ namespace Game.Presentation
             PowerPriority.EnsureKnows(PowerGroupIds());
             Power.Priority = PowerPriority;
             Compute = new ComputeSystem();
-            Research = new ResearchSystem(Compute);
+            Research = new ResearchSystem(Compute, BuildResearchCatalog());
             Transport = new TransportSystem(Grid);
             Notifications = new NotificationSystem();
             Clock = new PlayClock();
@@ -570,8 +570,16 @@ namespace Game.Presentation
             if (startWithEverythingUnlocked)
             {
                 ExplorerRobots?.MakeRobotsAppear();
-                Research.Grant(DataCenterRuntime.ResearchCoreId);
-                Research.Grant(DataCenterRuntime.BuildingsCoreId);
+                // The cores a primed Datacenter would power - named by its definition, like everything
+                // the Datacenter grants.
+                foreach (BuildingDefinition definition in buildingCatalog)
+                {
+                    if (!(definition is DataCenterDefinition dataCenter)) continue;
+                    foreach (ResearchDefinition core in dataCenter.PoweredCores)
+                    {
+                        if (core != null) Research.Grant(core.Id);
+                    }
+                }
             }
 
             Selection = new SelectionRuntime();
@@ -692,6 +700,30 @@ namespace Game.Presentation
         }
 
         ResearchDefinition FindResearchDefinition(string id) => researchDatabase != null ? researchDatabase.Get(id) : null;
+
+        /// <summary>
+        /// Every research the game knows, for ResearchSystem's catalog (CONTRACTS.md §11): the tree's
+        /// researches and cores, and the unlocks the Core's directives grant - those are researches
+        /// too, and carry their own effects. An effect declared on any of them is found, whichever
+        /// of them the player completes.
+        /// </summary>
+        ResearchCatalog BuildResearchCatalog()
+        {
+            var known = new List<ResearchDefinition>();
+            if (researchDatabase != null)
+            {
+                known.AddRange(researchDatabase.GetAll());
+                known.AddRange(researchDatabase.GetCores());
+            }
+            if (coreDirectiveDatabase != null)
+            {
+                foreach (CoreDirectiveDefinition directive in coreDirectiveDatabase.GetAll())
+                {
+                    if (directive != null && directive.Grants != null) known.Add(directive.Grants);
+                }
+            }
+            return new ResearchCatalog(known);
+        }
 
         /// <summary>
         /// The catalogue's own conveyor definition for a shape, or null if it carries none.
@@ -1275,7 +1307,7 @@ namespace Game.Presentation
 
                     // Re-initializing is idempotent (just recomputes the ring's transform/material
                     // from the current radius), so refreshing on every completion rather than only
-                    // extended_bandwidth keeps this generic - the view reflects whatever
+                    // on a radius effect keeps this generic - the view reflects whatever
                     // World.ActionRadiusCells (Core.ActionRadiusCells) is right now, live, with no
                     // reload (TASK_04_PLAFOND_RAYON.md §4.3).
                     Research.ResearchCompleted += _ => actionRadiusView.Initialize(coreCenter, World.ActionRadiusCells * Grid.CellSize);

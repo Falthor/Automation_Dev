@@ -16,7 +16,6 @@ MonoBehaviour:
   displayName: Centre de données
   footprintSize: {x: 4, y: 4}
   placeholderColor: {r: 0.4, g: 0.85, b: 0.4, a: 1}
-  unlockResearch: {fileID: 11400000, guid: c6029416385a70ce8294b6d8f375ac74, type: 2}
   sprite: {fileID: -6622863259242664493, guid: 4980729cfeaf8cd4894ecaf287691744, type: 3}
   animationFrames:
   - {fileID: -6622863259242664493, guid: 4980729cfeaf8cd4894ecaf287691744, type: 3}
@@ -55,3 +54,6 @@ MonoBehaviour:
   - Memory_MK1
   axisYieldFloor: 0.2
   componentLifetimeSeed: 12345
+  poweredCores:
+  - {fileID: 11400000, guid: 5c1e7a2b9d3f4e60a8b4c2d6e0f1a3b5, type: 2}
+  - {fileID: 11400000, guid: 6d2f8b3c0e4a4f71b9c5d3e7f1a2b4c6, type: 2}

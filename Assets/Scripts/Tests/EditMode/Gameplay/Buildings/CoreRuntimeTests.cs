@@ -19,52 +19,57 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             return new CoreRuntime(definition, new GridCoord(0, 0), Direction.North, new ComputeSystem(), new PowerSystem(), research);
         }
 
+        /// <summary>A test research carrying one radius target. Named for what it does, never after a shipped research: the id is not what the effect hangs on.</summary>
+        static ResearchDefinition Radius(int cells)
+            => TestDataFactory.WithEffects(TestDataFactory.NewResearch("radius_" + cells, 10f), new ResearchEffect(ResearchEffectKind.ActionRadius, value: cells));
+
+        static ResearchSystem Knowing(params ResearchDefinition[] known) => new ResearchSystem(new ComputeSystem(), new ResearchCatalog(known));
+
         [Test]
         public void Constructor_StartsAtTheDefinitionsActionRadius()
         {
-            var core = NewCoreRuntime(new ResearchSystem(new ComputeSystem()), startingRadius: 22);
+            var core = NewCoreRuntime(Knowing(), startingRadius: 22);
 
             Assert.AreEqual(22, core.ActionRadiusCells);
         }
 
         [Test]
-        public void OnResearchCompleted_ExtendedBandwidth_GrowsRadiusTo42()
+        public void ARadiusEffect_GrowsTheRadiusToItsTarget()
         {
-            var research = new ResearchSystem(new ComputeSystem());
+            ResearchDefinition radius42 = Radius(42);
+            var research = Knowing(radius42);
             var core = NewCoreRuntime(research);
-            ResearchDefinition extendedBandwidth = TestDataFactory.NewResearch("extended_bandwidth", 10f);
 
-            research.Enqueue(extendedBandwidth);
+            research.Enqueue(radius42);
             research.Tick(60f);
 
-            Assert.IsTrue(research.IsUnlocked("extended_bandwidth"));
             Assert.AreEqual(42, core.ActionRadiusCells);
         }
 
-        /// <summary>Each level sets its own radius, the last one is the Core's furthest reach, and a lower level landing after a higher one never shrinks anything.</summary>
+        /// <summary>Each research sets its own target and the highest completed wins: a lower one landing after a higher one never shrinks anything.</summary>
         [Test]
-        public void TheBandwidthLevels_Reach60Then80_AndNeverShrinkTheRadius()
+        public void RadiusTargets_TheHighestReachedWins_WhateverTheOrder()
         {
-            var research = new ResearchSystem(new ComputeSystem());
+            ResearchDefinition radius42 = Radius(42), radius60 = Radius(60), radius80 = Radius(80);
+            var research = Knowing(radius42, radius60, radius80);
             var core = NewCoreRuntime(research);
 
-            research.Grant("extended_bandwidth_2");
+            research.Grant(radius60.Id);
             Assert.AreEqual(60, core.ActionRadiusCells);
 
-            research.Grant("extended_bandwidth_3");
+            research.Grant(radius80.Id);
             Assert.AreEqual(80, core.ActionRadiusCells);
-            Assert.AreEqual(CoreRuntime.ExtendedActionRadiusCells, core.ActionRadiusCells, "The last level is the furthest reach world generation keeps clear.");
 
-            research.Grant("extended_bandwidth");
-            Assert.AreEqual(80, core.ActionRadiusCells, "A lower level after a higher one changes nothing.");
+            research.Grant(radius42.Id);
+            Assert.AreEqual(80, core.ActionRadiusCells, "A lower target after a higher one changes nothing.");
         }
 
         [Test]
-        public void OnResearchCompleted_UnrelatedResearch_DoesNotChangeRadius()
+        public void AResearchWithoutARadiusEffect_DoesNotChangeTheRadius()
         {
-            var research = new ResearchSystem(new ComputeSystem());
+            ResearchDefinition unrelated = TestDataFactory.NewResearch("unrelated", 10f);
+            var research = Knowing(unrelated);
             var core = NewCoreRuntime(research);
-            ResearchDefinition unrelated = TestDataFactory.NewResearch("circuit_board", 10f);
 
             research.Enqueue(unrelated);
             research.Tick(60f);
@@ -75,12 +80,12 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         [Test]
         public void OnUnregistered_StopsReactingToFutureResearchCompletions()
         {
-            var research = new ResearchSystem(new ComputeSystem());
+            ResearchDefinition radius42 = Radius(42);
+            var research = Knowing(radius42);
             var core = NewCoreRuntime(research);
             core.OnUnregistered();
 
-            ResearchDefinition extendedBandwidth = TestDataFactory.NewResearch("extended_bandwidth", 10f);
-            research.Enqueue(extendedBandwidth);
+            research.Enqueue(radius42);
             research.Tick(60f);
 
             Assert.AreEqual(22, core.ActionRadiusCells);
@@ -89,10 +94,10 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         [Test]
         public void CaptureState_IncludesActionRadiusCells()
         {
-            var research = new ResearchSystem(new ComputeSystem());
+            ResearchDefinition radius42 = Radius(42);
+            var research = Knowing(radius42);
             var core = NewCoreRuntime(research);
-            ResearchDefinition extendedBandwidth = TestDataFactory.NewResearch("extended_bandwidth", 10f);
-            research.Enqueue(extendedBandwidth);
+            research.Enqueue(radius42);
             research.Tick(60f);
 
             var state = core.CaptureState();
@@ -103,14 +108,14 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         [Test]
         public void CaptureAndRestore_RoundTripsActionRadiusCells()
         {
-            var research = new ResearchSystem(new ComputeSystem());
+            ResearchDefinition radius42 = Radius(42);
+            var research = Knowing(radius42);
             var original = NewCoreRuntime(research);
-            ResearchDefinition extendedBandwidth = TestDataFactory.NewResearch("extended_bandwidth", 10f);
-            research.Enqueue(extendedBandwidth);
+            research.Enqueue(radius42);
             research.Tick(60f);
 
             var state = original.CaptureState();
-            var restored = NewCoreRuntime(new ResearchSystem(new ComputeSystem()));
+            var restored = NewCoreRuntime(Knowing());
             restored.RestoreState(state);
 
             Assert.AreEqual(42, restored.ActionRadiusCells);
@@ -119,7 +124,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         [Test]
         public void RestoreState_ToleratesABlobMissingActionRadiusCells_FallsBackToTheDefinitionsStartingValue()
         {
-            var core = NewCoreRuntime(new ResearchSystem(new ComputeSystem()), startingRadius: 22);
+            var core = NewCoreRuntime(Knowing(), startingRadius: 22);
 
             Assert.DoesNotThrow(() => core.RestoreState(new Newtonsoft.Json.Linq.JObject()));
             Assert.AreEqual(22, core.ActionRadiusCells);

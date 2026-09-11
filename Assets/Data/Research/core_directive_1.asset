@@ -19,5 +19,14 @@ MonoBehaviour:
   cuCost: 0
   prerequisites: []
   revealedBy: {fileID: 0}
+  effects:
+  - kind: 1
+    building: {fileID: 0}
+    recipe: {fileID: 11400000, guid: 2b3c4d5e6f708192a354b6c7d8e9f001, type: 2}
+    value: 0
+  - kind: 1
+    building: {fileID: 0}
+    recipe: {fileID: 11400000, guid: 3c4d5e6f708192a3b465c7d8e9f00112, type: 2}
+    value: 0
   absorptionRatePerSecond: 0
   tier: 0

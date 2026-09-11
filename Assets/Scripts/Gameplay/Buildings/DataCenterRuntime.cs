@@ -27,9 +27,9 @@ namespace Game.Gameplay.Buildings
         const int InitialCpuSlots = 1;
         const int InitialMemorySlots = 1;
 
-        // Hard cap, deliberately above what the two extension researches can reach: starting at
-        // 1+1, datacenter_bay_1 and datacenter_bay_2 bring a Data Center to 3+3. The fourth bay
-        // exists for a third extension research, and guards the restore path meanwhile.
+        // Hard cap, deliberately above what the shipped bay effects reach: starting at 1+1, the two
+        // researches carrying one pair each bring a Data Center to 3+3. The fourth bay exists for a
+        // third, and guards the restore path meanwhile.
         const int MaxCpuSlots = 4;
         const int MaxMemorySlots = 4;
         /// <summary>
@@ -46,18 +46,7 @@ namespace Game.Gameplay.Buildings
         /// </summary>
         const float StabilityInterval = 2f;
         const float ReplacementDuration = 5f;
-        const string DataCenterBay1ResearchId = "datacenter_bay_1";
-        const string DataCenterBay2ResearchId = "datacenter_bay_2";
 
-        /// <summary>
-        /// The two cores of the research network a primed Datacenter powers (ResearchDatabase.GetCores),
-        /// granted through ResearchSystem.Grant like any unlock. Powering them is what opens the
-        /// research menu (GDD §5.4) - there is none before. The armament core is not among them.
-        /// </summary>
-        public const string ResearchCoreId = "cortex_research";
-
-        /// <summary>See <see cref="ResearchCoreId"/>.</summary>
-        public const string BuildingsCoreId = "cortex_buildings";
         /// <summary>What a CPU bay takes. Public because the panel shows how many spares are in stock, and it has to be able to ask while the bay is empty - which is when that count matters most.</summary>
         public const string CpuItemId = "cpu_mkI";
 
@@ -127,17 +116,39 @@ namespace Game.Gameplay.Buildings
 
             _cpuSlots = new List<ComponentInstance>(new ComponentInstance[InitialCpuSlots]);
             _memorySlots = new List<ComponentInstance>(new ComponentInstance[InitialMemorySlots]);
-            if (researchSystem.IsUnlocked(DataCenterBay1ResearchId)) AddBayPair();
-            if (researchSystem.IsUnlocked(DataCenterBay2ResearchId)) AddBayPair();
+            AddBayPairs(UnlockedBayPairs(researchSystem));
 
             _onResearchCompleted = OnResearchCompleted;
             researchSystem.ResearchCompleted += _onResearchCompleted;
         }
 
-        /// <summary>Either extension research appends one CPU bay and one Memory bay, capped at MaxCpuSlots/MaxMemorySlots - usable by the same install/wear/replacement code, no separate mechanism.</summary>
-        void OnResearchCompleted(string researchId)
+        /// <summary>Each DataCenterBayPairs effect appends that many CPU and Memory bays, capped at MaxCpuSlots/MaxMemorySlots - usable by the same install/wear/replacement code, no separate mechanism.</summary>
+        void OnResearchCompleted(string researchId) => AddBayPairs(BayPairsOf(_researchSystem.Definition(researchId)));
+
+        /// <summary>The pairs every research already completed grants - what a Datacenter built after them starts with.</summary>
+        static int UnlockedBayPairs(ResearchSystem research)
         {
-            if (researchId == DataCenterBay1ResearchId || researchId == DataCenterBay2ResearchId) AddBayPair();
+            int pairs = 0;
+            foreach (string id in research.GetUnlockedIds()) pairs += BayPairsOf(research.Definition(id));
+            return pairs;
+        }
+
+        static int BayPairsOf(ResearchDefinition research)
+        {
+            if (research == null) return 0;
+
+            int pairs = 0;
+            IReadOnlyList<ResearchEffect> effects = research.Effects;
+            for (int i = 0; i < effects.Count; i++)
+            {
+                if (effects[i].Kind == ResearchEffectKind.DataCenterBayPairs) pairs += effects[i].Value;
+            }
+            return pairs;
+        }
+
+        void AddBayPairs(int pairs)
+        {
+            for (int i = 0; i < pairs; i++) AddBayPair();
         }
 
         void AddBayPair()
@@ -230,8 +241,11 @@ namespace Game.Gameplay.Buildings
 
             if (!_coresPowered)
             {
-                _researchSystem.Grant(ResearchCoreId);
-                _researchSystem.Grant(BuildingsCoreId);
+                IReadOnlyList<ResearchDefinition> cores = _definition.PoweredCores;
+                for (int i = 0; i < cores.Count; i++)
+                {
+                    if (cores[i] != null) _researchSystem.Grant(cores[i].Id);
+                }
                 _coresPowered = true;
             }
 

@@ -18,5 +18,6 @@ MonoBehaviour:
   icon: {fileID: 0}
   cuCost: 0
   prerequisites: []
+  effects: []
   absorptionRatePerSecond: 0
   tier: 1

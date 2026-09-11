@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Game.Data
@@ -5,7 +6,7 @@ namespace Game.Data
     /// <summary>
     /// Static definition of the Data Center: aggregates installed CPU/Memory components into
     /// Compute supply and Power demand. Slot counts/timers live on the runtime, not here - this
-    /// only configures the pooled input side, the placement gate, and the two tunables
+    /// only configures the pooled input side, the research cores it powers, and the two tunables
     /// TASK_03_DATACENTER.md calls out as parameters rather than buried constants.
     /// </summary>
     [CreateAssetMenu(fileName = "DataCenterDefinition", menuName = "Game/Buildings/Data Center Definition")]
@@ -26,6 +27,13 @@ namespace Game.Data
         /// <summary>Seed for the per-component nominal-lifetime draw (TASK_03_DATACENTER.md §4.4) - same seed and installation sequence must reproduce the same drawn lifetimes.</summary>
         [SerializeField] int componentLifetimeSeed = 12345;
 
+        /// <summary>
+        /// The cores of the research network this building powers once primed (ResearchDatabase.GetCores),
+        /// granted through ResearchSystem.Grant - which is what opens the research menu. Referenced,
+        /// not named, so a renamed core cannot silently stop being powered.
+        /// </summary>
+        [SerializeField] ResearchDefinition[] poweredCores = System.Array.Empty<ResearchDefinition>();
+
         /// <summary>Its demand is whatever its installed components draw, so there is no figure to put in PowerDemandKw - but it draws, and it is the consumer a player most needs to be able to put first.</summary>
         public override bool DrawsPower => true;
 
@@ -33,5 +41,6 @@ namespace Game.Data
         public string[] AcceptedItemIds => acceptedItemIds;
         public float AxisYieldFloor => axisYieldFloor;
         public int ComponentLifetimeSeed => componentLifetimeSeed;
+        public IReadOnlyList<ResearchDefinition> PoweredCores => poweredCores ?? (IReadOnlyList<ResearchDefinition>)System.Array.Empty<ResearchDefinition>();
     }
 }
