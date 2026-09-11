@@ -24,3 +24,7 @@ MonoBehaviour:
   - item: {fileID: 11400000, guid: a1c4e07b3f5d42a1b8e6c9d0f2a4b6c8, type: 2}
     amount: 20
   coreStorageDefinition: {fileID: 11400000, guid: b32fa419afa8927e913cf91edff080bb, type: 2}
+  wreckSprites:
+  - {fileID: 21300000, guid: e0c60db7741333145a38256e64644a8c, type: 3}
+  - {fileID: 21300000, guid: 56947a2a3be5b024d8474fa6cd0e6aad, type: 3}
+  - {fileID: 21300000, guid: 0682adf13be6d0549904b01e6205b77a, type: 3}

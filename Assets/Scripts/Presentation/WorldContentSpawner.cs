@@ -145,7 +145,24 @@ namespace Game.Presentation
         /// </summary>
         public void SpawnWreck(WreckSite site, Sprite sprite)
         {
-            if (sprite == null) return;
+            if (sprite == null)
+            {
+                // <b>Loudly, and once.</b> This was a silent return, and it is how a wreck could be
+                // discovered, marked on the map, counted in the harvest log - and absent from the
+                // ground, with nothing anywhere saying why. The art existed on disk the whole time:
+                // it had been dropped in without being imported as sprites, so
+                // WorldGenerationSettings.wreckSprites could not even point at it.
+                if (!_reportedMissingWreckSprite)
+                {
+                    _reportedMissingWreckSprite = true;
+                    Debug.LogError("WorldGenerationSettings.wreckSprites is empty or short: wreck type "
+                        + site.TypeIndex + " has no sprite, so this wreck is on the map and not on the "
+                        + "ground. WreckField.TypeCount is " + Game.Gameplay.Wrecks.WreckField.TypeCount
+                        + ", so that many sprites are needed.");
+                }
+
+                return;
+            }
 
             var footprint = new Vector2Int(WreckSite.FootprintCells, WreckSite.FootprintCells);
 
@@ -158,6 +175,9 @@ namespace Game.Presentation
 
             BuildingSpawner.FitSpriteUniform(renderer, sprite, WorldFootprintSize(footprint));
         }
+
+        /// <summary>One error per run is enough: eight wrecks would otherwise report the same missing asset eight times.</summary>
+        bool _reportedMissingWreckSprite;
 
         Vector2 WorldFootprintSize(Vector2Int footprintCells)
         {
