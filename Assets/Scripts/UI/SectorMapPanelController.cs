@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Core;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Exploration;
 using Game.Grid;
@@ -40,8 +41,18 @@ namespace Game.UI
         readonly List<MapWreckMark> _wreckMarks = new List<MapWreckMark>();
         readonly List<MapDepositMark> _depositMarks = new List<MapDepositMark>();
 
-        /// <summary>How many deposits were on the map last time it was built. A deposit never moves and is never removed until mined out, so a count is enough to notice new ground.</summary>
+        /// <summary>How many deposits existed last time the marks were built. A deposit never moves and is never removed until mined out, so a count is enough to notice a new one.</summary>
         int _depositCount = -1;
+
+        /// <summary>
+        /// The discovery version the marks were built against.
+        ///
+        /// The count alone is not enough, and that is the whole of what was wrong: what changes as a
+        /// robot walks is not how many deposits exist - they all exist from the moment their sector
+        /// materialises - but how many of them have been <b>seen</b>. Guarding on the count only
+        /// meant the first build of the map was also the last.
+        /// </summary>
+        int _depositDiscoveryVersion = -1;
 
         /// <summary>Found rather than wired, following the camera controllers' own precedent: there is one of each in the scene, and a missing one only means a double click cannot travel.</summary>
         CameraPanController _cameraPan;
@@ -199,18 +210,31 @@ namespace Game.UI
             => building is ConveyorRuntime || building is SplitterRuntime || building is CrossroadRuntime;
 
         /// <summary>
-        /// Every deposit that has been materialised, one mark per cell so a cluster reads as a patch.
+        /// Every deposit cell a robot has actually seen, one mark per cell so a cluster reads as a
+        /// patch - and a cluster half opened reads as half a patch, which is the truth about it.
         ///
-        /// Rebuilt on a count rather than every frame: a deposit never moves, so the only thing that
-        /// can change is that a robot opened ground with more of them.
+        /// <b>Discovery is the gate, and it was missing.</b> A deposit exists from the moment its
+        /// sector materialises, which has nothing to do with anybody having been there: sectors
+        /// materialise as the world is generated around the base, while discovery is per cell and
+        /// comes from a robot's 6-cell reveal. Without the gate the map showed the ore of the whole
+        /// materialised world - deposits sitting in black, far outside the explored corridor and
+        /// beyond the robots' own range, which is exactly how it was reported.
+        ///
+        /// <b>Rebuilt when either fact moves</b>: a new deposit, or new ground. The discovery version
+        /// changes on every reveal, so this rebuilds while a robot walks and stands still otherwise;
+        /// <c>SetDeposits</c> then repaints only if the marks actually differ.
         /// </summary>
         void RenderDeposits()
         {
             IReadOnlyList<DepositRuntime> deposits = gameRuntime.World?.OreDeposits;
+            DiscoveryRuntime discovery = gameRuntime.Discovery;
+
             int count = deposits?.Count ?? 0;
-            if (count == _depositCount) return;
+            int discoveryVersion = discovery?.Version ?? 0;
+            if (count == _depositCount && discoveryVersion == _depositDiscoveryVersion) return;
 
             _depositCount = count;
+            _depositDiscoveryVersion = discoveryVersion;
             _depositMarks.Clear();
 
             for (int i = 0; i < count; i++)
@@ -220,8 +244,13 @@ namespace Game.UI
 
                 foreach (Vector2Int offset in deposit.Definition.FootprintCells)
                 {
-                    _depositMarks.Add(new MapDepositMark(
-                        deposit.Origin.X + offset.x, deposit.Origin.Y + offset.y, ore));
+                    var cell = new GridCoord(deposit.Origin.X + offset.x, deposit.Origin.Y + offset.y);
+
+                    // No discovery data at all means no restriction, the convention the rest of the
+                    // project already uses for a missing system - a headless test draws everything.
+                    if (discovery != null && !discovery.IsDiscovered(cell)) continue;
+
+                    _depositMarks.Add(new MapDepositMark(cell.X, cell.Y, ore));
                 }
             }
 

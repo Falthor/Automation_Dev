@@ -372,6 +372,20 @@ what a base looks like from above is its shape and its transport network, not it
 - **Rebuilt only when the building count moves.** Expanding footprints allocates an array per building,
   and nothing can be built or demolished while the map covers the screen.
 
+**The ore is drawn per discovered cell, and discovery is the question - not materialisation.** A
+deposit exists from the moment its sector materialises, and §2.1 materialises the whole 3x3 block of
+sectors around a robot on purpose: a 12-cell reveal disc straddles four 16-cell sectors, and
+materialising only the one underneath would leave ore missing from ground the robot plainly uncovered.
+So a materialised deposit is routinely 30 cells from anything anybody has seen. `RenderDeposits`
+therefore asks `DiscoveryRuntime.IsDiscovered` of every deposit cell, and a cluster half opened reads
+as half a patch, which is the truth about it. Without that gate the map showed the ore of the whole
+materialised world - deposits sitting in black, outside the explored corridor and beyond the robots'
+own range - and it was read, reasonably, as the robots finding ore they could not reach.
+
+The marks are rebuilt when either fact moves: a new deposit, or new ground (`DiscoveryRuntime.Version`).
+Guarding on the deposit count alone made the first build of the map the last one, because the count is
+exactly what does not change as a robot walks.
+
 **The robots are drawn on it, and they are the reason to open it.** One mark each — amber when out,
 muted at the base, ringed when it is the one whose panel is open, which is the map's half of the halo
 the world draws on the selected robot. Fixed in pixels rather than in cells: a robot is a thing to find
