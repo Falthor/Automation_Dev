@@ -26,7 +26,7 @@ celui du principal, plus l'espace qu'on veut voir entre les deux.
 | | rayon maximal | vide minimal | seuil |
 |---|---|---|---|
 | **La vision** | 80 | 90 | **250** |
-| **Le code livré** | 80 (`CoreRuntime.ExtendedActionRadiusCells`, par `extended_bandwidth_3`) | 90 | **250** |
+| **Le code livré** | 80 (`GameRuntime.FurthestActionRadiusCells`, dérivé des effets de recherche) | 90 | **250** |
 
 **Le code livré rejoint la vision.** Les trois recherches `extended_bandwidth` portent le Noyau à
 42, 60 puis 80 cellules. Les nombres qui suivent supposent ce rayon, et le seuil les suit

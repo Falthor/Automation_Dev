@@ -32,20 +32,6 @@ namespace Game.Gameplay.Buildings
     /// </summary>
     public sealed class CoreRuntime : BuildingRuntime
     {
-        /// <summary>
-        /// What the first bandwidth research reaches. The invitation ore clusters WorldGenerator
-        /// places just past the starting radius (26-29 cells, plus a cluster's own half-diagonal)
-        /// have to lie inside it on <b>every</b> seed - WorldGeneratorTests pins the relationship.
-        /// </summary>
-        public const int FirstExtendedActionRadiusCells = 42;
-
-        /// <summary>
-        /// The Core's furthest reach: what the last bandwidth research grants. World generation reads
-        /// it as the edge of the starting territory - no derived ore lands inside it (MAP.md) - and
-        /// the ground coverage sizes its texture on it, so neither has to change as the radius grows.
-        /// </summary>
-        public const int ExtendedActionRadiusCells = 80;
-
         readonly CoreDefinition _definition;
         readonly ComputeSystem _computeSystem;
         readonly PowerSystem _powerSystem;

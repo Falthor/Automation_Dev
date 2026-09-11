@@ -4,6 +4,7 @@ using Game.Data;
 using Game.Gameplay.Sectors;
 using Game.Gameplay.WorldGeneration;
 using Game.Grid;
+using Game.Tests.EditMode.TestSupport;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -34,7 +35,7 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
         /// <summary>The middle of the fixture map, where a generated world puts its Core.</summary>
         static readonly Vector2 CoreCentre = new Vector2(MapSize / 2f, MapSize / 2f);
 
-        /// <summary>An exclusion radius, fixed here: the rule is the same at any value. The shipped one is CoreRuntime.ExtendedActionRadiusCells, the Core's furthest reach.</summary>
+        /// <summary>An exclusion radius, fixed here: the rule is the same at any value. The shipped one is GameRuntime.FurthestActionRadiusCells, the Core's furthest reach.</summary>
         const float ExclusionRadius = 32f;
 
 
@@ -325,6 +326,43 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
         /// centre does: a 16-cell sector whose centre clears the radius still has a near edge well
         /// inside it, and a clipped cluster would be two cells against a wall.
         /// </summary>
+        /// <summary>
+        /// <b>The furthest reach is derived, and world generation follows it.</b> Add a research with a
+        /// bigger radius and the ground kept clear of derived ore grows with it - through the same
+        /// ResearchCatalog.HighestActionRadius that GameRuntime hands to this class, with no other
+        /// figure corrected by hand. The shipped researches are the starting point, read from the
+        /// assets rather than restated.
+        /// </summary>
+        [Test]
+        public void AddingABiggerRadiusResearch_PushesTheDerivedOreOutWithIt()
+        {
+            Fixture fixture = NewFixture();
+            var centre = new Vector2(MapSize / 2f, MapSize / 2f);
+
+            var shipped = AssetDatabase.LoadAssetAtPath<ResearchDatabase>("Assets/Data/Research/ResearchDatabase.asset");
+            Assert.IsNotNull(shipped, "the shipped research database");
+            var known = new List<ResearchDefinition>(shipped.GetAll());
+            int shippedReach = new ResearchCatalog(known).HighestActionRadius(0);
+            Assert.Greater(shippedReach, 0, "Precondition: some shipped research extends the radius.");
+
+            // Thirty cells past the shipped reach along a row through the Core: every cell of that
+            // sector is further than the shipped reach, and nearer than the new one.
+            int sector = fixture.Sectors.IndexAt(new GridCoord((int)(centre.x + shippedReach + 30), (int)centre.y));
+
+            var before = new SectorMaterialisation(fixture.Sectors, fixture.Cells, fixture.Catalog, fixture.Ores, fixture.World,
+                centre, new ResearchCatalog(known).HighestActionRadius(0));
+            Assert.IsFalse(before.ReachesIntoTheCoresGround(sector), "Precondition: past the shipped reach, derived ore may land.");
+
+            known.Add(TestDataFactory.WithEffects(TestDataFactory.NewResearch("radius_further", 10f),
+                new ResearchEffect(ResearchEffectKind.ActionRadius, value: shippedReach + 40)));
+            int derived = new ResearchCatalog(known).HighestActionRadius(0);
+            Assert.AreEqual(shippedReach + 40, derived, "The furthest reach is the new research's radius - nothing else was changed.");
+
+            var after = new SectorMaterialisation(fixture.Sectors, fixture.Cells, fixture.Catalog, fixture.Ores, fixture.World,
+                centre, derived);
+            Assert.IsTrue(after.ReachesIntoTheCoresGround(sector), "The same sector is now inside the Core's ground: world generation moved with the data.");
+        }
+
         [Test]
         public void NoDerivedOreLandsInsideTheCoresReach()
         {

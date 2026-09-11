@@ -23,7 +23,7 @@ namespace Game.Gameplay.Sectors
     /// that: it checks the grid at the moment it writes.
     ///
     /// <b>Nothing derived lands inside the Core's reach.</b> The ground within
-    /// <c>CoreRuntime.ExtendedActionRadiusCells</c> is the starting territory: its ore is placed by
+    /// <c>GameRuntime.FurthestActionRadiusCells</c> - the highest radius any research grants - is the starting territory: its ore is placed by
     /// hand, at chosen distances, because the introduction depends on it. Derived ore appearing there
     /// is not a near miss, it is a different game - so a sector is skipped when <b>any part of it</b>
     /// falls within that radius, rather than clipping the cells that do. A clipped cluster would be a

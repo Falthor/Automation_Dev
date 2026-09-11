@@ -218,7 +218,7 @@ namespace Game.Presentation
 
             // The radius is extendable by research, so the texture is sized on the ceiling rather
             // than on the current value - see ZoneDescriptor.
-            into.Add(new ZoneDescriptor(core.Cell.GetHashCode(), center, CoreRuntime.ExtendedActionRadiusCells));
+            into.Add(new ZoneDescriptor(core.Cell.GetHashCode(), center, gameRuntime.FurthestActionRadiusCells));
         }
 
         /// <summary>

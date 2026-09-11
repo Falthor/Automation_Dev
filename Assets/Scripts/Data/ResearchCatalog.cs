@@ -57,6 +57,26 @@ namespace Game.Data
         public IReadOnlyList<ResearchDefinition> UnlockersOf(RecipeDefinition recipe)
             => recipe != null && _unlockingRecipe.TryGetValue(recipe, out List<ResearchDefinition> list) ? list : (IReadOnlyList<ResearchDefinition>)None;
 
+        /// <summary>
+        /// The Core's furthest reach: the highest ActionRadius target any research here carries, or
+        /// <paramref name="startingRadius"/> when none goes further. Derived, never written down a
+        /// second time - world generation keeps derived ore out of it and the ground coverage sizes
+        /// its texture on it, so a research with a bigger radius moves both with it.
+        /// </summary>
+        public int HighestActionRadius(int startingRadius)
+        {
+            int highest = startingRadius;
+            for (int r = 0; r < _all.Count; r++)
+            {
+                IReadOnlyList<ResearchEffect> effects = _all[r].Effects;
+                for (int i = 0; i < effects.Count; i++)
+                {
+                    if (effects[i].Kind == ResearchEffectKind.ActionRadius && effects[i].Value > highest) highest = effects[i].Value;
+                }
+            }
+            return highest;
+        }
+
         static void Index<TKey>(Dictionary<TKey, List<ResearchDefinition>> index, TKey key, ResearchDefinition research)
         {
             if (!index.TryGetValue(key, out List<ResearchDefinition> list)) index[key] = list = new List<ResearchDefinition>();

@@ -16,7 +16,7 @@ namespace Game.Data
     /// here the formula has a name, and a test can drive it without building a world.
     ///
     /// The radii are not this object's to invent: the near one is the Core's furthest reach
-    /// (<c>CoreRuntime.ExtendedActionRadiusCells</c>) and the far one is how far a robot wanders
+    /// (<c>GameRuntime.FurthestActionRadiusCells</c>, derived from the research effects) and the far one is how far a robot wanders
     /// (<c>ExplorerRobotSettings.MaxRadiusCells</c>). They are handed in so that each figure exists
     /// once, in the system that owns it.
     /// </summary>

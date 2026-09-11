@@ -151,6 +151,14 @@ namespace Game.Presentation
         /// </summary>
         [SerializeField] bool startWithEverythingUnlocked;
 
+        /// <summary>
+        /// The Core's furthest reach, in cells: the highest ActionRadius target any research carries
+        /// (ResearchCatalog.HighestActionRadius), or the starting radius when none goes further.
+        /// World generation keeps derived ore out of it and the ground coverage sizes its texture on
+        /// it - neither holds a figure of its own, so a bigger radius research moves both.
+        /// </summary>
+        public int FurthestActionRadiusCells { get; private set; }
+
         public GridRuntime Grid { get; private set; }
         public TerrainRuntime Terrain { get; private set; }
 
@@ -400,7 +408,10 @@ namespace Game.Presentation
             PowerPriority.EnsureKnows(PowerGroupIds());
             Power.Priority = PowerPriority;
             Compute = new ComputeSystem();
-            Research = new ResearchSystem(Compute, BuildResearchCatalog());
+            ResearchCatalog researchCatalog = BuildResearchCatalog();
+            Research = new ResearchSystem(Compute, researchCatalog);
+            FurthestActionRadiusCells = researchCatalog.HighestActionRadius(
+                worldGenerationSettings != null && worldGenerationSettings.CoreDefinition != null ? worldGenerationSettings.CoreDefinition.ActionRadiusCells : 0);
             Transport = new TransportSystem(Grid);
             Notifications = new NotificationSystem();
             Clock = new PlayClock();
@@ -492,8 +503,8 @@ namespace Game.Presentation
             SectorCatalog = new SectorCatalog(Sectors, Terrain.Seed,
                 World?.CoreCenterCells ?? Vector2.zero,
                 sectorSettings.ClusterProfile(
-                    CoreRuntime.ExtendedActionRadiusCells,
-                    explorerRobotSettings != null ? explorerRobotSettings.MaxRadiusCells : CoreRuntime.ExtendedActionRadiusCells * 10f));
+                    FurthestActionRadiusCells,
+                    explorerRobotSettings != null ? explorerRobotSettings.MaxRadiusCells : FurthestActionRadiusCells * 10f));
 
             SectorMap = new SectorMapImage(Sectors, Discovery);
 
@@ -554,7 +565,7 @@ namespace Game.Presentation
                     // The Core's furthest reach, not its current one: derived ore must not appear in
                     // ground the Core will eventually cover, or extending the radius would swallow a
                     // cluster the player had already built around.
-                    CoreRuntime.ExtendedActionRadiusCells);
+                    FurthestActionRadiusCells);
                 }
 
                 ExplorerRobots.RestoreState(loadedSave?.ExplorerRobots);

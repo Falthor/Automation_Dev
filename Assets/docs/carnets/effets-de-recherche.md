@@ -52,6 +52,20 @@ inclut. Rien ne distingue « débloqué par une directive » de « débloqué pa
 porte `poweredCores`. C'est le même défaut que les effets, dans l'autre sens : un bâtiment qui accorde
 une recherche par son nom cesserait de l'accorder au premier renommage.
 
+## Le rayon maximal se dérive
+
+La portée maximale du Noyau — le disque que la génération du monde garde vide de minerai dérivé, et
+sur lequel la couverture au sol dimensionne sa texture — était une constante, `ExtendedActionRadiusCells`
+= 80, écrite à côté de la table qui accordait ce même 80. Le même nombre à deux endroits : le défaut
+qui avait déjà mordu deux fois sur le plafond de CU.
+
+Il se dérive maintenant du plus grand effet de rayon de la base (`ResearchCatalog.HighestActionRadius`),
+calculé une fois par `GameRuntime` et lu par les deux consommateurs. Ajouter une recherche qui porte le
+Noyau plus loin déplace la frontière du minerai dérivé sans qu'aucune autre valeur soit touchée — un
+test le vérifie en ajoutant un tel effet à la base livrée. La constante voisine, le premier palier
+qu'atteignent les gisements d'invitation, a suivi le même chemin : le test qui la vérifiait lit
+maintenant le plus petit effet de rayon des assets au lieu de le recopier.
+
 ## Ce qui n'a pas changé
 
 **Les sauvegardes.** Elles retiennent les identifiants débloqués sous forme de texte, et continuent de

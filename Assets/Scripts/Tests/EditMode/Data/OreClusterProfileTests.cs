@@ -14,7 +14,7 @@ namespace Game.Tests.EditMode.Data
     /// </summary>
     public class OreClusterProfileTests
     {
-        /// <summary>The two ends of the ramp, fixed here so the figures below stay pinned. The shipped ones are CoreRuntime.ExtendedActionRadiusCells and ExplorerRobotSettings.MaxRadiusCells; the rules hold at any value.</summary>
+        /// <summary>The two ends of the ramp, fixed here so the figures below stay pinned. The shipped ones are GameRuntime.FurthestActionRadiusCells and ExplorerRobotSettings.MaxRadiusCells; the rules hold at any value.</summary>
         const float NearRadius = 32f;
         const float FarRadius = 330f;
 

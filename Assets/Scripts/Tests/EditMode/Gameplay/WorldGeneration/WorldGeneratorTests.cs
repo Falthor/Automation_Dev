@@ -142,6 +142,29 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
         /// how the player plays; a cluster under the starting radius would be constructible before
         /// the research exists to explain why it wasn't.
         /// </summary>
+        /// <summary>
+        /// The smallest radius any shipped research grants - the first extension a player can reach.
+        /// Read from the research assets rather than restated: the invitation clusters promise to be
+        /// reachable after that research, whatever figure it carries.
+        /// </summary>
+        static int FirstResearchedRadius()
+        {
+            var database = UnityEditor.AssetDatabase.LoadAssetAtPath<ResearchDatabase>("Assets/Data/Research/ResearchDatabase.asset");
+            Assert.IsNotNull(database, "the shipped research database");
+
+            int lowest = int.MaxValue;
+            foreach (ResearchDefinition research in database.GetAll())
+            {
+                foreach (ResearchEffect effect in research.Effects)
+                {
+                    if (effect.Kind == ResearchEffectKind.ActionRadius) lowest = Mathf.Min(lowest, effect.Value);
+                }
+            }
+
+            Assert.AreNotEqual(int.MaxValue, lowest, "no shipped research extends the radius");
+            return lowest;
+        }
+
         [TestCase(1)]
         [TestCase(2)]
         [TestCase(3)]
@@ -156,7 +179,7 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
         {
             const int startingRadius = 22;
             const int fogRadiusMarginCells = 10; // mirrors GameRuntime.fogRadiusMarginCells
-            const int extendedRadius = Game.Gameplay.Buildings.CoreRuntime.FirstExtendedActionRadiusCells; // 42
+            int extendedRadius = FirstResearchedRadius();
 
             var settings = NewSettings(startingRadius, seed);
             var grid = new GridRuntime(1f);
