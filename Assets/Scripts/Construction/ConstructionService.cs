@@ -592,6 +592,14 @@ namespace Game.Construction
                 return dataCenter;
             }
 
+            if (definition is ShowcaseDefinition)
+            {
+                // Nothing to run: the plain runtime is the whole building.
+                var showcase = new BuildingRuntime(definition, cell, rotation);
+                _grid.SetOccupantFootprint(cell, definition.FootprintSize, showcase);
+                return showcase;
+            }
+
             return null;
         }
 

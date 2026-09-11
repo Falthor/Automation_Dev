@@ -52,25 +52,6 @@ namespace Game.Data
         /// </summary>
         public virtual float RenderOverscan => 1f;
 
-        /// <summary>
-        /// How big the art is drawn, in cells, when that is <b>not</b> the shape of the footprint.
-        /// Zero (the default) means "the footprint", which is what almost every building wants.
-        ///
-        /// It exists for a building taller than the ground it stands on: art of 64x85 pixels over a
-        /// 2x2 footprint is 2 cells wide and 2.66 tall, and it has to overflow upward rather than be
-        /// squeezed into a square or stretched out of proportion. <see cref="RenderOverscan"/> cannot
-        /// express that - it is a single uniform factor, so it scales both axes together.
-        ///
-        /// <b>Stated in cells, not in pixels.</b> How many screen pixels a cell is worth depends on
-        /// the zoom, so a size in pixels would only be true at one camera distance; what is fixed is
-        /// the art's proportion against the ground.
-        /// </summary>
-        [SerializeField] Vector2 artCellSize = Vector2.zero;
-
-        /// <summary>The art's size in cells - <see cref="artCellSize"/> when set, the footprint otherwise.</summary>
-        public Vector2 ArtCellSize =>
-            artCellSize.x > 0f && artCellSize.y > 0f ? artCellSize : (Vector2)FootprintSize;
-
 
         /// <summary>Items required (from Core + every Storage) to place one of this building. Empty means free.</summary>
         public RecipeIngredient[] Cost => cost;

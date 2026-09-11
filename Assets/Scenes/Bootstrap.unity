@@ -486,6 +486,8 @@ MonoBehaviour:
     category: 2
   - definition: {fileID: 11400000, guid: be14a42a9fda93c4b977cdd42f273a58, type: 2}
     category: 2
+  - definition: {fileID: 11400000, guid: bb1085cb5aca67e409acb512f5a23b68, type: 2}
+    category: 0
   categoryIcons:
   - category: 0
     icon: {fileID: 21300000, guid: ce0b09c61ca41ac4d9bfef2a10af2190, type: 3}
@@ -780,6 +782,50 @@ MonoBehaviour:
   visualTree: {fileID: 9197481963319205126, guid: 1b74ea3bc17a7264985f484150f238ed, type: 3}
   gameRuntime: {fileID: 2103112250}
   cardIcon: {fileID: 21300000, guid: 84362d4a973e08947aa4ecff433f3df8, type: 3}
+--- !u!114 &60635910
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 60635885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1428f71d033a7604fbb6e9bf23d4256d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.UI::Game.UI.AwakeningController
+  uiDocument: {fileID: 60635889}
+  visualTree: {fileID: 9197481963319205126, guid: 9870ddefe3b62214085f336afcebb262, type: 3}
+  gameRuntime: {fileID: 2103112250}
+  coreImage: {fileID: 21300000, guid: 0aeff3efc23cc1f468a8ebbd45e41512, type: 3}
+  fadeSeconds: 0.5
+  pauseBetweenLines: 1.9
+  pauseAfterReadout: 3.1
+  pauseAfterConclusion: 3.1
+  pauseBeforeButton: 1.2
+  reserveTickSeconds: 1
+--- !u!114 &60635911
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 60635885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e2f5c9b3d607401bc5e8f102d4c6b37, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.UI::Game.UI.ThresholdController
+  uiDocument: {fileID: 60635889}
+  visualTree: {fileID: 9197481963319205126, guid: 7d1e4b8a2c5f6390ab4d7e0f1c3b5a26, type: 3}
+  gameRuntime: {fileID: 2103112250}
+  coreImage: {fileID: 21300000, guid: 0aeff3efc23cc1f468a8ebbd45e41512, type: 3}
+  fadeSeconds: 0.5
+  pauseBetweenLines: 1.9
+  pauseAfterReadout: 3.1
+  pauseAfterDeficit: 3.1
+  pauseBeforeResult: 2.4
+  pauseBeforeButton: 1.2
 --- !u!1 &134080686
 GameObject:
   m_ObjectHideFlags: 0
@@ -4858,6 +4904,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 236d03fb6a80953469db3eb917b43016, type: 2}
   - {fileID: 11400000, guid: b32fa419afa8927e913cf91edff080bb, type: 2}
   - {fileID: 11400000, guid: 3d9a7ad91b88e70428001397149fed02, type: 2}
+  - {fileID: 11400000, guid: bb1085cb5aca67e409acb512f5a23b68, type: 2}
   researchDatabase: {fileID: 11400000, guid: 225538095e214a39811378724843599a, type: 2}
   coreDirectiveDatabase: {fileID: 11400000, guid: 27ab887668cf75646a488831440929fd, type: 2}
   startWithEverythingUnlocked: 0
@@ -4924,21 +4971,6 @@ MonoBehaviour:
   gameRuntime: {fileID: 2103112250}
   siteTint: {r: 0.35, g: 0.6, b: 1, a: 0.6}
   settings: {fileID: 11400000, guid: 79d5e14f36e1222419f95746c4db949e, type: 2}
---- !u!114 &2103112256
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2103112249}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 41a6a10938824a23b8f47c20c248defe, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Game.Presentation::Game.Presentation.RecipeOverlayView
-  gameRuntime: {fileID: 2103112250}
-  iconScale: 0.6
-  verticalOffsetCells: 0
 --- !u!114 &2103112255
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4953,6 +4985,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.GroundCoverageRenderer
   gameRuntime: {fileID: 2103112250}
   settings: {fileID: 11400000, guid: 79d5e14f36e1222419f95746c4db949e, type: 2}
+--- !u!114 &2103112256
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2103112249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 41a6a10938824a23b8f47c20c248defe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Presentation::Game.Presentation.RecipeOverlayView
+  gameRuntime: {fileID: 2103112250}
+  iconScale: 0.6
+  verticalOffsetCells: 0
 --- !u!1 &2117863649
 GameObject:
   m_ObjectHideFlags: 0
@@ -5064,47 +5111,3 @@ SceneRoots:
   - {fileID: 1273392653}
   - {fileID: 1348531429}
   - {fileID: 696337367}
---- !u!114 &60635910
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 60635885}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1428f71d033a7604fbb6e9bf23d4256d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.UI::Game.UI.AwakeningController
-  uiDocument: {fileID: 60635889}
-  visualTree: {fileID: 9197481963319205126, guid: 9870ddefe3b62214085f336afcebb262, type: 3}
-  gameRuntime: {fileID: 2103112250}
-  coreImage: {fileID: 21300000, guid: 0aeff3efc23cc1f468a8ebbd45e41512, type: 3}
-  fadeSeconds: 0.5
-  pauseBetweenLines: 1.9
-  pauseAfterReadout: 3.1
-  pauseAfterConclusion: 3.1
-  pauseBeforeButton: 1.2
-  reserveTickSeconds: 1
---- !u!114 &60635911
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 60635885}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8e2f5c9b3d607401bc5e8f102d4c6b37, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.UI::Game.UI.ThresholdController
-  uiDocument: {fileID: 60635889}
-  visualTree: {fileID: 9197481963319205126, guid: 7d1e4b8a2c5f6390ab4d7e0f1c3b5a26, type: 3}
-  gameRuntime: {fileID: 2103112250}
-  coreImage: {fileID: 21300000, guid: 0aeff3efc23cc1f468a8ebbd45e41512, type: 3}
-  fadeSeconds: 0.5
-  pauseBetweenLines: 1.9
-  pauseAfterReadout: 3.1
-  pauseAfterDeficit: 3.1
-  pauseBeforeResult: 2.4
-  pauseBeforeButton: 1.2

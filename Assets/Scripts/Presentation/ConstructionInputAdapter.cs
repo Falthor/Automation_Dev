@@ -373,11 +373,12 @@ namespace Game.Presentation
             }
 
             bool valid = gameRuntime.Construction.CanPlace(cell);
-            Vector3 worldCenter = gameRuntime.Grid.FootprintCenterToWorld(cell, selected.FootprintSize);
-            // RenderOverscan included: the ghost previews the building that will be built, so it
-            // has to be the size that building is actually drawn at, not the size of its footprint.
-            Vector2 worldSize = BuildingSpawner.ArtWorldSize(selected, gameRuntime.Grid.CellSize);
             Sprite sprite = ResolveGhostSprite(selected);
+            // The size and the lift the built view will use, never the footprint's own: the ghost
+            // previews the building that will be built, art taller than its ground included.
+            Vector2 worldSize = BuildingSpawner.ArtWorldSize(selected, gameRuntime.Grid.CellSize, sprite);
+            Vector3 worldCenter = gameRuntime.Grid.FootprintCenterToWorld(cell, selected.FootprintSize)
+                + Vector3.up * BuildingSpawner.ArtLift(selected, gameRuntime.Grid.CellSize, sprite);
             Direction previewRotation = gameRuntime.Construction.PreviewRotation;
             (bool rotateSprite, Direction artNativeDirection) = ResolveGhostRotation(selected);
 

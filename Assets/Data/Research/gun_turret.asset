@@ -19,7 +19,8 @@ MonoBehaviour:
   cuCost: 2000
   prerequisites:
   - {fileID: 11400000, guid: 4154b75430a1827458b93dda38de58cb, type: 2}
+  - {fileID: 11400000, guid: ca295c3fadd3c6b498483b9ea2289f06, type: 2}
   effects: []
   absorptionRatePerSecond: 40
-  tier: 1.7
-  angle: 248.7
+  tier: 2.2
+  angle: 275.9

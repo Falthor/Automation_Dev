@@ -21,5 +21,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 7e3a9c4d1f5b4a82c0d6e4f8a2b3c5d7, type: 2}
   effects: []
   absorptionRatePerSecond: 40
-  tier: 1.6
-  angle: 223.3
+  tier: 1.7
+  angle: 263.5

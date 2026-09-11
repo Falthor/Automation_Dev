@@ -433,6 +433,10 @@ namespace Game.Presentation
             // The rank is not re-applied here any more. A segment never changes row, so it was
             // already redundant; now it would also be wrong - the ladder re-ranks its renderers when
             // the depth window moves, and writing a value computed here would undo that.
+            // The same lift the finished building will be drawn with, or a site of taller-than-ground
+            // art would sit half a cell off the building that replaces it.
+            position += Vector3.up * ArtLift(sprite, definition);
+
             SpriteRenderer silhouette = view.Silhouette;
             silhouette.color = SilhouetteColor(view);
             silhouette.transform.position = position;
@@ -465,8 +469,12 @@ namespace Game.Presentation
             bool overscanned = !(segment is ConveyorRuntime) || UsesOwnConveyorArt(segment, definition);
 
             BuildingSpawner.FitSpriteUniform(renderer, sprite,
-                BuildingSpawner.ArtWorldSize(definition, _grid.CellSize, overscanned));
+                BuildingSpawner.ArtWorldSize(definition, _grid.CellSize, sprite, overscanned));
         }
+
+        /// <summary>The lift the finished building will be drawn with, so a site of taller-than-ground art sits exactly where its building will. Independent of the overscan - see BuildingSpawner.ArtLift.</summary>
+        float ArtLift(Sprite sprite, BuildingDefinition definition)
+            => BuildingSpawner.ArtLift(definition, _grid.CellSize, sprite);
 
         /// <summary>
         /// Whether this segment will be drawn with its own belt art, asked of BuildingSpawner so the

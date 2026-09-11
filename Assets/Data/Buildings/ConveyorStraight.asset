@@ -43,6 +43,7 @@ MonoBehaviour:
   - {fileID: -7641087586546640575, guid: ee5233b470e986549a42aa10114373b0, type: 3}
   - {fileID: -3157365310712269443, guid: ee5233b470e986549a42aa10114373b0, type: 3}
   animationFps: 12
+  animationIntervalSeconds: 0
   cost: []
   defaultShape: 0
   overrideSprite: {fileID: -1450562369403550687, guid: ee5233b470e986549a42aa10114373b0, type: 3}

@@ -130,7 +130,7 @@ GameObject:
   - component: {fileID: 172240712}
   - component: {fileID: 172240711}
   m_Layer: 0
-  m_Name: memory_allocation_2
+  m_Name: Allocation memoire 2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -158,7 +158,7 @@ Transform:
   m_GameObject: {fileID: 172240710}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1.7040918, y: 5.7529182, z: 0}
+  m_LocalPosition: {x: -0.96553224, y: 5.312979, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -175,7 +175,7 @@ GameObject:
   - component: {fileID: 228408013}
   - component: {fileID: 228408012}
   m_Layer: 0
-  m_Name: extended_bandwidth_3
+  m_Name: Bande passante etendue 3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -203,7 +203,7 @@ Transform:
   m_GameObject: {fileID: 228408011}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.5441223, y: 7.9814744, z: 0}
+  m_LocalPosition: {x: -2.7244492, y: 4.6623363, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -220,7 +220,7 @@ GameObject:
   - component: {fileID: 242795933}
   - component: {fileID: 242795932}
   m_Layer: 0
-  m_Name: memory_allocation
+  m_Name: Allocation memoire
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -248,7 +248,7 @@ Transform:
   m_GameObject: {fileID: 242795931}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -2.4405804, y: 3.1691587, z: 0}
+  m_LocalPosition: {x: -2.1990852, y: 2.5930727, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -265,7 +265,7 @@ GameObject:
   - component: {fileID: 290982911}
   - component: {fileID: 290982910}
   m_Layer: 0
-  m_Name: memory_allocation_3
+  m_Name: Allocation memoire 3
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -293,7 +293,7 @@ Transform:
   m_GameObject: {fileID: 290982909}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -2.2855067, y: 7.6665807, z: 0}
+  m_LocalPosition: {x: -1.2706444, y: 6.4765315, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -310,7 +310,7 @@ GameObject:
   - component: {fileID: 628756980}
   - component: {fileID: 628756979}
   m_Layer: 0
-  m_Name: cortex_buildings
+  m_Name: Noyau Batiments
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -355,7 +355,7 @@ GameObject:
   - component: {fileID: 655182442}
   - component: {fileID: 655182441}
   m_Layer: 0
-  m_Name: datacenter_bay_1
+  m_Name: Extension de baies I
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -383,7 +383,7 @@ Transform:
   m_GameObject: {fileID: 655182440}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -4, y: -0.0000003496911, z: 0}
+  m_LocalPosition: {x: -2.9851668, y: -0.29795867, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -400,7 +400,7 @@ GameObject:
   - component: {fileID: 1094898176}
   - component: {fileID: 1094898175}
   m_Layer: 0
-  m_Name: advanced_foundry
+  m_Name: Fonderie avancee
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -428,7 +428,7 @@ Transform:
   m_GameObject: {fileID: 1094898174}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 3.4641016, y: 2, z: 0}
+  m_LocalPosition: {x: 2.9846423, y: -0.30316865, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -445,7 +445,7 @@ GameObject:
   - component: {fileID: 1115458241}
   - component: {fileID: 1115458240}
   m_Layer: 0
-  m_Name: cortex_research
+  m_Name: Noyau Recherche
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -479,6 +479,96 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1242245975
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1242245977}
+  - component: {fileID: 1242245976}
+  m_Layer: 0
+  m_Name: Mur
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1242245976
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1242245975}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5c58be5e7f4d574888ef9d5b4003c92, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Tools::Game.Tools.ResearchNodeHandle
+  research: {fileID: 11400000, guid: 4154b75430a1827458b93dda38de58cb, type: 2}
+--- !u!4 &1242245977
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1242245975}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.38489032, y: -3.3781445, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1344209443
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1344209445}
+  - component: {fileID: 1344209444}
+  m_Layer: 0
+  m_Name: Tourelle
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1344209444
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1344209443}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5c58be5e7f4d574888ef9d5b4003c92, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Tools::Game.Tools.ResearchNodeHandle
+  research: {fileID: 11400000, guid: 9b61a66d7f3a6ce42bf25a77793006a8, type: 2}
+--- !u!4 &1344209445
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1344209443}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.45228717, y: -4.3766923, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1437072019
 GameObject:
   m_ObjectHideFlags: 0
@@ -490,7 +580,7 @@ GameObject:
   - component: {fileID: 1437072021}
   - component: {fileID: 1437072020}
   m_Layer: 0
-  m_Name: new_research
+  m_Name: Munition
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -518,7 +608,7 @@ Transform:
   m_GameObject: {fileID: 1437072019}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1.3418058, y: -3.76823, z: 0}
+  m_LocalPosition: {x: 1.6778071, y: -3.6311104, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -535,7 +625,7 @@ GameObject:
   - component: {fileID: 1605253746}
   - component: {fileID: 1605253745}
   m_Layer: 0
-  m_Name: extended_bandwidth_2
+  m_Name: Bande passante etendue 2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -563,7 +653,7 @@ Transform:
   m_GameObject: {fileID: 1605253744}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -3.7268858, y: 4.7021613, z: 0}
+  m_LocalPosition: {x: -0.90660506, y: 3.8959038, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -580,7 +670,7 @@ GameObject:
   - component: {fileID: 1792536063}
   - component: {fileID: 1792536062}
   m_Layer: 0
-  m_Name: extended_bandwidth
+  m_Name: Bande passante etendue
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -608,7 +698,7 @@ Transform:
   m_GameObject: {fileID: 1792536061}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.98122907, y: 3.8777816, z: 0}
+  m_LocalPosition: {x: -0.7655024, y: 2.2746441, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -625,7 +715,7 @@ GameObject:
   - component: {fileID: 1871781406}
   - component: {fileID: 1871781405}
   m_Layer: 0
-  m_Name: datacenter_bay_2
+  m_Name: Extension de baies II
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -653,7 +743,7 @@ Transform:
   m_GameObject: {fileID: 1871781404}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -6, y: -0.00000052453663, z: 0}
+  m_LocalPosition: {x: -3.3307548, y: 1.3660423, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -670,7 +760,7 @@ GameObject:
   - component: {fileID: 1927345011}
   - component: {fileID: 1927345010}
   m_Layer: 0
-  m_Name: cortex_armament
+  m_Name: Noyau Armement
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -715,7 +805,7 @@ GameObject:
   - component: {fileID: 1965372222}
   - component: {fileID: 1965372221}
   m_Layer: 0
-  m_Name: new_research_2
+  m_Name: Usine d'armement
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -743,7 +833,7 @@ Transform:
   m_GameObject: {fileID: 1965372220}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 3.0234134, y: -2.6189637, z: 0}
+  m_LocalPosition: {x: 1.8757286, y: -2.3412907, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -767,3 +857,5 @@ SceneRoots:
   - {fileID: 290982911}
   - {fileID: 1437072021}
   - {fileID: 1965372222}
+  - {fileID: 1242245977}
+  - {fileID: 1344209445}

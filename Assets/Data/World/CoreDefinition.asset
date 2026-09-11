@@ -16,21 +16,22 @@ MonoBehaviour:
   displayName: Core
   footprintSize: {x: 4, y: 4}
   placeholderColor: {r: 1, g: 1, b: 1, a: 1}
-  sprite: {fileID: -6622863259242664493, guid: 2ee04d2fc01a65e44bdf1e088f3e468b, type: 3}
+  sprite: {fileID: 902838580, guid: fdd8c2d48aa4e0641a94e5b4c07a40d6, type: 3}
   animationFrames:
-  - {fileID: -6622863259242664493, guid: 2ee04d2fc01a65e44bdf1e088f3e468b, type: 3}
-  - {fileID: 4138848172959368440, guid: 2ee04d2fc01a65e44bdf1e088f3e468b, type: 3}
-  - {fileID: 5823024787834327110, guid: 2ee04d2fc01a65e44bdf1e088f3e468b, type: 3}
-  - {fileID: -5429809939435209488, guid: 2ee04d2fc01a65e44bdf1e088f3e468b, type: 3}
-  - {fileID: -7409573511083393705, guid: 2ee04d2fc01a65e44bdf1e088f3e468b, type: 3}
-  - {fileID: 2402639969742374697, guid: 2ee04d2fc01a65e44bdf1e088f3e468b, type: 3}
-  - {fileID: 368041112877095050, guid: 2ee04d2fc01a65e44bdf1e088f3e468b, type: 3}
-  - {fileID: -3326688003119052452, guid: 2ee04d2fc01a65e44bdf1e088f3e468b, type: 3}
-  - {fileID: 9209089764030810201, guid: 2ee04d2fc01a65e44bdf1e088f3e468b, type: 3}
-  - {fileID: 7800090583882032772, guid: 2ee04d2fc01a65e44bdf1e088f3e468b, type: 3}
-  - {fileID: -7160256121808793437, guid: 2ee04d2fc01a65e44bdf1e088f3e468b, type: 3}
-  - {fileID: -955268259036638798, guid: 2ee04d2fc01a65e44bdf1e088f3e468b, type: 3}
-  animationFps: 18
+  - {fileID: 902838580, guid: fdd8c2d48aa4e0641a94e5b4c07a40d6, type: 3}
+  - {fileID: -2146793234, guid: fdd8c2d48aa4e0641a94e5b4c07a40d6, type: 3}
+  - {fileID: -449304814, guid: fdd8c2d48aa4e0641a94e5b4c07a40d6, type: 3}
+  - {fileID: -1491913026, guid: fdd8c2d48aa4e0641a94e5b4c07a40d6, type: 3}
+  - {fileID: -417164945, guid: fdd8c2d48aa4e0641a94e5b4c07a40d6, type: 3}
+  - {fileID: -1121090894, guid: fdd8c2d48aa4e0641a94e5b4c07a40d6, type: 3}
+  - {fileID: 1799819498, guid: fdd8c2d48aa4e0641a94e5b4c07a40d6, type: 3}
+  - {fileID: -1767338852, guid: fdd8c2d48aa4e0641a94e5b4c07a40d6, type: 3}
+  - {fileID: 194865330, guid: fdd8c2d48aa4e0641a94e5b4c07a40d6, type: 3}
+  - {fileID: -1543464154, guid: fdd8c2d48aa4e0641a94e5b4c07a40d6, type: 3}
+  - {fileID: 466262852, guid: fdd8c2d48aa4e0641a94e5b4c07a40d6, type: 3}
+  - {fileID: -594723802, guid: fdd8c2d48aa4e0641a94e5b4c07a40d6, type: 3}
+  animationFps: 12
+  animationIntervalSeconds: 0
   cost: []
   actionRadiusCells: 22
   cuOutput: 0

@@ -16,21 +16,22 @@ MonoBehaviour:
   displayName: Usine
   footprintSize: {x: 3, y: 3}
   placeholderColor: {r: 0.5, g: 0.5, b: 0.55, a: 1}
-  sprite: {fileID: -6622863259242664493, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
+  sprite: {fileID: 1960136059, guid: a953f04263548f849922ca717f263755, type: 3}
   animationFrames:
-  - {fileID: -6622863259242664493, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
-  - {fileID: 4138848172959368440, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
-  - {fileID: 5823024787834327110, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
-  - {fileID: -5429809939435209488, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
-  - {fileID: -7409573511083393705, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
-  - {fileID: 2402639969742374697, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
-  - {fileID: 368041112877095050, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
-  - {fileID: -3326688003119052452, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
-  - {fileID: 9209089764030810201, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
-  - {fileID: 7800090583882032772, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
-  - {fileID: -7160256121808793437, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
-  - {fileID: -955268259036638798, guid: 13e810ad1f0fd3b47aea86616a89e11d, type: 3}
+  - {fileID: 1960136059, guid: a953f04263548f849922ca717f263755, type: 3}
+  - {fileID: 186842927, guid: a953f04263548f849922ca717f263755, type: 3}
+  - {fileID: 2115544289, guid: a953f04263548f849922ca717f263755, type: 3}
+  - {fileID: 1020117731, guid: a953f04263548f849922ca717f263755, type: 3}
+  - {fileID: -1712489000, guid: a953f04263548f849922ca717f263755, type: 3}
+  - {fileID: 729025151, guid: a953f04263548f849922ca717f263755, type: 3}
+  - {fileID: -834108321, guid: a953f04263548f849922ca717f263755, type: 3}
+  - {fileID: 669024671, guid: a953f04263548f849922ca717f263755, type: 3}
+  - {fileID: -1964049821, guid: a953f04263548f849922ca717f263755, type: 3}
+  - {fileID: -626888278, guid: a953f04263548f849922ca717f263755, type: 3}
+  - {fileID: 614574126, guid: a953f04263548f849922ca717f263755, type: 3}
+  - {fileID: 1263830841, guid: a953f04263548f849922ca717f263755, type: 3}
   animationFps: 12
+  animationIntervalSeconds: 0
   cost:
   - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
     amount: 10

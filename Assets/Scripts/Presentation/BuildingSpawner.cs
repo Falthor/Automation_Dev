@@ -237,7 +237,12 @@ namespace Game.Presentation
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
-            FitSpriteUniform(renderer, sprite, ArtWorldSize(definition, _grid.CellSize));
+            FitSpriteUniform(renderer, sprite, ArtWorldSize(definition, _grid.CellSize, sprite));
+
+            // Art taller than its ground stands on the footprint's bottom edge, the excess reaching
+            // up - the root is the footprint's centre, so the lift goes on the sprite alone and the
+            // slab, the arrows and the depth rank keep working off the cells occupied.
+            spriteGo.transform.localPosition = Vector3.up * ArtLift(definition, _grid.CellSize, sprite);
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
@@ -343,7 +348,10 @@ namespace Game.Presentation
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
-            FitSpriteUniform(renderer, sprite, ArtWorldSize(definition, _grid.CellSize));
+            // No lift here, unlike SpawnStandardView: a "+" is square art on a square footprint, so
+            // there is none to apply - and this renderer is the rotating root, which would swing an
+            // offset around with it.
+            FitSpriteUniform(renderer, sprite, ArtWorldSize(definition, _grid.CellSize, sprite));
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
@@ -430,40 +438,61 @@ namespace Game.Presentation
         }
 
         /// <summary>
-        /// The world size a building's art is actually drawn at: its logical footprint widened by
-        /// the definition's RenderOverscan.
-        ///
-        /// Every view that has to line up with the real building - the placement ghost, the
-        /// construction silhouette, the assembling dissolve - must size itself from this rather
-        /// than from FootprintSize alone. Overscan used to be applied here and nowhere else, so
-        /// those views came out RenderOverscan smaller than what actually got built: 9% on the
-        /// Foundry, enough to read as a different building.
-        ///
-        /// The one exception is <paramref name="overscanned"/>, for a conveyor wearing the
-        /// procedural placeholder instead of its own art: the placeholder already fills its cell
-        /// exactly, so widening it would push it over its neighbours. Pass
-        /// UsesOwnConveyorArt(definition, shape) rather than restating that rule.
-        ///
-        /// Note this is deliberately not the sizing for anything that belongs to the ground rather
-        /// than to the building. That is the canonical pair: <b>ArtWorldSize for whatever must
-        /// coincide with the drawing, FootprintSize for whatever marks the cells occupied.</b> The
-        /// concrete slab follows the footprint, and so will the nano ground coverage - it expresses
-        /// which cells are converted, not how far the art reaches. Same distinction as the shader's
-        /// _BuildBounds, which is the visual AABB precisely because it normalises a gradient over
-        /// what is drawn.
+        /// <b>ArtWorldSize for whatever must coincide with the drawing, FootprintSize for whatever
+        /// marks the cells occupied.</b> The concrete slab, the ground coverage and the depth rank
+        /// follow the footprint - they express which cells a building holds, not how far its art
+        /// reaches. Every view that has to line up with the built building - the placement ghost,
+        /// the construction silhouette, the assembling dissolve - sizes itself from here instead.
         /// </summary>
         /// <summary>
-        /// How big to draw a building's art, in world units.
+        /// How big to draw a building's art, in world units, <b>derived from the art itself</b>: as
+        /// wide as the footprint and as tall as that width times the frame's own proportion.
         ///
-        /// <b>ArtCellSize rather than FootprintSize</b>, which are the same thing for every building
-        /// whose art is the shape of its ground and differ for one that is taller than it - see
-        /// BuildingDefinition.ArtCellSize. <see cref="FitSpriteUniform"/> then lands exactly on this
-        /// box when it carries the art's own aspect ratio, rather than covering it and overflowing
-        /// sideways - which is what makes the box a statement about the art rather than a decision
-        /// about how the building should look.
+        /// <b>A building is therefore never drawn wider than the cells it stands on</b>, whatever
+        /// sheet it wears - which is the one thing a player reads as wrong. Art taller than its
+        /// ground (a 512x640 frame over a 3x3 footprint: 3 wide, 3.75 tall) overflows upward, and
+        /// <see cref="ArtLift"/> puts its base back on the footprint's bottom edge.
+        ///
+        /// Nothing to measure and nothing to enter per asset: no art box on the definition, no margin
+        /// constant to re-measure when a sheet is replaced. Both existed, both went stale on every
+        /// re-export, and both were noticed on screen rather than here.
+        ///
+        /// <b>A frame square or wider keeps the footprint box</b> (the max below), so a belt whose
+        /// frame is 256x222 still fills its cell instead of leaving a seam above and below it. That
+        /// is also why <paramref name="overscanned"/> stays: the conveyor family's overscan pushes
+        /// their arms deliberately INTO the neighbouring cell, which is not a margin to correct.
         /// </summary>
-        public static Vector2 ArtWorldSize(BuildingDefinition definition, float cellSize, bool overscanned = true)
-            => new Vector2(cellSize, cellSize) * definition.ArtCellSize * (overscanned ? definition.RenderOverscan : 1f);
+        /// <param name="sprite">
+        /// The frame being drawn, whose proportion decides the height. Omitted - which is what the
+        /// conveyor views do - the art keeps the footprint's own box, exactly as every building did
+        /// before the height was derived: a belt fills its cell and nothing reaches past it.
+        /// </param>
+        public static Vector2 ArtWorldSize(BuildingDefinition definition, float cellSize, Sprite sprite = null, bool overscanned = true)
+        {
+            Vector2 footprint = (Vector2)definition.FootprintSize * cellSize;
+            float width = footprint.x * (overscanned ? definition.RenderOverscan : 1f);
+            Vector2 frame = sprite != null ? sprite.rect.size : Vector2.zero;
+            float height = frame.x > 0f ? Mathf.Max(footprint.y, width * (frame.y / frame.x)) : footprint.y;
+            return new Vector2(width, height);
+        }
+
+        /// <summary>
+        /// How far up the art sits from the footprint's centre, so that art taller than its ground
+        /// rests its base on the footprint's bottom edge and all the excess reaches upward.
+        ///
+        /// Every view that draws a building applies it - the built view, the placement ghost, the
+        /// construction silhouette, the Core's own spawner - or the same building would stand at two
+        /// different heights depending on which one drew it. Zero whenever the art is no taller than
+        /// the footprint, which is every square-framed building.
+        /// </summary>
+        /// <remarks>
+        /// Measured without the overscan on purpose: that one is a uniform bleed meant to be
+        /// symmetric - the conveyor family's arms reaching into the neighbouring cell - and turning
+        /// it into a lift would push a "+" off the belt it feeds. Only art genuinely taller than its
+        /// ground lifts, which is why the rotating "+" view applies none at all.
+        /// </remarks>
+        public static float ArtLift(BuildingDefinition definition, float cellSize, Sprite sprite)
+            => (ArtWorldSize(definition, cellSize, sprite, overscanned: false).y - definition.FootprintSize.y * cellSize) * 0.5f;
 
         /// <summary>
         /// True when a belt is drawn with its own art rather than the procedural shape sprite - a

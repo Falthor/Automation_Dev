@@ -318,18 +318,16 @@ namespace Game.Tests.EditMode.Presentation
         }
 
         /// <summary>
-        /// The silhouette, the assembling sprite and the real view must all be the size the
-        /// building is actually drawn at - BuildingSpawner.ArtWorldSize, RenderOverscan included.
-        /// Overscan used to be applied only inside BuildingSpawner, so everything previewing a
-        /// building came out that much smaller than what got built: 9% on the Foundry, visible to
-        /// the naked eye against a finished neighbour.
+        /// The silhouette, the assembling sprite and the real view must all be the size the building
+        /// is actually drawn at - BuildingSpawner.ArtWorldSize, which derives it from the art. This
+        /// used to be applied only inside BuildingSpawner, so everything previewing a building came
+        /// out smaller than what got built, visible to the naked eye against a finished neighbour.
         /// </summary>
         [Test]
-        public void SilhouetteAndAssembly_AreSizedToTheArtTheRealViewWillUse_OverscanIncluded()
+        public void SilhouetteAndAssembly_AreSizedToTheArtTheRealViewWillUse()
         {
             Fixture fixture = NewFixture(coreChestContents: 4);
             FoundryDefinition foundry = TestDataFactory.NewFoundry(0f, 0f);
-            Assert.AreNotEqual(1f, foundry.RenderOverscan, "Precondition: the Foundry is the overscanned case this guards.");
 
             // A cost, so the site actually waits on robots and can be sampled while still pending.
             SetCost(foundry, fixture.Plate, 4);
@@ -342,7 +340,7 @@ namespace Game.Tests.EditMode.Presentation
             SpriteRenderer silhouette = fixture.Views.SilhouetteOf(segment);
             Assert.IsNotNull(silhouette, "The segment must still be pending for this to mean anything.");
 
-            Vector2 expected = BuildingSpawner.ArtWorldSize(foundry, fixture.Grid.CellSize);
+            Vector2 expected = BuildingSpawner.ArtWorldSize(foundry, fixture.Grid.CellSize, silhouette.sprite);
             AssertDrawnWorldSize(silhouette, expected, "silhouette");
             AssertDrawnWorldSize(fixture.Views.DissolveOf(segment).GetComponent<SpriteRenderer>(), expected, "assembling sprite");
         }

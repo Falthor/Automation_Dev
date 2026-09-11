@@ -13,24 +13,25 @@ MonoBehaviour:
   m_Name: PowerplantGazDefinition
   m_EditorClassIdentifier: Game.Data::Game.Data.PowerplantGazDefinition
   id: powerplant_gaz
-  displayName: Centrale à gaz
+  displayName: "Centrale \xE0 gaz"
   footprintSize: {x: 3, y: 3}
   placeholderColor: {r: 0.85, g: 0.6, b: 0.1, a: 1}
-  sprite: {fileID: -6622863259242664493, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
+  sprite: {fileID: 2050248443, guid: b6bd4baed82913e44b920e2c54e0219f, type: 3}
   animationFrames:
-  - {fileID: -6622863259242664493, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
-  - {fileID: 4138848172959368440, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
-  - {fileID: 5823024787834327110, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
-  - {fileID: -5429809939435209488, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
-  - {fileID: -7409573511083393705, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
-  - {fileID: 2402639969742374697, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
-  - {fileID: 368041112877095050, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
-  - {fileID: -3326688003119052452, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
-  - {fileID: 9209089764030810201, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
-  - {fileID: 7800090583882032772, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
-  - {fileID: -7160256121808793437, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
-  - {fileID: -955268259036638798, guid: 0a7c0db3b197f134688fec07bdb291e8, type: 3}
+  - {fileID: 2050248443, guid: b6bd4baed82913e44b920e2c54e0219f, type: 3}
+  - {fileID: -1217384884, guid: b6bd4baed82913e44b920e2c54e0219f, type: 3}
+  - {fileID: -676497365, guid: b6bd4baed82913e44b920e2c54e0219f, type: 3}
+  - {fileID: 796113556, guid: b6bd4baed82913e44b920e2c54e0219f, type: 3}
+  - {fileID: -111532578, guid: b6bd4baed82913e44b920e2c54e0219f, type: 3}
+  - {fileID: -5490697, guid: b6bd4baed82913e44b920e2c54e0219f, type: 3}
+  - {fileID: -1786465999, guid: b6bd4baed82913e44b920e2c54e0219f, type: 3}
+  - {fileID: 1561209454, guid: b6bd4baed82913e44b920e2c54e0219f, type: 3}
+  - {fileID: -1683744311, guid: b6bd4baed82913e44b920e2c54e0219f, type: 3}
+  - {fileID: 1799050350, guid: b6bd4baed82913e44b920e2c54e0219f, type: 3}
+  - {fileID: 101199449, guid: b6bd4baed82913e44b920e2c54e0219f, type: 3}
+  - {fileID: 1022437679, guid: b6bd4baed82913e44b920e2c54e0219f, type: 3}
   animationFps: 12
+  animationIntervalSeconds: 0
   cost:
   - item: {fileID: 11400000, guid: d5be11fa9d151e345a38f4254d3f1430, type: 2}
     amount: 10
