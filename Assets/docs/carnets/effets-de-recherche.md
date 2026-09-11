@@ -66,6 +66,26 @@ test le vérifie en ajoutant un tel effet à la base livrée. La constante voisi
 qu'atteignent les gisements d'invitation, a suivi le même chemin : le test qui la vérifiait lit
 maintenant le plus petit effet de rayon des assets au lieu de le recopier.
 
+## Les deux validations
+
+Deux défauts qu'aucune partie ne rattrape, et qu'un éditeur à clics rend faciles à créer :
+
+- **un cycle de prérequis** — une recherche qui dépend d'elle-même par une chaîne ne peut jamais
+  démarrer, ni rien derrière elle. C'est un blocage définitif de la partie, et il suffit de relier deux
+  nœuds dans le mauvais sens pour le fabriquer ;
+- **une recherche inatteignable** — celle qu'aucune chaîne ne relie aux trois noyaux.
+
+Elles vivent dans `Game.Data` (`ResearchTreeValidation`) plutôt que dans l'éditeur à venir : elles ont
+leur place sans lui, et un test les applique à l'arbre livré, lu dans les assets.
+
+**« Inatteignable » est lu au sens strict : « ne pourra jamais être débloquée ».** Une recherche dont
+un prérequis est sur l'arbre et un autre ne l'est pas a bien un chemin jusqu'aux noyaux — et ne
+démarrera pourtant jamais, puisqu'il les lui faut tous. La lecture « un chemin existe » l'aurait
+laissée passer ; c'est précisément le cas qu'on veut voir. Une recherche sans aucun prérequis n'est pas
+une racine pour autant : seuls les noyaux le sont. Les déblocages de directives ne sont pas des points
+de départ ; une recherche de l'arbre qui dépendrait d'une directive serait signalée, et c'est une
+décision à prendre le jour où l'on en voudra une.
+
 ## Ce qui n'a pas changé
 
 **Les sauvegardes.** Elles retiennent les identifiants débloqués sous forme de texte, et continuent de

@@ -449,6 +449,8 @@ A research may require any number of other researches to be completed first (`Re
 
 Gates ask `IsBuildingUnlocked` (`ConstructionService.GetPlacementRefusalReason`, the building menu) and `IsRecipeUnlocked` (`ProductionBuildingRuntime.GetRecipeIds`): a type no research names is not gated, one that is named opens when any research naming it is completed. The figures are applied by their owners on `ResearchCompleted`, reading the completed research's effects through `Definition(id)`: `CoreRuntime` the radius, `ConstructionService` the cap, `DataCenterRuntime` the bays - including, for a Datacenter built later, those of every research already completed (`GetUnlockedIds`). `ResearchCatalog.HighestActionRadius(startingRadius)` is the highest radius target any known research carries - the Core's furthest reach (§8). **No system compares a research id.** An id is how a save names an unlock and how `ResearchCompleted` reports one, never what an effect is keyed on: renaming a research cannot silently detach its effect.
 
+`ResearchTreeValidation` (`Game.Data`, pure) holds the two checks a tree cannot recover from. `FindCycles(researches)` returns every research on a prerequisite cycle, one requiring itself included. `FindUnreachable(cores, researches)` returns every research that can never be unlocked from the cores - read strictly: every non-null prerequisite must be a core or reachable itself, and a research with no prerequisite is not a root, only the cores are. The shipped tree is held to both by a test that reads the assets.
+
 ## 12. UI contract
 
 UI is a consumer of runtime contracts.
