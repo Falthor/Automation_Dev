@@ -461,18 +461,28 @@ namespace Game.Gameplay.Buildings
 
         /// <summary>
         /// Shared Power gating pipeline (CONTRACTS.md §9), used by every building whose own tick
-        /// progress must freeze while unpowered: reports demand only while "active", then returns
-        /// 0 if the network cannot cover it. The caller multiplies its own deltaTime by the
-        /// returned value before advancing any timer. Compute plays no part here - CU is a
-        /// reserve spent in one shot when a cycle starts (§10), never a continuous draw that
-        /// throttles a building's speed.
+        /// progress must freeze while unpowered: draws its demand only while "active", and returns
+        /// 0 if the network could not serve it. The caller multiplies its own deltaTime by the
+        /// returned value before advancing any timer. Compute plays no part here - CU is a reserve
+        /// spent in one shot when a cycle starts (§10), never a continuous draw that throttles a
+        /// building's speed.
+        ///
+        /// <b>It draws against its own type, not against a global total.</b> It used to ask
+        /// <c>IsPowered()</c>, one boolean for the whole base, so a shortage stopped every powered
+        /// building at once - and with the Data Center among them, CU production stopped too, which
+        /// is a dead end rather than a setback. The power system allocates by type along the
+        /// player's order now (<see cref="PowerSystem.TryDraw"/>), and this is the one place that
+        /// changes for every building at once.
+        ///
+        /// An instance method rather than a static one, because the group is
+        /// <c>Definition.Id</c> - the building itself is what knows which type it is, and passing
+        /// that in would let a caller pass somebody else's.
         /// </summary>
-        protected static float ComputeEffectivePerformance(float powerDemand, bool powerActive, PowerSystem power)
+        protected float ComputeEffectivePerformance(float powerDemand, bool powerActive, PowerSystem power)
         {
             if (powerDemand > 0f && powerActive)
             {
-                power.ReportDemand(powerDemand);
-                if (!power.IsPowered()) return 0f;
+                if (!power.TryDraw(Definition.Id, powerDemand)) return 0f;
             }
 
             return 1f;

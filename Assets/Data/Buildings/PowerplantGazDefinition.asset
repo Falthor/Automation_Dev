@@ -40,6 +40,5 @@ MonoBehaviour:
   fuelItem: {fileID: 11400000, guid: 5e06ac222b66b1543b7ac815dd074e68, type: 2}
   maxFuelStack: 20
   powerOutputKw: 25
-  selfPowerDemandKw: 2
   cuCostPerCycle: 8
   fuelCycleTimeSeconds: 10

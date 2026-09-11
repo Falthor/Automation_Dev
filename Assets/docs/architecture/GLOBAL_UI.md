@@ -293,6 +293,37 @@ Pacing is six serialized fields on the component (fade, ordinary pause, the two 
 pauses, the pause before the button, and the reserve's tick), adjustable in the Inspector
 while the game runs.
 
+## 8c. Power panel - the Priorité tab
+
+Two tabs over one header (`PowerPanelController`, `PowerPanel.uxml`, laid out from
+[`../design/maquette-onglet-priorite.png`](../design/maquette-onglet-priorite.png)). **Courbes** is
+what the whole panel used to be - demand, production, balance, the saturation bar and the 5-minute
+history graph; it became a tab rather than moving. **Priorité** is the order building types receive
+power in, and the player drags handles to change it.
+
+**A reorderable list states an order but not its consequences, and the consequence is the point.**
+The cut line is drawn where the running total of demand crosses production: above it served, below
+it stopped and dimmed. The player sees their extractors are off, drags them up, and the line moves
+as they drag - nothing has to be calculated. When production covers everything the line is simply
+absent, which is the correct amount of urgency to show.
+
+**The group the line falls on shows its partial service** - "1 sur 2" - rather than a binary state,
+because a deficit rarely lands exactly between two groups. It is counted at the draw
+(`PowerSystem.ServedInstancesOf`), not divided out of the kilowatts: see CONTRACTS.md §9 for why
+dividing would be wrong for the Data Center.
+
+**Every type is listed, built or not** (the player's call). One with no instances shows a dash for
+its count and no state, and holds the place it was given. The rows come from the priority order,
+which comes from the building catalogue - so a type added to the game appears here without this
+screen being touched, which is the requirement the order of identifiers exists for (§9a).
+
+**The line is positioned over the list, not inserted into it.** A child that is not a row would make
+every index in the drag's arithmetic conditional. The drag updates the model live rather than on
+release - that is what makes the line move while the player drags - and moves the row element
+instead of rebuilding it, because a rebuilt row would drop the pointer capture mid-gesture.
+`PowerPanelController.RowHeight` and `.pr-row`'s height in `GameUI.uss` have to agree: one row of
+pointer travel is one place.
+
 ## 8b. In-game menu (Top Bar's Menu button)
 
 `GameMenuPanel` + `GameMenu.uxml`, instanced by `TopBar.uxml` and reparented onto the document

@@ -123,6 +123,14 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             foundry.SetSelectedRecipe("Iron_Ingot");
             foundry.AddInput("minerai_fer", 1, Direction.South);
 
+            // The network has to be able to serve this foundry's own type: power is allocated per
+            // building type now, against what that type asked for on the previous frame. This test
+            // never mentioned power at all and ran anyway, because the old contract compared two
+            // totals and 0 <= 0 was powered.
+            _power.ReportSupply(9999f);
+            _power.TryDraw(foundry.Definition.Id, 9999f);
+            _power.Settle();
+
             foundry.Tick(0.5f);
             Assert.AreEqual(ProductionState.Producing, foundry.GetState());
             Assert.AreEqual(0, foundry.GetOutputContents().Count);

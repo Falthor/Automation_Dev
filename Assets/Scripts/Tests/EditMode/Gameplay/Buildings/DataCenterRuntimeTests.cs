@@ -51,6 +51,25 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         static void FinishPriming(DataCenterRuntime dataCenter) => dataCenter.Tick(200f);
 
         /// <summary>
+        /// Leaves the network able to serve the datacenter group from here on.
+        ///
+        /// <b>Both halves matter.</b> Supply alone is not enough: power is allocated per building
+        /// type, and a group is allocated against what it asked for on the <i>previous</i> frame -
+        /// so the demand has to be heard once before a budget can exist for it. The fixture used to
+        /// report supply and settle before anything had asked for anything, and got away with it
+        /// because the old contract was a comparison of two totals where 0 &lt;= 0 read as powered.
+        ///
+        /// 9999 on both sides: this is "the network is not the thing under test", and a budget that
+        /// large lets every instance in every test here draw as often as it likes.
+        /// </summary>
+        void PowerTheDataCenter()
+        {
+            _power.ReportSupply(9999f);
+            _power.TryDraw("datacenter", 9999f);
+            _power.Settle();
+        }
+
+        /// <summary>
         /// TASK_03_DATACENTER.md §1 - debt check, written before any other modification. Task 02
         /// renamed the extra_cpu_slot research asset to storage_box via git mv (GUID preserved,
         /// id changed); DataCenterRuntime recognizes its bay-granting research by a literal
@@ -179,8 +198,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         [Test]
         public void Tick_WhilePriming_ConsumesCuButProducesNothing_EvenPoweredWithAComponentInstalled()
         {
-            _power.ReportSupply(9999f);
-            _power.Settle();
+            PowerTheDataCenter();
 
             DataCenterRuntime dataCenter = NewDataCenter();
             dataCenter.AddInput("cpu_mkI", 1, Direction.South);
@@ -252,11 +270,20 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             DataCenterRuntime dataCenter = NewDataCenter();
             FinishPriming(dataCenter);
 
-            _power.ReportDemand(9999f); // nothing supplies -> unpowered once settled
+            // Nothing supplies, so the datacenter group is allocated nothing once settled - power
+            // is drawn per building type now, and the datacenter's own group is what gates its CU.
+            _power.TryDraw("datacenter", 9999f);
             _power.Settle();
             _compute.Spend(5000f); // make room under the cap so a grant would be visible
 
             dataCenter.AddInput("cpu_mkI", 1, Direction.South);
+
+            // Installed on its own tick first, like the test above: a building reports the demand it
+            // had at the end of the previous tick, so one that has just been given its first
+            // component is still asking for nothing - and a group asking for nothing is not a group
+            // the network can refuse. The one-frame lag is the power contract's, not this test's.
+            dataCenter.Tick(0f);
+
             float before = _compute.Reserve;
             dataCenter.Tick(1f);
 
@@ -269,8 +296,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             DataCenterRuntime dataCenter = NewDataCenter();
             FinishPriming(dataCenter);
 
-            _power.ReportSupply(9999f);
-            _power.Settle();
+            PowerTheDataCenter();
             _compute.Spend(5000f);
 
             dataCenter.AddInput("cpu_mkI", 1, Direction.South);
@@ -287,8 +313,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         {
             DataCenterRuntime dataCenter = NewDataCenter();
             FinishPriming(dataCenter);
-            _power.ReportSupply(9999f);
-            _power.Settle();
+            PowerTheDataCenter();
             dataCenter.AddInput("cpu_mkI", 1, Direction.South);
             dataCenter.Tick(0f);
 
@@ -304,8 +329,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         {
             DataCenterRuntime dataCenter = NewDataCenter();
             FinishPriming(dataCenter);
-            _power.ReportSupply(9999f);
-            _power.Settle();
+            PowerTheDataCenter();
             dataCenter.AddInput("cpu_mkI", 1, Direction.South);
             dataCenter.Tick(0f);
 
@@ -318,8 +342,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         [Test]
         public void HigherReplacementThreshold_ConsumesMoreSpareComponents_OverTheSameDuration()
         {
-            _power.ReportSupply(9999f);
-            _power.Settle();
+            PowerTheDataCenter();
 
             DataCenterRuntime lowThreshold = NewDataCenter(maxStackPerItem: 1000);
             lowThreshold.SetCpuReplacementThreshold(DataCenterRuntime.MinReplacementThresholdPercent);
@@ -348,8 +371,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         [Test]
         public void ComponentEntersReplacement_AtWearMatchingTheConfiguredThreshold()
         {
-            _power.ReportSupply(9999f);
-            _power.Settle();
+            PowerTheDataCenter();
 
             DataCenterRuntime dataCenter = NewDataCenter();
             dataCenter.SetCpuReplacementThreshold(40f);
@@ -373,8 +395,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         [Test]
         public void CaptureAndRestore_RoundTripsFullState()
         {
-            _power.ReportSupply(9999f);
-            _power.Settle();
+            PowerTheDataCenter();
 
             DataCenterRuntime original = NewDataCenter();
             FinishPriming(original);

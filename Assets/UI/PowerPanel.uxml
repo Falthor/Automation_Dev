@@ -2,19 +2,69 @@
     <Style src="GameUI.uss" />
 
     <ui:VisualElement name="PowerPanelRoot" class="overlay-root hidden" picking-mode="Ignore">
-        <ui:VisualElement class="panel panel-accent" picking-mode="Position">
+        <ui:VisualElement class="panel panel-accent power-panel" picking-mode="Position">
             <ui:VisualElement class="header-row">
-                <ui:Label text="POWER" class="title" />
+                <ui:Label text="&#201;nergie" class="title title-name" />
                 <ui:Button name="PowerCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
-            <ui:VisualElement class="extractor-body">
-                <ui:Label name="PowerConsumptionLabel" text="Consumption: 0 kW" class="extractor-section-label" />
-                <ui:Label name="PowerProductionLabel" text="Production: 0 kW" class="extractor-section-label" />
-                <ui:Label name="PowerBalanceLabel" text="Balance: +0 kW" class="extractor-section-label" />
+
+            <!-- Two tabs over one header. The graph was the whole panel before, so it becomes the
+                 first tab rather than moving. -->
+            <ui:VisualElement class="tab-row">
+                <ui:Button name="PowerCurvesTab" text="Courbes" class="tab-button tab-button-active" />
+                <ui:Button name="PowerPriorityTab" text="Priorit&#233;" class="tab-button" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="PowerCurvesBody" class="extractor-body">
+                <ui:Label name="PowerConsumptionLabel" text="Demande&#160;: 0&#160;kW" class="extractor-section-label" />
+                <ui:Label name="PowerProductionLabel" text="Production&#160;: 0&#160;kW" class="extractor-section-label" />
+                <ui:Label name="PowerBalanceLabel" text="Bilan&#160;: +0&#160;kW" class="extractor-section-label" />
                 <ui:VisualElement class="extractor-progress-track">
                     <ui:VisualElement name="PowerBarFill" class="extractor-progress-fill" />
                 </ui:VisualElement>
                 <ui:VisualElement name="PowerGraphContainer" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="PowerPriorityBody" class="hidden">
+                <ui:VisualElement class="pr-header">
+                    <ui:VisualElement class="pr-header-cell">
+                        <ui:Label text="PRODUCTION" class="pr-header-label section-label-spaced" />
+                        <ui:VisualElement class="pr-header-value-row">
+                            <ui:Label name="PowerPriorityProduction" text="0" class="pr-header-value" />
+                            <ui:Label text="kW" class="pr-header-unit" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement class="pr-header-cell">
+                        <ui:Label text="DEMANDE" class="pr-header-label section-label-spaced" />
+                        <ui:VisualElement class="pr-header-value-row">
+                            <ui:Label name="PowerPriorityDemand" text="0" class="pr-header-value pr-value-warn" />
+                            <ui:Label text="kW" class="pr-header-unit" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement class="pr-header-cell">
+                        <ui:Label text="D&#201;FICIT" class="pr-header-label section-label-spaced" />
+                        <ui:VisualElement class="pr-header-value-row">
+                            <ui:Label name="PowerPriorityDeficit" text="0" class="pr-header-value" />
+                            <ui:Label text="kW" class="pr-header-unit" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:Label text="Les groupes du haut sont servis en premier. Glissez pour changer l'ordre."
+                          class="pr-help-line" />
+
+                <ui:VisualElement class="dc-separator" />
+
+                <!-- The rows are built by the controller from the priority order; the cut line is
+                     drawn over them rather than inserted among them, so dragging never has to
+                     reason about a child that is not a row. -->
+                <ui:VisualElement name="PowerPriorityList" class="pr-list">
+                    <ui:VisualElement name="PowerPriorityCutLine" class="pr-cut-line hidden" picking-mode="Ignore">
+                        <ui:VisualElement class="pr-cut-rule" />
+                        <ui:Label text="PRODUCTION &#201;PUIS&#201;E" class="pr-cut-label section-label-spaced" />
+                        <ui:VisualElement class="pr-cut-rule" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

@@ -138,6 +138,19 @@ namespace Game.Save
         /// </summary>
         public float? PlayTimeSeconds;
 
+        /// <summary>
+        /// The order building types receive power in, most-served first
+        /// (Game.Gameplay.Power.PowerPriorityOrder).
+        ///
+        /// <b>Identifiers, never positions</b>, and that is what makes it survive the game changing
+        /// under it: a type added since the save has no identifier here and goes to the bottom, one
+        /// removed from the game is ignored, and everything the save still recognises keeps its
+        /// place. Absent - a save from before this existed - restores as the catalogue's own order,
+        /// which is the default arbitration anyway, so no version bump: the same per-field tolerance
+        /// BuildingCap uses.
+        /// </summary>
+        public List<string> PowerPriority;
+
         public List<DepositSaveData> Deposits = new List<DepositSaveData>();
         public List<BuildingSaveData> Buildings = new List<BuildingSaveData>();
     }

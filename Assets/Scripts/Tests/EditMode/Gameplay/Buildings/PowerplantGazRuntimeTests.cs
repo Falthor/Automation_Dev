@@ -22,14 +22,14 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _power = new PowerSystem();
         }
 
-        PowerplantGazRuntime NewPlant(float powerOutputKw = 10f, float selfPowerDemandKw = 2f, float cuCostPerCycle = 150f, float fuelCycleTimeSeconds = 10f)
+        PowerplantGazRuntime NewPlant(float powerOutputKw = 10f, float cuCostPerCycle = 150f, float fuelCycleTimeSeconds = 10f)
         {
-            PowerplantGazDefinition definition = TestDataFactory.NewPowerplantGaz(_fuel, 20, powerOutputKw, selfPowerDemandKw, cuCostPerCycle, fuelCycleTimeSeconds);
+            PowerplantGazDefinition definition = TestDataFactory.NewPowerplantGaz(_fuel, 20, powerOutputKw, cuCostPerCycle, fuelCycleTimeSeconds);
             return new PowerplantGazRuntime(definition, new GridCoord(0, 0), Direction.North, _compute, _power);
         }
 
         [Test]
-        public void NoFuel_SuppliesNoPower_ButStillReportsSelfDemand()
+        public void NoFuel_SuppliesNoPower()
         {
             PowerplantGazRuntime plant = NewPlant();
 
@@ -37,7 +37,11 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _power.Settle();
 
             Assert.AreEqual(0f, _power.SettledSupply);
-            Assert.AreEqual(2f, _power.SettledDemand); // self-demand always reported
+
+            // And it asks for nothing either. It used to report 2 kW of self-consumption
+            // unconditionally - a load nobody could switch off, that never consulted the power gate
+            // and that the allocation therefore had no way to arbitrate. Removed with the field.
+            Assert.AreEqual(0f, _power.SettledDemand);
         }
 
         [Test]

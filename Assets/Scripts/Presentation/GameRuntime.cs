@@ -214,6 +214,17 @@ namespace Game.Presentation
         public DepthSortLadder DepthSort { get; private set; }
 
         /// <summary>
+        /// The order in which building types receive power when there is not enough of it - the
+        /// player's own arbitration, read by <see cref="PowerSystem"/> at every settle.
+        ///
+        /// Seeded from <c>buildingCatalog</c>, never from a list written by hand: a type added to
+        /// the game appears in it without this file being touched, and lands at the bottom rather
+        /// than displacing what the player arranged. Every known type is in it, including ones
+        /// never built - the screen may filter what it draws, the order underneath does not.
+        /// </summary>
+        public PowerPriorityOrder PowerPriority { get; private set; }
+
+        /// <summary>
         /// The scene's single building-view registry - one <see cref="BuildingSpawner"/>, and it has
         /// to stay one.
         ///
@@ -384,6 +395,9 @@ namespace Game.Presentation
         {
             Grid = new GridRuntime(cellSize);
             Power = new PowerSystem();
+            PowerPriority = new PowerPriorityOrder();
+            PowerPriority.EnsureKnows(PowerGroupIds());
+            Power.Priority = PowerPriority;
             Compute = new ComputeSystem();
             Research = new ResearchSystem(Compute);
             Transport = new TransportSystem(Grid);
@@ -617,6 +631,7 @@ namespace Game.Presentation
             CoreDirectives.RestoreState(save.CoreDirectives);
             Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core, ConstructionSites);
             Construction.RestoreBuildingCap(save.BuildingCap);
+            PowerPriority.RestoreState(save.PowerPriority, PowerGroupIds());
             Clock.Restore(save.PlayTimeSeconds);
 
             foreach (BuildingSaveData buildingSave in save.Buildings)
@@ -661,6 +676,9 @@ namespace Game.Presentation
         /// </summary>
         Vector2 ExplorerParkOrigin() => RobotParkOrigin() + new Vector2(3f, 0f);
 
+        /// <summary>Public because the power priority screen lists types by identifier and needs their display name - the catalogue is this object's, and a panel holding its own copy would be a second source for the same list.</summary>
+        public BuildingDefinition FindBuildingDefinitionById(string id) => FindBuildingDefinition(id);
+
         BuildingDefinition FindBuildingDefinition(string id)
         {
             if (string.IsNullOrEmpty(id)) return null;
@@ -681,6 +699,25 @@ namespace Game.Presentation
         /// Only a definition that actually carries art qualifies - one without an override sprite
         /// would send the spawner back to the placeholder it is trying to avoid.
         /// </summary>
+        /// <summary>
+        /// Every building type the power order covers, in catalogue order - which is the default
+        /// arbitration for a fresh run and the tie-break for anything a save does not mention.
+        ///
+        /// <b>Derived, never listed.</b> A type added to the catalogue appears here without this
+        /// file being edited; that is the whole requirement behind the order being identifiers.
+        /// Everything in the catalogue is included, even a type that draws no power today: a
+        /// definition's kilowatts can change in a balance pass, and an order that quietly excluded
+        /// the types that happened to be free would then need a migration - which is what
+        /// identifiers exist to avoid.
+        /// </summary>
+        IEnumerable<string> PowerGroupIds()
+        {
+            foreach (BuildingDefinition definition in buildingCatalog)
+            {
+                if (definition != null && !string.IsNullOrEmpty(definition.Id)) yield return definition.Id;
+            }
+        }
+
         ConveyorDefinition ConveyorArt(ConveyorShapeKind shape)
         {
             foreach (BuildingDefinition definition in buildingCatalog)
@@ -753,6 +790,7 @@ namespace Game.Presentation
                 ResearchQueue = BuildResearchQueueIds(),
                 ResearchUnlocked = new List<string>(Research.GetUnlockedIds()),
                 BuildingCap = Construction.BuildingCap,
+                PowerPriority = PowerPriority?.CaptureState(),
                 PlayTimeSeconds = Clock.ElapsedSeconds,
                 ConstructionSites = ConstructionSites?.CaptureState(),
                 CoreDirectives = CoreDirectives?.CaptureState()

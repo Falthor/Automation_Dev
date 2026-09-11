@@ -342,15 +342,42 @@ The construction system owns preview/ghost state and placement orchestration.
 Implemented by `PowerSystem` (`Game.Gameplay.Power`), owned by `GameRuntime`:
 
 ```csharp
-public void ReportDemand(float kilowatts)
+public bool TryDraw(string groupId, float kilowatts)
 public void ReportSupply(float kilowatts)
-public bool IsPowered()
 public void Settle()
+public bool IsPowered()
+public float DemandOf(string groupId)
+public float AllocatedTo(string groupId)
+public int AskingInstancesOf(string groupId)
+public int ServedInstancesOf(string groupId)
+public PowerPriorityOrder Priority { get; set; }
 ```
 
-Report-then-settle: consumers/sources call `ReportDemand`/`ReportSupply` during their own tick; `Settle()` (called once per `GameRuntime.Update()`, before that tick) moves the previous frame's reports into `SettledDemand`/`SettledSupply` and clears the accumulators - one frame of intentional lag. `IsPowered()` is binary (`SettledDemand <= SettledSupply`), no partial degradation, and recovers automatically the instant reported demand drops back at/under supply (no cooldown).
+Report-then-settle: consumers draw and sources report during their own tick; `Settle()` (called once per `GameRuntime.Update()`, before that tick) turns the previous frame's reports into `SettledDemand`/`SettledSupply` **and into this frame's per-group budgets** - one frame of intentional lag. Recovery is automatic the instant demand drops back at/under supply, with no cooldown.
 
-The UI reads `SettledDemand`/`SettledSupply`/`IsPowered()` through this contract and must not inspect individual building private power fields.
+**Power is allocated by building type, in the order the player arranges.** It used to be one boolean for the whole base (`SettledDemand <= SettledSupply`), so a shortage stopped every powered building at once - which is a dead end rather than a setback: with the Data Center among them, CU production stopped too, and without CU nothing can be built or burned to get out of it. `Settle` walks `Priority` (§9a) and gives each group all of its demand or whatever is left of supply, whichever is smaller, so **the shortage falls on exactly one group** - the one the running total crosses - and everything below it gets nothing.
+
+`TryDraw` both reports and answers, deliberately: a building that asks counts towards the next frame's demand whether or not it runs this one, and splitting the two invites a caller to do one without the other. `BuildingRuntime.ComputeEffectivePerformance` is the single caller for every building whose progress freezes while unpowered, and it draws against `Definition.Id`.
+
+**Partial service is per instance, not per building's speed.** A group allocated 1 kW of the 2 kW it asked for runs one of its two extractors rather than both at half speed: within a group, instances draw until its share is spent, in the order they tick. A machine is either running or it is not, which is the only thing the rest of the simulation knows how to represent. `ServedInstancesOf`/`AskingInstancesOf` are counted at the draw, not divided out of the kilowatts - a group's instances need not draw the same amount (the Data Center's demand is its installed components') and an instance takes its whole demand or nothing.
+
+**Nothing is served off the top.** The Gas Powerplant used to declare 2 kW of self-consumption, reported unconditionally and never gated - a load nobody could switch off and that this system had no way to arbitrate. It was removed rather than modelled as overhead: a plant draws nothing from the network it feeds.
+
+The UI reads the settled totals and the per-group figures through this contract and must not inspect individual building private power fields.
+
+### 9a. Power priority order
+
+`PowerPriorityOrder` (`Game.Gameplay.Power`), owned by `GameRuntime.PowerPriority` and read by `PowerSystem` at every settle. **An order of type identifiers, never of positions** - that is what makes the list extensible without a migration.
+
+Seeded from `GameRuntime`'s building catalogue, never from a list written by hand, so a type added to the game appears in it without any screen or contract being edited. It holds **every** known type, including ones never built: a screen may filter what it draws, the order underneath does not, which is what stops the list reshuffling itself the day a new type is built. A type the order has never heard of ranks after everything in it.
+
+Three restore rules, and they are the whole claim (`PowerPriorityOrderTests`):
+
+- a saved identifier the game still has keeps its place;
+- a type the game has and the save does not - added since - goes to the bottom;
+- a saved identifier the game no longer has is dropped silently, because a removed building type is not an error in somebody's save.
+
+It travels as `SaveData.PowerPriority` (a list of ids; absent restores as the catalogue's own order, so no version bump - the same per-field tolerance `BuildingCap` uses).
 
 ## 10. Compute
 

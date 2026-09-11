@@ -235,13 +235,16 @@ namespace Game.Gameplay.Buildings
                 RecalculateStability(_memorySlots);
             }
 
-            // Compute output is explicitly gated on IsPowered() directly (an instantaneous rate,
-            // not something effectiveDelta=0 would zero out on its own) - shutdown must silence
-            // it immediately, not just freeze its progression. It is a CU/s rate, so what lands
-            // in the reserve is that rate times this tick's own duration. Both axes currently
-            // credit the same single reserve (§7) - going through the same public per-axis
-            // methods the UI reads keeps this from duplicating the yield calculation.
-            if (_powerSystem.IsPowered()) _computeSystem.Grant((GetResearchAxisProduction() + GetBuildingsAxisProduction()) * deltaTime);
+            // Gated on this building's own draw rather than on a global answer (an instantaneous
+            // rate, not something effectiveDelta=0 would zero out on its own) - shutdown must
+            // silence it immediately, not just freeze its progression. `performance` is what the
+            // power gate above returned for the datacenter group, so a Data Center the player put
+            // first keeps producing CU while the rest of the base waits - which is the whole point
+            // of the priority order. It is a CU/s rate, so what lands in the reserve is that rate
+            // times this tick's own duration. Both axes currently credit the same single reserve
+            // (§7) - going through the same public per-axis methods the UI reads keeps this from
+            // duplicating the yield calculation.
+            if (performance > 0f) _computeSystem.Grant((GetResearchAxisProduction() + GetBuildingsAxisProduction()) * deltaTime);
             _previousPowerDemand = TotalPowerDemand();
         }
 

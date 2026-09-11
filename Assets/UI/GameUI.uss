@@ -2880,3 +2880,237 @@
     -unity-font-style: italic;
     white-space: normal;
 }
+
+
+/* ---------------------------------------------------------------------------------------------
+   Datacenter panel - the shared classes, tightened
+
+   .extractor-section-label, .header-row and the threshold rows belong to several panels, so the
+   overrides are scoped to this one and appended here: two class names deep, grouped and last, is a
+   rule that cannot quietly lose to the generic one. See the same note above the production panel.
+   --------------------------------------------------------------------------------------------- */
+
+.panel.datacenter-panel {
+    padding: 8px;
+}
+
+.datacenter-panel .header-row {
+    margin-bottom: 4px;
+    padding-bottom: 4px;
+}
+
+.datacenter-panel .extractor-section-label {
+    font-size: 9px;
+    margin-top: 2px;
+    margin-bottom: 1px;
+}
+
+.datacenter-panel .inline-icon-row {
+    margin-top: 0;
+}
+
+.datacenter-panel .datacenter-threshold-row {
+    margin-bottom: 1px;
+}
+
+.datacenter-panel .datacenter-slider {
+    margin: 0 6px;
+}
+
+
+/* ---------------------------------------------------------------------------------------------
+   Power panel - tabs, and the priority list (design/maquette-onglet-priorite.png)
+
+   A reorderable list states an order but not its consequences, and the consequence is the whole
+   point: the cut line is drawn where the running total of demand crosses production, so the player
+   drags a handle and watches the line move rather than doing arithmetic. Above it, served; below
+   it, stopped and dimmed.
+
+   The line is positioned over the list rather than inserted into it. A child that is not a row
+   would make every index in the drag's arithmetic conditional, and the drag is the one thing here
+   that must not be clever.
+   --------------------------------------------------------------------------------------------- */
+
+.power-panel {
+    width: 340px;
+}
+
+.tab-row {
+    flex-direction: row;
+    margin-bottom: 8px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgb(48, 59, 66);
+}
+
+.tab-button {
+    flex-grow: 1;
+    height: 24px;
+    font-size: 11px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    border-radius: 0;
+    border-bottom-width: 2px;
+    border-bottom-color: rgba(0, 0, 0, 0);
+    color: rgb(150, 158, 165);
+}
+
+.tab-button:hover {
+    color: rgb(215, 224, 229);
+}
+
+.tab-button-active {
+    color: rgb(85, 221, 245);
+    border-bottom-color: rgb(85, 221, 245);
+}
+
+/* --- The header: three figures, and the deficit is the one that turns --- */
+
+.pr-header {
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.pr-header-cell {
+    flex-direction: column;
+}
+
+.pr-header-label {
+    font-size: 9px;
+    color: rgb(150, 158, 165);
+    margin-bottom: 1px;
+}
+
+.pr-header-value-row {
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.pr-header-value {
+    font-size: 17px;
+    color: rgb(85, 221, 245);
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.pr-header-unit {
+    font-size: 9px;
+    color: rgb(150, 158, 165);
+    margin-left: 3px;
+    margin-bottom: 2px;
+}
+
+.pr-value-warn {
+    color: rgb(242, 83, 83);
+}
+
+.pr-help-line {
+    font-size: 9px;
+    color: rgb(150, 158, 165);
+    white-space: normal;
+    margin-top: 6px;
+}
+
+/* --- The list --- */
+
+.pr-list {
+    flex-direction: column;
+}
+
+/* 22px, and PowerPanelController.RowHeight says the same thing: one row of pointer travel moves a
+   group by one place. The two have to agree, and the layout is what shows it if they stop. */
+.pr-row {
+    flex-direction: row;
+    align-items: center;
+    height: 22px;
+}
+
+.pr-row-stopped {
+    opacity: 0.45;
+}
+
+.pr-row-dragging {
+    background-color: rgb(26, 34, 40);
+}
+
+/* The grip. Six dots rather than an icon: it is the one control here, and it has to read as
+   draggable without a tooltip. */
+.pr-handle {
+    width: 12px;
+    height: 14px;
+    margin-right: 7px;
+    background-color: rgba(0, 0, 0, 0);
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-left-color: rgb(90, 100, 108);
+    border-right-color: rgb(90, 100, 108);
+}
+
+.pr-handle:hover {
+    border-left-color: rgb(85, 221, 245);
+    border-right-color: rgb(85, 221, 245);
+}
+
+.pr-row-name {
+    font-size: 11px;
+    color: rgb(232, 240, 245);
+}
+
+/* Present but secondary: the player wants to know how many they have without it competing with the
+   draw, which is the figure the decision turns on. */
+.pr-row-count {
+    flex-grow: 1;
+    font-size: 9px;
+    color: rgb(120, 128, 135);
+    margin-left: 5px;
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.pr-row-draw {
+    width: 52px;
+    font-size: 11px;
+    color: rgb(232, 240, 245);
+    -unity-text-align: middle-right;
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.pr-row-state {
+    width: 62px;
+    font-size: 9px;
+    color: rgb(150, 158, 165);
+    -unity-text-align: middle-right;
+}
+
+.pr-state-served {
+    color: rgb(126, 211, 148);
+}
+
+.pr-state-partial {
+    color: rgb(232, 168, 61);
+}
+
+.pr-state-stopped {
+    color: rgb(242, 83, 83);
+}
+
+/* --- The cut line, over the rows --- */
+
+.pr-cut-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    flex-direction: row;
+    align-items: center;
+}
+
+.pr-cut-rule {
+    flex-grow: 1;
+    height: 1px;
+    background-color: rgb(242, 83, 83);
+}
+
+.pr-cut-label {
+    font-size: 8px;
+    color: rgb(242, 83, 83);
+    margin-left: 6px;
+    margin-right: 6px;
+}

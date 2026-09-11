@@ -91,7 +91,7 @@ namespace Game.Tests.EditMode.Presentation
             ItemDefinition fuel = TestDataFactory.NewItem("gas");
             _assets.Add(fuel);
 
-            PowerplantGazDefinition definition = TestDataFactory.NewPowerplantGaz(fuel, 10, 100f, 0f, 0f, 1f);
+            PowerplantGazDefinition definition = TestDataFactory.NewPowerplantGaz(fuel, 10, 100f, 0f, 1f);
             _assets.Add(definition);
 
             return new PowerplantGazRuntime(definition, new GridCoord(0, 0), Direction.North,

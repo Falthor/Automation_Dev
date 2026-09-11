@@ -113,6 +113,36 @@ namespace Game.Gameplay.Transport
         /// </summary>
         public IReadOnlyList<BuildingRuntime> NonBeltBuildings => _allOthers;
 
+        /// <summary>
+        /// How many of each building definition are standing, by definition id, written into a
+        /// caller-owned dictionary.
+        ///
+        /// A dictionary passed in rather than returned, the convention
+        /// <c>DiscoveryRuntime.CollectMaterialisedChunks</c> already uses here: the one caller is a
+        /// panel that asks every frame it is open, and returning a fresh dictionary would allocate
+        /// one per frame.
+        /// </summary>
+        public void CountByDefinition(Dictionary<string, int> into)
+        {
+            if (into == null) return;
+            into.Clear();
+
+            CountInto(into, _conveyors);
+            CountInto(into, _splitters);
+            CountInto(into, _crossroads);
+            CountInto(into, _allOthers);
+        }
+
+        static void CountInto<T>(Dictionary<string, int> into, List<T> buildings) where T : BuildingRuntime
+        {
+            for (int i = 0; i < buildings.Count; i++)
+            {
+                string id = buildings[i].Definition != null ? buildings[i].Definition.Id : null;
+                if (string.IsNullOrEmpty(id)) continue;
+                into[id] = into.TryGetValue(id, out int existing) ? existing + 1 : 1;
+            }
+        }
+
         public IEnumerable<BuildingRuntime> GetAllBuildings()
         {
             foreach (BuildingRuntime building in _conveyors) yield return building;

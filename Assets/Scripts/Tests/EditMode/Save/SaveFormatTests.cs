@@ -80,6 +80,12 @@ namespace Game.Tests.EditMode.Save
             "ConstructionSites", "CoreDirectives",
             "CoreDefinitionId", "CoreCellX", "CoreCellY", "CoreState",
             "BuildingCap", "PlayTimeSeconds",
+
+            // The power priority order (CONTRACTS.md §9a). Absent restores as the building
+            // catalogue's own order, which is the default arbitration anyway - so CurrentVersion is
+            // deliberately not bumped, for the same reason as WrecksDiscovered above.
+            "PowerPriority",
+
             "Deposits", "Buildings"
         };
 

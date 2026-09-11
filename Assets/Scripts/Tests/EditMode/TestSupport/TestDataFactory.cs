@@ -240,14 +240,13 @@ namespace Game.Tests.EditMode.TestSupport
             return advancedFoundry;
         }
 
-        public static PowerplantGazDefinition NewPowerplantGaz(ItemDefinition fuelItem, int maxFuelStack, float powerOutputKw, float selfPowerDemandKw, float cuCostPerCycle, float fuelCycleTimeSeconds)
+        public static PowerplantGazDefinition NewPowerplantGaz(ItemDefinition fuelItem, int maxFuelStack, float powerOutputKw, float cuCostPerCycle, float fuelCycleTimeSeconds)
         {
             var powerplant = ScriptableObject.CreateInstance<PowerplantGazDefinition>();
             var so = new SerializedObject(powerplant);
             so.FindProperty("fuelItem").objectReferenceValue = fuelItem;
             so.FindProperty("maxFuelStack").intValue = maxFuelStack;
             so.FindProperty("powerOutputKw").floatValue = powerOutputKw;
-            so.FindProperty("selfPowerDemandKw").floatValue = selfPowerDemandKw;
             so.FindProperty("cuCostPerCycle").floatValue = cuCostPerCycle;
             so.FindProperty("fuelCycleTimeSeconds").floatValue = fuelCycleTimeSeconds;
             so.ApplyModifiedPropertiesWithoutUndo();
@@ -320,6 +319,9 @@ namespace Game.Tests.EditMode.TestSupport
         {
             var dataCenter = ScriptableObject.CreateInstance<DataCenterDefinition>();
             var so = new SerializedObject(dataCenter);
+            // Named, because power is drawn per building type now: a definition with no id is its
+            // own group called "", which is legal and unhelpful to read in a failure message.
+            so.FindProperty("id").stringValue = "datacenter";
             so.FindProperty("maxStackPerItem").intValue = maxStackPerItem;
             so.FindProperty("unlockResearch").objectReferenceValue = unlockResearch;
             SetStringArray(so, "acceptedItemIds", acceptedItemIds);

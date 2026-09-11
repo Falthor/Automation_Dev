@@ -50,9 +50,6 @@ namespace Game.Gameplay.Buildings
 
         public override void Tick(float deltaTime)
         {
-            // Self-consumption is unconditional - unrelated to whether it currently has fuel.
-            _powerSystem.ReportDemand(_definition.SelfPowerDemandKw);
-
             if (!HasFuel)
             {
                 _fuelTimer = 0f;
