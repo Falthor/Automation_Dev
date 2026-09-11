@@ -13,10 +13,9 @@ namespace Game.Tests.EditMode.Presentation
     /// <see cref="EscapeArbiter.ClaimantFor"/> and <see cref="EscapeArbiter.Claimant"/>, never
     /// <c>IsClaimedBy</c>: that one reads the physical key, and an EditMode test has no keyboard to
     /// press. It is not a gap in the coverage, because the exclusivity does not live in the key read.
-    /// <c>IsClaimedBy</c> is <c>Claimant == mine &amp;&amp; the key is down</c>, and
-    /// <see cref="EscapeArbiter.Claimant"/> is a single value - so pinning the claimant pins that at
-    /// most one reader can ever act, which is exactly what fourteen independent <c>if</c>s could not
-    /// promise.
+    /// <c>IsClaimedBy</c> is <c>the key is down &amp;&amp; ClaimantThisFrame == mine</c>, and the
+    /// claimant of a frame is a single value, settled once - so pinning it pins that at most one
+    /// reader can ever act, which is exactly what fourteen independent <c>if</c>s could not promise.
     /// </summary>
     public class EscapeArbiterTests
     {
@@ -139,6 +138,27 @@ namespace Game.Tests.EditMode.Presentation
 
             Assert.AreEqual(EscapeClaimant.None, arbiter.Claimant);
             Assert.IsFalse(arbiter.IsClaimedBy(EscapeClaimant.None), "None is a description of the state, not a tier that acts.");
+        }
+
+        /// <summary>
+        /// <b>One press closes one thing.</b> The panel that takes the key closes itself, and a reader
+        /// asking later in the same frame must still be told the key was the panel's - otherwise the
+        /// Top Bar, seeing nothing open any more, opened the menu on the very same keypress.
+        /// </summary>
+        [Test]
+        public void TheClaimant_IsSettledForTheWholeFrame_ByTheFirstReader()
+        {
+            var selection = new SelectionRuntime();
+            var arbiter = new EscapeArbiter(selection, null);
+            arbiter.SetMenuProbe(() => MenuOverlayState.Closed);
+            selection.OpenGlobalPanel("research");
+
+            Assert.AreEqual(EscapeClaimant.GlobalPanel, arbiter.ClaimantThisFrame(10));
+
+            selection.CloseGlobalPanel(); // what the panel does with the key
+
+            Assert.AreEqual(EscapeClaimant.GlobalPanel, arbiter.ClaimantThisFrame(10), "Same frame: the menu behind it must not get the same press.");
+            Assert.AreEqual(EscapeClaimant.MenuOverlay, arbiter.ClaimantThisFrame(11), "The next press, with nothing open, opens the menu.");
         }
 
         // ---- Read against the live selection ----

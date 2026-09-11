@@ -101,6 +101,9 @@ namespace Game.Presentation
         /// </summary>
         Func<MenuOverlayState> _menuProbe;
 
+        int _settledFrame = -1;
+        EscapeClaimant _settled;
+
         public EscapeArbiter(SelectionRuntime selection, ConstructionService construction)
         {
             _selection = selection;
@@ -149,9 +152,28 @@ namespace Game.Presentation
         /// </summary>
         public bool IsClaimedBy(EscapeClaimant claimant)
         {
-            if (claimant == EscapeClaimant.None || Claimant != claimant) return false;
+            if (claimant == EscapeClaimant.None || !InputBindings.WasPressedThisFrame(_close)) return false;
 
-            return InputBindings.WasPressedThisFrame(_close);
+            return ClaimantThisFrame(UnityEngine.Time.frameCount) == claimant;
+        }
+
+        /// <summary>
+        /// The claimant as it stood when the first reader asked on this frame, held for the rest of it.
+        ///
+        /// <b>Derived is not enough on its own.</b> A reader acts on the key it is awarded, and acting
+        /// changes the state the claimant is derived from: a panel closing itself leaves nothing open,
+        /// and a reader asking later in the same frame - the Top Bar - was then told the key was the
+        /// menu's. One keypress closed the window and opened the menu behind it. Settling the answer
+        /// once per frame, before anybody has acted on it, is what makes one press close one thing.
+        /// </summary>
+        public EscapeClaimant ClaimantThisFrame(int frame)
+        {
+            if (frame != _settledFrame)
+            {
+                _settledFrame = frame;
+                _settled = Claimant;
+            }
+            return _settled;
         }
     }
 }
