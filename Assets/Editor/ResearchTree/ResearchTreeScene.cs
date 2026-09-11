@@ -176,10 +176,15 @@ namespace Game.EditorTools
         /// Every editor tick while the scene is open: a handle that was moved writes its ring and angle
         /// to the asset, and every handle is then put back where its asset says - which is what snaps
         /// a dragged node onto its ring, and what makes a handle follow a change made anywhere else.
+        ///
+        /// Nothing happens while a control is held: snapping under the cursor pinned a node to its ring
+        /// until the drag passed halfway to the next one, so it seemed not to move at all. The node now
+        /// follows the cursor freely and lands on its ring when it is let go.
         /// </summary>
         static void KeepInStep()
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode || !IsOpen) return;
+            if (GUIUtility.hotControl != 0) return;
             if (_rebuildPending)
             {
                 Rebuild();

@@ -15,8 +15,10 @@ par recherche de la base, noyaux compris, posé sur son anneau à son angle.
 - **Relier** : l'outil *Link* de la barre d'outils de la scène, proposé dès qu'un nœud est
   sélectionné. Un clic sur un nœud, puis sur un autre : le premier devient prérequis du second.
   Recliquer la même paire retire le lien ; cliquer dans le vide abandonne.
-- **Déplacer** : l'outil de translation habituel. Le nœud se cale sur l'anneau le plus proche, l'angle
-  reste libre.
+- **Déplacer** : l'outil de translation habituel, par le carré au centre de ses flèches. Le nœud suit
+  la souris, et se cale au relâchement sur l'anneau le plus proche ; l'angle reste libre. Le caler
+  pendant le glissement le clouait à son anneau jusqu'à mi-chemin du suivant : il semblait ne pas
+  bouger.
 
 Tout passe par l'annulation d'Unity. Rien n'est écrit sur disque avant File > Save Project, sauf la
 création, qui enregistre tout de suite l'asset qu'elle fabrique.
