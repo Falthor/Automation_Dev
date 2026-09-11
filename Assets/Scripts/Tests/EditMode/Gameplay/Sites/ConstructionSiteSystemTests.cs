@@ -441,30 +441,42 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         /// collected coal through its whole construction and lit up the instant it was finished, on
         /// fuel it should never have been able to accept.
         ///
-        /// Tested through a production building's push, which is one of the six lookups; they all
-        /// read the same predicate now, which is why one is enough to pin the rule.
+        /// Tested through a belt ending on the chantier, which is one of the six lookups; they all
+        /// read the same predicate now, which is why one is enough to pin the rule. A belt and not a
+        /// machine's push, deliberately: a chest refuses a machine whether or not it is built
+        /// (TransportSystem.MayFeedStorage), so that probe would keep answering "nothing arrived"
+        /// with the chantier guard deleted - and this test has to fail when it is.
         /// </summary>
         [Test]
         public void APendingBuilding_IsNeverHandedItemsByTransport()
         {
             Fixture fixture = NewFixture(coreChestContents: 20);
 
-            FactoryDefinition factoryDefinition = TestDataFactory.NewFactory(0f, System.Array.Empty<string>(), System.Array.Empty<string>());
-            var factory = new FactoryRuntime(factoryDefinition, new GridCoord(30, 30), Direction.North,
-                TestDataFactory.NewRecipeDatabase(), new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
-            factory.AddOutput(PlateId, 10);
-            fixture.Grid.SetOccupantFootprint(factory.Cell, factoryDefinition.FootprintSize, factory);
-            fixture.Transport.Register(factory);
-
-            // A chantier standing exactly where the factory pushes.
+            // A chantier with a belt ending on it.
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
-            ConstructionSiteRuntime site = PlaceSite(fixture, costly, factory.GetOutputCells()[0]);
+            var targetCell = new GridCoord(30, 30);
+            ConstructionSiteRuntime site = PlaceSite(fixture, costly, targetCell);
             var pending = (StorageRuntime)site.Segments[0];
+            ConveyorRuntime belt = AddBeltEndingOn(fixture, targetCell);
 
-            for (int i = 0; i < 50; i++) fixture.Transport.Tick(TickSeconds);
+            for (int i = 0; i < 50; i++)
+            {
+                if (belt.HasRoomForNewItem) belt.ReceiveItem(PlateId);
+                fixture.Transport.Tick(TickSeconds);
+            }
 
             Assert.AreEqual(0, pending.GetInputAmount(PlateId), "Nothing may be handed to a building that is not built yet.");
-            Assert.AreEqual(10, factory.GetOutputContents()[PlateId], "And the factory kept what it had nowhere to put - nothing was destroyed in the refusal.");
+            Assert.IsNotNull(belt.PeekPullableItem(), "And the belt kept what it had nowhere to put - nothing was destroyed in the refusal.");
+        }
+
+        /// <summary>A straight belt one cell west of that cell, pointing east onto it - the only intake a chest accepts (CONTRACTS.md §3a).</summary>
+        static ConveyorRuntime AddBeltEndingOn(Fixture fixture, GridCoord cell)
+        {
+            var belt = new ConveyorRuntime(TestDataFactory.NewConveyor(), new GridCoord(cell.X - 1, cell.Y), Direction.East);
+            belt.ConfigureAsStraight(Direction.East);
+            fixture.Grid.SetOccupant(belt.Cell, belt);
+            fixture.Transport.Register(belt);
+            return belt;
         }
 
         /// <summary>The other half of the same rule: once its last piece lands it is a real building, and transport deals with it exactly as it always has. Without this the guard could pass by simply refusing everyone forever.</summary>
@@ -473,21 +485,20 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         {
             Fixture fixture = NewFixture(coreChestContents: 20);
 
-            FactoryDefinition factoryDefinition = TestDataFactory.NewFactory(0f, System.Array.Empty<string>(), System.Array.Empty<string>());
-            var factory = new FactoryRuntime(factoryDefinition, new GridCoord(30, 30), Direction.North,
-                TestDataFactory.NewRecipeDatabase(), new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
-            factory.AddOutput(PlateId, 10);
-            fixture.Grid.SetOccupantFootprint(factory.Cell, factoryDefinition.FootprintSize, factory);
-            fixture.Transport.Register(factory);
-
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 4));
-            ConstructionSiteRuntime site = PlaceSite(fixture, costly, factory.GetOutputCells()[0]);
+            var targetCell = new GridCoord(30, 30);
+            ConstructionSiteRuntime site = PlaceSite(fixture, costly, targetCell);
             var target = (StorageRuntime)site.Segments[0];
+            ConveyorRuntime belt = AddBeltEndingOn(fixture, targetCell);
 
             fixture.Simulate(20f);
             Assert.IsTrue(site.IsComplete, "It has to be really built for this to mean anything.");
 
-            for (int i = 0; i < 50; i++) fixture.Transport.Tick(TickSeconds);
+            for (int i = 0; i < 50; i++)
+            {
+                if (belt.HasRoomForNewItem) belt.ReceiveItem(PlateId);
+                fixture.Transport.Tick(TickSeconds);
+            }
 
             Assert.Greater(target.GetInputAmount(PlateId), 0, "A finished building takes deliveries again.");
         }
