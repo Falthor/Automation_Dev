@@ -138,7 +138,17 @@ namespace Game.Presentation
         /// It only ever opens. A run that has already earned these keeps them either way, and no
         /// directive is marked done - the Core still asks for its first delivery.
         /// </summary>
-        [SerializeField] bool startWithEverythingUnlocked = true;
+        /// <summary>
+        /// Development bypass: brings the explorer robots out at once and hands over the Research
+        /// menu, skipping the thresholds that normally grant them.
+        ///
+        /// <b>Off by default, deliberately.</b> It used to default to true, which is how a build
+        /// shipped with both already granted at the first frame - the fleet standing at the park
+        /// before the reserve had fallen anywhere near its threshold, and the Research menu present
+        /// before the first directive opened it. A bypass whose resting state is "on" is not a
+        /// bypass, it is the behaviour.
+        /// </summary>
+        [SerializeField] bool startWithEverythingUnlocked;
 
         public GridRuntime Grid { get; private set; }
         public TerrainRuntime Terrain { get; private set; }
@@ -239,6 +249,17 @@ namespace Game.Presentation
         /// to be told here or not at all.
         /// </summary>
         public bool StartedFromNewGame { get; private set; }
+
+        /// <summary>
+        /// The named save this session writes to - one folder per name under the persistent data
+        /// path (<see cref="Game.Save.SaveService"/>).
+        ///
+        /// Taken from <c>PendingGameStart</c> in Awake and kept, because that carrier is consumed
+        /// there and nothing downstream could recover it. <see cref="SaveAs"/> moves it when the
+        /// player saves under a different name, so an autosave that follows goes to the same place
+        /// the player last chose rather than back to where the session started.
+        /// </summary>
+        public string CurrentSaveName { get; private set; }
         public ItemVisualSync ItemVisuals => itemVisuals;
         public ConstructionSiteVisualSync ConstructionSiteVisuals => constructionSiteVisuals;
         public ItemDatabase Items => itemDatabase;
@@ -365,7 +386,8 @@ namespace Game.Presentation
             _depthSortCamera = Camera.main;
 
             SaveData loadedSave = PendingGameStart.LoadedSave;
-            PendingGameStart.RequestNewGame(); // consume immediately - never read a second time this session
+            CurrentSaveName = PendingGameStart.SaveName;
+            PendingGameStart.RequestNewGame(CurrentSaveName); // consume immediately - never read a second time this session
             StartedFromNewGame = loadedSave == null;
 
             if (loadedSave != null)
@@ -637,6 +659,29 @@ namespace Game.Presentation
 
         ResearchDefinition FindResearchDefinition(string id) => researchDatabase != null ? researchDatabase.Get(id) : null;
 
+        /// <summary>
+        /// The catalogue's own conveyor definition for a shape, or null if it carries none.
+        ///
+        /// Derived rather than wired: the two definitions are already in <c>buildingCatalog</c>, and
+        /// a second serialized field for the same two assets is a second thing to keep in agreement.
+        /// Only a definition that actually carries art qualifies - one without an override sprite
+        /// would send the spawner back to the placeholder it is trying to avoid.
+        /// </summary>
+        ConveyorDefinition ConveyorArt(ConveyorShapeKind shape)
+        {
+            foreach (BuildingDefinition definition in buildingCatalog)
+            {
+                if (definition is ConveyorDefinition conveyor
+                    && conveyor.DefaultShape == shape
+                    && conveyor.OverrideSprite != null)
+                {
+                    return conveyor;
+                }
+            }
+
+            return null;
+        }
+
         List<string> BuildResearchQueueIds()
         {
             var ids = new List<string>();
@@ -648,6 +693,20 @@ namespace Game.Presentation
         }
 
         /// <summary>Captures every system's current state into a SaveData and writes it to the single save file (CONTRACTS.md §14). Called by New Game (initial state) and OnApplicationQuit (current progress).</summary>
+        /// <summary>
+        /// Writes the session to a named save and adopts that name for everything after.
+        ///
+        /// Adopting it is the point: a player who saves as "avant le datacenter" expects the next
+        /// autosave to go there too, not back to the folder the session was launched from. Returns
+        /// whether the write landed, so the caller can say so instead of assuming.
+        /// </summary>
+        public bool SaveAs(string name)
+        {
+            CurrentSaveName = Game.Save.SaveService.Sanitise(name);
+            SaveCurrentGame();
+            return Game.Save.SaveService.Exists(CurrentSaveName);
+        }
+
         void SaveCurrentGame()
         {
             var data = new SaveData
@@ -721,7 +780,7 @@ namespace Game.Presentation
                 });
             }
 
-            SaveService.Save(data);
+            SaveService.Save(data, CurrentSaveName);
         }
 
         /// <summary>The map image owns a Texture2D, which Unity does not collect on its own.</summary>
@@ -1185,12 +1244,21 @@ namespace Game.Presentation
                 }
             }
 
+            // The two canonical conveyor definitions, read out of the catalogue rather than wired a
+            // second time: they are already in it. BuildingSpawner needs them to draw a belt whose
+            // shape no longer matches the definition that placed it - a straight drag-turned into a
+            // corner keeps the straight definition forever and would otherwise fall back to the
+            // procedural placeholder. The placement path has always passed them; the restore path
+            // did not, which is the same omission the comment below already records for the slab
+            // and the shadow.
             if (_restoredBuildings.Count > 0)
             {
                 // Passed the same presentation settings as the placement path, which it was not:
                 // a building coming back from a save has to look like the one that was placed, and
                 // this spawner was giving it neither a concrete slab nor a shadow.
-                var spawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(), null, null, GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings, DepthSort);
+                var spawner = new BuildingSpawner(Grid, new ProceduralSpriteFactory(),
+                    ConveyorArt(ConveyorShapeKind.Straight), ConveyorArt(ConveyorShapeKind.Corner),
+                    GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings, DepthSort);
                 foreach (BuildingRuntime building in _restoredBuildings)
                 {
                     spawner.SpawnView(building);

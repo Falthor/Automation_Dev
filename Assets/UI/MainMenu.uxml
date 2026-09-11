@@ -14,9 +14,33 @@
 
         <ui:Instance template="Shortcuts" name="ShortcutsHost" />
 
+        <!-- New Game asks what to call the run: the name is the folder its saves live in. -->
+        <ui:VisualElement name="NameOverlay" class="confirm-overlay hidden">
+            <ui:VisualElement class="confirm-dialog">
+                <ui:Label text="Nom de la partie" class="confirm-message" />
+                <ui:TextField name="NameField" class="save-name-field" max-length="48" />
+                <ui:VisualElement class="confirm-button-row">
+                    <ui:Button name="NameCancelButton" text="ANNULER" class="main-menu-button confirm-button" />
+                    <ui:Button name="NameAcceptButton" text="COMMENCER" class="main-menu-button confirm-button" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Load lists what is on disk, most recently written first. Rows are built by the
+             controller: there is no fixed number of saves to lay out in advance. -->
+        <ui:VisualElement name="LoadOverlay" class="confirm-overlay hidden">
+            <ui:VisualElement class="confirm-dialog">
+                <ui:Label text="Charger une partie" class="confirm-message" />
+                <ui:ScrollView name="LoadList" class="save-list" />
+                <ui:VisualElement class="confirm-button-row">
+                    <ui:Button name="LoadCancelButton" text="ANNULER" class="main-menu-button confirm-button" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
         <ui:VisualElement name="ConfirmOverlay" class="confirm-overlay hidden">
             <ui:VisualElement class="confirm-dialog">
-                <ui:Label text="Une sauvegarde existe déjà. Commencer une nouvelle partie l'écrasera définitivement." class="confirm-message" />
+                <ui:Label name="ConfirmMessage" text="" class="confirm-message" />
                 <ui:VisualElement class="confirm-button-row">
                     <ui:Button name="ConfirmCancelButton" text="ANNULER" class="main-menu-button confirm-button" />
                     <ui:Button name="ConfirmAcceptButton" text="ECRASER" class="main-menu-button confirm-button confirm-button-danger" />

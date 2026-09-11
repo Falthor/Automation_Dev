@@ -368,7 +368,6 @@ Concrete types include, where migrated:
 - Factory / ProductionBuilding
 - Foundry
 - AdvancedFoundry
-- Assembler
 - Conveyor
 - Splitter
 
@@ -556,9 +555,9 @@ These behaviors belong in `CONTRACTS.md` or subsystem-specific documents once im
 
 ## 21. Save system
 
-A mono-save system exists (`Game.Save`, detailed in `CONTRACTS.md` §14): a single fixed save file on disk, always overwritten in place, no save slots.
+Named saves exist (`Game.Save`, detailed in `CONTRACTS.md` §14): one folder per save name under `Application.persistentDataPath`, each holding a `save.json`.
 
-The entry point is no longer `Bootstrap.unity` directly - `MainMenu.unity` is scene index 0 in Build Settings and loads first, with `Bootstrap.unity` at index 1. `MainMenu.unity` presents New Game / Load; both write `Game.Save.PendingGameStart.LoadedSave` and load `Bootstrap.unity`, which `GameRuntime.Awake()` reads to decide between generating a new world and restoring one from the save file. New Game writes the save immediately (its initial state); the save is rewritten with current progress on `OnApplicationQuit`.
+The entry point is no longer `Bootstrap.unity` directly - `MainMenu.unity` is scene index 0 in Build Settings and loads first. `MainMenu.unity` presents New Game / Load: New Game asks what to call the run, Load picks from the saves on disk, and both write `Game.Save.PendingGameStart` (the chosen save's data, if any, and its name) before loading `Bootstrap.unity`, which `GameRuntime.Awake()` reads to decide between generating a new world and restoring one. New Game writes the save immediately (its initial state); the save is rewritten with current progress on `OnApplicationQuit`, and on demand from the in-game menu (`GLOBAL_UI.md` §8b), which may also write it under a different name.
 
 Every runtime system capable of holding meaningful state (`GridRuntime` via the buildings placed on it, `ComputeSystem`, `ResearchSystem`, `TransportSystem`'s registered buildings, `WorldGenerator`, and every `BuildingRuntime`) exposes a `Capture`/`Restore` pair used only by the save layer - this is a public contract addition (CONTRACTS.md §14), not a private-field bypass (§1/§12 still hold).
 

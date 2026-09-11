@@ -2381,3 +2381,148 @@
     border-color: rgb(48, 59, 66);
     color: rgb(90, 96, 102);
 }
+
+/* ---- In-game menu (Top Bar's Menu button) ------------------------------------------------
+   Full-screen so a click anywhere outside the panel has nowhere else to land, and dark enough
+   that the game behind reads as suspended without being hidden. */
+
+.game-menu-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(6, 8, 10, 0.82);
+    align-items: center;
+    justify-content: center;
+}
+
+.game-menu-dialog {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(6, 8, 10, 0.9);
+    align-items: center;
+    justify-content: center;
+}
+
+.game-menu-panel {
+    width: 340px;
+    padding: 24px;
+    background-color: rgba(16, 20, 25, 0.98);
+    border-width: 1px;
+    border-color: rgb(48, 59, 66);
+}
+
+.game-menu-title {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgb(150, 158, 165);
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+}
+
+.game-menu-button {
+    height: 36px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 1px;
+    border-radius: 0;
+    border-color: rgb(48, 59, 66);
+    color: rgb(215, 224, 229);
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.game-menu-button:hover {
+    border-color: rgb(85, 221, 245);
+    color: rgb(85, 221, 245);
+    background-color: rgb(26, 34, 40);
+}
+
+/* Quitting is the one entry that cannot be undone, so it carries the red the rest of the
+   interface keeps for something actually going wrong. */
+.game-menu-button-danger:hover {
+    border-color: rgb(220, 105, 95);
+    color: rgb(220, 105, 95);
+}
+
+.game-menu-button-quiet {
+    color: rgb(150, 158, 165);
+    margin-top: 8px;
+    margin-bottom: 0;
+}
+
+.game-menu-notice {
+    font-size: 11px;
+    color: rgb(150, 158, 165);
+    white-space: normal;
+    margin-bottom: 12px;
+}
+
+/* The item name a left click reveals in a chest. Absolutely positioned like the slot menu it sits
+   in the same place as, and non-pickable so it can never swallow the click that dismisses it. */
+.storage-name-tag {
+    position: absolute;
+    padding: 3px 8px;
+    background-color: rgba(16, 20, 25, 0.98);
+    border-width: 1px;
+    border-color: rgb(85, 221, 245);
+    color: rgb(215, 224, 229);
+    font-size: 11px;
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+/* The save name, typed. Monospace like every other value in the game: a save name is a value the
+   player reads back in a list, not prose. White on the dark input, explicitly - the inherited
+   colour is the panel's body text, which on this background is barely legible.
+
+   Duplicated in MainMenu.uss and GameUI.uss on purpose: the menu and the game are two documents
+   with two stylesheets and nothing shared between them, so a single definition would leave
+   whichever field it did not reach with no styling at all - which is exactly what happened. */
+.save-name-field {
+    margin-top: 14px;
+    margin-bottom: 4px;
+    min-height: 30px;
+    font-size: 14px;
+    color: rgb(255, 255, 255);
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.save-name-field > TextInput {
+    background-color: rgb(20, 24, 29);
+    border-width: 1px;
+    border-radius: 0;
+    border-color: rgb(48, 59, 66);
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+.save-name-field TextElement {
+    color: rgb(255, 255, 255);
+}
+
+/* The in-game load list, same bounds as the menu's: twenty runs must not push the buttons off
+   the dialog. */
+.save-list {
+    margin-top: 14px;
+    margin-bottom: 4px;
+    max-height: 260px;
+    min-height: 60px;
+}
+
+.save-row {
+    margin-bottom: 6px;
+    height: 32px;
+    -unity-text-align: middle-left;
+    padding-left: 10px;
+}
+
+.save-list-empty {
+    font-size: 12px;
+    color: rgb(150, 158, 165);
+    -unity-font-style: italic;
+    white-space: normal;
+}

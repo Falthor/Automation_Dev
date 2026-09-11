@@ -4859,7 +4859,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 3d9a7ad91b88e70428001397149fed02, type: 2}
   researchDatabase: {fileID: 11400000, guid: 225538095e214a39811378724843599a, type: 2}
   coreDirectiveDatabase: {fileID: 11400000, guid: 27ab887668cf75646a488831440929fd, type: 2}
-  startWithEverythingUnlocked: 1
+  startWithEverythingUnlocked: 0
 --- !u!4 &2103112251
 Transform:
   m_ObjectHideFlags: 0

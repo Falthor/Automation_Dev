@@ -21,7 +21,7 @@ Trois dossiers, trois questions. Un document qui ne répond à aucune n'a pas sa
 4. [`WORKFLOW.md`](architecture/WORKFLOW.md) — la marche à suivre
 
 Puis les documents de sous-système, qui font autorité sur leur propre domaine et seulement sur lui :
-[`MAP.md`](architecture/MAP.md) (découpage, découverte, brouillard, secteurs, portées de mission),
+[`MAP.md`](architecture/MAP.md) (découpage, découverte, brouillard, secteurs),
 [`TERRAIN.md`](architecture/TERRAIN.md) (terrain, sol, décor),
 [`MATERIALISATION.md`](architecture/MATERIALISATION.md) (l'assemblage nano d'un bâtiment et la
 conversion du sol sous lui), [`GLOBAL_UI.md`](architecture/GLOBAL_UI.md)
@@ -37,8 +37,10 @@ les contraintes qu'un build impose que l'éditeur ne révèle jamais.
 
 - [`gdd-intro-recherche-expeditions.md`](design/gdd-intro-recherche-expeditions.md) — le GDD de
   l'introduction : économie CU, déroulé en treize étapes, recherche, expéditions.
-- [`SPEC_EXPEDITIONS.md`](design/SPEC_EXPEDITIONS.md) — le système d'expéditions en détail. **Le
-  processus est livré** (voir `carnets/expeditions.md`) ; l'interface ne l'est pas.
+- [`SPEC_EXPEDITIONS.md`](design/SPEC_EXPEDITIONS.md) — le système d'expéditions en détail. **Rien
+  n'en subsiste dans le code** : le processus a été construit puis retiré avec `MissionSystem` et
+  `ExpeditionZoneSystem`, et les robots explorateurs qui restent errent sans mission. À relire comme
+  une intention, comme le reste de `design/`.
 - [`expansion-territoriale.md`](design/expansion-territoriale.md) — Noyaux secondaires, zones
   minières, densité des gisements, paramètres de génération. **Rien n'en est implémenté.**
 - [`maquettes/`](design/maquettes/) — les écrans, en HTML.

@@ -1,0 +1,37 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <!-- No <Style> of its own: GameUI.uss is already attached to this document, and the classes
+         below live there with the rest of the game's interface. -->
+    <ui:VisualElement name="GameMenuOverlay" class="game-menu-overlay hidden">
+
+        <ui:VisualElement name="GameMenuPanel" class="game-menu-panel">
+            <ui:Label text="MENU" class="game-menu-title" />
+            <ui:Button name="GameMenuSave" text="SAUVEGARDER" class="game-menu-button" />
+            <ui:Button name="GameMenuLoad" text="CHARGER" class="game-menu-button" />
+            <ui:Button name="GameMenuOptions" text="OPTIONS" class="game-menu-button" />
+            <ui:Button name="GameMenuQuit" text="QUITTER" class="game-menu-button game-menu-button-danger" />
+            <ui:Button name="GameMenuClose" text="RETOUR" class="game-menu-button game-menu-button-quiet" />
+        </ui:VisualElement>
+
+        <!-- Saving asks for the name: it decides which folder the write goes to. -->
+        <ui:VisualElement name="GameMenuSaveDialog" class="game-menu-dialog hidden">
+            <ui:VisualElement class="game-menu-panel">
+                <ui:Label text="Nom de la sauvegarde" class="game-menu-title" />
+                <ui:TextField name="GameMenuSaveName" class="save-name-field" max-length="48" />
+                <ui:Label name="GameMenuSaveNotice" text="" class="game-menu-notice" />
+                <ui:Button name="GameMenuSaveConfirm" text="SAUVEGARDER" class="game-menu-button" />
+                <ui:Button name="GameMenuSaveCancel" text="ANNULER" class="game-menu-button game-menu-button-quiet" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Loading lists what is on disk. Rows are built by the panel: there is no fixed number. -->
+        <ui:VisualElement name="GameMenuLoadDialog" class="game-menu-dialog hidden">
+            <ui:VisualElement class="game-menu-panel">
+                <ui:Label text="Charger une partie" class="game-menu-title" />
+                <ui:Label text="La partie en cours sera abandonnée si elle n'a pas été sauvegardée."
+                          class="game-menu-notice" />
+                <ui:ScrollView name="GameMenuLoadList" class="save-list" />
+                <ui:Button name="GameMenuLoadCancel" text="ANNULER" class="game-menu-button game-menu-button-quiet" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
