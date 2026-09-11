@@ -3,9 +3,10 @@ using UnityEngine;
 namespace Game.Gameplay.Sites
 {
     /// <summary>
-    /// How fast a construction site's front segment assembles once its material has arrived - and
-    /// therefore when it starts working, since a segment is not operational until its assembly
-    /// reaches 1 (ConstructionSiteRuntime.CanMaterializeNextSegment).
+    /// How fast a construction site's front segment assembles - and, with its bill, when it starts
+    /// working: a segment is not operational until its assembly reaches 1 <b>and</b> its whole cost
+    /// has been delivered (ConstructionSiteRuntime.CanMaterializeNextSegment). The assembly itself
+    /// does not wait for the material; a site can finish being drawn and still be owed a plate.
     ///
     /// That is why the speed lives here rather than with the look of the effect in
     /// NanoConstructionSettings: a gas power plant supplied current, pulled coal off its belt and

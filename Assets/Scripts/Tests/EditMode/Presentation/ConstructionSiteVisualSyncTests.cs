@@ -179,32 +179,36 @@ namespace Game.Tests.EditMode.Presentation
             Assert.AreEqual(0, fixture.Views.AssemblingCount);
         }
 
+        /// <summary>
+        /// The silhouette fades as the sprite forms over it - and what makes the sprite form is the
+        /// assembly clock, not the material.
+        ///
+        /// It used to be driven from a part-delivered site, because the assembly was clamped to the
+        /// delivered fraction. It is not any more: the animation runs at its own pace from the
+        /// moment the site is placed, which is why a single tick is all this needs and why no robot
+        /// appears in it. What the material still decides is when the chantier becomes a building
+        /// (ASegmentWithAllItsMaterial_IsStillAChantier_UntilItHasAssembled, and its opposite).
+        /// </summary>
         [Test]
-        public void AsMaterialArrives_TheSilhouetteFadesToThePlaceholderAlpha()
+        public void AsTheAssemblyRuns_TheSilhouetteFadesToThePlaceholderAlpha()
         {
-            // A site is always fully funded now - the gate refuses one it cannot cover - so the
-            // part-delivered state comes from the robots' round trips. A bill of twelve is more than
-            // the eight two robots carry in one wave, so the first delivery necessarily leaves it
-            // short.
             Fixture fixture = NewFixture(coreChestContents: 12);
             StorageDefinition costly = TestDataFactory.NewStorage("target", cost: (fixture.Plate, 12));
             ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
             BuildingRuntime segment = site.Segments[0];
 
             fixture.Views.Tick();
-            AdvanceToFirstDelivery(fixture, site);
-            fixture.Views.Tick();
+            Assert.AreEqual(0.6f, fixture.Views.SilhouetteOf(segment).color.a, 0.0001f,
+                "Precondition: nothing has formed over it yet.");
 
-            Assert.Greater(site.SegmentProgress(0), 0f, "One wave has landed, so the segment is part-delivered...");
-            Assert.IsFalse(site.IsComplete, "...and still short of its twelve.");
-
-            // One more tick of the simulation, which is what advances the assembly now.
+            // One tick of the simulation, which is what advances the assembly.
             fixture.Simulate(TickSeconds);
             fixture.Views.Tick();
 
             Assert.AreEqual(0.35f, fixture.Views.SilhouetteOf(segment).color.a, 0.0001f,
                 "Once the sprite starts forming over it, the silhouette drops to sitePlaceholderAlpha.");
             Assert.AreEqual(1, fixture.Views.AssemblingCount);
+            Assert.AreEqual(0, site.MaterializedCount, "And no robot has arrived yet, so nothing is built.");
         }
 
         /// <summary>
@@ -380,7 +384,11 @@ namespace Game.Tests.EditMode.Presentation
             BuildingRuntime segment = site.Segments[0];
 
             fixture.Views.Tick();
-            fixture.AdvanceToFullyDelivered(site);
+
+            // One tick, and no delivery: the assembly runs on its own clock, so a single tick is
+            // part-assembled and nothing has been paid for. Waiting for the material instead would
+            // now overshoot - a one-cell footprint finishes assembling in half a second, long
+            // before a robot has walked anywhere.
             fixture.Simulate(TickSeconds);
             fixture.Views.Tick();
 
@@ -422,8 +430,10 @@ namespace Game.Tests.EditMode.Presentation
         [Test]
         public void OnAConveyorRun_OnlyTheSegmentBeingBuiltDissolves()
         {
-            // Belts costing twelve each: one wave of two robots carries eight, so the front belt is
-            // part-delivered and none of the three is built yet.
+            // Funded, because the placement gate refuses a site it cannot cover - but driven for
+            // a single tick, which is far too little for a robot to have walked anywhere. Nothing
+            // is delivered, and what this test is about is that the three segments do not assemble
+            // at once.
             Fixture fixture = NewFixture(coreChestContents: 36);
             ConveyorDefinition conveyor = TestDataFactory.NewConveyor("conveyor", (fixture.Plate, 12));
 
@@ -435,17 +445,13 @@ namespace Game.Tests.EditMode.Presentation
             }
 
             fixture.Views.Tick();
-            AdvanceToFirstDelivery(fixture, site);
-
-            // One more tick: assembly is advanced by the simulation, and within a tick it runs
-            // before the robots, so the delivery that just landed has not been built on yet.
             fixture.Simulate(TickSeconds);
             fixture.Views.Tick();
 
             Assert.AreEqual(3, site.Segments.Count);
-            Assert.AreEqual(0, site.MaterializedCount, "The first belt has its material and is still assembling.");
+            Assert.AreEqual(0, site.MaterializedCount, "No robot has arrived yet, so nothing is built.");
 
-            Assert.Greater(fixture.Views.DissolveOf(site.Segments[0]).DisplayedProgress, 0f, "The front segment is the one taking material.");
+            Assert.Greater(fixture.Views.DissolveOf(site.Segments[0]).DisplayedProgress, 0f, "The front segment is the one assembling.");
             Assert.AreEqual(0f, fixture.Views.DissolveOf(site.Segments[1]).DisplayedProgress, 0.0001f, "The ones behind it have nothing yet.");
             Assert.AreEqual(0f, fixture.Views.DissolveOf(site.Segments[2]).DisplayedProgress, 0.0001f);
 

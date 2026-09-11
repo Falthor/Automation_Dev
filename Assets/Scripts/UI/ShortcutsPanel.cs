@@ -96,6 +96,12 @@ namespace Game.UI
             BuildRows();
         }
 
+        /// <summary>Whether the screen is showing. Read by the Top Bar, which owns Escape's answer for both menu overlays and has to know which of the two to put away.</summary>
+        public bool IsOpen => _overlay != null && !_overlay.ClassListContains("hidden");
+
+        /// <summary>True while a row is waiting for a key. Escape belongs to the capture then - the rebinding operation cancels on it - so the Top Bar must not also close the screen out from under it.</summary>
+        public bool IsCapturingAKey => _capture != null;
+
         public void Show()
         {
             // Every controller clones its tree into the same document root, so what draws on top is

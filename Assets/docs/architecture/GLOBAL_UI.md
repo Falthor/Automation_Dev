@@ -112,6 +112,24 @@ Resolved (see §16 #2): native `SceneTree.paused`, toggled by `PauseButton`, com
 
 ---
 
+### Escape's stack
+
+One arbiter (`EscapeArbiter`), and the key has exactly one owner per frame. In order: **the menu
+overlay when it is open** (the in-game menu, or the shortcuts screen it hands over to - closing
+what is in front of the player outranks everything behind it), then **an armed construction
+tool**, then **a contextual panel**, then **a global panel**, then **the menu overlay again when
+it is closed** - which is how Escape with nothing open reaches the menu.
+
+The overlay is the only tier that appears twice, because both ends are the same gesture on the
+same object. Its owner is `TopBarController`, which also reports the overlay's state to the
+arbiter (`SetMenuProbe`): the arbiter is built in `GameRuntime.Awake` and the overlay in
+`TopBarController.Start`, so the fact arrives by delegate rather than by constructor. Unset means
+"there is no menu", which is the truth in a scene without a Top Bar and in every test.
+
+**A rebinding row waiting for a key keeps Escape**, and the Top Bar does nothing that frame: the
+rebinding operation cancels on Escape, and a row opened by accident needs that more than the
+screen needs closing.
+
 ## 5. Building / contextual selection
 
 The Global UI must coexist cleanly with contextual building interfaces without visually fighting them or introducing a second routing system.
@@ -144,6 +162,25 @@ Constraints: keep buildings' existing world placement and sprites unchanged — 
 Resolved (see §16 #3): a native `_draw()` polyline outline on `Building` itself.
 
 ---
+
+### Recipe overlay (Alt)
+
+`RecipeOverlayView` draws the output item's icon over every machine with a recipe selected, for as
+long as the view is open. `InputActionCatalogue.ShowRecipes`, Alt by default and reassignable like
+every other row.
+
+**A toggle, not a hold** - a player reading their base keeps both hands free. The cost of that
+choice on Alt specifically: alt-tabbing counts as a press, so coming back from another window can
+leave the overlay showing. The key is rebindable, which is the answer if it grates.
+
+**An icon, not a label.** The output item's own sprite, which the player already reads on the
+belts and in the panels - and the project has no world-space text at all, so a label would mean
+bringing in a text stack for one overlay. A machine with no recipe selected shows nothing, which
+is the state most worth seeing.
+
+Ranked like a building's own arrows (`SortingBands.SubOverlay`) - over the machine, never under
+it. The icons are pooled per machine and rebuilt only when the recipe behind one changes; nothing
+about the overlay allocates per frame, and it costs nothing at all while closed.
 
 ## 7. Bottom Navigation
 

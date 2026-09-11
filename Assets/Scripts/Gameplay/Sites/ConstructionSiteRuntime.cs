@@ -404,9 +404,19 @@ namespace Game.Gameplay.Sites
         }
 
         /// <summary>
-        /// Advances the front segment's assembly by one tick, toward whatever has actually been
-        /// delivered for it. Driven from ConstructionSiteSystem's central tick on scaled time, so it
-        /// stops with the game like everything else the simulation owns.
+        /// Advances the front segment's assembly by one tick. Driven from ConstructionSiteSystem's
+        /// central tick on scaled time, so it stops with the game like everything else the
+        /// simulation owns.
+        ///
+        /// <b>It runs to 1 at its own pace, whatever has been delivered.</b> It used to be clamped
+        /// to the delivered fraction, so a site waiting on its last plate sat visibly half-built -
+        /// two facts drawn as one, and the animation was the one the player read. It is an
+        /// animation: it says "something is being assembled here", not "here is how much material
+        /// arrived". What material arrived is on the site's own panel, in numbers.
+        ///
+        /// Being drawn as finished is not being built: <see cref="CanMaterializeNextSegment"/> still
+        /// requires the segment's whole cost, so a fully-drawn site with a plate outstanding keeps
+        /// its panel, keeps its robots coming, and does not tick, transport or produce anything.
         /// </summary>
         public void AdvanceAssembly(float deltaTime)
         {
@@ -416,9 +426,8 @@ namespace Game.Gameplay.Sites
             // assembles as the 3x3 box it is drawn in, not as its five occupied cells.
             UnityEngine.Vector2Int footprint = _segments[MaterializedCount].Definition.FootprintSize;
 
-            float target = SegmentProgress(MaterializedCount);
             float rate = SegmentAssembly.RateFor(footprint.x * footprint.y);
-            _frontAssembly = System.Math.Min(target, _frontAssembly + rate * deltaTime);
+            _frontAssembly = System.Math.Min(1f, _frontAssembly + rate * deltaTime);
         }
 
         /// <summary>

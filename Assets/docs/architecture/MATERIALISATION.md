@@ -109,6 +109,16 @@ burned coal during the five seconds it was still visibly materialising. `Segment
 = 1.8 cells per second, so a 9-cell plant takes at least 5 seconds. **The tuning reference is the gas
 plant**, and any new value has to be judged on it.
 
+**The assembly does not wait for the material.** It runs from the moment the site is placed and
+reaches 1 at its own pace, whatever has been delivered - it was clamped to the delivered fraction,
+which drew two facts as one and left a site waiting on its last plate sitting visibly half-built. It
+is an animation: it says something is being assembled here, not how much material arrived. How much
+arrived is on the site's own panel, in numbers.
+
+Being drawn as finished is therefore not being built. `CanMaterializeNextSegment` still requires the
+segment's whole cost **and** an assembly of 1, so a fully-drawn site with a plate outstanding keeps
+its panel, keeps its robots coming, and goes on producing, transporting and accepting nothing.
+
 ## 5. The view pipeline
 
 Three states, one owner. `ConstructionSiteVisualSync` draws the dissolving sprite itself and hands
@@ -120,9 +130,8 @@ over to `BuildingSpawner.SpawnView` when assembly finishes. `BuildingSpawner` ga
 | Assembling | Silhouette at `sitePlaceholderAlpha`, sprite materialising over it |
 | Done | The real view |
 
-**The assembling set outlives the site.** A segment materialises the instant its last piece arrives —
-well before it has finished assembling on screen — and leaves `ConstructionSiteSystem`'s pending
-range then. Those views are therefore *detached*: they stay in the component, driven to target 1, and
+**The assembling set outlives the site.** A segment leaves `ConstructionSiteSystem`'s pending range
+the moment it materialises, which is one frame before the view has been told to hand over. Those views are therefore *detached*: they stay in the component, driven to target 1, and
 are released at `DisplayedProgress == 1`. Their liveness criterion becomes the grid, not the site.
 
 The hand-over **spawns the real view and destroys the assembly objects in the same call**, so no frame

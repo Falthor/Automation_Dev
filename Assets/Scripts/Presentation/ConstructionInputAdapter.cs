@@ -186,6 +186,9 @@ namespace Game.Presentation
             // building whose panel is open removes it.
             if (TryDemolishTheInspectedBuilding(cellUnderMouse)) return;
 
+            // The second exception, and it is about a chantier rather than a building.
+            if (TryCancelTheChantierUnderTheCursor(cellUnderMouse)) return;
+
             // A UI panel (Building menu, Storage panel, ...) owns mouse/keyboard input while
             // open, and for one extra frame after it closes - otherwise the same click that
             // selected a menu item or closed a panel also lands on the world underneath it.
@@ -828,6 +831,35 @@ namespace Game.Presentation
             gameRuntime.Selection.Clear();
             DemolishAt(cell);
             return true;
+        }
+
+        /// <summary>
+        /// Right-clicking a construction site cancels it, <b>whatever else is open or armed</b>.
+        ///
+        /// Two states used to make a chantier impossible to take back without first putting the
+        /// interface away. With the building menu open, <c>IsUIBlockingInput</c> is true and the
+        /// world is inert, right button included. With a belt still armed on the cursor -
+        /// which is exactly the moment a misplaced belt is noticed - right-click means "stop
+        /// placing" and nothing else, by a decision this deliberately does not reverse: it only
+        /// takes precedence when the cell under the cursor holds a chantier, and the tool stays
+        /// armed afterwards so a corrected run continues in the same gesture.
+        ///
+        /// Narrow like its neighbour above: the press frame only, never through the interface, and
+        /// only on a cell whose occupant belongs to a site that has not materialised. A built
+        /// building goes on being demolished by the ordinary path, with its confirmation and its
+        /// refund.
+        /// </summary>
+        bool TryCancelTheChantierUnderTheCursor(GridCoord cell)
+        {
+            Mouse mouse = Mouse.current;
+            if (mouse == null || !mouse.rightButton.wasPressedThisFrame) return false;
+            if (PointerOverUI.At(_uiDocument, mouse.position.ReadValue())) return false;
+
+            if (!(gameRuntime.Grid.GetOccupant(cell) is BuildingRuntime occupant)) return false;
+            if (gameRuntime.ConstructionSites == null) return false;
+            if (!gameRuntime.ConstructionSites.TryGetSiteContaining(occupant, out _)) return false;
+
+            return gameRuntime.Construction.TryCancelPendingAt(cell);
         }
 
         void HandleDemolition(GridCoord cell)

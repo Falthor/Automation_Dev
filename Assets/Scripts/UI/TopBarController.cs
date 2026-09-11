@@ -31,6 +31,15 @@ namespace Game.UI
         /// <summary>Occupied slots within this many of the cap turn the counter's alert color on (TASK_04_PLAFOND_RAYON.md §3.2/§5) - an arbitrary but reasonable "approaching the limit" band, not a value the ticket pins down.</summary>
         const int BuildingCapAlertMargin = 5;
 
+        /// <summary>
+        /// Below this many CU the reserve reads as an emergency rather than as a figure.
+        ///
+        /// 100 is about a single cycle of the cheapest machine: at that point the next thing to ask
+        /// for CU will not get it, and the player has to be looking at the card before that happens
+        /// rather than after.
+        /// </summary>
+        const float CriticalReserveCu = 100f;
+
         /// <summary>How long a refusal message (ShowRefusalMessage) stays visible before auto-hiding.</summary>
         const float RefusalMessageSeconds = 2.5f;
 
@@ -170,6 +179,7 @@ namespace Game.UI
             uiDocument.rootVisualElement.Add(menuOverlay);
             _gameMenu = new GameMenuPanel(menuOverlay, gameRuntime, _shortcuts);
             menuButton.clicked += _gameMenu.Show;
+            gameRuntime.Escape.SetMenuProbe(MenuOverlayStateNow);
         }
 
         /// <summary>Flashes an explicit refusal reason (e.g. the building cap) near the cards row for RefusalMessageSeconds, then auto-hides (TASK_04_PLAFOND_RAYON.md §3.2). Re-showing while already visible just resets the timer.</summary>
@@ -356,6 +366,40 @@ namespace Game.UI
             });
         }
 
+        /// <summary>
+        /// What Escape does when the arbiter awards it to the menu overlay: closes whichever of the
+        /// two is in front of the player, and opens the menu when neither is.
+        ///
+        /// <b>The shortcuts screen goes first</b>, because it is the one the menu opens: closing it
+        /// returns the player to the menu they came from rather than putting both away at once.
+        ///
+        /// <b>A row waiting for a key keeps Escape.</b> The rebinding operation cancels on it, and
+        /// a player who opened a row by accident needs that more than they need the screen closed.
+        /// Doing nothing here is the whole of what that takes.
+        /// </summary>
+        void ToggleMenuOverlay()
+        {
+            if (_shortcuts != null && _shortcuts.IsCapturingAKey) return;
+
+            if (_shortcuts != null && _shortcuts.IsOpen)
+            {
+                _shortcuts.Hide();
+                return;
+            }
+
+            if (_gameMenu == null) return;
+            if (_gameMenu.IsOpen) _gameMenu.Hide();
+            else _gameMenu.Show();
+        }
+
+        /// <summary>Reported to the arbiter, which cannot be built with the overlays because they do not exist yet - see EscapeArbiter.SetMenuProbe.</summary>
+        MenuOverlayState MenuOverlayStateNow()
+        {
+            if (_gameMenu == null) return MenuOverlayState.Absent;
+            bool open = _gameMenu.IsOpen || (_shortcuts != null && _shortcuts.IsOpen);
+            return open ? MenuOverlayState.Open : MenuOverlayState.Closed;
+        }
+
         void Update()
         {
             // Same gesture as the Pause button (GLOBAL_UI.md's Top Bar) - not gated on
@@ -368,6 +412,11 @@ namespace Game.UI
             if (InputBindings.WasPressedThisFrame(_pause) && !UIFocus.IsTypingInAField(uiDocument))
             {
                 TogglePause();
+            }
+
+            if (gameRuntime.Escape.IsClaimedBy(EscapeClaimant.MenuOverlay))
+            {
+                ToggleMenuOverlay();
             }
 
             RefreshClock();
@@ -459,6 +508,14 @@ namespace Game.UI
             var compute = gameRuntime.Compute;
 
             _computeCard.Value.text = $"{FormatThousands(compute.Reserve)} CU";
+
+            // Red, and blinking - the same rhythm the new-unlock pulse uses, read off the same clock
+            // so two things blinking at once blink together. Unscaled, so it keeps going while the
+            // player pauses to work out what went wrong, which is exactly when this appears.
+            bool critical = compute.Reserve < CriticalReserveCu;
+            _computeCard.Value.EnableInClassList("top-bar-card-value-deficit", critical);
+            _computeCard.Value.EnableInClassList("top-bar-card-value-blink", critical && !NewUnlockPulse.IsOn);
+            _computeCard.Lines[0].EnableInClassList("top-bar-card-detail-line-deficit", critical);
 
             // No continuous-draw line: CU is spent in one shot when a production cycle starts,
             // so there is no per-second consumption to show - only the banked reserve and the

@@ -16,19 +16,18 @@ namespace Game.Tests.EditMode.Gameplay.Transport
     public class TransportSystemTests
     {
         /// <summary>
-        /// A building with an output arrow hands out on that cell and on no other.
+        /// A building with an output arrow hands out on that cell and on no other, whether the
+        /// receiver is pushed to or pulls for itself.
         ///
         /// Reported as a box beside a Factory's arrow filling up with wire. Two separate paths were
         /// feeding it: the push walked the whole output edge (three cells for a 3-wide building,
-        /// one arrow), and the receiver's own pull reached into any neighbour it merely touched -
+        /// one arrow), and the Storage's own pull reached into any neighbour it merely touched -
         /// so a box parked against the back of the Factory was served too. Both now ask the source
         /// where it actually hands out, which is the same promise the entry arrows already make.
         ///
-        /// <b>Probed with belts rather than boxes</b>, which is what it used to use: a chest no
-        /// longer takes from a machine at all (<c>MayFeedStorage</c>), so a box would now answer
-        /// "nothing arrived" for a reason that has nothing to do with the arrow. The pull half is
-        /// behavioural below; the push half is the two assertions on <c>GetOutputCells()</c>, which
-        /// is the array <c>TryGenericPush</c> walks and therefore the whole of that path's reach.
+        /// The boxes are the probe again. They were belts for a morning, while a chest was not
+        /// allowed to take from a machine at all - which made a box answer "nothing arrived" for a
+        /// reason that had nothing to do with the arrow.
         /// </summary>
         [Test]
         public void ABuildingWithAnOutputArrow_FeedsOnlyTheCellThatArrowMarks()
@@ -54,9 +53,9 @@ namespace Game.Tests.EditMode.Gameplay.Transport
             Assert.AreEqual(new GridCoord(3, 1), factory.GetOutputCell(), "Precondition: the arrow is on the middle cell of the edge.");
             CollectionAssert.AreEqual(new[] { new GridCoord(3, 1) }, factory.GetOutputCells(), "And that is the only cell it hands out on.");
 
-            ConveyorRuntime beside = AddBelt(grid, transport, new GridCoord(3, 0), Direction.East);   // on the output edge, beside the arrow
-            ConveyorRuntime inFront = AddBelt(grid, transport, new GridCoord(3, 1), Direction.East);  // on the arrow
-            ConveyorRuntime behind = AddBelt(grid, transport, new GridCoord(-1, 1), Direction.West);  // touching a side with no output at all
+            StorageRuntime beside = AddBox(grid, transport, new GridCoord(3, 0));   // on the output edge, beside the arrow
+            StorageRuntime inFront = AddBox(grid, transport, new GridCoord(3, 1));  // on the arrow
+            StorageRuntime behind = AddBox(grid, transport, new GridCoord(-1, 1));  // touching a side with no output at all
 
             for (int i = 0; i < 200; i++)
             {
@@ -64,9 +63,9 @@ namespace Game.Tests.EditMode.Gameplay.Transport
                 transport.Tick(0.1f);
             }
 
-            Assert.Greater(inFront.Items.Count, 0, "The belt the arrow points at is fed.");
-            Assert.AreEqual(0, beside.Items.Count, "The belt beside it is not - the edge is wide, the outlet is not.");
-            Assert.AreEqual(0, behind.Items.Count, "And neither is one against a side that shows nothing.");
+            Assert.Greater(inFront.GetInputAmount("copper_wire"), 0, "The box the arrow points at is fed.");
+            Assert.AreEqual(0, beside.GetInputAmount("copper_wire"), "The box beside it is not - the edge is wide, the outlet is not.");
+            Assert.AreEqual(0, behind.GetInputAmount("copper_wire"), "And neither is one against a side that shows nothing.");
         }
 
         /// <summary>
@@ -147,38 +146,6 @@ namespace Game.Tests.EditMode.Gameplay.Transport
             }
 
             Assert.Greater(chest.GetInputAmount("copper_Ingot"), 0);
-        }
-
-        /// <summary>
-        /// A machine standing alongside a chest never feeds it, whichever way its arrow points. A
-        /// chest is fed by a line - that is what keeps it a reserve rather than the place a
-        /// production building quietly empties itself into.
-        /// </summary>
-        [Test]
-        public void AProductionBuildingFacingAChest_DoesNotFeedIt()
-        {
-            var grid = new GridRuntime(1f);
-            var transport = new TransportSystem(grid);
-
-            ItemDefinition ingot = TestDataFactory.NewItem("copper_Ingot");
-            RecipeDatabase recipes = TestDataFactory.NewRecipeDatabase(
-                TestDataFactory.NewRecipe("copper_wire", 3f, 0f, 2, (ingot, 1)));
-
-            FactoryDefinition definition = TestDataFactory.NewFactory(0f, new[] { "copper_wire" }, new[] { "copper_Ingot" });
-            var factory = new FactoryRuntime(definition, new GridCoord(0, 0), Direction.East, recipes,
-                new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
-            grid.SetOccupantFootprint(factory.Cell, definition.FootprintSize, factory);
-            transport.Register(factory);
-
-            StorageRuntime chest = AddBox(grid, transport, factory.GetOutputCell());
-
-            for (int i = 0; i < 200; i++)
-            {
-                factory.AddOutput("copper_wire", 1);
-                transport.Tick(0.1f);
-            }
-
-            Assert.AreEqual(0, chest.GetInputAmount("copper_wire"), "Put a belt between them.");
         }
 
         /// <summary>

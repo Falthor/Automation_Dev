@@ -73,15 +73,22 @@ namespace Game.UI
             bool overUI = IsPointerOverUI(screenPos);
 
             // A global panel (Storage/Building/Research/Power/...) owns the click while it is
-            // open: inside it, the panel's own widgets handle it; outside it, the click closes
-            // it. Either way it never also reaches the world on that frame. An already-open
+            // open - but only the part of it that landed on the panel. An already-open
             // per-building panel (SelectedBuilding != null, also part of IsUIBlockingInput) must
-            // NOT block routing below, otherwise clicking a different building while one is
+            // NOT block routing below either, otherwise clicking a different building while one is
             // selected - or clicking empty space to close it - would never register.
+            //
+            // <b>A click outside the panel closes it and then goes on to mean what it landed on.</b>
+            // It used to stop there, and that made the two directions of one gesture behave
+            // differently: building then chest worked (a contextual panel does not block), chest
+            // then building did nothing at all - the first click of the pair was spent closing the
+            // chest's panel and the building was never selected. Nothing needed the click to be
+            // swallowed: Select() closes any open global panel itself (SelectionRuntime), so the
+            // close below is only for the case where the click lands on nothing.
             if (gameRuntime.Selection.ActiveGlobalPanel != null)
             {
-                if (!overUI) gameRuntime.Selection.CloseGlobalPanel();
-                return;
+                if (overUI) return;
+                gameRuntime.Selection.CloseGlobalPanel();
             }
 
             if (gameRuntime.LastMenuCloseFrame == Time.frameCount) return;

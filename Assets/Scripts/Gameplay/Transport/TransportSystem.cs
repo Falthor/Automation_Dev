@@ -93,6 +93,9 @@ namespace Game.Gameplay.Transport
         /// <summary>Last consumer served by a given pull source, keyed by the source building itself - lets two consumers sharing one input point (e.g. two Factories both facing the same conveyor cell) alternate instead of the earlier-registered one always winning (see RunGenericPulls).</summary>
         readonly Dictionary<BuildingRuntime, BuildingRuntime> _lastPullServedBy = new Dictionary<BuildingRuntime, BuildingRuntime>();
 
+        /// <summary>Belts that have already taken something this tick, so the second and third passes do not serve one twice. A field rather than a local, so a tick allocates nothing.</summary>
+        readonly HashSet<ConveyorRuntime> _beltFedThisTick = new HashSet<ConveyorRuntime>();
+
         /// <summary>Seconds remaining before a given non-belt-gated source may hand off another item via the generic pull path - see RawOutputPullIntervalSeconds.</summary>
         readonly Dictionary<BuildingRuntime, float> _rawOutputPullCooldown = new Dictionary<BuildingRuntime, float>();
 
@@ -100,6 +103,16 @@ namespace Game.Gameplay.Transport
         public IReadOnlyList<StorageRuntime> Storages => _storages;
 
         /// <summary>Every registered building across every internal list (CONTRACTS.md §14). Three consumers, all of them needing the whole set at once: the save, the building cap (CONTRACTS.md §8) and the map's drawing of the base (MAP.md §6). Not a general-purpose accessor - anything that wants one building has a narrower way to it.</summary>
+        /// <summary>
+        /// Every registered building that is not a belt, a Splitter or a Crossroad - the machines,
+        /// the chests, the Core.
+        ///
+        /// A list rather than an enumerable, unlike <see cref="GetAllBuildings"/>: a view that reads
+        /// this every frame must be able to walk it by index, because a <c>foreach</c> over an
+        /// interface allocates an enumerator and per-frame allocation is not allowed here.
+        /// </summary>
+        public IReadOnlyList<BuildingRuntime> NonBeltBuildings => _allOthers;
+
         public IEnumerable<BuildingRuntime> GetAllBuildings()
         {
             foreach (BuildingRuntime building in _conveyors) yield return building;
@@ -186,9 +199,24 @@ namespace Game.Gameplay.Transport
 
         public void Tick(float deltaTime)
         {
+            // Power plants run their state machine before anything else, and that ordering is a
+            // rule rather than an accident of registration order.
+            //
+            // CU is spent in one shot at the start of a cycle, from a single reserve, by whoever
+            // asks first (ComputeSystem.CanSpend/Spend). With the reserve empty, "whoever asks
+            // first" was whoever happened to be registered first - so a base that had run itself
+            // out of CU could keep every factory trying and never light its power plants again,
+            // which is the one thing that could have got it out. A plant is what produces the
+            // current the rest of the base needs, so it is the one consumer that must not queue
+            // behind its own dependants.
             for (int i = 0; i < _allOthers.Count; i++)
             {
-                _allOthers[i].Tick(deltaTime);
+                if (_allOthers[i] is PowerplantGazRuntime) _allOthers[i].Tick(deltaTime);
+            }
+
+            for (int i = 0; i < _allOthers.Count; i++)
+            {
+                if (!(_allOthers[i] is PowerplantGazRuntime)) _allOthers[i].Tick(deltaTime);
             }
 
             // The belt phase is deliberately split in two, with the buildings' own read wedged
@@ -359,36 +387,50 @@ namespace Game.Gameplay.Transport
         bool HasBuildingNeighbor(GridCoord cell) => ActiveBuildingAt(cell) != null;
 
         /// <summary>
-        /// A chest takes material from the <b>belt network</b> - a conveyor of either shape, a
-        /// Splitter or a Crossroad - <b>and only from a piece whose exit lands on the chest's own
-        /// cell</b>. Not from a machine standing alongside: a chest is fed by a line, not by a
-        /// machine's output face.
+        /// A chest takes from <b>whatever points at it</b> - a belt of either shape, a Splitter, a
+        /// Crossroad, or a machine's own output face - and from nothing that merely touches it.
         ///
         /// <b>Stated here rather than in StorageRuntime, because it is a rule about the pair.</b>
         /// <c>CanAcceptInput</c> is handed a direction and never learns who is handing over, so a
         /// storage cannot answer this question about itself. <b>All three</b> intake paths ask it:
         /// the generic pull a chest runs for itself, the push a Splitter or Crossroad makes, and the
         /// generic push a production building makes across its output cells. That third one was
-        /// missing, and it is the one a player meets first - a Constructor parked against a box
-        /// filled it without a belt anywhere in sight.
+        /// missing for a while, and it is the one a player meets first - a Constructor parked
+        /// against a box.
         ///
         /// <b>The direction is checked here rather than left to HandsOutTo</b>, unlike everywhere
-        /// else. A belt hands out on every side it is touched on, on purpose: a machine may tap a
-        /// line running past it. A chest may not - it would drain every line it happens to sit
-        /// beside - so "arriving in its direction" is asked of the source right here, for chests
-        /// alone, with <c>FeedsCell</c> and the cell actually receiving. Narrowing the rule to
-        /// straight conveyors was the previous attempt at that, and it hid the flank case while
-        /// refusing corners, Splitters and Crossroads that genuinely pointed at the chest.
+        /// else, and that is the whole of what this rule now says. A belt hands out on every side it
+        /// is touched on, on purpose: a machine may tap a line running past it. A chest may not - it
+        /// would drain every line it happens to sit beside - so being pointed at is asked of the
+        /// source right here, for chests alone, with <c>FeedsCell</c> and the cell actually
+        /// receiving.
+        ///
+        /// It briefly said more than that: straight conveyors only, then the belt network only. Both
+        /// were attempts at "aimed at it" through the wrong question - the first refused corners, the
+        /// second refused a machine's output face, and neither addressed the flank a belt really does
+        /// offer. What a chest may take from is not a list of types.
         ///
         /// The Core chest is stricter still and refuses every conveyor
         /// (<c>StorageDefinition.RejectsConveyorInput</c>); a builder robot bypasses both through
         /// <c>AddFromRobot</c>.
         /// </summary>
         static bool MayFeedStorage(BuildingRuntime consumer, BuildingRuntime source, GridCoord intoCell)
-        {
-            if (!(consumer is StorageRuntime)) return true;
-            return IsBeltGated(source) && source.FeedsCell(intoCell);
-        }
+            => !(consumer is StorageRuntime) || source.FeedsCell(intoCell);
+
+        /// <summary>
+        /// A chest hands out to the <b>belt network</b> and to nothing else: a belt, a Splitter or a
+        /// Crossroad leading away from it may take from it, a machine standing against it may not.
+        ///
+        /// The mirror of <see cref="MayFeedStorage"/>, and the same reasoning read backwards. A chest
+        /// is a buffer on a line, and what makes it one is that the line is the only thing at either
+        /// end of it: a Factory allowed to reach into an adjacent box would turn every box in the
+        /// base into a feeder nobody asked for, with no belt to see and no rate to read.
+        ///
+        /// A builder robot is a separate path (<c>TakeInput</c>) and is not affected - nor is the
+        /// player emptying a slot by hand.
+        /// </summary>
+        static bool MayTakeFromStorage(BuildingRuntime consumer, BuildingRuntime source)
+            => !(source is StorageRuntime) || IsBeltGated(consumer);
 
         /// <summary>
         /// Hands the splitter's held item to whatever sits at the given exit's neighbor cell. A
@@ -529,6 +571,7 @@ namespace Game.Gameplay.Transport
                     if (!occupant.HandsOutTo(cell + fromMySide.Opposite())) continue;
 
                     if (!MayFeedStorage(building, occupant, cell + fromMySide.Opposite())) continue;
+                    if (!MayTakeFromStorage(building, occupant)) continue;
 
                     object item = occupant.PeekPullableItem();
                     if (item == null || !(item is string itemId)) continue;

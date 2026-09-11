@@ -1182,6 +1182,15 @@
     color: rgb(242, 83, 83);
 }
 
+/* The dark half of a blink. Opacity rather than a second colour, so the figure stays legible on
+   both halves and nothing about its size or weight moves - a value that changes colour reads as
+   an alarm, one that changes size reads as a bug. Toggled from TopBarController on
+   NewUnlockPulse's clock; UI Toolkit has transitions but no keyframes, so a blink cannot live in
+   a stylesheet on its own. */
+.top-bar-card-value-blink {
+    opacity: 0.3;
+}
+
 /* Nearly saturated, not yet short: the same amber the Building menu uses for "you cannot afford
    this yet" - a warning, deliberately not the red kept for something actually going wrong. */
 .top-bar-card-value-strained {

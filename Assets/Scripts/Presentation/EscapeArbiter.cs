@@ -1,5 +1,6 @@
 using Game.Construction;
 using Game.Gameplay.Selection;
+using System;
 using UnityEngine.InputSystem;
 
 namespace Game.Presentation
@@ -17,7 +18,33 @@ namespace Game.Presentation
         ContextualPanel = 2,
 
         /// <summary>A named global panel is open - Storage, the building menu, Research, Power, the map.</summary>
-        GlobalPanel = 3
+        GlobalPanel = 3,
+
+        /// <summary>
+        /// The menu overlay - the in-game menu, or the shortcuts screen it hands over to.
+        ///
+        /// The only tier that appears twice in the stack: at the very top when one of those two is
+        /// open, because closing what is in front of the player outranks everything behind it, and
+        /// at the very bottom when neither is, because Escape with nothing open is how a player
+        /// reaches the menu. Both are the same claimant because both are the same gesture on the
+        /// same object, and one owner that toggles cannot disagree with itself about which of the
+        /// two it is doing.
+        /// </summary>
+        MenuOverlay = 4
+    }
+
+    /// <summary>
+    /// Whether there is a menu overlay to act on at all, and whether it is showing.
+    ///
+    /// Three states and not a bool, because "absent" and "closed" answer Escape differently:
+    /// closed means Escape opens it, absent means Escape has nobody left and does nothing. Absent
+    /// is the truth in a scene with no Top Bar, and in every test that does not build one.
+    /// </summary>
+    public enum MenuOverlayState
+    {
+        Absent = 0,
+        Closed = 1,
+        Open = 2
     }
 
     /// <summary>
@@ -36,7 +63,8 @@ namespace Game.Presentation
     /// would have made the answer depend on which <c>Update</c> ran first - the same class of
     /// defect, moved.
     ///
-    /// <b>The stack is armed tool, then contextual panel, then global panel.</b> The first two can
+    /// <b>The stack is the menu overlay when it is open, then armed tool, then contextual panel,
+    /// then global panel, then the menu overlay again when it is closed.</b> The first two can
     /// genuinely coexist: <see cref="SelectionRuntime"/> keeps its own slots mutually exclusive, and
     /// arms nothing, so clicking a notification opens a robot's panel while a tool is still armed.
     /// The armed tool wins there because it is the most transient state on screen - the ghost
@@ -62,6 +90,17 @@ namespace Game.Presentation
         /// <summary>Optional: null means no tool can be armed, which is the truth in a scene without construction.</summary>
         readonly ConstructionService _construction;
 
+        /// <summary>
+        /// What the menu overlay is doing, asked of whoever owns it.
+        ///
+        /// <b>A delegate, and settable, unlike the other two facts.</b> Those come from systems this
+        /// is built with in <c>GameRuntime.Awake</c>; the menu is a UI Toolkit overlay built later,
+        /// in <c>TopBarController.Start</c>, out of a template the scene instantiates. Rather than
+        /// delay the arbiter until the interface exists, its owner reports in when it does. Unset
+        /// means Absent, which is what a scene without a Top Bar should answer.
+        /// </summary>
+        Func<MenuOverlayState> _menuProbe;
+
         public EscapeArbiter(SelectionRuntime selection, ConstructionService construction)
         {
             _selection = selection;
@@ -74,13 +113,22 @@ namespace Game.Presentation
         /// live state on purpose: the ordering is the part worth pinning, and a test can pin every
         /// combination of it without building a world.
         /// </summary>
-        public static EscapeClaimant ClaimantFor(bool aToolIsArmed, bool aContextualPanelIsOpen, bool aGlobalPanelIsOpen)
+        public static EscapeClaimant ClaimantFor(bool aToolIsArmed, bool aContextualPanelIsOpen,
+            bool aGlobalPanelIsOpen, MenuOverlayState menu)
         {
+            if (menu == MenuOverlayState.Open) return EscapeClaimant.MenuOverlay;
             if (aToolIsArmed) return EscapeClaimant.ArmedTool;
             if (aContextualPanelIsOpen) return EscapeClaimant.ContextualPanel;
             if (aGlobalPanelIsOpen) return EscapeClaimant.GlobalPanel;
-            return EscapeClaimant.None;
+            return menu == MenuOverlayState.Closed ? EscapeClaimant.MenuOverlay : EscapeClaimant.None;
         }
+
+        /// <summary>
+        /// Tells the arbiter where to ask about the menu overlay. Called by the component that owns
+        /// it, once, when it has built it - see <see cref="_menuProbe"/> for why it is not a
+        /// constructor argument.
+        /// </summary>
+        public void SetMenuProbe(Func<MenuOverlayState> probe) => _menuProbe = probe;
 
         /// <summary>Who would take Escape right now, whether or not it has been pressed.</summary>
         public EscapeClaimant Claimant => ClaimantFor(
@@ -88,7 +136,8 @@ namespace Game.Presentation
             _selection != null && (_selection.SelectedBuilding != null
                 || _selection.SelectedSite != null
                 || _selection.SelectedExplorerRobot != null),
-            _selection?.ActiveGlobalPanel != null);
+            _selection?.ActiveGlobalPanel != null,
+            _menuProbe != null ? _menuProbe() : MenuOverlayState.Absent);
 
         /// <summary>
         /// True on the frame Escape goes down, and only for the one tier that owns it. Every other

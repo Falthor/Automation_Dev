@@ -188,13 +188,6 @@ namespace Game.Presentation
             return new Vector3(offset.X, offset.Y, 0f);
         }
 
-        Sprite SpriteFor(string itemId)
-        {
-            ItemDefinition item = _itemDatabase != null ? _itemDatabase.Get(itemId) : null;
-            if (item != null && item.Icon != null) return item.Icon;
-
-            Color fallback = item != null ? item.FallbackColor : Color.magenta;
-            return _spriteFactory.CreateSolidSquareSprite(fallback);
-        }
+        Sprite SpriteFor(string itemId) => ItemSprite.For(_itemDatabase, _spriteFactory, itemId);
     }
 }

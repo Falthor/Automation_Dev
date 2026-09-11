@@ -22,7 +22,7 @@ namespace Game.Gameplay.Sites
         /// is the opposite kind of job - a hand-over the player chose to take on, whose pacing is
         /// part of what it asks - so its cap stays where it was.
         /// </summary>
-        public const int DirectiveCargoCapacity = 5;
+        public const int DirectiveCargoCapacity = 10;
         public const float SpeedCellsPerSecond = 5.5f;
         public const float BlockedDestructionSeconds = 20f;
 

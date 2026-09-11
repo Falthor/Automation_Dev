@@ -59,6 +59,7 @@ namespace Game.Presentation
         public const string BuildingMenu = "BuildingMenu";
         public const string Pause = "Pause";
         public const string Close = "Close";
+        public const string ShowRecipes = "ShowRecipes";
 
         /// <summary>Toolbar slots are numbered from 1, matching the digit they sit on and the label the player reads.</summary>
         public static string Slot(int oneBased) => "Slot" + oneBased;
@@ -91,6 +92,7 @@ namespace Game.Presentation
                 new InputActionInfo(BuildingMenu, "Menu des bâtiments", InterfaceSection),
                 new InputActionInfo(Pause, "Pause", InterfaceSection),
                 new InputActionInfo(Close, "Fermer / annuler", InterfaceSection),
+                new InputActionInfo(ShowRecipes, "Afficher les recettes", InterfaceSection),
             };
 
             for (int slot = 1; slot <= ToolbarSlotCount; slot++)

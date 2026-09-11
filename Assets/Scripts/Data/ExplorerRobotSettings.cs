@@ -91,7 +91,7 @@ namespace Game.Data
         [SerializeField, Min(1f)] float cellsPerCard = 2500f;
 
         /// <summary>What one card is worth when the robot gets home. Cards are spent the instant it docks - they are never an item and never enter a container.</summary>
-        [SerializeField, Min(0f)] float cardValueCu = 250f;
+        [SerializeField, Min(0f)] float cardValueCu = 750f;
 
         /// <summary>
         /// How far either side of <see cref="CellsPerCard"/> a card's own threshold is drawn, as a
