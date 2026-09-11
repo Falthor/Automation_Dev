@@ -39,6 +39,13 @@ namespace Game.UI
         VisualElement _slotMenu;
 
         /// <summary>
+        /// The name shown for the item a left click landed on. Parented to the panel and not to the
+        /// card, for the same reason as <see cref="_slotMenu"/>: the grid is rebuilt every frame
+        /// from Update, so anything living inside a card is gone the frame after it appeared.
+        /// </summary>
+        Label _nameTag;
+
+        /// <summary>
         /// True only while showing one specific box's 8 slots - false for the aggregate view,
         /// even though both share the same "storage" global-panel slot. The Bottom Nav uses this
         /// to avoid highlighting its Storage category button for a per-box selection, which is a
@@ -62,10 +69,12 @@ namespace Game.UI
             _grid = panelRoot.Q<VisualElement>("StorageGrid");
 
             // Anywhere else in the panel dismisses an open slot menu, which is what makes it feel
-            // like a menu rather than a control that latched on.
+            // like a menu rather than a control that latched on. The name tag goes with it: it
+            // answers one click and should not outlive the next.
             _root.RegisterCallback<PointerDownEvent>(evt =>
             {
                 if (_slotMenu != null && !_slotMenu.worldBound.Contains(evt.position)) HideSlotMenu();
+                HideNameTag();
             }, TrickleDown.TrickleDown);
             _title = panelRoot.Q<Label>("StorageTitle");
             panelRoot.Q<Button>("StorageCloseButton").clicked += Hide;
@@ -86,6 +95,7 @@ namespace Game.UI
         void OnGlobalPanelChanged(string panelName)
         {
             HideSlotMenu();
+            HideNameTag();
 
             if (panelName != PanelName)
             {
@@ -233,19 +243,25 @@ namespace Game.UI
             count.AddToClassList("storage-card-count");
             card.Add(count);
 
-            // Right-click offers to throw the stack away. Only on a full slot: there is nothing to
-            // discard from an empty one, and a menu that opens on nothing teaches the player the
-            // gesture does nothing.
-            if (slotIndex >= 0)
+            // Left-click names what is in the slot - deliberately not gated on slotIndex, since an
+            // aggregate entry is just as worth naming as a box's own slot. Right-click offers to
+            // throw the stack away, and that one IS gated: there is nothing to discard from an
+            // aggregate row, and a menu that opens on nothing teaches the player the gesture does
+            // nothing.
+            card.RegisterCallback<PointerDownEvent>(evt =>
             {
-                card.RegisterCallback<PointerDownEvent>(evt =>
+                if (evt.button == 0)
                 {
-                    if (evt.button != 1) return;
-
-                    ShowSlotMenu(slotIndex, card.worldBound);
+                    ShowNameTag(itemId, card.worldBound);
                     evt.StopPropagation();
-                });
-            }
+                    return;
+                }
+
+                if (evt.button != 1 || slotIndex < 0) return;
+
+                ShowSlotMenu(slotIndex, card.worldBound);
+                evt.StopPropagation();
+            });
 
             return card;
         }
@@ -258,6 +274,7 @@ namespace Game.UI
         void ShowSlotMenu(int slotIndex, Rect cardBounds)
         {
             HideSlotMenu();
+            HideNameTag();
             if (_selected == null) return;
 
             _slotMenu = new VisualElement();
@@ -281,6 +298,34 @@ namespace Game.UI
         {
             _slotMenu?.RemoveFromHierarchy();
             _slotMenu = null;
+        }
+
+        /// <summary>
+        /// Names the item under the click, below its card.
+        ///
+        /// The display name, never the id: <c>copper_plate</c> is what the project calls it and
+        /// "Plaque de cuivre" is what the player does. An item missing from the database falls back
+        /// to its id rather than to an empty tag, because a name that says nothing is worse than one
+        /// that says something odd - and it points straight at the missing definition.
+        /// </summary>
+        void ShowNameTag(string itemId, Rect cardBounds)
+        {
+            HideNameTag();
+
+            ItemDefinition item = gameRuntime.Items != null ? gameRuntime.Items.Get(itemId) : null;
+
+            _nameTag = new Label(item != null ? item.DisplayName : itemId);
+            _nameTag.AddToClassList("storage-name-tag");
+            _nameTag.style.left = cardBounds.xMin - _panelRoot.worldBound.xMin;
+            _nameTag.style.top = cardBounds.yMax - _panelRoot.worldBound.yMin;
+
+            _panelRoot.Add(_nameTag);
+        }
+
+        void HideNameTag()
+        {
+            _nameTag?.RemoveFromHierarchy();
+            _nameTag = null;
         }
 
         VisualElement BuildEmptyCard()
