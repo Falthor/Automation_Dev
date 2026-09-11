@@ -38,6 +38,15 @@ namespace Game.EditorTools
         /// <summary>The name each handle was last given, so a rename in the hierarchy can be told apart from a new display name arriving from the asset. Never cleared on a rebuild: renaming an object is itself a hierarchy change, and clearing here would forget the rename before it is read.</summary>
         static readonly Dictionary<ResearchNodeHandle, string> _shownNames = new Dictionary<ResearchNodeHandle, string>();
 
+        /// <summary>How long an id must stay unchanged before the file takes its name - so typing an id renames the file once, not at every keystroke.</summary>
+        const double IdSettleSeconds = 1.0;
+
+        /// <summary>An id waiting to become its research's file name, and since when it has been that id.</summary>
+        static readonly Dictionary<ResearchDefinition, (string id, double since)> _pendingFileNames = new Dictionary<ResearchDefinition, (string id, double since)>();
+
+        /// <summary>File renames already refused, as path and id - reported once, not every tick.</summary>
+        static readonly HashSet<string> _refusedFileNames = new HashSet<string>();
+
         /// <summary>Set by anything that may have put the scene out of step with the database; honoured on the next editor tick, never in the middle of another event.</summary>
         static bool _rebuildPending = true;
 
@@ -206,7 +215,43 @@ namespace Game.EditorTools
                     WritePlacement(handle.Research, Settle(tier), Mathf.Round(angle * 10f) / 10f);
                 }
                 Place(handle);
+                NameFileAfterId(handle.Research);
             }
+        }
+
+        /// <summary>
+        /// Keeps a research's asset file named after its id, as every shipped research is - a new one
+        /// starts as new_research and follows its id once it has one. Waits until the id has been left
+        /// alone for IdSettleSeconds and no text field is being edited. An id that cannot be a file
+        /// name, or is taken by another file, is reported once and the file keeps its name. Renaming
+        /// breaks no reference: the database and the prerequisites point at the asset, not its name.
+        /// </summary>
+        static void NameFileAfterId(ResearchDefinition research)
+        {
+            string id = research.Id;
+            if (string.IsNullOrWhiteSpace(id) || research.name == id)
+            {
+                _pendingFileNames.Remove(research);
+                return;
+            }
+
+            string path = AssetDatabase.GetAssetPath(research);
+            if (string.IsNullOrEmpty(path) || _refusedFileNames.Contains(path + ">" + id)) return;
+
+            double now = EditorApplication.timeSinceStartup;
+            if (!_pendingFileNames.TryGetValue(research, out (string id, double since) pending) || pending.id != id)
+            {
+                _pendingFileNames[research] = (id, now);
+                return;
+            }
+            if (now - pending.since < IdSettleSeconds || EditorGUIUtility.editingTextField) return;
+
+            _pendingFileNames.Remove(research);
+            string error = AssetDatabase.RenameAsset(path, id);
+            if (string.IsNullOrEmpty(error)) return;
+
+            _refusedFileNames.Add(path + ">" + id);
+            Debug.LogWarning($"Research tree: {research.name}.asset keeps its name - its id '{id}' cannot be the file name ({error}).", research);
         }
 
         /// <summary>

@@ -13,8 +13,11 @@ par recherche de la base, noyaux compris, posé à sa distance du centre et à s
   sur le deuxième anneau, hors de toute branche — et signalée comme inatteignable.
 - **Remplir** : l'inspecteur d'un nœud est celui de son asset (nom, coût, effets typés, prérequis).
   La hiérarchie montre le nom affiché, et renommer un nœud dans la hiérarchie renomme la recherche. Le
-  fichier garde son nom de création (`new_research`) : le jeu ne le lit pas, et le renommer dans la
-  fenêtre Project ne casse aucune référence. L'identifiant, lui, est ce que les sauvegardes retiennent.
+  fichier prend le nom de l'identifiant, comme toutes les recherches livrées, une seconde après la
+  dernière frappe — pas à chaque touche. Un identifiant qui ne peut pas être un nom de fichier, ou déjà
+  pris, est signalé une fois dans la console, et le fichier garde son nom. Renommer ne casse aucune
+  référence : la base et les prérequis pointent l'asset, pas son nom. L'identifiant, lui, est ce que
+  les sauvegardes retiennent : c'est le nom technique, le nom affiché n'est que ce qu'on lit.
 - **Relier** : l'outil *Link* de la barre d'outils de la scène, proposé dès qu'un nœud est
   sélectionné. Un clic sur un nœud, puis sur un autre : le premier devient prérequis du second.
   Recliquer la même paire retire le lien ; cliquer dans le vide abandonne.
