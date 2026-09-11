@@ -15,7 +15,8 @@ namespace Game.UI
     /// IsAvailable - and the introduction runs on the Core's directives alone.
     ///
     /// The Datacenter sits at the centre, the cores of ResearchDatabase.GetCores() around it, and each
-    /// research on the ring of its tier inside its core's sector (NeuralLayout). A synapse is drawn
+    /// research where its asset places it - on the ring of its tier, at its angle - placed by hand and
+    /// never computed here (ResearchNetworkPlacement). A synapse is drawn
     /// only from a parent already acquired; toward a parent that is available but not acquired only a
     /// short stub leaves the node, and toward one locked further back nothing is drawn at all - there
     /// is no path, so there is none on screen. An unpowered core is linked by a dim dashed line.
@@ -38,7 +39,6 @@ namespace Game.UI
         const float CentreSize = 58f;
         const float CoreSize = 50f;
         const float NodeSize = 30f;
-        const float UnknownSize = 24f;
         const float NameWidth = 110f;
         const float StubLength = 22f;
         const float PulseSize = 8f;
@@ -46,7 +46,6 @@ namespace Game.UI
         const float MinZoom = 0.4f;
         const float MaxZoom = 2f;
         const float WheelStep = 1.12f;
-        const int UnknownNodesPerEmptyCore = 3;
         const int CurveSamples = 20;
 
         static readonly Color RingColor = new Color32(28, 32, 41, 255);
@@ -55,24 +54,21 @@ namespace Game.UI
         static readonly Color StubColor = new Color32(61, 67, 79, 255);
         static readonly Color DarkColor = new Color32(42, 48, 58, 255);
 
-        enum NodeState { Completed, InProgress, Payable, Unaffordable, Locked, CoreOn, CoreOff, Unknown }
+        enum NodeState { Completed, InProgress, Payable, Unaffordable, Locked, CoreOn, CoreOff }
 
         /// <summary>Indexed by NodeState - one class per state, never distinguished by colour alone: each also has its own glyph.</summary>
         static readonly string[] StateClasses =
         {
             "research-node-completed", "research-node-in-progress", "research-node-payable",
             "research-node-unaffordable", "research-node-locked", "research-node-core-on",
-            "research-node-core-off", "research-node-unknown"
+            "research-node-core-off"
         };
 
         sealed class Node
         {
-            /// <summary>The core or research on this node; null for an unknown one.</summary>
+            /// <summary>The core or research on this node.</summary>
             public ResearchDefinition Definition;
             public bool IsCore;
-
-            /// <summary>Index in _nodes of the node this one hangs from; -1 for a core, which hangs from the Datacenter.</summary>
-            public int ParentIndex;
 
             /// <summary>Offset from the Datacenter, before pan and zoom.</summary>
             public Vector2 Position;
@@ -254,7 +250,7 @@ namespace Game.UI
 
         // --- Building the network (once) ---
 
-        /// <summary>Creates every node from the database. The tree is static data, so this runs the first time the panel opens and never again.</summary>
+        /// <summary>Creates every node from the database, each where its asset places it (ResearchNetworkPlacement). The tree is static data, so this runs the first time the panel opens and never again.</summary>
         void BuildNetwork()
         {
             _content.Clear();
@@ -264,15 +260,21 @@ namespace Game.UI
             ResearchDatabase database = gameRuntime.Researches;
             IReadOnlyList<ResearchDefinition> cores = database != null ? database.GetCores() : System.Array.Empty<ResearchDefinition>();
             IReadOnlyList<ResearchDefinition> researches = database != null ? database.GetAll() : System.Array.Empty<ResearchDefinition>();
-            List<NeuralLayout.Placement> placements = NeuralLayout.Compute(cores, researches, RingStep, UnknownNodesPerEmptyCore);
 
             // How far the drawing reaches: the furthest node, its half-size and the name under it.
             _maxTier = 1;
             _outerRadius = CentreSize;
-            for (int i = 0; i < placements.Count; i++)
+            for (int i = 0; i < cores.Count + researches.Count; i++)
             {
-                _maxTier = Mathf.Max(_maxTier, placements[i].Tier);
-                _outerRadius = Mathf.Max(_outerRadius, placements[i].Position.magnitude + CoreSize * 0.5f + 30f);
+                bool isCore = i < cores.Count;
+                ResearchDefinition definition = isCore ? cores[i] : researches[i - cores.Count];
+                if (definition == null || _indexOf.ContainsKey(definition)) continue;
+
+                var node = new Node { Definition = definition, IsCore = isCore, Position = ScreenPosition(definition) };
+                _indexOf[definition] = _nodes.Count;
+                _nodes.Add(node);
+                _maxTier = Mathf.Max(_maxTier, definition.Tier);
+                _outerRadius = Mathf.Max(_outerRadius, node.Position.magnitude + CoreSize * 0.5f + 30f);
             }
 
             // The square the network lives in, centred on the network area. Its own centre is the
@@ -286,44 +288,21 @@ namespace Game.UI
             // The Datacenter: not a research and not clickable - the network grows out of it.
             AddElement(Vector2.zero, CentreSize, "research-node-centre", "Datacenter MK1", nameInside: true, clickable: false, out _);
 
-            for (int i = 0; i < placements.Count; i++)
+            foreach (Node node in _nodes)
             {
-                NeuralLayout.Placement placement = placements[i];
-                var node = new Node
-                {
-                    Definition = placement.Definition,
-                    IsCore = placement.IsCore,
-                    ParentIndex = placement.ParentIndex,
-                    Position = placement.Position
-                };
-
-                float size;
                 if (node.IsCore)
                 {
-                    size = CoreSize;
-                    node.Element = AddElement(node.Position, size, "research-node-core", node.Definition.DisplayName, nameInside: true, clickable: true, out _);
-                    node.OffCaption = Caption("non alimente", size, "research-node-caption");
+                    node.Element = AddElement(node.Position, CoreSize, "research-node-core", node.Definition.DisplayName, nameInside: true, clickable: true, out _);
+                    node.OffCaption = Caption("non alimente", CoreSize, "research-node-caption");
                     node.Element.Add(node.OffCaption);
-                }
-                else if (node.Definition == null)
-                {
-                    size = UnknownSize;
-                    node.Element = AddElement(node.Position, size, "research-node-research", null, nameInside: false, clickable: false, out node.Glyph);
                 }
                 else
                 {
-                    size = NodeSize;
-                    node.Element = AddElement(node.Position, size, "research-node-research", node.Definition.DisplayName, nameInside: false, clickable: true, out node.Glyph);
+                    node.Element = AddElement(node.Position, NodeSize, "research-node-research", node.Definition.DisplayName, nameInside: false, clickable: true, out node.Glyph);
                 }
 
-                if (node.Definition != null)
-                {
-                    ResearchDefinition captured = node.Definition;
-                    node.Element.RegisterCallback<ClickEvent>(_ => _inspected = captured);
-                    _indexOf[node.Definition] = _nodes.Count;
-                }
-
-                _nodes.Add(node);
+                ResearchDefinition captured = node.Definition;
+                node.Element.RegisterCallback<ClickEvent>(_ => _inspected = captured);
             }
 
             _pulse = new VisualElement();
@@ -332,6 +311,13 @@ namespace Game.UI
             _pulse.style.width = PulseSize;
             _pulse.style.height = PulseSize;
             _content.Add(_pulse);
+        }
+
+        /// <summary>A node's offset from the Datacenter on screen: its stored polar position, y flipped - the panel is y down.</summary>
+        static Vector2 ScreenPosition(ResearchDefinition definition)
+        {
+            Vector2 offset = ResearchNetworkPlacement.Offset(definition.Tier, definition.Angle, RingStep);
+            return new Vector2(offset.x, -offset.y);
         }
 
         VisualElement AddElement(Vector2 position, float size, string kindClass, string name, bool nameInside, bool clickable, out Label glyph)
@@ -429,7 +415,6 @@ namespace Game.UI
         /// </summary>
         static NodeState ResolveState(ResearchSystem research, Node node, float reserve)
         {
-            if (node.Definition == null) return NodeState.Unknown;
             if (node.IsCore) return research.IsUnlocked(node.Definition.Id) ? NodeState.CoreOn : NodeState.CoreOff;
             if (research.IsUnlocked(node.Definition.Id)) return NodeState.Completed;
             if (ReferenceEquals(node.Definition, research.GetActiveResearch())) return NodeState.InProgress;
@@ -443,7 +428,6 @@ namespace Game.UI
             NodeState.InProgress => "◷",
             NodeState.Payable => "◆",
             NodeState.Unaffordable => "◇",
-            NodeState.Unknown => "?",
             _ => "\U0001F512"
         };
 
@@ -542,12 +526,6 @@ namespace Game.UI
                 {
                     if (node.State == NodeState.CoreOn) Curve(painter, origin, to, LitColor, 2f, dashed: false);
                     else Curve(painter, origin, to, DarkColor, 1.5f, dashed: true);
-                    continue;
-                }
-
-                if (node.Definition == null)
-                {
-                    Curve(painter, origin + _nodes[node.ParentIndex].Position, to, DarkColor, 1.2f, dashed: true);
                     continue;
                 }
 

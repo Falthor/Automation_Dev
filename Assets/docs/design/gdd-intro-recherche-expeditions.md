@@ -459,19 +459,16 @@ Bâtiments qui l'ouvre. Chaque nœud porte les cinq états et le panneau de dét
 **Disposition radiale.** Le rayon encode le palier de progression : le joueur lit sa
 position dans la partie à sa distance au centre, sans aucun texte.
 
-**Contrainte angulaire.** Chaque branche reçoit un secteur exclusif ; un enfant reste
-dans le secteur de son parent. C'est la règle qui garantit mathématiquement zéro
-croisement de câbles, et elle permet de calculer le placement automatiquement.
+**Placement à la main.** Chaque nœud est posé à la main : son palier (l'anneau) et son
+angle sont stockés sur la recherche elle-même, jamais calculés. Chaque branche a son
+secteur de 120° ; un enfant reste dans le secteur de sa branche, ce qui évite les
+croisements de câbles. Le secteur est un repère pour qui pose le nœud, pas une
+contrainte : un nœud peut en sortir, et l'éditeur le signale.
 
 ```
-angle_enfant  = intervalle du parent, subdivisé au prorata du nombre de feuilles
-rayon         = palier × pas_de_rayon
-position      = centre + polaire(rayon, angle) + ajustement_manuel
+rayon     = palier × pas_de_rayon
+position  = centre + polaire(rayon, angle)
 ```
-
-Le joueur n'ordonne que la liste des enfants, l'algorithme répartit les angles. Un
-`Vector2` d'ajustement par nœud reste stocké pour les retouches esthétiques, mais
-aucun nœud n'est jamais placé à zéro à la main.
 
 **Trois noyaux au lieu d'un.** Recherche et bâtiments s'allument à l'amorçage.
 L'armement reste **éteint**, non alimenté, avec quelques neurones en silhouette autour.

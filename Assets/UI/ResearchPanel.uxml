@@ -63,7 +63,6 @@
                 <ui:Label text="&#9670; payable" class="research-legend-item research-legend-payable" />
                 <ui:Label text="&#9671; CU insuffisant" class="research-legend-item research-legend-unaffordable" />
                 <ui:Label text="&#128274; verrouille" class="research-legend-item research-legend-locked" />
-                <ui:Label text="? inconnu" class="research-legend-item research-legend-unknown" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>

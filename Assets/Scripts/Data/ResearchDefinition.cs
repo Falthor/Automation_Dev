@@ -27,8 +27,11 @@ namespace Game.Data
         /// <summary>Ceiling on how many CU per second this research can absorb, even when the reserve holds far more - the runtime rate is min(this, whatever the reserve can currently give).</summary>
         [SerializeField, Min(0f)] float absorptionRatePerSecond;
 
-        /// <summary>Progression tier: the ring this research sits on in the research network (GDD §5.4, NeuralLayout). Never inside its parent's ring, whatever it says here.</summary>
+        /// <summary>Progression tier: the ring this research sits on in the research network (GDD §5.4). With Angle, its whole position there - see ResearchNetworkPlacement.</summary>
         [SerializeField] int tier;
+
+        /// <summary>Where on its ring, in degrees counter-clockwise from the right. Placed by hand in the research tree editor; nothing computes or corrects it.</summary>
+        [SerializeField] float angle;
 
         public string Id => id;
         public string DisplayName => displayName;
@@ -44,5 +47,6 @@ namespace Game.Data
 
         public float AbsorptionRatePerSecond => absorptionRatePerSecond;
         public int Tier => tier;
+        public float Angle => angle;
     }
 }

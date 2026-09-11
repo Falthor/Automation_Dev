@@ -973,8 +973,6 @@
 .research-node-locked { background-color: rgb(22, 25, 32); border-color: rgb(61, 67, 79); }
 .research-node-locked .research-node-glyph { color: rgb(92, 99, 113); }
 
-.research-node-unknown { background-color: rgb(22, 24, 29); border-color: rgb(47, 53, 64); }
-.research-node-unknown .research-node-glyph { color: rgb(69, 76, 88); }
 
 /* After the per-state rules on purpose: every state above sets a border colour at the same
    specificity, so file order decides - the missing chain and the selection have to come last. */
@@ -1160,7 +1158,6 @@
 .research-legend-payable { color: rgb(237, 147, 177); }
 .research-legend-unaffordable { color: rgb(154, 162, 177); }
 .research-legend-locked { color: rgb(107, 114, 128); }
-.research-legend-unknown { color: rgb(92, 99, 113); }
 
 /* Top Bar */
 

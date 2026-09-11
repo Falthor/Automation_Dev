@@ -14,10 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: cortex_buildings
   displayName: Noyau Batiments
-  description: Alimente par le Datacenter. Porte les recherches qui ouvrent de nouveaux batiments.
+  description: Alimente par le Datacenter. Porte les recherches qui ouvrent de nouveaux
+    batiments.
   icon: {fileID: 0}
   cuCost: 0
   prerequisites: []
   effects: []
   absorptionRatePerSecond: 0
   tier: 1
+  angle: 30

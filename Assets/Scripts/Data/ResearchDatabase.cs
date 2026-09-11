@@ -14,8 +14,8 @@ namespace Game.Data
         [SerializeField] ResearchDefinition[] researches;
 
         /// <summary>
-        /// The roots of the research network, in the order the panel lays them out around the
-        /// Datacenter: Research, Buildings, Armament (GDD §5.4).
+        /// The roots of the research network: Research, Buildings, Armament (GDD §5.4). Where each
+        /// sits is its own Tier and Angle, not its place in this list.
         ///
         /// Kept apart from the researches because a core is never bought: it is an unlock id granted
         /// by whatever powers it (ResearchSystem.Grant), and a research joins a branch by naming its

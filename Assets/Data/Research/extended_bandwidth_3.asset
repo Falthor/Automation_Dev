@@ -26,3 +26,4 @@ MonoBehaviour:
     value: 80
   absorptionRatePerSecond: 40
   tier: 6
+  angle: 120
