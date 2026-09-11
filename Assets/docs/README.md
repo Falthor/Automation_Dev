@@ -64,6 +64,8 @@ aux spécifications, les pièges rencontrés et les mesures qui ont tranché.
   les formules, les chiffres qu'elles donnent, et les deux sens du mot « rendement »
 - [`effets-de-recherche.md`](carnets/effets-de-recherche.md) — pourquoi une recherche porte ses effets,
   et pourquoi plus aucun système ne compare un identifiant de recherche
+- [`editeur-arbre-recherche.md`](carnets/editeur-arbre-recherche.md) — l'arbre se pose à la main dans
+  une scène qui ne stocke rien : poignées, polaire, et la disposition dérivée qui a disparu
 
 **Les directives ont disparu.** Chaque chantier en avait une, qui disait ce qu'il fallait faire ; une
 fois le chantier fini, elle ne pouvait plus que diverger du code sans que rien ne le signale. Ce
