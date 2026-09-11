@@ -33,5 +33,16 @@
                 <ui:Button name="GameMenuLoadCancel" text="ANNULER" class="game-menu-button game-menu-button-quiet" />
             </ui:VisualElement>
         </ui:VisualElement>
+
+        <!-- Quitting after acting since the last save asks first. OK leaves without saving;
+             nothing is ever written on quit. -->
+        <ui:VisualElement name="GameMenuQuitDialog" class="game-menu-dialog hidden">
+            <ui:VisualElement class="game-menu-panel">
+                <ui:Label text="Partie non sauvegardée" class="game-menu-title" />
+                <ui:Label text="Votre partie n'a pas été sauvegardée. Quitter quand même ?" class="game-menu-notice" />
+                <ui:Button name="GameMenuQuitConfirm" text="OK" class="game-menu-button game-menu-button-danger" />
+                <ui:Button name="GameMenuQuitCancel" text="ANNULER" class="game-menu-button game-menu-button-quiet" />
+            </ui:VisualElement>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

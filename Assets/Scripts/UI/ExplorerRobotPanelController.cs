@@ -89,6 +89,7 @@ namespace Game.UI
             if (_selected == null) return;
 
             gameRuntime.ExplorerRobots?.Toggle(_selected);
+            gameRuntime.NotePlayerAction();
             Render();
         }
 

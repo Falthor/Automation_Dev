@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Bande passante etendue 2
   description: Porte le rayon d'action du Noyau a 60 cellules.
   icon: {fileID: 0}
-  cuCost: 2000
+  cuCost: 15000
   prerequisites:
   - {fileID: 11400000, guid: dd8c0be5fde9f2156a424539f2b6a635, type: 2}
   effects:

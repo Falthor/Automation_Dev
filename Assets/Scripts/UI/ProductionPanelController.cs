@@ -282,6 +282,7 @@ namespace Game.UI
             if (string.IsNullOrEmpty(_pendingRecipeId) || _pendingRecipeId == _selected.GetSelectedRecipe()) return;
 
             _selected.SetSelectedRecipe(_pendingRecipeId);
+            gameRuntime.NotePlayerAction();
             SetActiveTab(true);
         }
 
@@ -363,6 +364,7 @@ namespace Game.UI
         {
             if (_selected == null) return;
             _selected.SetPaused(!_selected.IsPaused);
+            gameRuntime.NotePlayerAction();
             RefreshPauseButton();
         }
 

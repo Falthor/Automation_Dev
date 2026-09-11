@@ -32,6 +32,7 @@ namespace Game.UI
         readonly VisualElement _overlay;
         readonly VisualElement _saveDialog;
         readonly VisualElement _loadDialog;
+        readonly VisualElement _quitDialog;
         readonly TextField _saveName;
         readonly Label _saveNotice;
         readonly ScrollView _loadList;
@@ -46,6 +47,7 @@ namespace Game.UI
 
             _saveDialog = overlay.Q<VisualElement>("GameMenuSaveDialog");
             _loadDialog = overlay.Q<VisualElement>("GameMenuLoadDialog");
+            _quitDialog = overlay.Q<VisualElement>("GameMenuQuitDialog");
             _saveName = overlay.Q<TextField>("GameMenuSaveName");
             _saveNotice = overlay.Q<Label>("GameMenuSaveNotice");
             _loadList = overlay.Q<ScrollView>("GameMenuLoadList");
@@ -59,6 +61,8 @@ namespace Game.UI
             overlay.Q<Button>("GameMenuSaveConfirm").clicked += ConfirmSave;
             overlay.Q<Button>("GameMenuSaveCancel").clicked += HideDialogs;
             overlay.Q<Button>("GameMenuLoadCancel").clicked += HideDialogs;
+            overlay.Q<Button>("GameMenuQuitConfirm").clicked += QuitWithoutSaving;
+            overlay.Q<Button>("GameMenuQuitCancel").clicked += HideDialogs;
         }
 
         public bool IsOpen => !_overlay.ClassListContains("hidden");
@@ -79,6 +83,7 @@ namespace Game.UI
         {
             _saveDialog.AddToClassList("hidden");
             _loadDialog.AddToClassList("hidden");
+            _quitDialog.AddToClassList("hidden");
             if (_saveNotice != null) _saveNotice.text = string.Empty;
         }
 
@@ -161,7 +166,24 @@ namespace Game.UI
             _shortcuts?.Show();
         }
 
+        /// <summary>
+        /// Leaves at once when the player's last save is still up to date; otherwise asks first - OK
+        /// leaves without saving, Annuler stays. Nothing is written on the way out either way
+        /// (GameRuntime.HasUnsavedPlayerActions).
+        /// </summary>
+        void Quit()
+        {
+            if (_runtime != null && _runtime.HasUnsavedPlayerActions)
+            {
+                HideDialogs();
+                _quitDialog.RemoveFromClassList("hidden");
+                return;
+            }
+
+            QuitWithoutSaving();
+        }
+
         /// <summary>Does nothing in the Editor, by design - Application.Quit is a no-op there, and the build is where the button matters.</summary>
-        static void Quit() => Application.Quit();
+        static void QuitWithoutSaving() => Application.Quit();
     }
 }

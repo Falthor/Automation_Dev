@@ -290,10 +290,24 @@ namespace Game.Presentation
         ///
         /// Taken from <c>PendingGameStart</c> in Awake and kept, because that carrier is consumed
         /// there and nothing downstream could recover it. <see cref="SaveAs"/> moves it when the
-        /// player saves under a different name, so an autosave that follows goes to the same place
-        /// the player last chose rather than back to where the session started.
+        /// player saves under a different name, so the next save the menu prefills goes to the same
+        /// place the player last chose rather than back to where the session started.
         /// </summary>
         public string CurrentSaveName { get; private set; }
+
+        /// <summary>
+        /// Whether the player has acted since their last save - what the in-game menu's Quit asks
+        /// before closing (GLOBAL_UI.md §8b). True from the start of a session until the player
+        /// saves: only a save of theirs, with nothing done since, lets them quit without a warning.
+        ///
+        /// <b>Player actions only</b>, noted where the player issues them (<see cref="NotePlayerAction"/>).
+        /// The world running on by itself - production, CU, time - does not count. Nothing is ever
+        /// written on quit: closing the window, or confirming the warning, leaves the save as it was.
+        /// </summary>
+        public bool HasUnsavedPlayerActions { get; private set; } = true;
+
+        /// <summary>Called wherever a player command changes the run - placing, demolishing, moving, research, recipes, settings. See HasUnsavedPlayerActions.</summary>
+        public void NotePlayerAction() => HasUnsavedPlayerActions = true;
         public ItemVisualSync ItemVisuals => itemVisuals;
         public ConstructionSiteVisualSync ConstructionSiteVisuals => constructionSiteVisuals;
         public ItemDatabase Items => itemDatabase;
@@ -609,9 +623,9 @@ namespace Game.Presentation
             Escape = new EscapeArbiter(Selection, Construction);
 
             // New Game "generates a save" (per the main-menu contract) - the initial state is
-            // written immediately so a Load right after New Game (without ever quitting) still
-            // finds a file. A loaded game's file already exists and is left untouched here;
-            // OnApplicationQuit() is what keeps it in sync with actual progress.
+            // written immediately so a Load right after New Game still finds a file. A loaded
+            // game's file already exists and is left untouched here; only the player saving from
+            // the menu brings it up to date - nothing is written on quit.
             if (loadedSave == null)
             {
                 SaveCurrentGame();
@@ -788,21 +802,25 @@ namespace Game.Presentation
             return ids;
         }
 
-        /// <summary>Captures every system's current state into a SaveData and writes it to the single save file (CONTRACTS.md §14). Called by New Game (initial state) and OnApplicationQuit (current progress).</summary>
         /// <summary>
         /// Writes the session to a named save and adopts that name for everything after.
         ///
         /// Adopting it is the point: a player who saves as "avant le datacenter" expects the next
-        /// autosave to go there too, not back to the folder the session was launched from. Returns
-        /// whether the write landed, so the caller can say so instead of assuming.
+        /// save to go there too, not back to the folder the session was launched from. Returns
+        /// whether the write landed, so the caller can say so instead of assuming - and only a write
+        /// that landed clears HasUnsavedPlayerActions.
         /// </summary>
         public bool SaveAs(string name)
         {
             CurrentSaveName = Game.Save.SaveService.Sanitise(name);
             SaveCurrentGame();
-            return Game.Save.SaveService.Exists(CurrentSaveName);
+
+            bool written = Game.Save.SaveService.Exists(CurrentSaveName);
+            if (written) HasUnsavedPlayerActions = false;
+            return written;
         }
 
+        /// <summary>Captures every system's current state into a SaveData and writes it under CurrentSaveName (CONTRACTS.md §14). Called by New Game (its initial state) and by SaveAs - never on quit.</summary>
         void SaveCurrentGame()
         {
             var data = new SaveData
@@ -882,11 +900,6 @@ namespace Game.Presentation
 
         /// <summary>The map image owns a Texture2D, which Unity does not collect on its own.</summary>
         void OnDestroy() => SectorMap?.Dispose();
-
-        void OnApplicationQuit()
-        {
-            SaveCurrentGame();
-        }
 
         /// <summary>The camera the depth ladder and the fog window both follow. Cached once - Camera.main is a scene search.</summary>
         Camera _depthSortCamera;
@@ -1038,6 +1051,7 @@ namespace Game.Presentation
             if (!Construction.TryRotateInPlace(cell, out BuildingRuntime rotated)) return false;
 
             BuildingViewRebuilder?.Invoke(rotated, cell);
+            NotePlayerAction();
             return true;
         }
 

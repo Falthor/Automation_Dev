@@ -711,9 +711,16 @@ namespace Game.UI
             if (_inspected == null || (_indexOf.TryGetValue(_inspected, out int index) && _nodes[index].IsCore)) return;
 
             ResearchSystem research = gameRuntime.Research;
-            if (ReferenceEquals(_inspected, research.GetActiveResearch())) research.CancelActive();
-            else if (research.GetQueue().Contains(_inspected)) research.Dequeue(_inspected);
-            else research.Enqueue(_inspected);
+            bool changed;
+            if (ReferenceEquals(_inspected, research.GetActiveResearch()))
+            {
+                research.CancelActive();
+                changed = true;
+            }
+            else if (research.GetQueue().Contains(_inspected)) changed = research.Dequeue(_inspected);
+            else changed = research.Enqueue(_inspected);
+
+            if (changed) gameRuntime.NotePlayerAction();
         }
 
         /// <summary>Everything in the detail panel that only changes with the state - redone on a signature change, never per frame.</summary>
@@ -847,17 +854,17 @@ namespace Game.UI
             name.AddToClassList("research-queue-name");
             row.Add(name);
 
-            var up = new Button(() => research.ReorderQueue(index, index - 1)) { text = "▲" };
+            var up = new Button(() => { if (research.ReorderQueue(index, index - 1)) gameRuntime.NotePlayerAction(); }) { text = "▲" };
             up.AddToClassList("research-queue-button");
             up.SetEnabled(index > 0);
             row.Add(up);
 
-            var down = new Button(() => research.ReorderQueue(index, index + 1)) { text = "▼" };
+            var down = new Button(() => { if (research.ReorderQueue(index, index + 1)) gameRuntime.NotePlayerAction(); }) { text = "▼" };
             down.AddToClassList("research-queue-button");
             down.SetEnabled(index < count - 1);
             row.Add(down);
 
-            var remove = new Button(() => research.Dequeue(definition)) { text = "✕" };
+            var remove = new Button(() => { if (research.Dequeue(definition)) gameRuntime.NotePlayerAction(); }) { text = "✕" };
             remove.AddToClassList("research-queue-button");
             row.Add(remove);
 

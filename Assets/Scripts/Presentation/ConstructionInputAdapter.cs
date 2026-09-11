@@ -738,6 +738,7 @@ namespace Game.Presentation
             // the items riding it stay on it. See ConstructionService.TryRedirectExistingConveyor.
             if (gameRuntime.Construction.TryRedirectExistingConveyor(cell, rotation, out ConveyorRuntime redirected))
             {
+                gameRuntime.NotePlayerAction();
                 RefreshViewIfMaterialized(redirected);
                 return;
             }
@@ -764,6 +765,8 @@ namespace Game.Presentation
 
             if (gameRuntime.Construction.TryPlace(cell, rotation, out ConstructionSiteRuntime site, placingIntoConveyorRun ? _activeConveyorSite : null))
             {
+                gameRuntime.NotePlayerAction();
+
                 // Nothing is spawned or registered here any more: the segment exists as runtime
                 // state occupying its cells, but stays inert (no view, not in TransportSystem)
                 // until robots have delivered its full cost - OnSegmentMaterialized does that part.
@@ -864,7 +867,10 @@ namespace Game.Presentation
             if (gameRuntime.ConstructionSites == null) return false;
             if (!gameRuntime.ConstructionSites.TryGetSiteContaining(occupant, out _)) return false;
 
-            return gameRuntime.Construction.TryCancelPendingAt(cell);
+            if (!gameRuntime.Construction.TryCancelPendingAt(cell)) return false;
+
+            gameRuntime.NotePlayerAction();
+            return true;
         }
 
         void HandleDemolition(GridCoord cell)
@@ -941,6 +947,7 @@ namespace Game.Presentation
 
             if (!gameRuntime.Construction.TryRelocate(cell, out BuildingRuntime moved)) return;
 
+            gameRuntime.NotePlayerAction();
             RebuildView(moved, previousCell);
         }
 
@@ -965,10 +972,16 @@ namespace Game.Presentation
             // exist yet (TASK_05_ROBOT_CONSTRUCTEUR.md §4). One segment, not its whole chantier - so
             // a sweep across three belts of a twenty-belt drag removes exactly those three, and the
             // sweep above needs no special case for it.
-            if (gameRuntime.Construction.TryCancelPendingAt(cell)) return;
+            if (gameRuntime.Construction.TryCancelPendingAt(cell))
+            {
+                gameRuntime.NotePlayerAction();
+                return;
+            }
 
             if (gameRuntime.Construction.TryDemolish(cell, out BuildingRuntime removed))
             {
+                gameRuntime.NotePlayerAction();
+
                 // removed.Cell (the footprint's origin) may differ from the clicked cell for a
                 // multi-cell building - the view is keyed by origin, not by whichever cell was clicked.
                 // The deposit's own view (spawned once at world generation) was never destroyed

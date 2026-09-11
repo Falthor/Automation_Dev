@@ -18,6 +18,13 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
         const int MapSizeCells = 200;
         const int ResourceSeed = 12345;
 
+        /// <summary>
+        /// Between the two rings of invitation clusters, measured on a deposit's origin: the first
+        /// ring's centres stop at 29 cells and its far deposits at about 32.5, the second's start at
+        /// 40 and its nearest deposits at about 34.8 - rounding of the centre included.
+        /// </summary>
+        const float RingsSplitCells = 33.5f;
+
         static WorldGenerationSettings NewSettings(int actionRadiusCells, int resourceSeed = ResourceSeed, bool randomizeResourceSeed = false)
         {
             var ironItem = TestDataFactory.NewItem("iron_ore", ItemType.Ore);
@@ -40,7 +47,7 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
         }
 
         [Test]
-        public void Generate_WithRoomyRadius_PlacesOneGuaranteedClusterAndOneInvitationClusterPerResource()
+        public void Generate_WithRoomyRadius_PlacesEveryClusterOfEveryRing()
         {
             var settings = NewSettings(actionRadiusCells: 22);
             var grid = new GridRuntime(1f);
@@ -48,24 +55,25 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
 
             generator.Generate(grid, MapSizeCells, settings, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
 
-            // One in-radius cluster + one invitation cluster per resource - 4 deposits each.
-            Assert.AreEqual(8, generator.OreDeposits.Count(d => d.ItemId == "iron_ore"));
-            Assert.AreEqual(8, generator.OreDeposits.Count(d => d.ItemId == "copper_ore"));
-            Assert.AreEqual(8, generator.OreDeposits.Count(d => d.ItemId == "Coal_ore"));
+            // In the radius 4 of each; first ring 4 of each; second ring 8 iron, 8 copper, 4 coal.
+            Assert.AreEqual(16, generator.OreDeposits.Count(d => d.ItemId == "iron_ore"));
+            Assert.AreEqual(16, generator.OreDeposits.Count(d => d.ItemId == "copper_ore"));
+            Assert.AreEqual(12, generator.OreDeposits.Count(d => d.ItemId == "Coal_ore"));
 
             Vector2 coreCenter = new Vector2(generator.CoreOrigin.X + 2f, generator.CoreOrigin.Y + 2f);
-            bool InRadius(DepositRuntime deposit)
+            float Distance(DepositRuntime deposit)
             {
                 float dx = deposit.Origin.X - coreCenter.x;
                 float dy = deposit.Origin.Y - coreCenter.y;
-                return Mathf.Sqrt(dx * dx + dy * dy) <= generator.ActionRadiusCells;
+                return Mathf.Sqrt(dx * dx + dy * dy);
             }
 
-            foreach (string itemId in new[] { "iron_ore", "copper_ore", "Coal_ore" })
+            foreach (var (itemId, secondRing) in new[] { ("iron_ore", 8), ("copper_ore", 8), ("Coal_ore", 4) })
             {
                 var deposits = generator.OreDeposits.Where(d => d.ItemId == itemId).ToList();
-                Assert.AreEqual(4, deposits.Count(InRadius), $"{itemId}: one in-radius cluster x 4 deposits");
-                Assert.AreEqual(4, deposits.Count(d => !InRadius(d)), $"{itemId}: one invitation cluster x 4 deposits, outside the radius");
+                Assert.AreEqual(4, deposits.Count(d => Distance(d) <= generator.ActionRadiusCells), $"{itemId}: one in-radius cluster x 4 deposits");
+                Assert.AreEqual(4, deposits.Count(d => Distance(d) > generator.ActionRadiusCells && Distance(d) < RingsSplitCells), $"{itemId}: one first-ring cluster x 4 deposits");
+                Assert.AreEqual(secondRing, deposits.Count(d => Distance(d) > RingsSplitCells), $"{itemId}: one second-ring cluster");
             }
         }
 
@@ -126,9 +134,9 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
             {
                 var generator = Generate(NewSettings(actionRadiusCells: 22, randomizeResourceSeed: true));
 
-                Assert.AreEqual(8, generator.OreDeposits.Count(d => d.ItemId == "iron_ore"), $"draw {i}, seed {generator.ResourceSeed}");
-                Assert.AreEqual(8, generator.OreDeposits.Count(d => d.ItemId == "copper_ore"), $"draw {i}, seed {generator.ResourceSeed}");
-                Assert.AreEqual(8, generator.OreDeposits.Count(d => d.ItemId == "Coal_ore"), $"draw {i}, seed {generator.ResourceSeed}");
+                Assert.AreEqual(16, generator.OreDeposits.Count(d => d.ItemId == "iron_ore"), $"draw {i}, seed {generator.ResourceSeed}");
+                Assert.AreEqual(16, generator.OreDeposits.Count(d => d.ItemId == "copper_ore"), $"draw {i}, seed {generator.ResourceSeed}");
+                Assert.AreEqual(12, generator.OreDeposits.Count(d => d.ItemId == "Coal_ore"), $"draw {i}, seed {generator.ResourceSeed}");
             }
         }
 
@@ -196,8 +204,8 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
 
             foreach (string itemId in new[] { "iron_ore", "copper_ore", "Coal_ore" })
             {
-                var invitationDeposits = generator.OreDeposits.Where(d => d.ItemId == itemId && Distance(d) > startingRadius).ToList();
-                Assert.AreEqual(4, invitationDeposits.Count, $"seed {seed}, {itemId}: expected exactly one invitation cluster (4 deposits) beyond the starting radius.");
+                var invitationDeposits = generator.OreDeposits.Where(d => d.ItemId == itemId && Distance(d) > startingRadius && Distance(d) < RingsSplitCells).ToList();
+                Assert.AreEqual(4, invitationDeposits.Count, $"seed {seed}, {itemId}: expected exactly one first-ring invitation cluster (4 deposits) beyond the starting radius.");
 
                 foreach (DepositRuntime deposit in invitationDeposits)
                 {
@@ -206,6 +214,41 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
                     Assert.LessOrEqual(distance, startingRadius + fogRadiusMarginCells, $"seed {seed}, {itemId}: an invitation deposit must be visible under the starting fog.");
                     Assert.LessOrEqual(distance, extendedRadius, $"seed {seed}, {itemId}: an invitation deposit must be constructible after the first radius research.");
                 }
+            }
+        }
+
+        /// <summary>
+        /// The second ring, on every seed: one cluster per resource - 8 iron, 8 copper, 4 coal - whose
+        /// centre lies 40 to 60 cells from the Core. Only the centre is held to the band; the
+        /// deposits may overhang it by half the cluster's diagonal.
+        /// </summary>
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        [TestCase(4)]
+        [TestCase(5)]
+        [TestCase(6)]
+        [TestCase(7)]
+        [TestCase(8)]
+        [TestCase(9)]
+        [TestCase(10)]
+        public void SecondRing_HoldsEightIronEightCopperFourCoal_CentredBetween40And60(int seed)
+        {
+            Game.Gameplay.WorldGeneration.WorldGenerator generator = Generate(NewSettings(22, seed));
+            Vector2 coreCenter = new Vector2(generator.CoreOrigin.X + 2f, generator.CoreOrigin.Y + 2f);
+
+            foreach (var (itemId, expected) in new[] { ("iron_ore", 8), ("copper_ore", 8), ("Coal_ore", 4) })
+            {
+                var ring = generator.OreDeposits
+                    .Where(d => d.ItemId == itemId && Vector2.Distance(new Vector2(d.Origin.X, d.Origin.Y), coreCenter) > RingsSplitCells)
+                    .ToList();
+                Assert.AreEqual(expected, ring.Count, $"seed {seed}, {itemId}: deposits in the second ring");
+
+                // The cluster's centre is the middle of its deposits' own centres (2x2 each here).
+                var centre = new Vector2(ring.Average(d => d.Origin.X + 1f), ring.Average(d => d.Origin.Y + 1f));
+                float distance = Vector2.Distance(centre, coreCenter);
+                Assert.GreaterOrEqual(distance, 40f - 1f, $"seed {seed}, {itemId}: centre {distance:F1} cells out");
+                Assert.LessOrEqual(distance, 60f + 1f, $"seed {seed}, {itemId}: centre {distance:F1} cells out");
             }
         }
 

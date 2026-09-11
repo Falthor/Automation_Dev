@@ -13,8 +13,9 @@ namespace Game.Gameplay.WorldGeneration
 {
     /// <summary>
     /// World-content placement run once at game start: the Core building at the map center, its
-    /// starting-resources Storage Box fixture one cell south of it, and its resource deposits
-    /// scattered within its action radius. Not part of Game.Construction - this is world
+    /// starting-resources Storage Box fixture one cell south of it, and its resource deposits:
+    /// one cluster of each resource within its action radius, and two rings of invitation clusters
+    /// beyond it that the radius researches open. Not part of Game.Construction - this is world
     /// generation (like TerrainRuntime), not a player action.
     ///
     /// Seeded per run by default (WorldGenerationSettings.RandomizeResourceSeed), so two new games
@@ -42,6 +43,19 @@ namespace Game.Gameplay.WorldGeneration
         /// </summary>
         const float InvitationMinDistanceCells = 26f;
         const float InvitationMaxDistanceCells = 29f;
+
+        /// <summary>
+        /// The second ring of invitation clusters: further out than the first, and richer - 8 iron,
+        /// 8 copper, 4 coal. Only the centre is drawn in the band (cells, Core center to cluster
+        /// center), so a cluster can overhang it by half its diagonal; the second radius research (60)
+        /// is what opens most of it. Required, unlike the first ring: a world missing one is refused,
+        /// the same way as a world missing a starting cluster.
+        /// </summary>
+        const float SecondRingMinDistanceCells = 40f;
+        const float SecondRingMaxDistanceCells = 60f;
+        const int SecondRingIronDeposits = 8;
+        const int SecondRingCopperDeposits = 8;
+        const int SecondRingCoalDeposits = 4;
 
         /// <summary>
         /// Clear cells kept between a cluster's outer edge and the action-radius ring, so a cluster
@@ -188,6 +202,15 @@ namespace Game.Gameplay.WorldGeneration
             TryPlaceCluster(grid, random, coreCenter, settings.IronOreDefinition, InvitationMinDistanceCells, InvitationMaxDistanceCells);
             TryPlaceCluster(grid, random, coreCenter, settings.CopperOreDefinition, InvitationMinDistanceCells, InvitationMaxDistanceCells);
             TryPlaceCluster(grid, random, coreCenter, settings.CoalOreDefinition, InvitationMinDistanceCells, InvitationMaxDistanceCells);
+
+            // The second ring, placed last: every draw above happens exactly as it did before it
+            // existed, so a pinned seed keeps its first two rings where they were.
+            PlaceRequiredCluster(grid, random, coreCenter, settings.IronOreDefinition, "fer",
+                SecondRingMinDistanceCells, SecondRingMaxDistanceCells, SecondRingIronDeposits);
+            PlaceRequiredCluster(grid, random, coreCenter, settings.CopperOreDefinition, "cuivre",
+                SecondRingMinDistanceCells, SecondRingMaxDistanceCells, SecondRingCopperDeposits);
+            PlaceRequiredCluster(grid, random, coreCenter, settings.CoalOreDefinition, "charbon",
+                SecondRingMinDistanceCells, SecondRingMaxDistanceCells, SecondRingCoalDeposits);
         }
 
         float InRadiusMaxDistance(OreDepositDefinition definition)
@@ -201,53 +224,70 @@ namespace Game.Gameplay.WorldGeneration
             return ActionRadiusCells - RadiusEdgeMarginCells - halfDiagonal;
         }
 
-        /// <summary>Places the one required cluster for a resource type, or throws if it cannot be placed within the attempt budget - see the Generate() comment on why this is fatal instead of silent.</summary>
+        /// <summary>Places the one required in-radius cluster for a resource type - see PlaceRequiredCluster.</summary>
         void PlaceGuaranteedCluster(GridRuntime grid, System.Random random, Vector2 coreCenter, OreDepositDefinition definition, string resourceLabel)
+            => PlaceRequiredCluster(grid, random, coreCenter, definition, resourceLabel, InRadiusMinDistanceCells, InRadiusMaxDistance(definition), 4);
+
+        /// <summary>Places a cluster the world cannot do without, or throws if it cannot be placed within the attempt budget - see the Generate() comment on why this is fatal instead of silent.</summary>
+        void PlaceRequiredCluster(GridRuntime grid, System.Random random, Vector2 coreCenter, OreDepositDefinition definition, string resourceLabel,
+            float minDistance, float maxDistance, int deposits)
         {
             if (definition == null)
             {
                 throw new System.InvalidOperationException(
-                    $"World generation cannot place the guaranteed {resourceLabel} cluster: no OreDepositDefinition assigned in WorldGenerationSettings.");
+                    $"World generation cannot place the required {resourceLabel} cluster: no OreDepositDefinition assigned in WorldGenerationSettings.");
             }
 
-            if (!TryPlaceCluster(grid, random, coreCenter, definition, InRadiusMinDistanceCells, InRadiusMaxDistance(definition)))
+            if (!TryPlaceCluster(grid, random, coreCenter, definition, minDistance, maxDistance, deposits))
             {
                 throw new System.InvalidOperationException(
-                    $"World generation failed to place the guaranteed {resourceLabel} resource cluster within {DepositPlacementAttempts} attempts. " +
-                    "An introduction missing a resource type is not playable (ALIGNEMENT_PROJET.md §8).");
+                    $"World generation failed to place the required {resourceLabel} cluster ({deposits} deposits, {minDistance:0}-{maxDistance:0} cells from the Core) " +
+                    $"within {DepositPlacementAttempts} attempts. A world missing it is refused rather than handed over amputated.");
             }
         }
 
-        bool TryPlaceCluster(GridRuntime grid, System.Random random, Vector2 coreCenter, OreDepositDefinition definition, float minDistance, float maxDistance)
+        bool TryPlaceCluster(GridRuntime grid, System.Random random, Vector2 coreCenter, OreDepositDefinition definition, float minDistance, float maxDistance, int deposits = 4)
         {
             if (definition == null) return false;
 
-            // A deposit never spawns as a single isolated footprint - it's a 2x2 cluster of
+            // A deposit never spawns as a single isolated footprint - it's a cluster of
             // individually-exploitable deposit instances (each still its own definition-sized
-            // footprint), so up to 4 extractors can work the same deposit side by side, and it
-            // reads as a much bigger, more visible ore field on the map.
-            Vector2Int clusterFootprint = definition.FootprintSize * 2;
+            // footprint), so several extractors can work the same field side by side, and it reads
+            // as a much bigger, more visible ore field on the map. Two rows, as many columns as that
+            // takes: 4 deposits make the 2x2 square, 8 a 4x2 strip.
+            int columns = Mathf.Max(1, (deposits + 1) / 2);
+            int rows = deposits > 1 ? 2 : 1;
+
+            // A strip is laid along x or y at random, so a long field does not always point the same
+            // way. Drawn only for a strip: a square has one orientation, and not drawing for it keeps
+            // every earlier cluster's placement exactly what the same seed gave before.
+            if (columns != rows && random.NextDouble() < 0.5) (columns, rows) = (rows, columns);
+
+            var layout = new Vector2Int(columns, rows);
+            var clusterFootprint = new Vector2Int(definition.FootprintSize.x * columns, definition.FootprintSize.y * rows);
 
             if (!TryFindFreeSpot(grid, random, coreCenter, minDistance, maxDistance, clusterFootprint, out GridCoord clusterOrigin))
             {
                 return false;
             }
 
-            PlaceDepositCluster(grid, clusterOrigin, definition);
+            PlaceDepositCluster(grid, clusterOrigin, definition, layout, deposits);
             return true;
         }
 
-        /// <summary>Places a 2x2 grid of individual deposit instances filling clusterOrigin's 2x-sized footprint.</summary>
-        void PlaceDepositCluster(GridRuntime grid, GridCoord clusterOrigin, OreDepositDefinition definition)
+        /// <summary>Places up to <paramref name="deposits"/> individual deposit instances on a <paramref name="layout"/> grid filling clusterOrigin's footprint.</summary>
+        void PlaceDepositCluster(GridRuntime grid, GridCoord clusterOrigin, OreDepositDefinition definition, Vector2Int layout, int deposits)
         {
             Vector2Int size = definition.FootprintSize;
+            int placed = 0;
 
-            for (int qx = 0; qx < 2; qx++)
+            for (int qx = 0; qx < layout.x; qx++)
             {
-                for (int qy = 0; qy < 2; qy++)
+                for (int qy = 0; qy < layout.y && placed < deposits; qy++)
                 {
                     var subOrigin = new GridCoord(clusterOrigin.X + qx * size.x, clusterOrigin.Y + qy * size.y);
                     _oreDeposits.Add(grid.PlaceDeposit(subOrigin, definition));
+                    placed++;
                 }
             }
         }

@@ -232,6 +232,7 @@ namespace Game.UI
             _applyingSliderChange = true;
             _selected.SetResearchAxisShare(evt.newValue / 100f);
             _applyingSliderChange = false;
+            gameRuntime.NotePlayerAction();
         }
 
         void OnCpuThresholdChanged(ChangeEvent<float> evt)
@@ -240,6 +241,7 @@ namespace Game.UI
             _applyingSliderChange = true;
             _selected.SetCpuReplacementThreshold(evt.newValue);
             _applyingSliderChange = false;
+            gameRuntime.NotePlayerAction();
         }
 
         void OnMemoryThresholdChanged(ChangeEvent<float> evt)
@@ -248,6 +250,7 @@ namespace Game.UI
             _applyingSliderChange = true;
             _selected.SetMemoryReplacementThreshold(evt.newValue);
             _applyingSliderChange = false;
+            gameRuntime.NotePlayerAction();
         }
 
         void Update()

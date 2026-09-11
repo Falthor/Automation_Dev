@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Fonderie avancee
   description: Batiment Fonderie avancee et recette acier.
   icon: {fileID: 0}
-  cuCost: 2000
+  cuCost: 3000
   prerequisites:
   - {fileID: 11400000, guid: 6d2f8b3c0e4a4f71b9c5d3e7f1a2b4c6, type: 2}
   effects:

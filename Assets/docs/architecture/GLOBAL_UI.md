@@ -344,7 +344,7 @@ copy of it; it reports a failed write instead of closing, because a write can fa
 file and a menu that lies about it is how a run gets lost. **Charger** lists the saves on disk,
 rebuilt on every open since this very session may have written one. **Options** hands over to the
 shortcuts screen (§8a's neighbour, `ShortcutsPanel`), which the Menu button used to open directly.
-**Quitter** calls `Application.Quit`, a no-op in the Editor by design.
+**Quitter** calls `Application.Quit`, a no-op in the Editor by design, and **never saves**. When the player has acted since their last save (`GameRuntime.HasUnsavedPlayerActions`, set by every player command through `NotePlayerAction`, cleared only by a save that landed), it asks first: OK leaves without saving, Annuler stays. A session that never saved always asks. The world running on by itself does not count as an action. Closing the window leaves at once, without asking and without saving.
 
 Named saves, one folder each, are `CONTRACTS.md` §14's contract; the name travels on
 `PendingGameStart` and lives on as `GameRuntime.CurrentSaveName`.

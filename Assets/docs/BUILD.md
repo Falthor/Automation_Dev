@@ -107,7 +107,7 @@ Under `%USERPROFILE%\AppData\LocalLow\DefaultCompany\Automation_Dev\`:
 
 - `Player.log` — the run's full log, including the stack trace of any startup exception. First place
   to look when a build misbehaves.
-- `save.json` — the save. **Quitting overwrites it**, in a build and in the Editor alike
-  (`GameRuntime.OnApplicationQuit`). Playing `Bootstrap` directly, without going through MainMenu,
-  generates a fresh world and replaces the existing save on exit. Copy the file aside before any
-  throwaway session.
+- `save.json` — the save. **Quitting never writes it**: only Save in the in-game menu does, and
+  a New Game writes its starting state once. Playing `Bootstrap` directly, without going through
+  MainMenu, generates a fresh world and writes it over the save at once, as a New Game does - copy
+  the file aside before such a session.

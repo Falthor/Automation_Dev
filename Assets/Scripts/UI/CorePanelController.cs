@@ -94,7 +94,7 @@ namespace Game.UI
 
         void OnValidateClicked()
         {
-            gameRuntime.CoreDirectives?.Validate(_selected);
+            if (gameRuntime.CoreDirectives != null && gameRuntime.CoreDirectives.Validate(_selected)) gameRuntime.NotePlayerAction();
         }
 
         /// <summary>

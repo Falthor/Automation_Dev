@@ -273,8 +273,11 @@ Measured on the shipped map: 8.0 tiles on average inside 100 cells, 12.3 past 26
 
 **Nothing derived lands inside the Core's furthest reach** (`GameRuntime.FurthestActionRadiusCells`,
 80 today) - the highest radius any research grants, derived from the research effects rather than
-written down. The ore in it is placed by hand, at chosen distances,
-because the introduction depends on it; growing the radius gives the player room, not new ore. A sector is skipped when *any
+written down. The ore in it is placed by hand, at chosen distances, because the introduction depends
+on it (`WorldGenerator`): one cluster of each resource inside the starting radius, then two rings of
+invitation clusters the radius researches open - centres 26 to 29 cells out, 4 deposits of each, and
+centres 40 to 60 cells out, 8 iron, 8 copper and 4 coal. The second ring is required: a world that
+cannot place it is refused, like one missing a starting cluster. A sector is skipped when *any
 part of it* falls inside the radius rather than having its cells clipped — a clipped cluster would be
 two tiles against a wall, which is worse than none.
 

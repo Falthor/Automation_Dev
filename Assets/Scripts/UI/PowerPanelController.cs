@@ -123,6 +123,14 @@ namespace Game.UI
             _headerDemand = panelRoot.Q<Label>("PowerPriorityDemand");
             _headerDeficit = panelRoot.Q<Label>("PowerPriorityDeficit");
             _list = panelRoot.Q<VisualElement>("PowerPriorityList");
+
+            // The drag is followed by the list, not by the row's handle. Moving a row takes it out
+            // of the hierarchy for an instant, and UI Toolkit releases a capture held by an element
+            // that leaves it: captured on the handle, the drag stopped hearing the pointer after one
+            // place, and never heard the release. The list never leaves, so its capture holds.
+            _list.RegisterCallback<PointerMoveEvent>(Drag);
+            _list.RegisterCallback<PointerUpEvent>(EndDrag);
+            _list.RegisterCallback<PointerCaptureOutEvent>(_ => StopDragging());
             _cutLine = panelRoot.Q<VisualElement>("PowerPriorityCutLine");
 
             _graph = new HistoryGraphElement(GraphColorA, GraphColorB);
@@ -322,8 +330,6 @@ namespace Game.UI
             };
 
             handle.RegisterCallback<PointerDownEvent>(evt => BeginDrag(built, evt));
-            handle.RegisterCallback<PointerMoveEvent>(evt => Drag(built, evt));
-            handle.RegisterCallback<PointerUpEvent>(evt => EndDrag(built, evt));
 
             return built;
         }
@@ -334,7 +340,7 @@ namespace Game.UI
             _dragStartY = evt.position.y;
             _dragStartIndex = _rows.IndexOf(row);
             row.Root.AddToClassList("pr-row-dragging");
-            row.Handle.CapturePointer(evt.pointerId);
+            _list.CapturePointer(evt.pointerId);
             evt.StopPropagation();
         }
 
@@ -343,9 +349,10 @@ namespace Game.UI
         /// updated live rather than on release, which is what makes the cut line move while the
         /// player drags - the whole reason this screen is worth having.
         /// </summary>
-        void Drag(GroupRow row, PointerMoveEvent evt)
+        void Drag(PointerMoveEvent evt)
         {
-            if (_dragging != row) return;
+            GroupRow row = _dragging;
+            if (row == null || !_list.HasPointerCapture(evt.pointerId)) return;
 
             int target = _dragStartIndex + Mathf.RoundToInt((evt.position.y - _dragStartY) / RowHeight);
             target = Mathf.Clamp(target, 0, _rows.Count - 1);
@@ -356,8 +363,8 @@ namespace Game.UI
             _rows.RemoveAt(current);
             _rows.Insert(target, row);
 
-            // The element moves with it, and stays the same element - the pointer is captured on its
-            // handle, and a rebuilt row would drop the capture mid-gesture.
+            // The element moves with it, and stays the same element: a rebuilt row would lose its
+            // dragging style mid-gesture. The capture is the list's, so moving it costs nothing.
             row.Root.RemoveFromHierarchy();
             _list.Insert(target + 1, row.Root);   // +1: the cut line is the list's first child
 
@@ -365,19 +372,28 @@ namespace Game.UI
             // types this screen does not show, so a row's place on screen is not its place there.
             if (target + 1 < _rows.Count) gameRuntime.PowerPriority.MoveBefore(row.TypeId, _rows[target + 1].TypeId);
             else gameRuntime.PowerPriority.MoveAfter(row.TypeId, _rows[target - 1].TypeId);
+            gameRuntime.NotePlayerAction();
 
             evt.StopPropagation();
         }
 
-        void EndDrag(GroupRow row, PointerUpEvent evt)
+        void EndDrag(PointerUpEvent evt)
         {
-            if (_dragging != row) return;
+            if (_dragging == null) return;
 
-            row.Root.RemoveFromClassList("pr-row-dragging");
-            row.Handle.ReleasePointer(evt.pointerId);
+            if (_list.HasPointerCapture(evt.pointerId)) _list.ReleasePointer(evt.pointerId);
+            StopDragging();
+            evt.StopPropagation();
+        }
+
+        /// <summary>Ends a drag however it ends - released, or the capture lost to something else (the window losing focus). The order is already where the last move put it.</summary>
+        void StopDragging()
+        {
+            if (_dragging == null) return;
+
+            _dragging.Root.RemoveFromClassList("pr-row-dragging");
             _dragging = null;
             _builtRowCount = _rows.Count;
-            evt.StopPropagation();
         }
 
 
