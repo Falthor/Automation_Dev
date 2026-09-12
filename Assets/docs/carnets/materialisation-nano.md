@@ -122,7 +122,7 @@ modification dans `Game.Gameplay`.** Contrainte levée sciemment sur ce seul poi
 s'assembler segment par segment. Refaire le calcul dans Presentation aurait mis une règle de jeu à
 deux endroits, dont l'un se désynchronise en silence — **ça viole l'esprit de la contrainte plus
 gravement qu'un accesseur n'en viole la lettre**. Lecture seule, et n'expose que le résultat, jamais
-la somme préfixe. Consigné dans `CONTRACTS.md` §15.
+la somme préfixe.
 
 **Le cyan est réservé par la matérialisation, donc l'UI de chantier distingue par la texture.** Le
 joueur a appris cette couleur comme « construction en cours », pas comme une catégorie de stock : le

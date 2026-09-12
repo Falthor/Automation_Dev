@@ -1,7 +1,7 @@
 # Les effets de recherche
 
 Pourquoi une recherche porte elle-même ce qu'elle fait, et pourquoi plus aucun système ne compare un
-identifiant de recherche. L'état du code est dans `CONTRACTS.md` §11 ; ici, les raisons.
+identifiant de recherche. L'état du code est dans `architecture/` ; ici, les raisons.
 
 ## Le défaut
 

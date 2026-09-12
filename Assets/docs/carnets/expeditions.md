@@ -512,7 +512,7 @@ cartographie resterait à zéro la moitié du voyage puis sauterait — ce qui s
 `surveyed` vient d'une version où le choix montrait les sites : la restaurer en « jamais visitée »
 reprendrait ce que la partie avait déjà et redemanderait une exploration déjà faite. Absente, la zone
 choisie compte comme reconnue. C'est la seule exception au défaut tolérant habituel, et elle est écrite
-dans `CONTRACTS.md` §16 pour qu'elle ne passe pas pour un oubli.
+pour qu'elle ne passe pas pour un oubli.
 
 ---
 

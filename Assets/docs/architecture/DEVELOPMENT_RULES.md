@@ -7,7 +7,8 @@ Rules applicable to every modification of the Unity project, by human developers
 - Development is not permanently assigned by functional area.
 - Respect the assembly dependency graph.
 - A system must not access another system's internal state when a public contract exists.
-- Do not use concrete-type knowledge as a shortcut around a contract.
+- Do not use concrete-type knowledge as a shortcut around a contract. A concrete-type check may be used for behaviour dispatch when the contract genuinely requires different behaviour, but it must not become an excuse to reach into internal fields.
+- **Changing a public contract is an architectural change.** Identify every consumer globally, update the owning document, update the affected tests, verify the dependency direction still holds, and report any behaviour change explicitly.
 - Do not introduce circular dependencies.
 - Do not introduce a Manager, Service, Controller, Interface, Strategy, EventBus, Factory, or similar abstraction without a concrete problem and sufficient real consumers.
 - ScriptableObjects represent static definitions, not shared mutable runtime state.
@@ -122,6 +123,8 @@ What leaves is the description of what the system does today, any decision alrea
 
 **A directive has a shorter life still.** It is useful between the decision and the delivery; once the chantier is finished it can only drift from the code, with its title still claiming authority. Retire it, and move what it designed but never built into `design/`.
 
+**A purely documentary task changes no code.** Perform a read-only analysis of the current state, do not touch code, scenes, prefabs or assets, validate consistency across documents, and report inconsistencies rather than silently inventing implementation details to resolve them.
+
 ## 9. Claude Code
 
 Before implementation:
@@ -141,6 +144,24 @@ After implementation:
 5. report modified/created/deleted files;
 6. report tests and results;
 7. report out-of-scope observations.
+
+Every non-trivial report should carry:
+
+```text
+Files modified:
+Files created:
+Files deleted:
+
+Behavior implemented:
+Behavior preserved:
+
+Tests:
+- test
+- result
+
+Out of scope:
+Questions / decisions:
+```
 
 ## 10. Git
 

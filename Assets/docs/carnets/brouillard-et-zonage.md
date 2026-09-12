@@ -1,10 +1,6 @@
 # Brouillard, zonage, grande carte — carnet
 
-Ce carnet ne décrit pas ce que le système fait : cela vit dans
-[`../architecture/MAP.md`](../architecture/MAP.md) (découpage, découverte, brouillard, secteurs,
-portées), [`../architecture/TERRAIN.md`](../architecture/TERRAIN.md) (sol, biomes, décor),
-[`../architecture/PROJECT_ARCHITECTURE.md`](../architecture/PROJECT_ARCHITECTURE.md) §10.1 (ordre de
-tri) et [`../architecture/CONTRACTS.md`](../architecture/CONTRACTS.md) §14 (sauvegarde).
+Ce carnet ne décrit pas ce que le système fait : cela vit dans `architecture/`.
 
 Il garde ce qu'aucun de ces documents ne peut porter : **les fausses pistes, les mesures qui ont
 contredit une intuition, les pièges d'outillage, et les écarts assumés par rapport à une spec.**

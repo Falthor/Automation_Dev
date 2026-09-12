@@ -4,20 +4,7 @@ Authoritative subsystem document for the nano assembly effect: a placed building
 at the pace of its deliveries, and the ground under it converts at the same pace.
 
 It does **not** cover what a construction site is, who delivers to it, or when a building starts
-working — that is `CONTRACTS.md` §15 and `PROJECT_ARCHITECTURE.md` §17. This document covers what is
-drawn.
-
-## Related documents
-
-- [`PROJECT_ARCHITECTURE.md`](PROJECT_ARCHITECTURE.md) — §10 Presentation, §10.1 draw order (the
-  bands this subsystem's layers sit in), §17 (the central tick that drives sites).
-- [`CONTRACTS.md`](CONTRACTS.md) — §15, including `ConstructionSiteRuntime.SegmentProgress`, the one
-  read-only accessor Presentation was granted.
-- [`TERRAIN.md`](TERRAIN.md) — the ground this effect converts, and the shared noise primitive.
-- [`../carnets/materialisation-nano.md`](../carnets/materialisation-nano.md) — the false trails, the
-  measurements that overturned an intuition, and the traps. Not needed to use the system.
-
----
+working. This document covers what is drawn.
 
 ## 1. Where it lives
 
@@ -102,7 +89,7 @@ deliberate. Changes show immediately in Play: the component re-reads the asset e
 | `sitePlaceholderAlpha`, `siteSilhouetteSortingOrder` | The blue silhouette during assembly. |
 
 `dissolveShader` points at `Custom/BuildDissolve`, **as an asset reference, never `Shader.Find`** —
-see [`../BUILD.md`](../BUILD.md) §5.
+a shader reached only by name is stripped from a player build.
 
 **The assembly rate is deliberately not here.** It lives in `Game.Gameplay.Sites.SegmentAssembly`,
 because it decides **when a building starts working**: a segment is not registered, powered or active

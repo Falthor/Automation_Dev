@@ -2,7 +2,7 @@
 
 Les trois quantités du matériel du Datacenter, leurs formules et les chiffres qu'elles donnent avec
 les valeurs livrées. **Rien de tout ceci n'est montré au joueur** : le panneau lui donne un nombre,
-une bande et une barre (`GLOBAL_UI.md` §5a), et sa fenêtre d'explication n'énonce aucune formule.
+une bande et une barre, et sa fenêtre d'explication n'énonce aucune formule.
 Ce carnet est pour qui modifie l'équilibrage.
 
 Source de vérité : `ComponentInstance.cs` et `DataCenterRuntime.cs`. Si un chiffre ci-dessous

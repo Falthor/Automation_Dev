@@ -1,8 +1,6 @@
 # Entrées clavier et souris — carnet
 
-Ce carnet ne décrit pas ce que le système fait : les conventions d'interface vivent dans
-[`../architecture/GLOBAL_UI.md`](../architecture/GLOBAL_UI.md), et les surfaces publiques dans
-[`../architecture/CONTRACTS.md`](../architecture/CONTRACTS.md).
+Ce carnet ne décrit pas ce que le système fait : cela vit dans `architecture/`.
 
 Il garde ce qu'aucun des deux ne peut porter : **les prémisses fausses, ce qu'un inventaire a trouvé
 que personne ne cherchait, et les écarts assumés.**
@@ -229,9 +227,8 @@ surcharge derrière lui changerait ce que lit la partie suivante.
 
 ## 7. Le même écran depuis deux endroits
 
-Le menu devait s'ouvrir aussi en jeu, par le bouton Menu du Top Bar - que la spec importée décrit
-comme un emplacement réservé sans fonction. Lui en donner une est un écart assumé, noté dans le bloc
-d'état Unity de `GLOBAL_UI.md`.
+Le menu devait s'ouvrir aussi en jeu, par le bouton Menu du Top Bar - que la spécification importée
+décrivait comme un emplacement réservé sans fonction. Lui en donner une est un écart assumé.
 
 **Le balisage devient un template plutôt qu'une copie.** `Shortcuts.uxml` est instancié par
 `MainMenu.uxml` et par `TopBar.uxml` : un `<ui:Template>` plus un `<ui:Instance>`, résolus à

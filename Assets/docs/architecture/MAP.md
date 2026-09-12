@@ -8,16 +8,6 @@ It does **not** cover what a cell's terrain *is* or how the ground *looks*: that
 [`TERRAIN.md`](TERRAIN.md). The boundary is simple — `TERRAIN.md` owns `TerrainRuntime` and the ground
 shader, this document owns everything that divides, reveals or hides the map.
 
-## Related documents
-
-- [`PROJECT_ARCHITECTURE.md`](PROJECT_ARCHITECTURE.md) — §7 Grid (who owns per-cell world state), §10.1 Draw order (the fog's band, and the camera-relative depth ladder that solves the same scaling problem for a different system). Where the two disagree, `PROJECT_ARCHITECTURE.md` wins per the source-of-truth order in `CLAUDE.md`.
-- [`CONTRACTS.md`](CONTRACTS.md) — §14 Save/Restore (`SaveData.Discovered`, and why sectors are not saved).
-- [`TERRAIN.md`](TERRAIN.md) — terrain type and ground rendering.
-- [`../design/expansion-territoriale.md`](../design/expansion-territoriale.md) — secondary Cores, mining zones, deposit density and the generation parameters. **Design intent, none of it implemented**; this document describes what is.
-- [`../carnets/brouillard-et-zonage.md`](../carnets/brouillard-et-zonage.md) — the implementation notebook: decisions taken, deviations and why. Reasoning lives there; current state lives here.
-
----
-
 ## 1. Size and division
 
 The map is square and its size lives on `TerrainGenerationSettings.size`
@@ -102,7 +92,18 @@ and the captured save string is unchanged.
 **`Version` advances only when a call actually changed something.** The fog renderer compares it
 against what it last uploaded, which is the whole of "re-upload only when the state changed".
 
-**Persistence:** `SaveData.Discovered`, run-length encoded — see `CONTRACTS.md` §14.
+**Persistence: `SaveData.Discovered`.** Player progress, not a rebuildable cache: what has been
+explored beyond the Core's reach cannot be derived from anything else in the file.
+
+A **string**, not a `JObject`, for two reasons. `Game.Grid` references only `Game.Core` and
+`Game.Data`, and giving it a JSON type would add a dependency it has no other use for. And the file is
+written indented, so one entry per cell would run to megabytes on a large map. The encoding is
+run-length — `state:length` pairs, comma-separated, row-major — which costs a few hundred characters
+for a map that is mostly unknown.
+
+Restore is tolerant: a null, an empty string or a malformed run leaves the rest of the map unknown
+rather than throwing, and a run past the end of the map is ignored. A save predating the field loads
+as an undiscovered map, and the Core's radius writes its own disc back on the first tick.
 
 ### 2.1 Free exploration
 
@@ -162,7 +163,7 @@ any of the three.
   reports on it, and the robots are the only caller: when the robot crosses into a new sector it
   materialises the 3×3 block around it — the block, because a 12-cell reveal disc straddles up to four
   16-cell sectors and materialising only the one underneath would leave ore missing from ground the
-  robot plainly uncovered. See `MATERIALISATION.md` and §4.
+  robot plainly uncovered.
 
   **A materialised deposit goes in through `WorldGenerator.AddDeposit`, never straight into the
   grid.** That call is what puts it in `WorldGenerator.OreDeposits` and raises `DepositAppeared` —
@@ -172,9 +173,14 @@ any of the three.
   returns the runtime it creates for exactly this reason, and dropping that return value is the whole
   defect.
 
-**Persistence:** `SaveData.ExplorerRobots` — position, heading, state, plus where the drift had got to
-and how many sorties have been made, so a reloaded robot carries on the bend it was in the middle of
-rather than snapping onto a fresh one. No destination, because there is none to have.
+**Persistence: `SaveData.ExplorerRobots`** — an opaque blob owned by `ExplorerRobotSystem`'s own
+`Capture`/`Restore` pair: per robot its position, heading, state, the datacards it carries, where the
+drift had got to and how many sorties have been made, so a reloaded robot carries on the bend it was
+in the middle of rather than snapping onto a fresh one. No destination, because there is none to have.
+
+An absent key restores as a fleet that has not arrived, standing at the base with nothing - the
+truthful default rather than a convenient one. A blob listing fewer robots than the configured fleet
+restores the rest at home too.
 
 Measured on the shipped values: over a 240 s sortie the path strays well off the line between its own
 two ends (so it is not a ruler), and over 120 s it ends more than half its path length from the base
@@ -232,7 +238,7 @@ breaks that boundary up so it does not read as a circle. The texture is `linear:
 through a gamma curve arrives at the shader as a different number than it was written, and this one is
 compared against a threshold.
 
-The fog sits above every band in the draw-order ladder (`PROJECT_ARCHITECTURE.md` §10.1).
+The fog sits above every band in the draw-order ladder.
 
 ## 4. Sectors
 
@@ -291,8 +297,7 @@ partition has no part in it.
 
 **How far the world extends is one figure**, and it belongs to the robots:
 `ExplorerRobotSettings.maxRadiusCells`, which is where a wandering robot is turned back
-(§2.1) and what the map draws as its outer ring (§5). It is named and never quoted here - see
-`DEVELOPMENT_RULES.md` §8.
+(§2.1) and what the map draws as its outer ring (§5). It is named here and never quoted.
 
 ## 4a. Wrecks
 
@@ -414,12 +419,11 @@ because that is what decides whether to go and find one.
 
 - ~~Lazy terrain generation.~~ **Done, and differently than planned.** Terrain is no longer
   materialised at all: `GetTerrainType` computes its answer from the seed and the coordinate, so there
-  is nothing to generate lazily. See `TERRAIN.md` §1.
+  is nothing to generate lazily.
 - ~~The map screen.~~ **Built, then cut back to what it is for** — `SectorMapElement` and
   `SectorMapPanelController` (`Game.UI`): revealed terrain, the base, the Core and its radius, the outer
   ring and the robots. It designates nothing (§5).
-- ~~Sector content materialisation.~~ **Done**, and driven by the robots (§2.1). See
-  `MATERIALISATION.md`.
+- ~~Sector content materialisation.~~ **Done**, and driven by the robots (§2.1).
 - **Nests and units.** Nothing exists yet, which is why the third discovery state (§2) is carried
   entirely by the veil today: terrain, vegetation and deposits are the only things drawn out of
   observation, and all three are static.

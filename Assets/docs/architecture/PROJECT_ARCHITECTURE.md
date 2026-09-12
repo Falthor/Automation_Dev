@@ -1,92 +1,74 @@
 # Project Architecture
 
+How the project is put together: its baseline, its principles, its assemblies and their dependency
+direction, the one draw-order ladder, and what happens at startup.
+
+**Not what each system does.** Every system has its own document, and this one names none of their
+behaviour.
+
 ## 1. Purpose
 
-This document defines the accepted target architecture for the Unity project.
+An industrial automation game on an orthogonal grid. The Unity implementation is native to Unity 6.5.
+The previous Godot project is a behavioural and design reference where migration explicitly requires
+preserving existing behaviour - never an instruction to reproduce its implementation mechanisms.
 
-The project is an industrial automation game on an orthogonal grid. The Unity implementation is native to Unity 6.5. The previous Godot project is used as a behavioral and design reference where migration work explicitly requires preservation of existing behavior.
-
-This document describes the Unity architecture, not the historical Godot implementation.
-
-## 2. Unity baseline
+## 2. Baseline
 
 - Unity 6.5
-- Universal Render Pipeline (URP)
-- 2D Renderer
+- Universal Render Pipeline, 2D Renderer
 - UI Toolkit as the primary UI technology
-- C# for gameplay/runtime code
-- MonoBehaviour only where Unity lifecycle or engine integration is actually required
+- C# for gameplay and runtime code
+- MonoBehaviour only where the Unity lifecycle or engine integration is actually required
 
-## 3. Architectural principles
+## 3. Principles
 
 ### 3.1 Runtime is the gameplay source of truth
 
-The runtime model owns gameplay state.
+The runtime model owns gameplay state. Unity presentation objects never become the authoritative source
+for grid occupancy, footprints, production state, inventory, transport state, power, compute, research
+or terrain. A Tilemap, SpriteRenderer, Collider, Animator or prefab may *represent* runtime state but
+must not silently replace it.
 
-Unity presentation objects do not become the authoritative source for:
-
-- grid occupancy
-- building footprint
-- production state
-- inventory
-- transport state
-- power
-- compute
-- research
-- terrain gameplay state
-
-A Tilemap, SpriteRenderer, Collider, Animator, or prefab may represent runtime state but must not silently replace it.
+The runtime grid in particular is authoritative: gameplay must never ask a Tilemap whether a cell is
+occupied.
 
 ### 3.2 Definition → Runtime → View
 
-The standard building flow is:
-
 ```text
-BuildingDefinition
-       ↓
-BuildingRuntime
-       ↓
-BuildingView
-       ↓
-Unity GameObject / Prefab
+BuildingDefinition  →  BuildingRuntime  →  BuildingView  →  GameObject / Prefab
 ```
 
-- Definition: static content and configuration.
-- Runtime: per-instance mutable state.
-- View: Unity representation.
+- **Definition**: static content and configuration.
+- **Runtime**: per-instance mutable state.
+- **View**: the Unity representation.
 
-### 3.3 ScriptableObjects
+The logical footprint belongs to the content model and is independent of visual bounds and collider
+bounds. A building may visually overhang the cells it stands on.
 
-ScriptableObjects are used for static definitions.
+### 3.3 ScriptableObjects are definitions, not state
 
-They must not contain mutable state shared between multiple runtime instances.
+They hold static content and must not carry mutable state shared between runtime instances. Runtime
+inventories, production timers, transport queues and power state belong to runtime objects.
 
-Examples:
-
-```text
-ItemDefinition
-RecipeDefinition
-BuildingDefinition
-ResearchDefinition
-```
-
-Runtime inventories, production timers, transport queues, power state, and similar mutable state belong to runtime objects.
-
-## 4. Assembly architecture
-
-The project uses the following assemblies:
+## 4. The assemblies
 
 ```text
-Game.Core
-Game.Data
-Game.Grid
-Game.Gameplay
-Game.Construction
-Game.Save
-Game.Presentation
-Game.UI
-Game.Tools
-Game.Tests
+Game.Core        low-level domain types: coordinates, directions, rotations, small value types.
+                 Deliberately small.
+Game.Data        static definitions: items, recipes, buildings, research, and visual definition data
+                 that is part of static content. Never mutable runtime state.
+Game.Grid        the runtime grid model: grid/world conversion, occupancy, footprint validation,
+                 rotation, terrain data, per-cell discovery, the sector partition, the deposit
+                 registry.
+Game.Gameplay    the simulation: buildings, transport, production, power, compute, research,
+                 inventory, selection, construction sites and builder robots, exploration,
+                 notifications.
+Game.Construction placement, demolition, drag behaviour, unlock checks, preview orchestration.
+Game.Save        the save format and the file layer. A leaf.
+Game.Presentation runtime state turned into Unity representations: views, animation, effects, camera.
+Game.UI          UI Toolkit screens and panels.
+Game.Tools       one component, for one reason - see below.
+Game.Tests       references whatever the tests need.
 ```
 
 ### Dependency direction
@@ -106,515 +88,113 @@ Game.Presentation
 Game.UI
 ```
 
-`Game.Save` (§21) is a standalone leaf assembly with no dependency on any other `Game.*` assembly - only on the save format's own serialization needs. `Game.Presentation` and `Game.UI` depend on it; nothing lower depends on it, and it depends on nothing higher.
+**A lower-level assembly must never depend on a higher-level presentation or UI assembly.** The exact
+graph is a contract and must not be changed casually.
 
-`Game.Tools` exists for one reason: Unity refuses to attach a component that comes from an editor assembly, so the research tree editor's scene handle (`ResearchNodeHandle`) has to live in a runtime one. It carries the `UNITY_EDITOR` constraint, so no build embeds it, and the rest of that tool lives in `Assets/Editor/ResearchTree/`.
+`Game.Save` is a standalone leaf with no dependency on any other `Game.*` assembly. `Game.Presentation`
+and `Game.UI` depend on it; nothing lower does, and it depends on nothing higher.
 
-`Game.Tests` references the assemblies required by the tests.
+`Game.Tools` exists for one reason: Unity refuses to attach a component that comes from an editor
+assembly, so the research tree editor's scene handle has to live in a runtime one. It carries the
+`UNITY_EDITOR` constraint, so no build embeds it.
 
-A lower-level assembly must not depend on a higher-level presentation or UI assembly.
+The grid must not depend on concrete production, transport, UI or building subclasses merely to perform
+generic grid operations. Gameplay must not depend on Construction merely to run the simulation.
+Presentation reads runtime state through public surfaces; runtime never depends on presentation
+classes.
 
-The exact dependency graph is a contract and must not be changed casually.
+**Purely visual configuration is a preset, not a Definition.** A ScriptableObject that configures a
+look and has no corresponding Runtime type is not part of the Definition → Runtime → View flow; it
+exists so the active look can be swapped by reassigning one asset instead of editing code.
 
-## 5. Core
+## 5. Draw order
 
-`Game.Core` contains low-level domain types that have no dependency on Unity presentation or higher-level gameplay.
+One sorting layer (`Default`); depth is resolved entirely by `sortingOrder`, and every one of them
+comes from `SortingBands`. **No view writes a literal.**
 
-Examples:
-
-- grid coordinates
-- directions
-- rotations
-- identifiers
-- footprints
-- small value types
-- neutral results/errors where justified
-
-Core must remain deliberately small.
-
-## 6. Data
-
-`Game.Data` contains static definitions.
-
-Examples:
-
-- items
-- recipes
-- buildings
-- research
-- visual definition data where it is part of static content
-
-Data may depend on Core.
-
-Data must not own mutable runtime state.
-
-## 7. Grid
-
-`Game.Grid` owns the runtime grid model.
-
-Responsibilities include:
-
-- grid/world conversion
-- cell occupancy
-- footprint validation
-- rotation handling
-- terrain gameplay data
-- per-cell discovery state
-- the sector partition (geometry only)
-- ore/deposit registry
-- grid coordinates and cell queries
-
-The grid must not depend on concrete production, transport, UI, or building subclasses merely to perform generic grid operations.
-
-### 7.1 Discovery and sectors
-
-`Game.Grid` also owns what the player has discovered (`DiscoveryRuntime`, one state per cell) and the
-sector partition (`SectorGrid`, pure geometry). Both are per-cell world state of the same shape as
-terrain: written by Gameplay, read by Presentation, so they sit under both.
-
-Three invariants belong at this level; the rest is in [`MAP.md`](MAP.md), which is authoritative for
-the subsystem:
-
-- **Discovery is written, never derived.** The Core's action radius is one writer among others, and a
-  discovered cell stays discovered whatever the radius later does. `DiscoveryRuntime` holds no
-  reference to the Core, so no read path can recompute a distance and undo that.
-- **Sector contents are derived, never stored.** What a sector holds is a pure function of the world
-  seed and the sector index. Nothing is materialised for a sector nobody has reached, and nothing
-  about a sector enters the save.
-- **Sizes come from `SectorSettings` and from nowhere else.** `SectorGrid` takes the map size and the
-  sector size as required constructor arguments with no defaults, so a caller that forgets one fails
-  to compile rather than silently disagreeing with the asset.
-
-### Grid versus Tilemap
-
-The runtime grid is authoritative.
-
-Tilemap is a presentation mechanism when used.
-
-Gameplay must not ask a Tilemap whether a cell is occupied as its source of truth.
-
-## 8. Gameplay
-
-`Game.Gameplay` contains the simulation and runtime gameplay systems.
-
-Functional areas include:
-
-```text
-Buildings
-Transport
-Production
-Power
-Compute
-Research
-Inventory
-Selection
-Sites (construction sites + builder robots)
-Exploration (free-roaming explorer robots)
-Notifications
-```
-
-These are functional responsibilities inside the gameplay assembly unless a future dependency boundary justifies another assembly.
-
-The project must not create one assembly per subsystem merely for organizational appearance.
-
-## 9. Construction
-
-`Game.Construction` owns:
-
-- construction tool state
-- placement validation orchestration
-- placement
-- demolition
-- conveyor drag/replacement behavior
-- construction sites: placing opens a chantier that reserves its materials in real containers and is built by the builder robots (`Game.Gameplay.Sites`, `CONTRACTS.md` §15); demolition frees the space immediately and hands the materials to a robot to haul back
-- building unlock checks
-- construction preview orchestration
-
-Construction may depend on Core, Data, Grid, and Gameplay.
-
-Gameplay must not depend on Construction merely to execute normal simulation.
-
-## 10. Presentation
-
-`Game.Presentation` translates runtime state into Unity representations.
-
-Examples:
-
-- BuildingView
-- TerrainView
-- ConveyorView
-- animation presentation
-- visual effects
-- camera integration where appropriate
-
-Presentation may read runtime state through approved contracts.
-
-Purely visual configuration (e.g. TerrainView's ground texture set and tiling) is exposed through a dedicated ScriptableObject preset (`GroundTextureProfile`) rather than inline fields, so the active look can be swapped by reassigning one asset instead of editing code. This is a presentation-only preset, not a Definition in the Definition → Runtime → View sense (§3.2): it has no corresponding Runtime type. See [`TERRAIN.md`](TERRAIN.md) for the full ground-rendering system (biome noise blend, relief lighting) and its constraints.
-
-Runtime must not depend on presentation classes.
-
-### 10.1 Draw order
-
-One sorting layer (`Default`); depth is resolved entirely by `sortingOrder`, and every one of them comes from `SortingBands`. No view writes a literal.
-
-**The rule.** An element lower on the grid draws in front of one above it, because its art may overhang the cell above. Four bands, plus fog over all of them:
+**The rule.** An element lower on the grid draws in front of one above it, because its art may overhang
+the cell above. Four bands, plus fog over all of them:
 
 | Band | Ordering | Contents |
 |---|---|---|
-| Ground | fixed | terrain, nano coverage, flat decor and vegetation, concrete, deposits, grid, action radius, belts, the items riding them, Splitter/Crossroad |
+| Ground | fixed | terrain, nano coverage, flat decor and vegetation, concrete, deposits, grid, action radius, belts, the items riding them, Splitter and Crossroad |
 | Sorted | by depth | every building, the Core, construction silhouettes, their shadows and arrows, raised rocks, the builder robots |
 | Flying | fixed | empty - the robots walk, so they are in the sorted band. Kept for drones, projectiles, aerial effects |
 | Information | fixed | placement previews, their arrows, the hover outline |
 
-**Every order is derived from the one below it**, with no literal but the first and no gap between the bands. Gaps used to leave room for an insertion without renumbering what came after; they buy nothing now that no rank is stored anywhere - not in a scene, not in a save - so renumbering costs nothing and a chain beats a gap. Inserting a layer is one line, and the rest follows.
+**Every order is derived from the one below it**, with no literal but the first and no gap between the
+bands: no rank is stored anywhere - not in a scene, not in a save - so renumbering is free and
+inserting a layer is one line.
 
-**The sort key is the bottom edge, never the centre of the art** (`DepthSortLadder.Order(worldBottomY, subLayer)`): the footprint's bottom row for a building, the sprite's bottom for free-standing decor. Stated as a world coordinate so grid-aligned buildings and scattered decor go through one function. Within a row, four sub-layers: silhouette, shadow, sprite, overlay. A row's difference always outweighs a sub-layer's.
+**The sort key is the bottom edge, never the centre of the art** (`DepthSortLadder.Order(worldBottomY,
+subLayer)`): the footprint's bottom row for a building, the sprite's bottom for free-standing decor.
+Stated as a world coordinate, so grid-aligned buildings and scattered decor go through one function.
+Within a row, four sub-layers - silhouette, shadow, sprite, overlay - and a row's difference always
+outweighs a sub-layer's.
 
-**The sorted band is measured against the camera, not against the world.** `sortingOrder` is a `short`, and ranking off absolute world Y needs four values per cell per sub-layer - which fits a small map and silently stops working on a large one, because the rank clamps rather than failing. `DepthSortLadder` therefore ranks against a window that follows the view and re-anchors when the camera approaches its edge, so the band's size follows the zoom-out cap instead of the map: a 300-cell world and a 10 000-cell one cost the same 4 096 orders.
+**The sorted band is measured against the camera, not against the world.** `sortingOrder` is a `short`,
+and ranking off absolute world Y needs four values per cell per sub-layer - which fits a small map and
+silently stops working on a large one, because the rank clamps rather than failing. `DepthSortLadder`
+ranks against a window that follows the view and re-anchors when the camera approaches its edge, so the
+band's size follows the zoom-out cap instead of the map: a 300-cell world and a 10 000-cell one cost
+the same 4 096 orders.
 
-Two consequences. Only what is on screen at the same time is ordered - objects far outside the window collapse onto one rank, which is what the scheme trades for its bounded size. And **a sorted-band rank can never be stored**: it is true only for the window it was measured in. Panning does not re-rank anything, since every rank shifts by the same amount and only their comparison is read; ranks are recomputed on a re-anchoring, roughly once per ~98 world units of vertical travel.
+Two consequences. Only what is on screen at the same time is ordered - objects far outside the window
+collapse onto one rank, which is what the scheme trades for its bounded size. And **a sorted-band rank
+can never be stored**: it is true only for the window it was measured in. Panning re-ranks nothing,
+since every rank shifts by the same amount and only their comparison is read.
 
-**Why not Unity's Transparency Sort Mode in Custom Axis.** It sorts on each transform's own position, and every building root here stands at its footprint's *centre* (`FootprintCenterToWorld`) - precisely the key the rule forbids, so every asset pivot and every spawn would have to be re-anchored first. It would also replace the belts' cell-parity tie-break at an overscanned seam with Y, and a horizontal run shares one Y - back to an undefined winner. And it cannot be asserted outside a running camera, where a computed order is a pure function with tests.
+**Why not Unity's Transparency Sort Mode in Custom Axis.** It sorts on each transform's own position,
+and every building root stands at its footprint's *centre* - precisely the key the rule forbids, so
+every asset pivot and every spawn would have to be re-anchored first. It would also replace the belts'
+cell-parity tie-break at a seam with Y, and a horizontal run shares one Y - back to an undefined
+winner. And it cannot be asserted outside a running camera, where a computed order is a pure function
+with tests.
 
-**What is in which band is a judgement about the art, not about the type.** Vegetation splits: flowers, bushes, dead wood and pebbles are drawn top-down with no rising silhouette and stay on the ground; large and big rocks are drawn at an angle with a mass well above their base, and are sorted. Ore deposits are a scatter of small chunks lying flat, so they are ground - which is what keeps an Extractor's construction silhouette from being hidden behind the ore it stands on, with no exception to write down.
+**What is in which band is a judgement about the art, not about the type.** Vegetation splits: flowers,
+bushes, dead wood and pebbles are drawn top-down with no rising silhouette and stay on the ground;
+large rocks are drawn at an angle with a mass well above their base, and are sorted. Ore deposits are a
+scatter of small chunks lying flat, so they are ground - which is what keeps an Extractor's
+construction silhouette from being hidden behind the ore it stands on, with no exception to write down.
 
-**Permanent marks stay with the thing they mark.** A placed building's own input/output arrows are world decoration and belong to the sorted band, ranked by the cell each arrow sits on. The information band is for what answers a gesture in progress - a preview hidden behind a building would be a preview that failed at its job.
+**Permanent marks stay with the thing they mark.** A placed building's own input and output arrows are
+world decoration and belong to the sorted band, ranked by the cell each arrow sits on. The information
+band is for what answers a gesture in progress - a preview hidden behind a building would be a preview
+that failed at its job.
 
-Scene decor that rises above its base carries a `DepthSortedDecor` marker instead of a baked rank, and `GameRuntime` puts it on the ladder at startup - a number frozen in a scene would be true only for wherever the camera stood when it was written. `SortingBandsTests` scans every scene and fails if any renderer carries a sorted-band order at all.
+Scene decor that rises above its base carries a `DepthSortedDecor` marker instead of a baked rank, and
+`GameRuntime` puts it on the ladder at startup - a number frozen in a scene would be true only for
+wherever the camera stood when it was written. A test scans every scene and fails if any renderer
+carries a sorted-band order at all.
 
-## 11. UI
+## 6. Bootstrap and lifecycle
 
-`Game.UI` uses UI Toolkit.
-
-Structure:
-
-```text
-UXML = structure
-USS  = styling
-C#   = UI behavior
-```
-
-UI reads public runtime contracts.
-
-UI must not access internal fields of gameplay systems.
-
-### Selection
-
-Selection is runtime state.
-
-The intended flow is:
-
-```text
-Input
-  ↓
-SelectionRuntime
-  ↓
-SelectionChanged
-  ↓
-UI / contextual inspector
-```
-
-A contextual inspector does not search the world independently to determine what is selected.
-
-### Global UI
-
-The global UI includes:
-
-- Top Status Bar
-- game menu
-- pause
-- Bottom Navigation
-- Construction Toolbar
-
-Detailed behavior may be documented in a dedicated UI document when implemented.
-
-## 12. Buildings
-
-A building consists conceptually of:
+`MainMenu.unity` is scene index 0 and loads first; it presents New Game and Load, and hands over to
+`Bootstrap.unity`. Bootstrap is an orchestration boundary, not a God Manager.
 
 ```text
-BuildingDefinition
-BuildingRuntime
-BuildingView
-Prefab
+Unity → MainMenu → Bootstrap → GameRuntime
+          ↓
+    definitions → runtime systems → grid → terrain → gameplay → presentation → UI → ready
 ```
 
-The logical footprint is defined by the gameplay/content model and is independent from visual bounds.
+**Systems must not depend on incidental `Awake()`/`Start()` ordering.** Cross-object wiring belongs in
+`Start`, which runs after every object's `Awake`; anything needing a value another component builds
+partway through its own `Start` takes it on its first `Update` instead.
 
-```text
-Logical Footprint
-      ≠
-Visual Bounds
-      ≠
-Collider Bounds
-```
+Simulation systems are plain C# objects unless Unity lifecycle integration is genuinely required.
+**A central simulation tick is preferred over unrelated `Update()` loops**: nothing that belongs to the
+simulation drives itself from its own `Update`. Exact tick frequency remains deliberately open.
 
-A building may visually overhang its logical footprint.
+## 7. High-risk shared areas
 
-### Building categories
+Modify with care, because most of the project passes through them:
 
-The functional categories from the source project are retained:
+- the grid;
+- the data and content registries;
+- the building runtime and the surfaces it exposes;
+- construction;
+- selection;
+- transport.
 
-```text
-Core
-Animated / production-oriented buildings
-Belt / transport buildings
-```
-
-Concrete types include, where migrated:
-
-- Core
-- Extractor
-- PowerplantGaz
-- DataCenter
-- StorageBox
-- Factory / ProductionBuilding
-- Foundry
-- AdvancedFoundry
-- Constructor
-- Conveyor
-- Splitter
-- Crossroad
-- Showcase (art with no behaviour yet - see `ShowcaseDefinition`)
-
-The exact inheritance hierarchy is an implementation choice; functional contracts are not.
-
-### Core
-
-Core is a special world entity and is unique.
-
-Its gameplay behavior must remain consistent with the source project's accepted behavior when migrated, including its role as the starting power/compute source where those systems are implemented.
-
-The game's starting items are not part of it, and the Core never receives anything at all - `CoreRuntime.CanAcceptInput` always refuses, by design (no conveyor or building may ever deliver to it). The player's starting items live in a real, world-generated Storage Box fixture, the **Core chest** (`WorldGenerator.CoreStorage`, definition id `core_storage`): placed one cell south of the Core, seeded from `WorldGenerationSettings.StartingStock`, 6 slots of 200. There is no building-less global pool at all any more - `GlobalStock` is a read-only aggregate over real containers (`CONTRACTS.md` §15), never a holder. The chest refuses every conveyor connection (`StorageDefinition.RejectsConveyorInput`), so it stays a construction reserve rather than a production dumping ground, and a builder robot's delivery is a separate path that flag never blocks. Both the Core and the chest are protected from demolition (`ConstructionService.IsProtectedFromDemolition`), and neither counts against the building cap.
-
-### Ore deposits
-
-Ore deposits are world entities, not buildings.
-
-## 13. Transport
-
-Transport uses a lane/item runtime model.
-
-A belt-like building may contain lanes, and each lane may contain ordered items in transit.
-
-The runtime model owns:
-
-- entry
-- exit
-- item type
-- progress
-- lane ordering
-- transport capacity/spacing rules
-
-Presentation draws the transport state; it does not own the authoritative queue.
-
-The detailed transport behavior is `CONTRACTS.md` §3a - the generic push/pull, the entry rate, the belt intakes and the Splitter/Crossroad steps.
-
-## 14. Production
-
-Production buildings use explicit runtime production state.
-
-The player-facing production contract exposes:
-
-- available recipes
-- selected recipe
-- production time
-- required ingredients
-- progress
-- resource availability
-- production state
-
-The UI does not access timers or inventories directly.
-
-Automatic producers such as Extractor and Foundry remain behaviorally distinct from player-selected recipe production.
-
-## 15. Power and Compute
-
-Power and Compute are global simulation domains.
-
-They expose aggregate values through public runtime contracts.
-
-The simulation owns:
-
-- supply
-- demand
-- active/inactive state
-- performance ratios where applicable
-- reserves where applicable
-
-The UI reads the exposed values and does not recompute the economy independently.
-
-## 16. Research
-
-Research owns:
-
-- research pool
-- active research
-- contribution
-- progression
-- unlock state
-
-Building construction may query research unlock state through a public contract.
-
-## 17. Bootstrap and lifecycle
-
-The entry scene is:
-
-```text
-Bootstrap.unity
-```
-
-Bootstrap is an orchestration boundary, not a God Manager.
-
-Conceptual startup:
-
-```text
-Unity
- ↓
-Bootstrap
- ↓
-GameRuntime
- ↓
-Initialize definitions
- ↓
-Initialize runtime systems
- ↓
-Initialize Grid
- ↓
-Generate/load terrain
- ↓
-Initialize gameplay
- ↓
-Initialize presentation
- ↓
-Initialize UI
- ↓
-Game Ready
-```
-
-Systems must not depend on incidental `Awake()`/`Start()` ordering.
-
-Simulation systems should be C# objects unless Unity lifecycle integration is genuinely required.
-
-A central simulation tick is preferred over unrelated gameplay `Update()` loops. Exact tick frequency remains intentionally open until simulation requirements justify a decision.
-
-## 18. Tests
-
-Two categories are used:
-
-```text
-EditMode
-PlayMode
-```
-
-EditMode is preferred for pure domain/runtime logic.
-
-PlayMode is used for:
-
-- Unity integration
-- scenes
-- prefabs
-- colliders
-- rendering integration
-- Animator behavior
-- UI Toolkit integration
-- input integration
-
-Procedural systems must be deterministic where the design requires reproducibility:
-
-```text
-same seed + same parameters = same result
-```
-
-No arbitrary global coverage target is required.
-
-## 19. High-risk shared areas
-
-The Unity equivalents of the most shared systems must be modified carefully:
-
-- Grid
-- Data/content registries
-- Building runtime/contracts
-- Construction
-- selection
-- transport contracts
-
-The exact list may evolve with the codebase.
-
-## 20. Source-project behavioral constraints
-
-Where migration explicitly targets the existing Godot behavior, preserve observable behavior unless a change is requested.
-
-Important source behaviors include:
-
-- orthogonal grid logic
-- footprint/rotation rules
-- generic building flow contracts
-- separate pooled inventory versus belt lanes
-- production-cycle semantics
-- conveyor configuration intent
-- splitter replacement intent
-- selection behavior
-- deterministic terrain behavior where applicable
-
-These behaviors belong in `CONTRACTS.md` or subsystem-specific documents once implemented in Unity.
-
-## 21. Save system
-
-Named saves exist (`Game.Save`, detailed in `CONTRACTS.md` §14): one folder per save name under `Application.persistentDataPath`, each holding a `save.json`.
-
-The entry point is no longer `Bootstrap.unity` directly - `MainMenu.unity` is scene index 0 in Build Settings and loads first. `MainMenu.unity` presents New Game / Load: New Game asks what to call the run, Load picks from the saves on disk, and both write `Game.Save.PendingGameStart` (the chosen save's data, if any, and its name) before loading `Bootstrap.unity`, which `GameRuntime.Awake()` reads to decide between generating a new world and restoring one. New Game writes the save immediately (its initial state); the save is rewritten with current progress only on demand, from the in-game menu (`GLOBAL_UI.md` §8b), which may also write it under a different name. Nothing is written on quit.
-
-Every runtime system capable of holding meaningful state (`GridRuntime` via the buildings placed on it, `ComputeSystem`, `ResearchSystem`, `TransportSystem`'s registered buildings, `WorldGenerator`, and every `BuildingRuntime`) exposes a `Capture`/`Restore` pair used only by the save layer - this is a public contract addition (CONTRACTS.md §14), not a private-field bypass (§1/§12 still hold).
-
-
-## 22. Accepted architectural decisions
-
-The following decisions are part of the accepted baseline and do not require separate ADR files.
-
-### Unity version
-Unity 6.5 is the project baseline.
-
-### Rendering
-URP with the 2D Renderer is the project baseline.
-
-### Runtime grid
-A custom runtime grid is authoritative for gameplay. Tilemap is presentation only when used.
-
-### Definitions
-ScriptableObjects represent static definitions. Mutable per-instance state belongs to runtime objects.
-
-### Bootstrap
-A dedicated Bootstrap scene and explicit initialization are used. Godot Autoloads are not reproduced as a collection of Unity Singletons.
-
-### Buildings
-Buildings follow the conceptual flow:
-
-```text
-Definition → Runtime → View → Prefab
-```
-
-### UI
-UI Toolkit is the primary UI technology. UXML defines structure, USS defines styling, and C# defines behavior.
-
-### Assemblies
-The baseline assembly structure is:
-
-```text
-Game.Core
-Game.Data
-Game.Grid
-Game.Gameplay
-Game.Construction
-Game.Save
-Game.Presentation
-Game.UI
-Game.Tools
-Game.Tests
-```
-
-### Testing
-EditMode is preferred for pure runtime/domain logic. PlayMode is used for Unity integration.
-
-### Git and Claude Code
-The repository documentation is part of the development workflow. `CLAUDE.md` is the entry point, and architecture, contracts, rules, and workflow are versioned with the project.
+The list may evolve with the codebase.
