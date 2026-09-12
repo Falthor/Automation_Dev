@@ -2439,7 +2439,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.CameraZoomController
   uiDocument: {fileID: 60635889}
   zoomSpeed: 4
-  minOrthographicSize: 2
+  minOrthographicSize: 10
   maxOrthographicSize: 30
   smoothing: 12
 --- !u!114 &885634529
