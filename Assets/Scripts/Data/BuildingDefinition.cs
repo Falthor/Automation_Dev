@@ -122,6 +122,18 @@ namespace Game.Data
         public virtual bool CountsAgainstBuildingCap => true;
 
         /// <summary>
+        /// Whether this is a transport piece - a belt, a Splitter or a Crossroad. They lie flat on
+        /// whatever ground they were laid on and change none of it: no concrete pad, no ground
+        /// conversion, and inside the belt network an item passes along unmetered.
+        ///
+        /// Asked of the definition rather than by listing concrete runtime types, so a fourth kind
+        /// of transport answers for itself instead of being missed by whichever of the three readers
+        /// nobody thought to update. <b>Not the same question as <see cref="CountsAgainstBuildingCap"/></b>,
+        /// which a Storage box and a Showcase also answer false without being part of the network.
+        /// </summary>
+        public virtual bool IsTransportPiece => false;
+
+        /// <summary>
         /// Whether this building has a single fixed output side (drawn as an arrow, both on the
         /// construction ghost and the built view). False by default - most buildings have no
         /// directional output (e.g. Storage accepts input from any side and has none).

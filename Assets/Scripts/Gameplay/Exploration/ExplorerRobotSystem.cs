@@ -276,7 +276,7 @@ namespace Game.Gameplay.Exploration
         void AppearIfReserveHasFallen()
         {
             if (RobotsHaveAppeared || _compute == null) return;
-            if (_compute.Reserve > _settings.AppearAtReserveCu) return;
+            if (_compute.Reserve > ComputeSystem.ExplorerFleetArrivalReserve) return;
 
             RobotsHaveAppeared = true;
         }

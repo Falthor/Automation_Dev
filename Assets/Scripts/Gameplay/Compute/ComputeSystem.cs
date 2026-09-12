@@ -14,6 +14,20 @@ namespace Game.Gameplay.Compute
     {
         public const float ReserveCap = 70000f;
 
+        /// <summary>
+        /// The reserve level at which the explorer fleet arrives (MAP.md §2.1), as a fraction of the
+        /// cap. <b>It lives beside the cap, and is never an absolute.</b>
+        ///
+        /// An absolute is left behind whenever the cap moves, which turns an emergency trigger into
+        /// an introduction trigger with nothing to signal it; a fraction has no second number to
+        /// forget. And it belongs to the reserve it is read against rather than to whatever reads
+        /// it - carried on the robots' own settings, it drifts away with them.
+        /// </summary>
+        public const float ExplorerFleetArrivalFraction = 0.285714f;
+
+        /// <summary>What the reserve has to have fallen to for the fleet to arrive. Derived, so it follows the cap on its own and there is no second value anyone could set.</summary>
+        public static float ExplorerFleetArrivalReserve => ReserveCap * ExplorerFleetArrivalFraction;
+
         /// <summary>Length of the window IncomePerSecond is averaged over - long enough that a Core grant arriving every few seconds reads as a steady rate rather than a spike.</summary>
         const float IncomeWindowSeconds = 5f;
 

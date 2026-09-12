@@ -46,7 +46,7 @@ Consumes the item previously exposed by `PeekPullableItem()`. No-op by default.
 
 Indicates whether the building participates in directional flow. `false` by default; `ConveyorRuntime` overrides it to `true`.
 
-A caller querying a neighboring building uses these methods instead of depending on `ConveyorRuntime`, a future `SplitterRuntime`, or another concrete class.
+A caller querying a neighboring building uses these methods instead of depending on `ConveyorRuntime`, `SplitterRuntime`, or another concrete class.
 
 ## 3. Building / Inventory
 
@@ -107,7 +107,7 @@ public virtual bool FeedsCell(GridCoord cell)
 | Declaration | Takes from | Who |
 |---|---|---|
 | `HasSingleInputArrow` | **one** cell, on `BuildingRuntime.InputSide`, and nowhere else | Foundry, Constructor |
-| `HasInputArrows` | one cell per side other than its output side | Factory, Assembler, Advanced Foundry |
+| `HasInputArrows` | one cell per side other than its output side | Factory, Advanced Foundry |
 | neither | every edge cell — "input from any side" | Storage, Core |
 
 In all three, an arrow marks a real intake point and there are no invisible ones. The single-input case makes that promise much stronger: a belt touching any other face is **refused**, however full it is. That refusal is enforced twice on purpose - by this list, and again in `ProductionBuildingRuntime.CanAcceptInput` - because the generic push and the belt hand-over both ask the target directly rather than consulting the list.
@@ -159,7 +159,6 @@ The caller expresses intent; `ConveyorRuntime` (`Game.Gameplay.Buildings`) owns 
 public void ConfigureAsStraight(Direction exitDirection)
 public void ConfigureAsCorner(Direction entryDirection, Direction exitDirection)
 public void ConfigureAsCornerShape()
-public void ConfigureAsCrossroadShape()
 public void SetRotation(Direction rotation)
 ```
 
@@ -173,9 +172,9 @@ Configures a straight conveyor toward the requested exit.
 
 Configures a corner between the requested entry and exit. `entryDirection` and `exitDirection` must be perpendicular; rotation and chirality (`Mirrored`) are derived internally from a single canonical reference orientation. Throws `ArgumentException` for equal or opposite direction pairs (use `ConfigureAsStraight` for those).
 
-### `ConfigureAsCornerShape()` / `ConfigureAsCrossroadShape()`
+### `ConfigureAsCornerShape()`
 
-Set the shape without implying a direction. Rotation is applied separately via `SetRotation(Direction)`.
+Sets the corner shape without implying a direction. Rotation is applied separately via `SetRotation(Direction)`. There are two shapes and only two (`ConveyorShapeKind`: Straight, Corner) - a crossroad is its own building type, not a conveyor shape.
 
 ### `SetRotation(Direction rotation)`
 
@@ -185,11 +184,9 @@ A caller must not depend on an internal conveyor enum/type or directly manipulat
 
 ## 5. Splitter configuration
 
-### `ConfigureAsReplacementOf(conveyor)`
+### Replacing a conveyor
 
-Configures a splitter to replace a conveyor while preserving the intended receiving side.
-
-The splitter owns the translation from conveyor orientation semantics to splitter orientation semantics.
+There is **no dedicated conversion entry point**. A Splitter or a Crossroad is placed straight onto belts already laid rather than requiring a demolition first - the occupancy exception, and what each overtaken cell owes, are in §8 (Overtaking). The piece is placed like any other, and its entry side is its `FacingRotation` (`SplitterRuntime.EntrySide`), taken from the rotation the ghost was previewing at the click.
 
 ### Candidate exit connectivity
 
@@ -197,7 +194,7 @@ The splitter owns the translation from conveyor orientation semantics to splitte
 
 ## 6. ProductionBuilding
 
-Implemented by `ProductionBuildingRuntime` (`Game.Gameplay.Buildings`), extended by `FoundryRuntime` (and, in later phases, Factory/AdvancedFoundry/Assembler). Backed by a `RecipeDatabase` (`Game.Data`) lookup and two `PooledItemStock` instances (input/output) - see §3.
+Implemented by `ProductionBuildingRuntime` (`Game.Gameplay.Buildings`), extended by `FoundryRuntime`, `FactoryRuntime`, `AdvancedFoundryRuntime` and `ConstructorRuntime`. Backed by a `RecipeDatabase` (`Game.Data`) lookup and two `PooledItemStock` instances (input/output) - see §3.
 
 ### `GetRecipeIds()`
 
@@ -299,7 +296,7 @@ public bool TryDemolish(GridCoord cell, out BuildingRuntime removed)
 public bool CanAfford(BuildingDefinition definition)   // the placement gate, and the menu's styling
 public int GetAvailableAmount(string itemId)           // reads GlobalStock's aggregate (§15)
 
-public int BuildingCap { get; }              // 36 by default, raised by BuildingCap research effects (§11)
+public int BuildingCap { get; }              // ConstructionService.DefaultBuildingCap, raised by BuildingCap research effects (§11)
 public int OccupiedBuildingSlots { get; }    // live count against BuildingCap
 public void RestoreBuildingCap(int? cap)
 ```
@@ -329,7 +326,7 @@ Owning ground and being operational are two different states, and the flag is wh
 
 `GetPlacementRefusalReason` (TASK_04_PLAFOND_RAYON.md §3.2) is the explanatory counterpart to `CanPlace`: same checks, same order, but returns a `PlacementRefusalReason` (`None`/`NotUnlocked`/`OutOfActionRadius`/`CannotAfford`/`BuildingCapReached`/`CellOccupied`) instead of a bare bool, for player-facing messaging - meaningful only while `Selected != null`. `CannotAfford` reads the aggregate **minus what other sites have already reserved**, so placing four buildings with stock for three refuses the fourth rather than letting four sites fight over one stock afterwards. Placing still does not pay - it opens a site that reserves the whole bill and waits for robots to carry it - but the bill must be coverable at that instant, which is what makes a placed site's `missing` count zero in ordinary play.
 
-`BuildingCap` (TASK_04_PLAFOND_RAYON.md §3) is runtime state owned by `ConstructionService`, not any definition: starts at 36 and is raised by `BuildingCap` research effects (§11) - the highest target completed wins, so one landing late never lowers it - (via `ResearchSystem.ResearchCompleted`, same pattern as `DataCenterRuntime`'s bay/threshold subscriptions), and restored directly from a save (`RestoreBuildingCap`) rather than re-derived from `ResearchSystem.IsUnlocked`. `OccupiedBuildingSlots` counts every building currently registered with the constructor-injected `TransportSystem` except the Core and every `ConveyorRuntime`/`SplitterRuntime`/`CrossroadRuntime` - computed live from `TransportSystem.GetAllBuildings()`, never a separately tracked counter, so placing and demolishing can never drift out of sync with it. `IsPlaceable`'s cap check applies to every other building type.
+`BuildingCap` (TASK_04_PLAFOND_RAYON.md §3) is runtime state owned by `ConstructionService`, not any definition: starts at `ConstructionService.DefaultBuildingCap` and is raised by `BuildingCap` research effects (§11) - the highest target completed wins, so one landing late never lowers it - (via `ResearchSystem.ResearchCompleted`, same pattern as `DataCenterRuntime`'s bay/threshold subscriptions), and restored directly from a save (`RestoreBuildingCap`) rather than re-derived from `ResearchSystem.IsUnlocked`. `OccupiedBuildingSlots` counts every building currently registered with the constructor-injected `TransportSystem` except the Core and every `ConveyorRuntime`/`SplitterRuntime`/`CrossroadRuntime` - computed live from `TransportSystem.GetAllBuildings()`, never a separately tracked counter, so placing and demolishing can never drift out of sync with it. `IsPlaceable`'s cap check applies to every other building type.
 
 The Core's action radius (`CoreDefinition.ActionRadiusCells` is only the starting value) is runtime state on `CoreRuntime.ActionRadiusCells` instead - `IsWithinActionRadius` reads that, never the definition. `CoreRuntime` owns and extends it through `ActionRadius` research effects (§11) - the highest target completed wins - (`ResearchSystem.ResearchCompleted`), exactly like `BuildingCap` above. The highest target any research carries is the Core's furthest reach, `GameRuntime.FurthestActionRadiusCells` - derived by `ResearchCatalog.HighestActionRadius` and never written down a second time - which world generation reads as the edge of the starting territory (`MAP.md`) and the ground coverage sizes its texture on; the invitation ore clusters must lie within the lowest one; `WorldGenerator.ActionRadiusCells` is a plain pass-through of it.
 
@@ -543,7 +540,7 @@ public void Restore(float? elapsedSeconds)                              // PlayC
 
 `SaveData.ExplorerRobots` is a `JObject` blob of the same kind, owned by `Game.Gameplay.Exploration.ExplorerRobotSystem` (`MAP.md` §2.1): per robot its position, heading, state, drift phase and sortie count. No `Version` bump - additive with a per-field fallback, and an absent key restores as a fleet standing at the base, which is the truthful default rather than a convenient one: a robot nobody has sent anywhere is at home. A blob listing fewer robots than the configured fleet restores the rest at home too.
 
-`CoreRuntime`'s own `CaptureState`/`RestoreState` (TASK_04_PLAFOND_RAYON.md §6) now also round-trips `actionRadiusCells` alongside `cuTimer`/`contents` - absent falls back to `CoreDefinition.ActionRadiusCells`, never to 0. `SaveData.BuildingCap` (nullable) is the matching top-level field for `ConstructionService.BuildingCap`, restored via `RestoreBuildingCap`; absent falls back to `ConstructionService.DefaultBuildingCap` (40). Neither addition bumped `SaveData.Version` - both are simple additive fields with a per-field fallback, not the kind of structural reshaping the Version gate exists for. `SaveData.PlayTimeSeconds` (nullable, `Game.Gameplay.Session.PlayClock`) is a third of the same kind: how long the run has been played, in simulated seconds; absent restores as a run starting its count, never as one that lasted zero seconds. `DepositSaveData` lost its `RemainingQuantity` for the opposite reason: a deposit never runs out (ALIGNEMENT_PROJET.md §8), so it holds no mutable state and there is nothing to round-trip - only where it is and what it is. No `Version` bump either: an older save's key is simply ignored, which is exactly right now that the answer is "infinite" whatever number it carried.
+`CoreRuntime`'s own `CaptureState`/`RestoreState` (TASK_04_PLAFOND_RAYON.md §6) now also round-trips `actionRadiusCells` alongside `cuTimer`/`contents` - absent falls back to `CoreDefinition.ActionRadiusCells`, never to 0. `SaveData.BuildingCap` (nullable) is the matching top-level field for `ConstructionService.BuildingCap`, restored via `RestoreBuildingCap`; absent falls back to `ConstructionService.DefaultBuildingCap`. Neither addition bumped `SaveData.Version` - both are simple additive fields with a per-field fallback, not the kind of structural reshaping the Version gate exists for. `SaveData.PlayTimeSeconds` (nullable, `Game.Gameplay.Session.PlayClock`) is a third of the same kind: how long the run has been played, in simulated seconds; absent restores as a run starting its count, never as one that lasted zero seconds. `DepositSaveData` lost its `RemainingQuantity` for the opposite reason: a deposit never runs out (ALIGNEMENT_PROJET.md §8), so it holds no mutable state and there is nothing to round-trip - only where it is and what it is. No `Version` bump either: an older save's key is simply ignored, which is exactly right now that the answer is "infinite" whatever number it carried.
 
 `BuildingRuntime.CaptureState()`/`RestoreState(JObject)` are virtual, empty by default; each subclass with real mutable state overrides both (`ProductionBuildingRuntime` and its subclasses, `StorageRuntime`, `ConveyorRuntime`, `CoreRuntime`, `ExtractorRuntime`, `PowerplantGazRuntime`, `DataCenterRuntime`, `SplitterRuntime`, `CrossroadRuntime`). A building's envelope (`Definition.Id`, `Cell`, `FacingRotation`) is captured generically by `GameRuntime`, not by the building itself - only its type-specific payload goes through `CaptureState()`.
 
@@ -617,7 +614,7 @@ Assembled here rather than left to the reader for the same reason as `SegmentPro
 
 **Inspecting a site.** Clicking a not-yet-materialized segment opens the site's supply panel through `Selection.SelectSite` (§7), never the panel of the building it will become. When the site finishes, that panel hands over to the finished building's own panel instead of closing - completion and cancellation are the same event only from the code's side, and `IsComplete` tells them apart (cancelling frees the segments that were never built, so a cancelled site is by construction one whose segments did not all materialize).
 
-**Robots.** Two `BuilderRobotRuntime` (4.4 cells/s, free diagonal movement, no pathfinding), driven only by this system's tick - never by their own `Update()`; the view reads `Position` and converts it to world space, nothing more. They always serve the **oldest site that currently has something reserved and not yet delivered**: a site blocked on a material nobody has is skipped rather than blocking the queue, and reclaims the robots as soon as it can be served again. "One chantier at a time" is about simultaneous execution (both robots serve the same one), not about strict queue order. Each robot claims its share of a site's reservations before leaving, so two robots never fetch the same promised piece twice.
+**Robots.** Two `BuilderRobotRuntime` (`SpeedCellsPerSecond`, free diagonal movement, no pathfinding), driven only by this system's tick - never by their own `Update()`; the view reads `Position` and converts it to world space, nothing more. They always serve the **oldest site that currently has something reserved and not yet delivered**: a site blocked on a material nobody has is skipped rather than blocking the queue, and reclaims the robots as soon as it can be served again. "One chantier at a time" is about simultaneous execution (both robots serve the same one), not about strict queue order. Each robot claims its share of a site's reservations before leaving, so two robots never fetch the same promised piece twice.
 
 **Cargo is uncapped for construction and capped at `BuilderRobotRuntime.DirectiveCargoCapacity` (10) for a Core directive.** The two are different kinds of job: a building waiting on its materials should not take five waves to receive a bill one robot could carry, while a directive is a hand-over the player chose to take on and how many waves it asks for is part of what it asks. Repatriation follows construction, being the same bill read backwards.
 

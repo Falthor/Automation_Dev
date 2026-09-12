@@ -13,6 +13,9 @@ namespace Game.Data
         /// <summary>Transport, not machinery - see BuildingDefinition.CountsAgainstBuildingCap.</summary>
         public override bool CountsAgainstBuildingCap => false;
 
+        /// <summary>Part of the belt network - see BuildingDefinition.IsTransportPiece.</summary>
+        public override bool IsTransportPiece => true;
+
         [SerializeField] Direction artNativeEntrySide = Direction.West;
 
         /// <summary>Which side the sprite's own chevron/entry marking visually shows at zero rotation.</summary>

@@ -85,6 +85,7 @@ Improvements discovered outside the requested scope must be reported without sil
   verifiable in the tree, the mission system having since been removed, which is precisely why the
   measurement is recorded here rather than left in the code it described.
 - When a limit can be made **structurally unreachable**, prefer that to a test that catches it being exceeded. A guard that fires is a design that has run out: sector names were one per sector with a test that the vocabulary was large enough, and it duly failed at 390 625 sectors for 768 names. Capping the derived region count removed the failure instead. Keep the test afterwards, but as a statement that the construction still holds — not as a tripwire waiting.
+- **A test that stays green when you break what it tests is not a test.** That is the criterion, and it is a surer one than "a negative assertion is suspect": recopying a formula into the assertion, comparing two literals, or bounding a draw without exercising the draw each leave a green suite over code that was never reached.
 - Do not pursue arbitrary coverage percentages at the expense of useful tests.
 
 ## 8. Documentation
@@ -99,6 +100,14 @@ Do not put:
 - obsolete architecture
 
 into permanent architecture documents.
+
+**The same rule governs a comment in code. Cut the narrative, keep the invariant.** "X is this way because otherwise Y" stays; "X used to be that way, and we changed it" goes — the history is in git, and in a file it makes a past choice look like one still in force.
+
+**And what remains is cut to the smallest form that still carries its reason.** A ten-line comment that could be two is a comment people stop reading, and a comment nobody reads protects nothing.
+
+**A file opened for another reason is cleaned of its narrative comments on the way through, in the same commit.** It costs nothing, the file already being read; it stays reviewable, the diff staying small; and it converges, since the files touched often are the ones that matter. A file nobody opens misleads nobody. A campaign across a hundred files is the opposite trade: unreviewable, and exactly the diff in which a line of code leaves by accident.
+
+**A document names the source, it does not copy the value.** "The Core's furthest reach, derived from the research effects" rather than "80 today"; `ComputeSystem.ReserveCap` rather than 70 000. Code can derive a figure from where it lives; a document has nothing to derive with, so the only defence is not to quote the number at all. A value written in two places is a value that will eventually disagree with itself — measured four times here: the CU reserve cap, the building cap (36 in the code and 40 six sections further down the same document), the builder robots' speed, and the robots' own range quoted four times in a document that opens by calling it "one figure".
 
 Architecturally significant decisions should have an ADR when the decision is important enough to constrain future implementation.
 

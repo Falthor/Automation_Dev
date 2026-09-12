@@ -103,11 +103,7 @@ namespace Game.Presentation
                 _arrows[i].gameObject.SetActive(true);
                 _arrowRenderers[i].sprite = sprite;
                 _arrows[i].position = position;
-                // `side` points away from the building on both paths - it is the exit side for an
-                // output and the side a delivery comes from for an input - so an entry arrow is the
-                // one that turns around to point at the building. Same rule as the built view's.
-                Direction pointing = inward ? side.Opposite() : side;
-                _arrows[i].rotation = Quaternion.Euler(0f, 0f, -pointing.ToRotationDegrees());
+                _arrows[i].rotation = Quaternion.Euler(0f, 0f, -BuildingSpawner.ArrowPointing(side, inward).ToRotationDegrees());
                 _arrows[i].localScale = Vector3.one * worldSize;
             }
         }

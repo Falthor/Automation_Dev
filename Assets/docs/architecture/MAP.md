@@ -120,8 +120,9 @@ opens its panel — with the same halo a selected building gets, asked for by ce
 because a robot stands between cells and keeps moving. The one button there sends an idle one out and
 turns a wandering one round.
 
-**The fleet arrives when the CU reserve has fallen to `appearAtReserveCu`** (25 000), which is also what
-opens the map screen. A fall rather than a rise: the introduction drains CU, and the thing that pays
+**The fleet arrives when the CU reserve has fallen to `ComputeSystem.ExplorerFleetArrivalReserve`**, which is also what
+opens the map screen. That threshold is a **fraction of the reserve cap**, and lives beside it: written
+as an absolute on the robots' own settings it was left behind twice while the cap moved. A fall rather than a rise: the introduction drains CU, and the thing that pays
 turning up as the player runs dry is what makes it a way out rather than a reward.
 `GameRuntime.startWithEverythingUnlocked` bypasses it for development.
 
@@ -134,7 +135,7 @@ this order:
 |---|---|
 | a **drift** | a value noise sampled over a phase that advances with time, never a fresh draw per frame — independent draws average to nothing over a second and leave the robot shivering along a straight line. This is what makes the trace serpentine |
 | a **pull towards the unknown** | two probes off the current heading (±45°, 30 cells out), each reading a robot-sized patch; the robot leans towards whichever side has less behind it, scaled by the difference rather than its sign. Enough to follow the edge of what it has opened instead of crossing back over it, with nothing that resembles an objective |
-| a **recall** | past `maxRadiusCells` (**330**, the same figure the expedition zones use for their outer edge) the heading bends inwards, ramped over the next 40 cells. Not a wall and not a stop — it turns |
+| a **recall** | past `ExplorerRobotSettings.maxRadiusCells` the heading bends inwards, ramped over the next 40 cells. Not a wall and not a stop — it turns |
 
 **A turn rate is a curve radius, read against the speed**: at `v` cells per second and `w` degrees per
 second the robot turns on a circle of radius `v / (w · π/180)`. At the shipped 2 and 6 that is a
@@ -266,14 +267,14 @@ neighbourhood at a different angle worth something. The growth respects the sect
 edge sectors are clipped where the map does not divide evenly.
 
 **Its size grows with distance from the Core** (`OreClusterProfile`): six to ten tiles just outside
-the Core's furthest reach, ten to fifteen at the limit a robot wanders to (330), interpolated
+the Core's furthest reach, ten to fifteen at the limit a robot wanders to, interpolated
 between and clamped at both ends. Distance is the only thing exploring costs, so it has to be the
 thing that pays — a flat size makes the far half of the map the near half with a longer walk.
 Measured on the shipped map: 8.0 tiles on average inside 100 cells, 12.3 past 260.
 
-**Nothing derived lands inside the Core's furthest reach** (`GameRuntime.FurthestActionRadiusCells`,
-80 today) - the highest radius any research grants, derived from the research effects rather than
-written down. The ore in it is placed by hand, at chosen distances, because the introduction depends
+**Nothing derived lands inside the Core's furthest reach** (`GameRuntime.FurthestActionRadiusCells`)
+- the highest radius any research grants, derived from the research effects rather than written
+down, here included. The ore in it is placed by hand, at chosen distances, because the introduction depends
 on it (`WorldGenerator`): one cluster of each resource inside the starting radius, then two rings of
 invitation clusters the radius researches open - centres 26 to 29 cells out, 4 deposits of each, and
 centres 40 to 60 cells out, 8 iron, 8 copper and 4 coal. The second ring is required: a world that
@@ -289,8 +290,9 @@ holds. It knows nothing about discovery — a robot reveals a disc wherever it h
 partition has no part in it.
 
 **How far the world extends is one figure**, and it belongs to the robots:
-`ExplorerRobotSettings.maxRadiusCells` (**330**), which is where a wandering robot is turned back
-(§2.1) and what the map draws as its outer ring (§5).
+`ExplorerRobotSettings.maxRadiusCells`, which is where a wandering robot is turned back
+(§2.1) and what the map draws as its outer ring (§5). It is named and never quoted here - see
+`DEVELOPMENT_RULES.md` §8.
 
 ## 4a. Wrecks
 
@@ -300,7 +302,7 @@ save restores — so a loaded world finds them where it left them. Each is three
 draws one of three sprites, freely: the same wreck may appear more than once, which is what keeps
 eight of them from reading as a catalogue.
 
-**Rings, because a density cannot answer both questions.** Uniform over 330 cells, the figure that
+**Rings, because a density cannot answer both questions.** Uniform over the whole disc, the figure that
 puts a wreck in the first few minutes puts a hundred on the map, and the figure that makes eight rare
 puts the first one three quarters of an hour in. The rings decouple the two:
 
@@ -423,6 +425,6 @@ because that is what decides whether to go and find one.
   observation, and all three are static.
 - **A secondary Core.** [`../design/expansion-territoriale.md`](../design/expansion-territoriale.md)
   holds the design; none of it is implemented, and no figure in the project reserves room for it — the
-  only reach the game measures is the robots' own 330 cells.
+  only reach the game measures is the robots' own `maxRadiusCells`.
 - **What the datacard prototype still owes**: the threshold is a guess, and
   `ExplorerHarvestLog` exists to measure it. See the notebook.

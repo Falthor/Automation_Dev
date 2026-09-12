@@ -1,4 +1,7 @@
+using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using Game.Save;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -34,6 +37,8 @@ namespace Game.Tests.EditMode.Save
             TerrainProportion = 0.5f,
             Discovered = "0:120,1:16,0:120",
             DecorRemoved = "4096,4097,131072",
+            WrecksDiscovered = "0,3,7",
+            PowerPriority = new List<string> { "datacenter", "factory", "extractor" },
             ExplorerRobots = new JObject { ["robots"] = new JArray { new JObject { ["x"] = 40f, ["state"] = 1 } } },
             ComputeReserve = 12.5f,
             ResearchActiveId = "automation",
@@ -56,7 +61,7 @@ namespace Game.Tests.EditMode.Save
             {
                 new BuildingSaveData
                 {
-                    DefinitionId = "foundry", CellX = 5, CellY = 6, FacingRotation = 2,
+                    DefinitionId = "foundry", CellX = 5, CellY = 6, FacingRotation = 2, InputSide = 3,
                     State = new JObject { ["recipe"] = "Iron_Ingot" }
                 }
             }
@@ -149,54 +154,82 @@ namespace Game.Tests.EditMode.Save
             CollectionAssert.AreEquivalent(ExpectedRootKeys, actual, "Nulls do not change the shape either.");
         }
 
+        /// <summary>
+        /// Every field of <see cref="SaveData"/>, compared across a round trip - <b>enumerated by
+        /// reflection, so a field added later is covered without anybody remembering to add a line
+        /// here</b>.
+        ///
+        /// The hand-written version of this test carried the warning about fields that sit in the
+        /// fixture without ever being compared, and still failed to heed it: three of them
+        /// (WrecksDiscovered, PowerPriority, ExplorerRobots) were in the type and in nobody's
+        /// assertion. A test that stays green when you break what it tests is not a test
+        /// (DEVELOPMENT_RULES §7), and the only durable fix is to stop the list being written by
+        /// hand - the same move as making a limit structurally unreachable rather than watching for
+        /// it.
+        /// </summary>
         [Test]
         public void EveryField_SurvivesARoundTrip()
         {
             SaveData original = NewPopulatedSave();
             SaveData restored = JsonConvert.DeserializeObject<SaveData>(Serialize(original));
 
-            Assert.AreEqual(original.Version, restored.Version);
-            Assert.AreEqual(original.SavedAtUtc, restored.SavedAtUtc);
-            Assert.AreEqual(original.TerrainSeed, restored.TerrainSeed);
-            Assert.AreEqual(original.TerrainSize, restored.TerrainSize);
-            Assert.AreEqual(original.TerrainScale, restored.TerrainScale);
-            Assert.AreEqual(original.TerrainProportion, restored.TerrainProportion);
+            foreach (FieldInfo field in SavedFields(typeof(SaveData)))
+            {
+                Assert.AreEqual(Describe(field.GetValue(original)), Describe(field.GetValue(restored)),
+                    $"SaveData.{field.Name} does not survive the round trip: it is written, read back, and comes out different.");
+            }
+        }
 
-            // The two derived-world fields: the seed re-derives what they describe, so what is stored
-            // is only what the player did to it. A silent loss here reads on screen as fog reclosing
-            // and cleared rocks growing back, never as an error.
-            Assert.AreEqual(original.Discovered, restored.Discovered);
-            Assert.AreEqual(original.DecorRemoved, restored.DecorRemoved);
+        /// <summary>
+        /// The other half, and the one the hand-written test was missing: a field the fixture never
+        /// sets round-trips null to null and proves nothing at all. Every field must differ from a
+        /// default-constructed SaveData, so adding one to the type fails here until the fixture
+        /// gives it a value worth comparing.
+        /// </summary>
+        [Test]
+        public void TheFixtureSetsEveryField_SoTheRoundTripProvesSomething()
+        {
+            SaveData populated = NewPopulatedSave();
+            var untouched = new SaveData();
 
-            // Asserted through the round trip, not merely present in the fixture: Discovered sat in
-            // this fixture for months without ever being compared, so it could have been lost in
-            // transit with nothing turning red.
+            foreach (FieldInfo field in SavedFields(typeof(SaveData)))
+            {
+                // Version is the one field whose populated value is its default, and must stay so:
+                // a save that is not at CurrentVersion is one SaveService refuses to load.
+                if (field.Name == nameof(SaveData.Version)) continue;
 
-            // The zone choice and the radius the six were cut against. Asserted through the round trip
-            // for the same reason as the line above: sitting in the fixture proves only that the fixture
-            // has a value, and a key lost in transit would show up in play as a run finding all six zones
-            // on offer again with half of one already mapped.
+                Assert.AreNotEqual(Describe(field.GetValue(untouched)), Describe(field.GetValue(populated)),
+                    $"NewPopulatedSave leaves SaveData.{field.Name} at its default, so the round trip above "
+                    + "compares a default with a default and would not notice the field being dropped.");
+            }
+        }
 
-            Assert.AreEqual(original.ComputeReserve, restored.ComputeReserve);
-            Assert.AreEqual(original.ResearchActiveId, restored.ResearchActiveId);
-            Assert.AreEqual(original.ResearchProgress, restored.ResearchProgress);
-            CollectionAssert.AreEqual(original.ResearchQueue, restored.ResearchQueue);
-            CollectionAssert.AreEqual(original.ResearchUnlocked, restored.ResearchUnlocked);
-            Assert.AreEqual(7, restored.ConstructionSites["nextId"].Value<int>());
-            Assert.AreEqual(original.CoreDefinitionId, restored.CoreDefinitionId);
-            Assert.AreEqual(original.CoreCellX, restored.CoreCellX);
-            Assert.AreEqual(original.CoreCellY, restored.CoreCellY);
-            Assert.AreEqual(1.5f, restored.CoreState["cuTimer"].Value<float>());
-            Assert.AreEqual(42, restored.BuildingCap);
-            Assert.AreEqual(372.5f, restored.PlayTimeSeconds);
+        static FieldInfo[] SavedFields(Type type) => type.GetFields(BindingFlags.Public | BindingFlags.Instance);
 
-            Assert.AreEqual(1, restored.Deposits.Count);
-            Assert.AreEqual("iron", restored.Deposits[0].DefinitionId);
+        /// <summary>
+        /// A value written out far enough to be compared as text, nested records included: those are
+        /// plain field bags with no Equals, so comparing them directly would compare references -
+        /// passing on two different objects, or failing on two identical ones.
+        /// </summary>
+        static string Describe(object value)
+        {
+            if (value == null) return "<null>";
+            if (value is string text) return text;
+            if (value is JToken token) return token.ToString(Formatting.None);
 
-            Assert.AreEqual(1, restored.Buildings.Count);
-            Assert.AreEqual("foundry", restored.Buildings[0].DefinitionId);
-            Assert.AreEqual(2, restored.Buildings[0].FacingRotation);
-            Assert.AreEqual("Iron_Ingot", restored.Buildings[0].State["recipe"].Value<string>());
+            if (value is IEnumerable items)
+            {
+                var elements = new List<string>();
+                foreach (object element in items) elements.Add(Describe(element));
+                return "[" + string.Join(", ", elements) + "]";
+            }
+
+            FieldInfo[] fields = SavedFields(value.GetType());
+            if (fields.Length == 0) return value.ToString();
+
+            var written = new List<string>();
+            foreach (FieldInfo field in fields) written.Add(field.Name + "=" + Describe(field.GetValue(value)));
+            return value.GetType().Name + "{" + string.Join(", ", written) + "}";
         }
 
         /// <summary>An absent optional key restores to null, not to 0 - the distinction the nullable exists for.</summary>

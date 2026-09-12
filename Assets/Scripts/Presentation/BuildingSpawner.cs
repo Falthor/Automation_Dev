@@ -63,6 +63,16 @@ namespace Game.Presentation
         /// </summary>
         public static float ArrowEdgeInset(float cellSize) => cellSize * (0.5f - ArrowSizeCells * 0.5f);
 
+        /// <summary>
+        /// Which way an arrow points: outward along its own side for an output, back at the building
+        /// for an entry. <c>side</c> points away from the building on both paths - it is the exit
+        /// side for an output and the side a delivery arrives from for an input.
+        ///
+        /// Shared with the placement ghost, like the position and the size below it: a preview whose
+        /// arrows point the other way is the same defect as one that draws them elsewhere.
+        /// </summary>
+        public static Direction ArrowPointing(Direction side, bool inward) => inward ? side.Opposite() : side;
+
         /// <summary>Where an arrow is actually drawn: the marked cell's centre, pulled back towards the building it belongs to. Shared with the placement ghost so the preview and the built thing agree.</summary>
         public static Vector3 ArrowPosition(Vector3 markedCellCentre, Direction outwardDirection, float cellSize)
         {
@@ -235,8 +245,7 @@ namespace Game.Presentation
         /// they were laid on and change none of it. They pour no concrete and convert no ground,
         /// while building and once built.
         /// </summary>
-        public static bool IsTransportPiece(BuildingRuntime runtime) =>
-            runtime is ConveyorRuntime || runtime is SplitterRuntime || runtime is CrossroadRuntime;
+        public static bool IsTransportPiece(BuildingRuntime runtime) => runtime.Definition.IsTransportPiece;
 
         /// <summary>
         /// Whether this building stands on a concrete pad once finished - the single answer for the
@@ -517,8 +526,7 @@ namespace Game.Presentation
             // `direction` points away from the building on both paths - it is the exit side for an
             // output and the side a delivery comes from for an input - so one inset serves both.
             arrowGo.transform.position = ArrowPosition(worldPosition, direction, _grid.CellSize);
-            Direction pointingDirection = inward ? direction.Opposite() : direction;
-            arrowGo.transform.rotation = Quaternion.Euler(0f, 0f, -pointingDirection.ToRotationDegrees());
+            arrowGo.transform.rotation = Quaternion.Euler(0f, 0f, -ArrowPointing(direction, inward).ToRotationDegrees());
             arrowGo.transform.localScale = Vector3.one * ArrowWorldSize(_grid.CellSize);
             arrowGo.transform.SetParent(parent, true);
 

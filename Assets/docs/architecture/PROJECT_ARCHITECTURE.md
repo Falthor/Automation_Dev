@@ -85,6 +85,7 @@ Game.Construction
 Game.Save
 Game.Presentation
 Game.UI
+Game.Tools
 Game.Tests
 ```
 
@@ -106,6 +107,8 @@ Game.UI
 ```
 
 `Game.Save` (§21) is a standalone leaf assembly with no dependency on any other `Game.*` assembly - only on the save format's own serialization needs. `Game.Presentation` and `Game.UI` depend on it; nothing lower depends on it, and it depends on nothing higher.
+
+`Game.Tools` exists for one reason: Unity refuses to attach a component that comes from an editor assembly, so the research tree editor's scene handle (`ResearchNodeHandle`) has to live in a runtime one. It carries the `UNITY_EDITOR` constraint, so no build embeds it, and the rest of that tool lives in `Assets/Editor/ResearchTree/`.
 
 `Game.Tests` references the assemblies required by the tests.
 
@@ -368,8 +371,11 @@ Concrete types include, where migrated:
 - Factory / ProductionBuilding
 - Foundry
 - AdvancedFoundry
+- Constructor
 - Conveyor
 - Splitter
+- Crossroad
+- Showcase (art with no behaviour yet - see `ShowcaseDefinition`)
 
 The exact inheritance hierarchy is an implementation choice; functional contracts are not.
 
@@ -402,7 +408,7 @@ The runtime model owns:
 
 Presentation draws the transport state; it does not own the authoritative queue.
 
-The detailed transport behavior remains a subsystem-level specification and should be migrated from `docs/TRANSPORT.md` when that subsystem is implemented.
+The detailed transport behavior is `CONTRACTS.md` §3a - the generic push/pull, the entry rate, the belt intakes and the Splitter/Crossroad steps.
 
 ## 14. Production
 
@@ -603,6 +609,7 @@ Game.Construction
 Game.Save
 Game.Presentation
 Game.UI
+Game.Tools
 Game.Tests
 ```
 

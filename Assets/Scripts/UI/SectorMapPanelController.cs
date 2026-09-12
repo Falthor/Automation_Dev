@@ -205,9 +205,8 @@ namespace Game.UI
             _map.SetBuildings(_buildingCells);
         }
 
-        /// <summary>What carries rather than transforms. The same three types the building cap exempts, and for the same reason: they are the network, not the works.</summary>
-        static bool IsBelt(BuildingRuntime building)
-            => building is ConveyorRuntime || building is SplitterRuntime || building is CrossroadRuntime;
+        /// <summary>What carries rather than transforms - BuildingDefinition.IsTransportPiece. Deliberately not the building cap's own exemption, which a Storage box also answers without being part of the network.</summary>
+        static bool IsBelt(BuildingRuntime building) => building.Definition.IsTransportPiece;
 
         /// <summary>
         /// Every deposit cell a robot has actually seen, one mark per cell so a cluster reads as a

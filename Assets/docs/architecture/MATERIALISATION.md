@@ -154,8 +154,6 @@ empty; restored buildings get their real view directly.
   deposit, which is drawn higher, so its waiting silhouette passes *behind* the deposit it is
   reserving — the single most useful placement cue, on the most-placed building in the game. Fixing
   it needs a full renumbering of the ladder; deliberately out of scope.
-- **`GameRuntime` builds a second `BuildingSpawner`** for the restore path, with its own per-cell view
-  dictionary — exactly the trap `SetViewSpawner` avoids for sites. Pre-existing.
 - **Progress weights each item by its unit count.** A screw is worth a circuit board. Real, known, and
   untriaged; the fallback, when it bites, is the mean of per-ingredient rates.
 - The bar counts only **delivered** material, not what is in flight.

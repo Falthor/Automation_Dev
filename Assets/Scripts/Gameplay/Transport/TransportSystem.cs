@@ -726,8 +726,8 @@ namespace Game.Gameplay.Transport
             }
         }
 
-        static bool IsBeltGated(BuildingRuntime building) =>
-            building is ConveyorRuntime || building is SplitterRuntime || building is CrossroadRuntime;
+        /// <summary>Asked of the definition, not of the runtime's type - see BuildingDefinition.IsTransportPiece, which the ground slab and the map read too.</summary>
+        static bool IsBeltGated(BuildingRuntime building) => building.Definition.IsTransportPiece;
 
         /// <summary>
         /// Whether this source may put another item onto the belt network right now.

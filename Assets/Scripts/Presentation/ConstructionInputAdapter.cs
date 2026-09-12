@@ -67,6 +67,7 @@ namespace Game.Presentation
         // The ghost's arrows, refilled in place rather than reallocated: UpdateGhost runs on every
         // frame a tool is armed, and these two lists are the only thing in it that would allocate.
         readonly List<(Vector3 position, Direction side, bool inward)> _ghostArrows = new List<(Vector3, Direction, bool)>();
+        readonly List<(GridCoord cell, Direction side, bool inward)> _ghostArrowCells = new List<(GridCoord, Direction, bool)>();
         readonly List<(Direction side, bool inward)> _crossPieceSides = new List<(Direction, bool)>();
 
         // Axis-lock drag: the axis (horizontal/vertical) locks automatically from the first
@@ -387,50 +388,16 @@ namespace Game.Presentation
             Direction previewRotation = gameRuntime.Construction.PreviewRotation;
             (bool rotateSprite, Direction artNativeDirection) = ResolveGhostRotation(selected);
 
+            // Which cells carry an arrow, and which way each points, is one rule and it lives apart
+            // from this adapter so a test can reach it (GhostArrows). All that is left here is
+            // turning each marked cell into a world position, through the inset the built view uses.
+            GhostArrows.For(selected, cell, previewRotation, gameRuntime.Construction.PreviewInputSide,
+                _crossPieceSides, _ghostArrowCells);
+
             _ghostArrows.Clear();
-
-            // A Splitter or a Crossroad first, because neither can be described by the two flags
-            // below: one has a single entry and three exits, the other two of each, and the flags
-            // say "one exit" and "every side but the exit". Their sides come from the same functions
-            // the built piece derives its own from, and the cell each arrow marks from the same
-            // footprint rule transport reaches a neighbour by - nothing is restated here.
-            if (CrossPieceConnections.Describe(selected, previewRotation, _crossPieceSides))
+            foreach ((GridCoord markedCell, Direction side, bool inward) in _ghostArrowCells)
             {
-                foreach ((Direction side, bool inward) in _crossPieceSides)
-                {
-                    _ghostArrows.Add((GhostArrowPosition(CrossFootprint.NeighborCell(cell, side), side), side, inward));
-                }
-            }
-            else
-            {
-                // Output and entry arrows are independent: a building can take deliveries without
-                // producing anything physical (DataCenter), so each side is previewed on its own.
-                if (selected.HasOutputArrow)
-                {
-                    // The building's own rule for which cell of its output edge carries the arrow,
-                    // not the first one: they differ on every even-width edge, so a 2x2 Foundry
-                    // previewed its arrow one cell away from where it grew it.
-                    GridCoord outputCell = BuildingRuntime.ComputeOutputCell(cell, selected.FootprintSize, previewRotation);
-                    _ghostArrows.Add((GhostArrowPosition(outputCell, previewRotation), previewRotation, false));
-                }
-
-                // One arrow for a single-input building, on the side T has landed on - so the ghost
-                // shows the one face the building will actually take from, rather than three faces
-                // it will refuse two of.
-                if (selected.HasSingleInputArrow)
-                {
-                    (GridCoord inputCell, Direction inputSide) = BuildingRuntime.ComputeSingleInputCell(
-                        cell, selected.FootprintSize, gameRuntime.Construction.PreviewInputSide);
-
-                    _ghostArrows.Add((GhostArrowPosition(inputCell, inputSide), inputSide, true));
-                }
-                else if (selected.HasInputArrows)
-                {
-                    foreach ((GridCoord edgeCell, Direction fromMySide) in BuildingRuntime.ComputeInputCells(cell, selected.FootprintSize, previewRotation))
-                    {
-                        _ghostArrows.Add((GhostArrowPosition(edgeCell, fromMySide), fromMySide, true));
-                    }
-                }
+                _ghostArrows.Add((GhostArrowPosition(markedCell, side), side, inward));
             }
 
             // Both sprites every time: they are cached by colour, so this is a dictionary lookup and
