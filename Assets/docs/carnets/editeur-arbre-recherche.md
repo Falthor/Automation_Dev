@@ -25,6 +25,10 @@ par recherche de la base, noyaux compris, posé à sa distance du centre et à s
   la souris et reste où on le lâche, sur un anneau ou entre deux, au dixième d'anneau près ; à moins
   de 0,15 anneau d'un anneau, il s'y aimante. Le caler pendant le glissement le clouait à son anneau :
   il semblait ne pas bouger.
+- **Regarder** : un overlay *Research Tree*, dans la scène, règle la taille des boules — un curseur
+  pour les noyaux, un pour les recherches. Chaque boule porte l'icône de sa recherche, celle de son
+  propre champ `icon` ; sans icône, elle reste une boule nue. Les noms ne sont plus dessinés en
+  permanence : seule la boule sous le curseur se nomme.
 
 Tout passe par l'annulation d'Unity. Rien n'est écrit sur disque avant File > Save Project, sauf la
 création, qui enregistre tout de suite l'asset qu'elle fabrique.
@@ -97,4 +101,15 @@ reste de l'outil vit dans `Assets/Editor/ResearchTree/`.
 - **Annuler une création laisse le fichier.** L'annulation retire la recherche de la base et son nœud
   de la scène, mais l'asset reste sur disque, hors de la base — donc hors du jeu.
 - **Aucune fenêtre, aucun raccourci, aucune annulation maison.** Menu, inspecteur, outil de la barre de
-  scène et Undo d'Unity : c'était la consigne, et elle a suffi.
+  scène, overlay et Undo d'Unity : c'était la consigne, et elle a suffi.
+
+## La taille des boules n'est pas une donnée de l'arbre
+
+Les deux rayons vivent dans les `EditorPrefs`, pas dans la scène ni dans un asset. La scène se
+reconstruit depuis la base et ne retient rien : un rayon rangé là serait effacé au premier rebuild.
+Un asset serait pire — il ferait entrer *la façon dont quelqu'un aime regarder l'arbre* dans les
+données de l'arbre, donc dans les commits de tout le monde. C'est un réglage de confort, il reste sur
+la machine qui l'a posé.
+
+L'icône, elle, est bien une donnée : c'est le champ `icon` de la recherche, celui que le jeu possédait
+déjà. La scène ne fait que le montrer, et n'ajoute aucun champ.

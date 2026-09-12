@@ -18,9 +18,6 @@ namespace Game.EditorTools
     [InitializeOnLoad]
     public static class ResearchTreeDrawing
     {
-        const float CoreRadius = 0.45f;
-        const float NodeRadius = 0.3f;
-
         static readonly Color RingColor = new Color(1f, 1f, 1f, 0.12f);
         static readonly Color SectorColor = new Color(0.33f, 0.87f, 0.96f, 0.35f);
         static readonly Color LinkColor = new Color(0.85f, 0.85f, 0.85f, 0.8f);
@@ -31,6 +28,13 @@ namespace Game.EditorTools
         static readonly Color OutOfSectorColor = new Color(0.95f, 0.35f, 0.95f);
 
         static GUIStyle _labelStyle;
+
+        /// <summary>
+        /// Where the mouse last was, so the ball under it can name itself. A mutable static, which
+        /// DEVELOPMENT_RULES §5 asks to be deliberate about: this is editor-only chrome, and the worst
+        /// a value surviving a reload can do is name a ball one frame before the next mouse move.
+        /// </summary>
+        static Vector2 _mousePosition;
 
         static ResearchTreeDrawing()
         {
@@ -45,7 +49,7 @@ namespace Game.EditorTools
 
             ResearchTreeDiagnosis.Refresh();
             bool isCore = ResearchTreeDiagnosis.Cores.Contains(research);
-            float radius = isCore ? CoreRadius : NodeRadius;
+            float radius = ResearchTreeDisplay.RadiusOf(isCore);
             Vector3 position = handle.transform.position;
 
             Gizmos.color = ColourOf(research, isCore);
@@ -56,8 +60,9 @@ namespace Game.EditorTools
                 Gizmos.DrawWireSphere(position, radius * 1.5f);
             }
 
-            _labelStyle ??= new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.UpperCenter, normal = { textColor = Color.white } };
-            Handles.Label(position + Vector3.down * (radius + 0.15f), research.DisplayName, _labelStyle);
+            // No name here any more. A tree of thirty balls each carrying a permanent label is mostly
+            // text, and the text is the part you do not need while placing: only the ball under the
+            // cursor names itself now - see DrawIconsAndHoveredName.
         }
 
         static Color ColourOf(ResearchDefinition research, bool isCore)
@@ -70,7 +75,19 @@ namespace Game.EditorTools
 
         static void DrawScene(SceneView view)
         {
-            if (Event.current.type != EventType.Repaint || !ResearchTreeScene.IsOpen) return;
+            if (!ResearchTreeScene.IsOpen) return;
+
+            // The scene only repaints when something asks it to, so a mouse crossing a ball would
+            // otherwise change nothing until the next click or pan - the hover would look broken
+            // rather than absent. Same request the Link tool makes while dragging a link.
+            if (Event.current.type == EventType.MouseMove)
+            {
+                _mousePosition = Event.current.mousePosition;
+                view.Repaint();
+                return;
+            }
+
+            if (Event.current.type != EventType.Repaint) return;
 
             ResearchTreeDiagnosis.Refresh();
             float outer = (ResearchTreeDiagnosis.MaxTier + 1) * ResearchTreeScene.RingStep;
@@ -101,7 +118,74 @@ namespace Game.EditorTools
                 }
             }
 
+            DrawIconsAndHoveredName();
             DrawSummary();
+        }
+
+        /// <summary>
+        /// Each ball's icon, and the name of the one under the cursor.
+        ///
+        /// The icon is the research's own <see cref="ResearchDefinition.Icon"/> - the sprite chosen in
+        /// its inspector, the same one the game's research menu has always had to show. Nothing new is
+        /// stored: a research without one simply keeps a plain ball.
+        ///
+        /// Drawn here rather than in the gizmo pass because a sprite is a texture and gizmos draw
+        /// geometry: this runs after them, so an icon sits on top of its ball instead of inside it.
+        /// </summary>
+        static void DrawIconsAndHoveredName()
+        {
+            ResearchNodeHandle hovered = null;
+            float hoveredRadius = 0f;
+
+            Handles.BeginGUI();
+            foreach (ResearchNodeHandle handle in ResearchTreeScene.Handles)
+            {
+                if (handle == null || handle.Research == null) continue;
+
+                Vector3 position = handle.transform.position;
+                float radius = ResearchTreeDisplay.RadiusOf(ResearchTreeDiagnosis.Cores.Contains(handle.Research));
+
+                Vector2 centre = HandleUtility.WorldToGUIPoint(position);
+                float pixelsPerWorldUnit = Vector2.Distance(centre, HandleUtility.WorldToGUIPoint(position + Vector3.right));
+                float pixelRadius = radius * pixelsPerWorldUnit;
+
+                // The ball itself is the target: hovering means the cursor is on it, whatever size it
+                // has been set to. A floor keeps a ball zoomed down to a few pixels still reachable.
+                if (Vector2.Distance(centre, _mousePosition) <= Mathf.Max(pixelRadius, 6f))
+                {
+                    hovered = handle;
+                    hoveredRadius = radius;
+                }
+
+                DrawIcon(handle.Research.Icon, centre, ResearchTreeDisplay.IconSideFor(radius) * pixelsPerWorldUnit);
+            }
+            Handles.EndGUI();
+
+            if (hovered == null) return;
+
+            _labelStyle ??= new GUIStyle(EditorStyles.miniLabel) { alignment = TextAnchor.UpperCenter, normal = { textColor = Color.white } };
+            Handles.Label(hovered.transform.position + Vector3.down * (hoveredRadius + 0.15f),
+                ResearchTreeScene.Label(hovered.Research), _labelStyle);
+        }
+
+        /// <summary>
+        /// One sprite centred on a ball. Drawn through its own texture rectangle rather than as a
+        /// whole texture: an icon packed in a sheet would otherwise show the whole sheet.
+        /// </summary>
+        static void DrawIcon(Sprite icon, Vector2 centre, float sidePixels)
+        {
+            if (icon == null || icon.texture == null || sidePixels < 1f) return;
+
+            Rect textureRect = icon.textureRect;
+            var uv = new Rect(
+                textureRect.x / icon.texture.width,
+                textureRect.y / icon.texture.height,
+                textureRect.width / icon.texture.width,
+                textureRect.height / icon.texture.height);
+
+            GUI.DrawTextureWithTexCoords(
+                new Rect(centre.x - sidePixels * 0.5f, centre.y - sidePixels * 0.5f, sidePixels, sidePixels),
+                icon.texture, uv, alphaBlend: true);
         }
 
         /// <summary>
