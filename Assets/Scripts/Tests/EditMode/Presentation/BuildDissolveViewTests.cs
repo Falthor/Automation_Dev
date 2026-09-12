@@ -12,8 +12,7 @@ using UnityEngine;
 namespace Game.Tests.EditMode.Presentation
 {
     /// <summary>
-    /// directive-materialisation-nano.md §10, restricted to step 1 of §11 (dissolve only - the
-    /// ground coverage tests belong to step 2, which is not implemented).
+    /// MATERIALISATION.md, restricted to the dissolve: the ground coverage has its own tests.
     ///
     /// BuildDissolveView.Tick takes its own deltaTime precisely so the smoothing and the flash are
     /// testable here rather than needing a frame loop; nothing below asserts anything about how the

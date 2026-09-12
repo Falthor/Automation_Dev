@@ -276,7 +276,7 @@ namespace Game.Gameplay.Exploration
         void AppearIfReserveHasFallen()
         {
             if (RobotsHaveAppeared || _compute == null) return;
-            if (_compute.Reserve > _settings.AppearAtReserveCu) return;
+            if (_compute.Reserve > ComputeSystem.ExplorerFleetArrivalReserve) return;
 
             RobotsHaveAppeared = true;
         }
@@ -564,7 +564,7 @@ namespace Game.Gameplay.Exploration
 
         static float Frac(float value) => value - Mathf.Floor(value);
 
-        // ---- Save / Restore (CONTRACTS.md §14) ----
+        // ---- Save / Restore (SAUVEGARDE.md) ----
 
         /// <summary>
         /// Position, heading and state, plus the two things that make a restored robot carry on

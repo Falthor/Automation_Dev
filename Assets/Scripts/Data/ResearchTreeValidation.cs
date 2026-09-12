@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Game.Data
 {
     /// <summary>
-    /// Two checks on a research tree that no player could recover from (CONTRACTS.md §11). Pure, so
+    /// Two checks on a research tree that no player could recover from (RECHERCHE.md). Pure, so
     /// they run without a scene, an editor or a run.
     ///
     /// - A <b>cycle</b> of prerequisites: a research that needs itself through any chain can never be

@@ -63,6 +63,16 @@ namespace Game.Presentation
         /// </summary>
         public static float ArrowEdgeInset(float cellSize) => cellSize * (0.5f - ArrowSizeCells * 0.5f);
 
+        /// <summary>
+        /// Which way an arrow points: outward along its own side for an output, back at the building
+        /// for an entry. <c>side</c> points away from the building on both paths - it is the exit
+        /// side for an output and the side a delivery arrives from for an input.
+        ///
+        /// Shared with the placement ghost, like the position and the size below it: a preview whose
+        /// arrows point the other way is the same defect as one that draws them elsewhere.
+        /// </summary>
+        public static Direction ArrowPointing(Direction side, bool inward) => inward ? side.Opposite() : side;
+
         /// <summary>Where an arrow is actually drawn: the marked cell's centre, pulled back towards the building it belongs to. Shared with the placement ghost so the preview and the built thing agree.</summary>
         public static Vector3 ArrowPosition(Vector3 markedCellCentre, Direction outwardDirection, float cellSize)
         {
@@ -87,6 +97,50 @@ namespace Game.Presentation
         /// </summary>
         readonly DepthSortLadder _depthSort;
         readonly Dictionary<GridCoord, GameObject> _views = new Dictionary<GridCoord, GameObject>();
+
+        /// <summary>
+        /// Every connection arrow drawn so far, so the player can put them all away at once.
+        ///
+        /// Held as a flat list rather than found by walking the views on demand: an arrow is an
+        /// ordinary child sprite with nothing to tell it apart from the building's own, and a search
+        /// that recognised them by name would break the day one is renamed. Entries whose building
+        /// has since been demolished are dropped on the next toggle - see SetConnectionArrowsVisible -
+        /// which costs nothing on a keypress and spares every demolition a linear scan.
+        /// </summary>
+        readonly List<SpriteRenderer> _arrowRenderers = new List<SpriteRenderer>();
+
+        /// <summary>
+        /// Whether arrows are currently shown. An instance field, never a static: Domain Reload is
+        /// disabled (DEVELOPMENT_RULES §5), so a static would carry one session's choice into the
+        /// next Play. Buildings placed while they are hidden are born hidden, which is why the flag
+        /// is read at spawn rather than only applied on the keypress.
+        /// </summary>
+        bool _arrowsVisible = true;
+
+        /// <summary>
+        /// Shows or hides every connection arrow in the world, placed and yet to be placed.
+        ///
+        /// <b>The placement ghost is deliberately untouched.</b> Its arrows belong to a different
+        /// view entirely (BuildingGhostView), so a player who has put the world's arrows away still
+        /// sees which way the piece they are aiming will face - which is the one moment the
+        /// information cannot be deduced from anything else on screen.
+        /// </summary>
+        public void SetConnectionArrowsVisible(bool visible)
+        {
+            _arrowsVisible = visible;
+
+            int kept = 0;
+            for (int i = 0; i < _arrowRenderers.Count; i++)
+            {
+                SpriteRenderer renderer = _arrowRenderers[i];
+                if (renderer == null) continue;   // its building was demolished
+
+                renderer.enabled = visible;
+                _arrowRenderers[kept++] = renderer;
+            }
+
+            _arrowRenderers.RemoveRange(kept, _arrowRenderers.Count - kept);
+        }
 
         /// <summary>
         /// straightConveyorArt/cornerConveyorArt are optional canonical art sources used only
@@ -191,8 +245,7 @@ namespace Game.Presentation
         /// they were laid on and change none of it. They pour no concrete and convert no ground,
         /// while building and once built.
         /// </summary>
-        public static bool IsTransportPiece(BuildingRuntime runtime) =>
-            runtime is ConveyorRuntime || runtime is SplitterRuntime || runtime is CrossroadRuntime;
+        public static bool IsTransportPiece(BuildingRuntime runtime) => runtime.Definition.IsTransportPiece;
 
         /// <summary>
         /// Whether this building stands on a concrete pad once finished - the single answer for the
@@ -237,7 +290,12 @@ namespace Game.Presentation
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
-            FitSpriteUniform(renderer, sprite, ArtWorldSize(definition, _grid.CellSize));
+            FitSpriteUniform(renderer, sprite, ArtWorldSize(definition, _grid.CellSize, sprite));
+
+            // Art taller than its ground stands on the footprint's bottom edge, the excess reaching
+            // up - the root is the footprint's centre, so the lift goes on the sprite alone and the
+            // slab, the arrows and the depth rank keep working off the cells occupied.
+            spriteGo.transform.localPosition = Vector3.up * ArtLift(definition, _grid.CellSize, sprite);
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
@@ -338,12 +396,22 @@ namespace Game.Presentation
             var root = new GameObject($"{definition.DisplayName} {runtime.Cell}");
             root.transform.position = _grid.FootprintCenterToWorld(runtime.Cell, definition.FootprintSize);
 
-            var renderer = root.AddComponent<SpriteRenderer>();
+            // <b>The sprite turns, the root does not.</b> The rotation used to sit on the root, which
+            // was harmless while these pieces had no arrows - and is not any more: an arrow is placed
+            // in world space on the cell it marks, and a rotating parent would swing it off that cell.
+            // SpawnStandardView's arrows rely on exactly the same promise.
+            var spriteGo = new GameObject("Sprite");
+            spriteGo.transform.SetParent(root.transform, false);
+
+            var renderer = spriteGo.AddComponent<SpriteRenderer>();
             renderer.sortingOrder = SortingBands.CrossPiece;
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
-            FitSpriteUniform(renderer, sprite, ArtWorldSize(definition, _grid.CellSize));
+            // No lift here, unlike SpawnStandardView: square art on a square footprint, so there is
+            // none to apply - and this renderer is the one that turns, which would swing an offset
+            // around with it.
+            FitSpriteUniform(renderer, sprite, ArtWorldSize(definition, _grid.CellSize, sprite));
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
@@ -353,10 +421,49 @@ namespace Game.Presentation
             AttachShadow(runtime, renderer);
 
             int rotationDegrees = runtime.FacingRotation.ToRotationDegrees() - artNativeDirection.ToRotationDegrees();
-            root.transform.rotation = Quaternion.Euler(0f, 0f, -rotationDegrees);
+            spriteGo.transform.rotation = Quaternion.Euler(0f, 0f, -rotationDegrees);
+
+            SpawnCrossPieceArrows(runtime, root.transform);
 
             return root;
         }
+
+        /// <summary>
+        /// The entry and exit arrows of a Splitter or a Crossroad.
+        ///
+        /// <b>The generic mechanism cannot express either piece</b>, which is why this exists rather
+        /// than a flag on the definition: <see cref="Data.BuildingDefinition.HasOutputArrow"/> names
+        /// one exit derived from <c>ExitDirection</c>, and <see cref="Data.BuildingDefinition.HasInputArrows"/>
+        /// means "one per side except the exit" - the exact inverse of a Splitter's single entry and
+        /// three exits, and unable to name a Crossroad's two of each at all. Both runtimes already
+        /// publish their own sides, and those already turn with the piece, so what is drawn is read
+        /// from the same properties transport routes by.
+        /// </summary>
+        void SpawnCrossPieceArrows(BuildingRuntime runtime, Transform parent)
+        {
+            if (runtime is CrossroadRuntime crossroad)
+            {
+                SpawnCrossPieceArrow(parent, crossroad.NeighborCell(crossroad.EntryA), crossroad.EntryA, inward: true);
+                SpawnCrossPieceArrow(parent, crossroad.NeighborCell(crossroad.EntryB), crossroad.EntryB, inward: true);
+                SpawnCrossPieceArrow(parent, crossroad.NeighborCell(crossroad.ExitA), crossroad.ExitA, inward: false);
+                SpawnCrossPieceArrow(parent, crossroad.NeighborCell(crossroad.ExitB), crossroad.ExitB, inward: false);
+                return;
+            }
+
+            if (runtime is SplitterRuntime splitter)
+            {
+                SpawnCrossPieceArrow(parent, splitter.NeighborCell(splitter.EntrySide), splitter.EntrySide, inward: true);
+
+                foreach (Direction exit in SplitterRuntime.CandidateExits(splitter.EntrySide))
+                {
+                    SpawnCrossPieceArrow(parent, splitter.NeighborCell(exit), exit, inward: false);
+                }
+            }
+        }
+
+        void SpawnCrossPieceArrow(Transform parent, GridCoord cell, Direction side, bool inward)
+            => SpawnDirectionalArrow(parent, _grid.CellCenterToWorld(cell), side,
+                inward ? InputArrowColor : OutputArrowColor, cell, inward);
 
         /// <summary>
         /// One small arrow sprite at a world position, facing outward from the building
@@ -419,51 +526,76 @@ namespace Game.Presentation
             // `direction` points away from the building on both paths - it is the exit side for an
             // output and the side a delivery comes from for an input - so one inset serves both.
             arrowGo.transform.position = ArrowPosition(worldPosition, direction, _grid.CellSize);
-            Direction pointingDirection = inward ? direction.Opposite() : direction;
-            arrowGo.transform.rotation = Quaternion.Euler(0f, 0f, -pointingDirection.ToRotationDegrees());
+            arrowGo.transform.rotation = Quaternion.Euler(0f, 0f, -ArrowPointing(direction, inward).ToRotationDegrees());
             arrowGo.transform.localScale = Vector3.one * ArrowWorldSize(_grid.CellSize);
             arrowGo.transform.SetParent(parent, true);
 
             var arrowRenderer = arrowGo.AddComponent<SpriteRenderer>();
             RankArrow(arrowRenderer, rankCell);
             arrowRenderer.sprite = _spriteFactory.CreateArrowSprite(color);
+
+            // Born in whatever state the player last chose, so a building placed while the arrows
+            // are put away does not bring its own back.
+            arrowRenderer.enabled = _arrowsVisible;
+            _arrowRenderers.Add(arrowRenderer);
         }
 
         /// <summary>
-        /// The world size a building's art is actually drawn at: its logical footprint widened by
-        /// the definition's RenderOverscan.
-        ///
-        /// Every view that has to line up with the real building - the placement ghost, the
-        /// construction silhouette, the assembling dissolve - must size itself from this rather
-        /// than from FootprintSize alone. Overscan used to be applied here and nowhere else, so
-        /// those views came out RenderOverscan smaller than what actually got built: 9% on the
-        /// Foundry, enough to read as a different building.
-        ///
-        /// The one exception is <paramref name="overscanned"/>, for a conveyor wearing the
-        /// procedural placeholder instead of its own art: the placeholder already fills its cell
-        /// exactly, so widening it would push it over its neighbours. Pass
-        /// UsesOwnConveyorArt(definition, shape) rather than restating that rule.
-        ///
-        /// Note this is deliberately not the sizing for anything that belongs to the ground rather
-        /// than to the building. That is the canonical pair: <b>ArtWorldSize for whatever must
-        /// coincide with the drawing, FootprintSize for whatever marks the cells occupied.</b> The
-        /// concrete slab follows the footprint, and so will the nano ground coverage - it expresses
-        /// which cells are converted, not how far the art reaches. Same distinction as the shader's
-        /// _BuildBounds, which is the visual AABB precisely because it normalises a gradient over
-        /// what is drawn.
+        /// <b>ArtWorldSize for whatever must coincide with the drawing, FootprintSize for whatever
+        /// marks the cells occupied.</b> The concrete slab, the ground coverage and the depth rank
+        /// follow the footprint - they express which cells a building holds, not how far its art
+        /// reaches. Every view that has to line up with the built building - the placement ghost,
+        /// the construction silhouette, the assembling dissolve - sizes itself from here instead.
         /// </summary>
         /// <summary>
-        /// How big to draw a building's art, in world units.
+        /// How big to draw a building's art, in world units, <b>derived from the art itself</b>: as
+        /// wide as the footprint and as tall as that width times the frame's own proportion.
         ///
-        /// <b>ArtCellSize rather than FootprintSize</b>, which are the same thing for every building
-        /// whose art is the shape of its ground and differ for one that is taller than it - see
-        /// BuildingDefinition.ArtCellSize. <see cref="FitSpriteUniform"/> then lands exactly on this
-        /// box when it carries the art's own aspect ratio, rather than covering it and overflowing
-        /// sideways - which is what makes the box a statement about the art rather than a decision
-        /// about how the building should look.
+        /// <b>A building is therefore never drawn wider than the cells it stands on</b>, whatever
+        /// sheet it wears - which is the one thing a player reads as wrong. Art taller than its
+        /// ground (a 512x640 frame over a 3x3 footprint: 3 wide, 3.75 tall) overflows upward, and
+        /// <see cref="ArtLift"/> puts its base back on the footprint's bottom edge.
+        ///
+        /// Nothing to measure and nothing to enter per asset: no art box on the definition, no margin
+        /// constant to re-measure when a sheet is replaced. Both existed, both went stale on every
+        /// re-export, and both were noticed on screen rather than here.
+        ///
+        /// <b>A frame square or wider keeps the footprint box</b> (the max below), so a belt whose
+        /// frame is 256x222 still fills its cell instead of leaving a seam above and below it. That
+        /// is also why <paramref name="overscanned"/> stays: the conveyor family's overscan pushes
+        /// their arms deliberately INTO the neighbouring cell, which is not a margin to correct.
         /// </summary>
-        public static Vector2 ArtWorldSize(BuildingDefinition definition, float cellSize, bool overscanned = true)
-            => new Vector2(cellSize, cellSize) * definition.ArtCellSize * (overscanned ? definition.RenderOverscan : 1f);
+        /// <param name="sprite">
+        /// The frame being drawn, whose proportion decides the height. Omitted - which is what the
+        /// conveyor views do - the art keeps the footprint's own box, exactly as every building did
+        /// before the height was derived: a belt fills its cell and nothing reaches past it.
+        /// </param>
+        public static Vector2 ArtWorldSize(BuildingDefinition definition, float cellSize, Sprite sprite = null, bool overscanned = true)
+        {
+            Vector2 footprint = (Vector2)definition.FootprintSize * cellSize;
+            float width = footprint.x * (overscanned ? definition.RenderOverscan : 1f);
+            Vector2 frame = sprite != null ? sprite.rect.size : Vector2.zero;
+            float height = frame.x > 0f ? Mathf.Max(footprint.y, width * (frame.y / frame.x)) : footprint.y;
+            return new Vector2(width, height);
+        }
+
+        /// <summary>
+        /// How far up the art sits from the footprint's centre, so that art taller than its ground
+        /// rests its base on the footprint's bottom edge and all the excess reaches upward.
+        ///
+        /// Every view that draws a building applies it - the built view, the placement ghost, the
+        /// construction silhouette, the Core's own spawner - or the same building would stand at two
+        /// different heights depending on which one drew it. Zero whenever the art is no taller than
+        /// the footprint, which is every square-framed building.
+        /// </summary>
+        /// <remarks>
+        /// Measured without the overscan on purpose: that one is a uniform bleed meant to be
+        /// symmetric - the conveyor family's arms reaching into the neighbouring cell - and turning
+        /// it into a lift would push a "+" off the belt it feeds. Only art genuinely taller than its
+        /// ground lifts, which is why the rotating "+" view applies none at all.
+        /// </remarks>
+        public static float ArtLift(BuildingDefinition definition, float cellSize, Sprite sprite)
+            => (ArtWorldSize(definition, cellSize, sprite, overscanned: false).y - definition.FootprintSize.y * cellSize) * 0.5f;
 
         /// <summary>
         /// True when a belt is drawn with its own art rather than the procedural shape sprite - a
@@ -486,10 +618,8 @@ namespace Game.Presentation
         /// corner's chirality) re-apply the flip after fitting.
         /// </summary>
         /// <summary>
-        /// Public rather than internal because it is the one entry point for sizing a building's art -
-        /// four production paths call it, and the test that pins its arithmetic has to reach it. It
-        /// used to be internal behind a public wrapper; the wrapper existed only to choose between two
-        /// fits, and there is only one now.
+        /// The one entry point for sizing a building's art: four production paths call it, and the
+        /// test that pins its arithmetic has to reach it.
         /// </summary>
         public static void FitSpriteUniform(SpriteRenderer renderer, Sprite sprite, Vector2 desiredWorldSize)
         {

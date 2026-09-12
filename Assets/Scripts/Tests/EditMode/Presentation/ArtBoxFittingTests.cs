@@ -18,7 +18,7 @@ namespace Game.Tests.EditMode.Presentation
     /// </summary>
     public class ArtBoxFittingTests
     {
-        /// <summary>A frame that is not square, so a box carrying the wrong proportion is visible in the numbers. The Constructor's own frames are 512x512.</summary>
+        /// <summary>The Constructor's own frame size - not square, so a box carrying the wrong proportion shows up in the numbers.</summary>
         const int FrameWidth = 512;
         const int FrameHeight = 640;
 
@@ -95,32 +95,31 @@ namespace Game.Tests.EditMode.Presentation
         // ---- The Constructor ----
 
         /// <summary>
-        /// The Constructor's own numbers, and the reason its box is bigger than its ground.
+        /// The Constructor drawn end to end, from its own asset: the box comes out of the art
+        /// (BuildingSpawner.ArtWorldSize) and the fit lands exactly on it, because that box carries
+        /// the frame's proportion by construction rather than by someone typing it.
         ///
-        /// <b>A frame is not a building.</b> Its frames are square and the building inside them is
-        /// 410x390 of a 512x512 frame, centred. Drawn at the 2x2 footprint the frame lands exactly on
-        /// it - and the building itself comes out 51x49 px in a 64x64 box, visibly smaller than the
-        /// ground it stands on. So the box is 2.5 cells: 512/410 of two, which is what makes the
-        /// <i>building</i> fill the footprint rather than the frame.
-        ///
-        /// Pinned as a literal because it is the kind of number that reads like a mistake. It is not
-        /// - it is a statement about where the art sits inside its own frame, and it has to change
-        /// when the art is re-exported with different margins.
+        /// 512x640 frames on a 3x3 footprint: 3 cells wide - never more, whatever the sheet - and
+        /// 3.75 tall, the extra reaching upward.
         /// </summary>
         [Test]
-        public void TheConstructorsBoxMakesTheBuildingFillItsFootprint()
+        public void TheConstructorIsDrawnItsFootprintWide_AndTallerFromItsOwnFrames()
         {
             var constructor = AssetDatabase.LoadAssetAtPath<BuildingDefinition>("Assets/Data/Buildings/ConstructorDefinition.asset");
             Assert.IsNotNull(constructor, "the Constructor definition is missing");
 
-            Assert.AreEqual(new Vector2Int(2, 2), constructor.FootprintSize, "the footprint stays 2x2");
-            Assert.AreEqual(new Vector2(2.5f, 2.5f), constructor.ArtCellSize);
+            Assert.AreEqual(new Vector2Int(3, 3), constructor.FootprintSize, "the footprint is 3x3");
             Assert.AreEqual(12, constructor.AnimationFrames.Length, "twelve frames, and the re-slice has to have kept every reference");
 
-            // Square box over square frames, so the fit is exact rather than covering: the frame
-            // lands on the box and the building lands on the footprint.
-            Assert.AreEqual(constructor.ArtCellSize.x, constructor.ArtCellSize.y,
-                "a non-square box over a square frame would overflow one axis - see the fit tests above");
+            Vector2 box = BuildingSpawner.ArtWorldSize(constructor, 1f, constructor.Sprite);
+            Assert.AreEqual(3f, box.x, 0.001f, "as wide as the cells it stands on");
+            Assert.AreEqual(3.75f, box.y, 0.001f, "and 640/512 of that tall");
+
+            SpriteRenderer renderer = NewRenderer();
+            BuildingSpawner.FitSpriteUniform(renderer, NewFrame(), box);
+
+            Assert.AreEqual(box.x, renderer.bounds.size.x, 0.001f, "the fit lands on the box rather than covering it");
+            Assert.AreEqual(box.y, renderer.bounds.size.y, 0.001f);
         }
     }
 }

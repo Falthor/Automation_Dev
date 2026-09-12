@@ -15,7 +15,7 @@ namespace Game.Gameplay.Items
     /// single item type - so at most SlotCount distinct item types can be held at once. Runtime
     /// mutable state - owned by a building runtime (e.g. StorageRuntime), never by a
     /// ScriptableObject. The public surface (GetAmount/CanAccept/Add/Take) still matches
-    /// CONTRACTS.md §3's pooled-inventory shape; slots are an internal storage strategy, not a
+    /// TRANSPORT.md's pooled-inventory shape; slots are an internal storage strategy, not a
     /// new contract.
     ///
     /// SlotCount/CapacityPerSlot are per-instance (constructor parameters), not fixed constants:
@@ -40,7 +40,7 @@ namespace Game.Gameplay.Items
             _slots = new InventorySlot[slotCount];
         }
 
-        /// <summary>Read-only view of the slots for UI (CONTRACTS.md §12: UI reads the public contract, never a private field).</summary>
+        /// <summary>Read-only view of the slots for UI (UI.md: UI reads the public surface, never a private field).</summary>
         public IReadOnlyList<InventorySlot> Slots => _slots;
 
         public int GetAmount(string itemId)

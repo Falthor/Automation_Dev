@@ -27,7 +27,7 @@ namespace Game.Grid
     ///
     /// Lives in Game.Grid beside <see cref="TerrainRuntime"/>: it is per-cell world state of exactly
     /// the same shape, read by Presentation and written by Gameplay, so it belongs under both
-    /// (PROJECT_ARCHITECTURE.md §7).
+    /// (PROJECT_ARCHITECTURE.md).
     /// </summary>
     public sealed class DiscoveryRuntime
     {
@@ -283,7 +283,7 @@ namespace Game.Grid
             return count;
         }
 
-        // ---- Save / Restore (CONTRACTS.md §14) ----
+        // ---- Save / Restore (SAUVEGARDE.md) ----
 
         /// <summary>
         /// The whole map as run-length pairs, `state:length` separated by commas, in row-major order.

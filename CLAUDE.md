@@ -4,46 +4,33 @@ Entry point for the Unity project's development documentation.
 
 ## Before any modification
 
-1. Read `docs/architecture/DEVELOPMENT_RULES.md`.
-2. Read `docs/architecture/PROJECT_ARCHITECTURE.md` for the affected system.
-3. Read `docs/architecture/CONTRACTS.md` when multiple systems or a public contract are involved.
-4. Follow `docs/architecture/WORKFLOW.md`.
-5. Read a more specific subsystem document when the task concerns a documented subsystem.
-6. For Global UI / HUD work (Top Bar, Bottom Nav, panel routing, Selection), also read `docs/architecture/GLOBAL_UI.md` — an imported Godot reference spec, not a Unity implementation to port mechanically. Its own header states exactly which sections are already implemented in Unity versus future work; treat sections marked "not implemented yet" as intent/rationale only, never as a description of current Unity code.
-7. For terrain work (gameplay terrain type, ground rendering, biome blend, relief lighting), also read `docs/architecture/TERRAIN.md` — a native Unity subsystem document, fully authoritative for current behavior (not an imported reference).
-8. For map work (how the map is divided into chunks and sectors, discovery state, fog of war, sector identity and mission reach), also read `docs/architecture/MAP.md` — a native Unity subsystem document, authoritative for current behavior. It carries its own "what is not built yet" section; `docs/design/expansion-territoriale.md` holds the design it is being scaled towards (secondary Cores, mining zones, generation parameters), none of which is implemented.
-9. `docs/README.md` says which folder answers which question: `architecture/` is what is, `design/` is what is wanted, `carnets/` is why it is that way, `archive/` is authoritative for nothing.
+1. Read `Assets/docs/architecture/DEVELOPMENT_RULES.md`. It governs every modification and outranks
+   everything else.
+2. Read `Assets/docs/README.md` and open the document that owns the subject you are about to touch.
+
+**One subject, one document.** A subject is described in exactly one place and absent from every
+other, so the document that owns yours is the only one you need - and the only one to update when the
+behaviour changes.
 
 ## Mandatory principles
 
-- The repository documentation describes the current Unity project state and its accepted architecture.
-- Do not reintroduce historical explanations, rejected alternatives, or obsolete Godot implementation details into permanent Unity documentation.
-- The Godot project is the behavioral reference for migration where explicitly stated, not an instruction to reproduce Godot implementation mechanisms.
+- The repository documentation describes the current Unity project state and its accepted
+  architecture.
+- Do not reintroduce historical explanations, rejected alternatives or obsolete Godot implementation
+  details into permanent documentation.
+- The Godot project is the behavioural reference for migration where explicitly stated, never an
+  instruction to reproduce Godot implementation mechanisms.
 - Do not introduce abstractions without a concrete need justified by the rules.
-- If an architecturally significant choice is ambiguous, stop and ask for a decision before implementation.
-- Do not access another system's internal state when a public contract exists.
-- After every modification, verify consistency with architecture, contracts, and rules.
+- If an architecturally significant choice is ambiguous, stop and ask for a decision before
+  implementing.
+- Do not access another system's internal state when a public surface exists.
+- After every modification, verify consistency with the documents that own what you touched.
 - Keep generated code comments concise.
 - Audit tasks are read-only unless modification is explicitly requested.
 
 ## Unity baseline
 
-- Unity 6.5
-- URP
-- 2D Renderer
-- Runtime custom grid as gameplay source of truth
-- Terrain gameplay data isolated from presentation
+- Unity 6.5, URP, 2D Renderer
+- Runtime custom grid as the gameplay source of truth
 - ScriptableObjects are definitions, not shared runtime state
 - UI Toolkit is the primary UI technology
-
-## Producing a build
-
-`docs/BUILD.md` — build procedure, and the constraints a build imposes that the Editor never
-reveals. Read it before adding a shader that will be resolved by `Shader.Find`, before changing the
-Build Settings scene order, and before any measurement session run outside the Editor.
-
-## Source-of-truth order
-
-`DEVELOPMENT_RULES.md` → `PROJECT_ARCHITECTURE.md` → `CONTRACTS.md` → `WORKFLOW.md`
-
-Subsystem-specific documents may provide the detailed behavior for their own domain (e.g. `GLOBAL_UI.md` for the Global UI/HUD, `TERRAIN.md` for terrain, `MAP.md` for the map's division, discovery and fog). Where a subsystem document and this order disagree, the four documents above still win.

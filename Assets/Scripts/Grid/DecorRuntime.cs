@@ -17,7 +17,7 @@ namespace Game.Grid
     /// no neighbouring chunk is consulted, nothing larger than a cell is placed step by step (a
     /// cluster would have to derive from a deterministic anchor), and there is no sequential state to
     /// advance. Randomness comes from <see cref="DeterministicHash"/> and never from System.Random -
-    /// DEVELOPMENT_RULES.md §7, and for the same reason as the terrain: this is re-derived at every
+    /// DEVELOPMENT_RULES.md, and for the same reason as the terrain: this is re-derived at every
     /// load while the player's edits to it are saved.
     ///
     /// <b>The removals are the exception, and they have to be.</b> A rock cleared to make room for a
@@ -365,7 +365,7 @@ namespace Game.Grid
 
         int Index(GridCoord cell) => cell.Y * MapSizeCells + cell.X;
 
-        // ---- Save / Restore (CONTRACTS.md §14) ----
+        // ---- Save / Restore (SAUVEGARDE.md) ----
 
         /// <summary>
         /// The cleared cells, as a comma-separated list of indices.

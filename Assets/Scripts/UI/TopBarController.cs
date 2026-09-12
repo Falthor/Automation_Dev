@@ -12,7 +12,7 @@ using UnityEngine.UIElements;
 namespace Game.UI
 {
     /// <summary>
-    /// Global Top Bar (GLOBAL_UI.md §2-4): three compact status cards (Power/Compute/Research),
+    /// Global Top Bar (UI.md): three compact status cards (Power/Compute/Research),
     /// each a pure view over an existing runtime system - no duplicated state, no new
     /// simulation. Hover expands a card in place to reveal its detail block; click opens the
     /// matching global panel through the same Selection routing every other panel uses. Menu opens
@@ -28,7 +28,7 @@ namespace Game.UI
         const float ReferenceWidth = 1920f;
         const float CollapsedHeight = 28f;
 
-        /// <summary>Occupied slots within this many of the cap turn the counter's alert color on (TASK_04_PLAFOND_RAYON.md §3.2/§5) - an arbitrary but reasonable "approaching the limit" band, not a value the ticket pins down.</summary>
+        /// <summary>Occupied slots within this many of the cap turn the counter's alert color on - an arbitrary but reasonable "approaching the limit" band, not a pinned-down value.</summary>
         const int BuildingCapAlertMargin = 5;
 
         /// <summary>
@@ -50,7 +50,7 @@ namespace Game.UI
         [SerializeField] VisualTreeAsset visualTree;
         [SerializeField] GameRuntime gameRuntime;
 
-        /// <summary>Optional - when assigned, its PlacementRefused event drives ShowRefusalMessage - the building cap (TASK_04_PLAFOND_RAYON.md §3.2) and insufficient resources. UI may depend on Presentation (PROJECT_ARCHITECTURE.md §4), so the reference lives here, not on the adapter.</summary>
+        /// <summary>Optional - when assigned, its PlacementRefused event drives ShowRefusalMessage - the building cap (CONSTRUCTION.md) and insufficient resources. UI may depend on Presentation (PROJECT_ARCHITECTURE.md), so the reference lives here, not on the adapter.</summary>
         [SerializeField] ConstructionInputAdapter constructionInputAdapter;
 
         [Header("Top Bar icons (placeholder - swap later)")]
@@ -182,7 +182,7 @@ namespace Game.UI
             gameRuntime.Escape.SetMenuProbe(MenuOverlayStateNow);
         }
 
-        /// <summary>Flashes an explicit refusal reason (e.g. the building cap) near the cards row for RefusalMessageSeconds, then auto-hides (TASK_04_PLAFOND_RAYON.md §3.2). Re-showing while already visible just resets the timer.</summary>
+        /// <summary>Flashes an explicit refusal reason (e.g. the building cap) near the cards row for RefusalMessageSeconds, then auto-hides. Re-showing while already visible just resets the timer.</summary>
         public void ShowRefusalMessage(string text)
         {
             if (_refusalMessage == null) return;
@@ -402,7 +402,7 @@ namespace Game.UI
 
         void Update()
         {
-            // Same gesture as the Pause button (GLOBAL_UI.md's Top Bar) - not gated on
+            // Same gesture as the Pause button (UI.md's Top Bar) - not gated on
             // IsUIBlockingInput, since pausing/resuming from behind an open panel is expected.
             // A clicked button no longer competes for this key - see ReleaseFocusAfterAClick.
             //
@@ -657,7 +657,7 @@ namespace Game.UI
             _researchCard.Value.EnableInClassList("top-bar-card-value-done", finished);
         }
 
-        /// <summary>Occupied/cap counter (TASK_04_PLAFOND_RAYON.md §5) - the second Top Bar figure the survival-phase UI shows, alongside CU. Turns alert-colored within BuildingCapAlertMargin slots of the cap; the cap itself is read live from ConstructionService, so each memory allocation level shows the moment it lands.</summary>
+        /// <summary>Occupied/cap counter (CONSTRUCTION.md) - the second Top Bar figure the survival-phase UI shows, alongside CU. Turns alert-colored within BuildingCapAlertMargin slots of the cap; the cap itself is read live from ConstructionService, so each memory allocation level shows the moment it lands.</summary>
         void RefreshBuildings()
         {
             var construction = gameRuntime.Construction;

@@ -4,12 +4,12 @@ using UnityEngine;
 namespace Game.Gameplay.Sites
 {
     /// <summary>
-    /// One builder robot (TASK_05_ROBOT_CONSTRUCTEUR.md §2/§7): free 8-directional movement (no
+    /// One builder robot (CONSTRUCTION.md): free 8-directional movement (no
     /// pathfinding/obstacle avoidance), 4-unit cargo capacity, driven entirely by
     /// ConstructionSiteSystem's central tick. This type only holds state and knows how to move its
     /// own Position toward a target - every decision (what to fetch, where to deliver, when to
     /// park) is made by ConstructionSiteSystem, exactly like ConveyorRuntime holds belt state while
-    /// TransportSystem drives it. The view only ever reads Position (PROJECT_ARCHITECTURE.md §3.1 -
+    /// TransportSystem drives it. The view only ever reads Position (PROJECT_ARCHITECTURE.md -
     /// runtime is authoritative, presentation interpolates nothing of its own).
     /// </summary>
     public sealed class BuilderRobotRuntime
@@ -91,7 +91,7 @@ namespace Game.Gameplay.Sites
 
         public void ClearPending() => _pending.Clear();
 
-        /// <summary>Seconds remaining before a Blocked robot's cargo is destroyed (TASK_05_ROBOT_CONSTRUCTEUR.md §5's anti-deadlock). Null unless State == Blocked.</summary>
+        /// <summary>Seconds remaining before a Blocked robot's cargo is destroyed (CONSTRUCTION.md's anti-deadlock). Null unless State == Blocked.</summary>
         public float? BlockedCountdownRemaining { get; set; }
 
         /// <summary>Id of the NotificationSystem entry currently showing this robot's blocked countdown, if any - so it can be dismissed/updated as the countdown progresses.</summary>

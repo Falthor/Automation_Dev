@@ -11,7 +11,7 @@ namespace Game.UI
     /// Bottom Nav: 3 category buttons (Storage/Building/Research) that open the matching global
     /// panel via SelectionRuntime, plus 8 permanent construction toolbar slots that reflect
     /// BuildingMenuController's own slot assignments (this view never owns that state, it only
-    /// displays it - CONTRACTS.md §7's "single source of truth" applies here too).
+    /// displays it - UI.md's "single source of truth" applies here too).
     /// </summary>
     public sealed class BottomNavController : MonoBehaviour
     {

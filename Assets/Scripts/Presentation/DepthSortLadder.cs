@@ -23,7 +23,7 @@ namespace Game.Presentation
     /// vertical panning, not per frame.
     ///
     /// An instance rather than static state on <see cref="SortingBands"/>, deliberately: this project
-    /// runs with Domain Reload disabled (DEVELOPMENT_RULES.md §5), so a mutable static window origin
+    /// runs with Domain Reload disabled (DEVELOPMENT_RULES.md), so a mutable static window origin
     /// would survive into the next Play session and hand out ranks measured against a camera that no
     /// longer exists.
     /// </summary>

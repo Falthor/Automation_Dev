@@ -5,7 +5,7 @@ namespace Game.Gameplay.Buildings
     /// <summary>
     /// Runtime state of one installed CPU/Memory component in a Data Center slot. Each installed
     /// component needs independent state, so this is a plain mutable instance, never a shared
-    /// ScriptableObject (TASK_03_DATACENTER.md §4).
+    /// ScriptableObject (DATACENTER.md).
     ///
     /// Wear (100 = new, 0 = dead) now drives both Stability and the fluctuation floor instead of
     /// living beside a fixed 80% constant, and decays continuously at a rate that itself
@@ -35,15 +35,15 @@ namespace Game.Gameplay.Buildings
         /// </summary>
         public float BaseLossPerSecond { get; private set; }
 
-        /// <summary>Percent, 0..100. Starts fully unworn, decays via DecayWear(). This is the "usure" of TASK_03_DATACENTER.md's formulas - 100 at install, 0 at death.</summary>
+        /// <summary>Percent, 0..100. Starts fully unworn, decays via DecayWear(). This is the "usure" of DATACENTER.md's formulas - 100 at install, 0 at death.</summary>
         public float Wear { get; private set; } = 100f;
 
-        /// <summary>95% at Wear=100 (new), 30% at Wear=0 (dead) - TASK_03_DATACENTER.md §4.1. The probability RecalculatePerformance() uses for a full-performance roll, not itself the output multiplier.</summary>
+        /// <summary>95% at Wear=100 (new), 30% at Wear=0 (dead) - DATACENTER.md. The probability RecalculatePerformance() uses for a full-performance roll, not itself the output multiplier.</summary>
         public float Stability => 95f - 65f * (1f - Wear / 100f);
 
         /// <summary>
         /// Lower bound of the fluctuation roll when Stability's own coin flip misses: 0.70 at
-        /// Wear=100 (new), 0.30 at Wear=0 (dead) - TASK_03_DATACENTER.md §4.2 ("un composant neuf
+        /// Wear=100 (new), 0.30 at Wear=0 (dead) - DATACENTER.md ("un composant neuf
         /// fluctue entre 70% et 100%, un composant en fin de vie entre 30% et 100%"). The ceiling
         /// is always 1.0.
         /// </summary>
@@ -58,7 +58,7 @@ namespace Game.Gameplay.Buildings
         /// <summary>Seconds elapsed since IsReplacing became true.</summary>
         public float ReplacementElapsed { get; set; }
 
-        /// <summary>Fresh install: draws this instance's own dispersed lifetime and derives BaseLossPerSecond from it alone - the decay curve is calibrated to run Wear from 100 to LifetimeFloorPercent in exactly that drawn lifetime, regardless of the replacement threshold in effect. The threshold only decides where along that fixed curve HasCrossedReplacementThreshold trips; it must not reshape the curve itself, or every threshold setting would yield the same time-to-replacement (TASK_03_DATACENTER.md §4.4).</summary>
+        /// <summary>Fresh install: draws this instance's own dispersed lifetime and derives BaseLossPerSecond from it alone - the decay curve is calibrated to run Wear from 100 to LifetimeFloorPercent in exactly that drawn lifetime, regardless of the replacement threshold in effect. The threshold only decides where along that fixed curve HasCrossedReplacementThreshold trips; it must not reshape the curve itself, or every threshold setting would yield the same time-to-replacement (DATACENTER.md).</summary>
         public ComponentInstance(string itemId, ItemDatabase itemDatabase, System.Random lifetimeRandom)
         {
             ItemId = itemId;
@@ -71,7 +71,7 @@ namespace Game.Gameplay.Buildings
             BaseLossPerSecond = DeriveBaseLossPerSecond(NominalLifetimeSeconds);
         }
 
-        /// <summary>Restore path only (CONTRACTS.md §14): reconstructs a component with its already-drawn lifetime/decay curve verbatim, instead of drawing a new one - a save must reproduce exactly what existed, not a fresh roll.</summary>
+        /// <summary>Restore path only (SAUVEGARDE.md): reconstructs a component with its already-drawn lifetime/decay curve verbatim, instead of drawing a new one - a save must reproduce exactly what existed, not a fresh roll.</summary>
         public ComponentInstance(string itemId, ItemDatabase itemDatabase, float nominalLifetimeSeconds, float baseLossPerSecond)
         {
             ItemId = itemId;
@@ -82,13 +82,13 @@ namespace Game.Gameplay.Buildings
             BaseLossPerSecond = baseLossPerSecond;
         }
 
-        /// <summary>±25% around the item's nominal lifetime - TASK_03_DATACENTER.md §4.4. Uniform draw via the caller-owned seeded generator, not UnityEngine.Random, so the sequence is reproducible for a given seed and installation order.</summary>
+        /// <summary>±25% around the item's nominal lifetime - DATACENTER.md. Uniform draw via the caller-owned seeded generator, not UnityEngine.Random, so the sequence is reproducible for a given seed and installation order.</summary>
         static float DrawLifetimeSeconds(float nominalSeconds, System.Random random)
         {
             return nominalSeconds * (0.75f + (float)random.NextDouble() * 0.50f);
         }
 
-        /// <summary>Wear that DeriveBaseLossPerSecond's descent from 100 targets - a fixed calibration floor, NOT the player-configurable replacement threshold (TASK_03_DATACENTER.md §4.4: calibrating on the threshold would make time-to-replacement independent of the threshold, which is the whole bug this constant fixes).</summary>
+        /// <summary>Wear that DeriveBaseLossPerSecond's descent from 100 targets - a fixed calibration floor, NOT the player-configurable replacement threshold (DATACENTER.md: calibrating on the threshold would make time-to-replacement independent of the threshold, which is the whole bug this constant fixes).</summary>
         const float LifetimeFloorPercent = 5f;
 
         /// <summary>
@@ -118,7 +118,7 @@ namespace Game.Gameplay.Buildings
 
         /// <summary>
         /// Continuous decay at baseLoss * (1 + 2*(1 - Wear/100)) percentage points per second -
-        /// TASK_03_DATACENTER.md §4.3: accelerates as Wear drops, floored at 0. Called every tick
+        /// DATACENTER.md: accelerates as Wear drops, floored at 0. Called every tick
         /// with the real deltaTime (not on a fixed interval) since the rate itself depends on the
         /// current Wear.
         /// </summary>
@@ -136,7 +136,7 @@ namespace Game.Gameplay.Buildings
         /// <summary>Flat draw (unlike EffectiveCu, not scaled by stability) - 0 while being replaced, same rule as EffectiveCu().</summary>
         public float ActivePowerKw() => IsReplacing ? 0f : PowerKw;
 
-        /// <summary>Restores Wear/EffectivePerformance to a previously-captured value. Used only by the save/load system (CONTRACTS.md §14) - IsReplacing/ReplacementElapsed already have public setters and don't need this.</summary>
+        /// <summary>Restores Wear/EffectivePerformance to a previously-captured value. Used only by the save/load system (SAUVEGARDE.md) - IsReplacing/ReplacementElapsed already have public setters and don't need this.</summary>
         public void RestoreWearAndPerformance(float wear, float effectivePerformance)
         {
             Wear = wear;

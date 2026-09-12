@@ -9,8 +9,7 @@ namespace Game.Presentation
     /// Draws each builder robot, one cell wide, turned to face where it is travelling, with a
     /// ground shadow thrown further than a building's because a drone flies (see
     /// DropShadow.HeightMultiplier). Falls back to a plain coloured square when no drone art is
-    /// assigned, which is what TASK_05_ROBOT_CONSTRUCTEUR.md §2 asked for and what a scene without
-    /// the asset still gets.
+    /// assigned, so a scene without the asset still shows something moving.
     ///
     /// The runtime is authoritative for position: this view only converts
     /// BuilderRobotRuntime.Position (grid-space, advanced by the central tick) into world space,

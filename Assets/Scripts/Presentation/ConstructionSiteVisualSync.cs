@@ -294,11 +294,14 @@ namespace Game.Presentation
         /// for a detached entry, since it has left every site's pending range and the grid is the
         /// only thing left that knows whether it was demolished or overtaken meanwhile.
         ///
-        /// Asked of its whole footprint rather than of its origin cell. A Splitter/Crossroad's "+"
-        /// deliberately leaves the four corners of its 3x3 box free, its origin among them, so
-        /// asking the origin gets null for a building that is perfectly alive - which discarded
-        /// every splitter the frame it materialised, cutting its dissolve and leaving no view at
-        /// all behind it.
+        /// Asked of its whole footprint rather than of its origin cell, because a footprint is not
+        /// required to include its own origin: a masked one may leave that cell free, and asking the
+        /// origin then gets null for a building that is perfectly alive. That is what discarded every
+        /// splitter the frame it materialised - back when the splitter was a "+" whose 3x3 box left
+        /// its origin corner free - cutting its dissolve and leaving no view behind it. The splitter
+        /// is a single cell now and no shipped footprint is masked, so nothing exercises this today;
+        /// it is kept because the cost is one loop over one cell and the failure it prevents is
+        /// silent.
         /// </summary>
         bool StillOwnsItsGround(BuildingRuntime segment)
         {
@@ -433,6 +436,10 @@ namespace Game.Presentation
             // The rank is not re-applied here any more. A segment never changes row, so it was
             // already redundant; now it would also be wrong - the ladder re-ranks its renderers when
             // the depth window moves, and writing a value computed here would undo that.
+            // The same lift the finished building will be drawn with, or a site of taller-than-ground
+            // art would sit half a cell off the building that replaces it.
+            position += Vector3.up * ArtLift(sprite, definition);
+
             SpriteRenderer silhouette = view.Silhouette;
             silhouette.color = SilhouetteColor(view);
             silhouette.transform.position = position;
@@ -465,8 +472,12 @@ namespace Game.Presentation
             bool overscanned = !(segment is ConveyorRuntime) || UsesOwnConveyorArt(segment, definition);
 
             BuildingSpawner.FitSpriteUniform(renderer, sprite,
-                BuildingSpawner.ArtWorldSize(definition, _grid.CellSize, overscanned));
+                BuildingSpawner.ArtWorldSize(definition, _grid.CellSize, sprite, overscanned));
         }
+
+        /// <summary>The lift the finished building will be drawn with, so a site of taller-than-ground art sits exactly where its building will. Independent of the overscan - see BuildingSpawner.ArtLift.</summary>
+        float ArtLift(Sprite sprite, BuildingDefinition definition)
+            => BuildingSpawner.ArtLift(definition, _grid.CellSize, sprite);
 
         /// <summary>
         /// Whether this segment will be drawn with its own belt art, asked of BuildingSpawner so the

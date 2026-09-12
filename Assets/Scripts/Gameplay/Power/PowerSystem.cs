@@ -3,18 +3,17 @@ using System.Collections.Generic;
 namespace Game.Gameplay.Power
 {
     /// <summary>
-    /// Global power supply/demand (CONTRACTS.md §9), and the allocation of it.
+    /// Global power supply/demand (ENERGIE.md), and the allocation of it.
     ///
     /// <b>Report-then-settle, one frame of lag by design</b>: buildings draw during their own tick
     /// this frame; <see cref="Settle"/> (called once per GameRuntime.Update(), before that tick)
     /// turns last frame's reports into this frame's budgets.
     ///
-    /// <b>It used to be one boolean for the whole base</b> - <c>SettledDemand &lt;= SettledSupply</c>
-    /// - so a shortage stopped every powered building at once. That is a dead end rather than a
-    /// setback: the Data Center stops, CU production stops, and without CU nothing can be built or
-    /// burned to get out of it. The current is allocated by building type now, in the order the
-    /// player arranges (<see cref="PowerPriorityOrder"/>), so a shortage is something to arbitrate
-    /// instead of something to be stuck in.
+    /// <b>The current is allocated by building type, in the order the player arranges</b>
+    /// (<see cref="PowerPriorityOrder"/>), so a shortage falls on exactly one group - the one the
+    /// running total crosses. Stopping every powered building at once would be a dead end rather
+    /// than a setback: the Data Center stops, CU production with it, and nothing can then be built
+    /// or burned to get out of it.
     ///
     /// <b>Partial service is per instance, not per building's speed.</b> A group allocated 1 kW of
     /// the 2 kW it asked for runs one of its two extractors, rather than running both at half
@@ -23,11 +22,9 @@ namespace Game.Gameplay.Power
     /// A machine is either running or it is not, which is the only thing the rest of the simulation
     /// knows how to represent.
     ///
-    /// <b>Nothing is served off the top.</b> The gas plant used to declare 2 kW of
-    /// self-consumption, reported unconditionally and never gated - a load nobody could switch off
-    /// and that this system had no way to arbitrate. It was removed rather than modelled as
-    /// overhead: a plant draws nothing from the network it feeds, and every kilowatt here now
-    /// belongs to a group the player can order.
+    /// <b>Nothing is served off the top.</b> A plant draws nothing from the network it feeds, so
+    /// every kilowatt here belongs to a group the player can order - there is no ungated load for
+    /// this system to be unable to arbitrate.
     /// </summary>
     public sealed class PowerSystem
     {

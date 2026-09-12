@@ -29,18 +29,9 @@ namespace Game.Data
         /// <summary>What a robot looks like. Optional: null falls back to a plain coloured square, so a scene with no art still shows something moving.</summary>
         [SerializeField] Sprite robotSprite;
 
-        /// <summary>
-        /// The CU reserve the run has to have fallen to before the robots arrive.
-        ///
-        /// <b>A fall, not a rise.</b> The introduction drains CU, and the fleet turning up when the
-        /// reserve gets low is what makes it a way out rather than a reward: at the point the player
-        /// is running dry, the thing that pays is exploring.
-        ///
-        /// The prototype does not wait for it: <c>GameRuntime.startWithEverythingUnlocked</c> brings
-        /// them out at once, because an introduction that has to be played through before the map
-        /// opens is a tax on every test of what the map does.
-        /// </summary>
-        [SerializeField, Min(0f)] float appearAtReserveCu = 25000f;
+        // The reserve level the fleet arrives at is deliberately NOT here: it is a property of the
+        // reserve, and it lives beside the cap it is read against (ComputeSystem.ExplorerFleetArrivalFraction).
+        // Carried here as an absolute, it was left behind twice while the cap moved.
 
         [Header("Déplacement")]
 
@@ -130,7 +121,6 @@ namespace Game.Data
         [SerializeField, Min(1f)] float boundaryRampCells = 40f;
 
         public int RobotCount => robotCount;
-        public float AppearAtReserveCu => appearAtReserveCu;
         public Sprite RobotSprite => robotSprite;
         public float SpeedCellsPerSecond => speedCellsPerSecond;
         public float MaxRadiusCells => maxRadiusCells;

@@ -11,7 +11,7 @@ namespace Game.UI
     /// <summary>
     /// Contextual Core inspector - shows the Core's own inventory (never Storage contents, see
     /// StoragePanel for the merged global view) plus the global Power/Compute aggregate supply
-    /// (CONTRACTS.md §9/§10/§12) - not Core-specific numbers, matching the source project.
+    /// (ENERGIE.md, CALCUL.md and UI.md) - not Core-specific numbers, matching the source project.
     /// </summary>
     public sealed class CorePanelController : MonoBehaviour
     {

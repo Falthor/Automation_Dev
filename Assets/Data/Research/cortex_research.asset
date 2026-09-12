@@ -21,3 +21,4 @@ MonoBehaviour:
   effects: []
   absorptionRatePerSecond: 0
   tier: 1
+  angle: 150

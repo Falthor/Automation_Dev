@@ -37,10 +37,8 @@ namespace Game.Presentation
     /// was computed against. Baked decor that rises above its base has to be ranked at runtime.
     ///
     /// <b>Every order is derived from the one below it.</b> No literal but the first, and no gap
-    /// between the bands. Gaps used to exist so a layer could be inserted without renumbering what
-    /// came after - they buy nothing now, because no rank is stored anywhere at all: not in a scene,
-    /// not in a save, not on disk. Everything is recomputed at load, so renumbering is free, and a
-    /// chain beats a gap - inserting a layer is one line and the rest follows.
+    /// between the bands: no rank is stored anywhere - not in a scene, not in a save, not on disk -
+    /// so renumbering is free and inserting a layer is one line.
     /// </summary>
     public static class SortingBands
     {
@@ -83,15 +81,12 @@ namespace Game.Presentation
         public const int TransportedItem = Conveyor + ConveyorSeamParity + 1;
 
         /// <summary>
-        /// A Splitter/Crossroad's RenderOverscan deliberately makes its arms overlap the neighbouring
-        /// belt's sprite bounds at the seam, to close the visual gap. On an equal order Unity breaks
-        /// the tie by instantiation order - unstable across placements, so the overlapping edge would
-        /// randomly land in front of or behind the belt. A strictly higher order makes the cross
-        /// always win there, which is what the overscan was for.
+        /// A Splitter or a Crossroad draws above the belts it joins and above the items riding them.
         ///
-        /// Above TransportedItem for the same reason: an item riding right up to the shared edge sits
-        /// inside that same overlap, and an equal order made it flicker in and out as the tie-break
-        /// flipped. Cross always winning covers it cleanly instead.
+        /// On an equal order Unity breaks the tie by instantiation order - unstable across
+        /// placements, so a shared edge would randomly land in front of or behind the belt, and an
+        /// item riding right up to it flickered in and out as the tie-break flipped. A strictly
+        /// higher order settles both.
         /// </summary>
         public const int CrossPiece = TransportedItem + 1;
 
@@ -109,16 +104,13 @@ namespace Game.Presentation
         /// <summary>
         /// World rows the band addresses - <b>of the view window, not of the world</b>.
         ///
-        /// This used to be the world's own height, and that is what stops working: sortingOrder is a
-        /// short, and a 10 000-cell map at 4 steps and 4 sub-layers would need 160 000 values. It
-        /// would not fail loudly either - <see cref="SortedFromDepth"/> clamps, so everything past
-        /// the last addressable row collapses onto one order and quietly stops sorting by depth.
-        ///
-        /// The way out is that <b>only what is on screen at the same time has to be ordered</b>, and
-        /// the zoom-out cap bounds that. The ladder is therefore anchored to a window that follows
-        /// the camera (<see cref="DepthSortLadder"/>), and its size no longer has anything to do
-        /// with the size of the map: a 300-cell world and a 10 000-cell one cost the same 4 096
-        /// orders.
+        /// <b>Only what is on screen at once has to be ordered</b>, and the zoom-out cap bounds
+        /// that - so the ladder is anchored to a window following the camera
+        /// (<see cref="DepthSortLadder"/>) and its size has nothing to do with the map's: a
+        /// 300-cell world and a 10 000-cell one cost the same 4 096 orders. The world's own height
+        /// cannot serve: sortingOrder is a short, 10 000 cells at 4 steps and 4 sub-layers needs
+        /// 160 000 values, and <see cref="SortedFromDepth"/> clamps rather than failing - everything
+        /// past the last addressable row collapses onto one order and quietly stops sorting.
         ///
         /// 256 rows against a 60-row view leaves ~98 world units of slack on each side, which is how
         /// far the camera pans between two re-anchorings. Raising it buys rarer re-anchorings and
@@ -154,9 +146,8 @@ namespace Game.Presentation
         public const int FlyingFirst = FlyingShadow + 1;
 
         /// <summary>
-        /// How many orders the flying band holds, its first included. Named rather than left as the
-        /// bare gap of 100 that used to sit here: it states that the band can take seven more kinds of
-        /// airborne thing, and it is the one number to raise when an eighth appears.
+        /// How many orders the flying band holds, its first included: room for seven more kinds of
+        /// airborne thing, and the one number to raise when an eighth appears.
         /// </summary>
         public const int FlyingLayers = 8;
 

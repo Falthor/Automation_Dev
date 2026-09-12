@@ -26,12 +26,20 @@ namespace Game.Gameplay.Buildings
         public object ItemA => _itemA;
         public object ItemB => _itemB;
 
-        int Steps => (int)FacingRotation;
+        // Each lane's two sides at a given facing, without a crossroad to ask.
+        //
+        // The placement ghost needs exactly this and has no runtime yet: a piece being aimed at a
+        // cell has a rotation and nothing else. The properties below are these functions, so the
+        // preview and the built piece cannot come to disagree - see CrossPieceConnections.
+        public static Direction EntryAAt(Direction facing) => Direction.West.RotateCW((int)facing);
+        public static Direction ExitAAt(Direction facing) => Direction.East.RotateCW((int)facing);
+        public static Direction EntryBAt(Direction facing) => Direction.North.RotateCW((int)facing);
+        public static Direction ExitBAt(Direction facing) => Direction.South.RotateCW((int)facing);
 
-        public Direction EntryA => Direction.West.RotateCW(Steps);
-        public Direction ExitA => Direction.East.RotateCW(Steps);
-        public Direction EntryB => Direction.North.RotateCW(Steps);
-        public Direction ExitB => Direction.South.RotateCW(Steps);
+        public Direction EntryA => EntryAAt(FacingRotation);
+        public Direction ExitA => ExitAAt(FacingRotation);
+        public Direction EntryB => EntryBAt(FacingRotation);
+        public Direction ExitB => ExitBAt(FacingRotation);
 
         public CrossroadRuntime(CrossroadDefinition definition, GridCoord cell, Direction facingRotation)
             : base(definition, cell, facingRotation)

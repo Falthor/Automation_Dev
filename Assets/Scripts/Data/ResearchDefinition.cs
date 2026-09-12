@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Game.Data
 {
     /// <summary>
-    /// Static definition of one research (CONTRACTS.md §11): its cost, its prerequisites and its
+    /// Static definition of one research (RECHERCHE.md): its cost, its prerequisites and its
     /// effects. Enumerated by ResearchDatabase for the tree, and by ResearchCatalog for everything
     /// the game asks about researches.
     ///
@@ -27,8 +27,11 @@ namespace Game.Data
         /// <summary>Ceiling on how many CU per second this research can absorb, even when the reserve holds far more - the runtime rate is min(this, whatever the reserve can currently give).</summary>
         [SerializeField, Min(0f)] float absorptionRatePerSecond;
 
-        /// <summary>Progression tier: the ring this research sits on in the research network (GDD §5.4, NeuralLayout). Never inside its parent's ring, whatever it says here.</summary>
-        [SerializeField] int tier;
+        /// <summary>Progression tier: how far from the centre this research sits on the research network, counted in rings (GDD §5.4) - a whole number is on a ring, anything else between two. With Angle, its whole position there - see ResearchNetworkPlacement.</summary>
+        [SerializeField] float tier;
+
+        /// <summary>Where on its ring, in degrees counter-clockwise from the right. Placed by hand in the research tree editor; nothing computes or corrects it.</summary>
+        [SerializeField] float angle;
 
         public string Id => id;
         public string DisplayName => displayName;
@@ -43,6 +46,7 @@ namespace Game.Data
         public IReadOnlyList<ResearchEffect> Effects => effects ?? (IReadOnlyList<ResearchEffect>)System.Array.Empty<ResearchEffect>();
 
         public float AbsorptionRatePerSecond => absorptionRatePerSecond;
-        public int Tier => tier;
+        public float Tier => tier;
+        public float Angle => angle;
     }
 }

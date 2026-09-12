@@ -26,7 +26,7 @@ namespace Game.UI
     /// for all four was genuinely spoken for, but only one had a robot walking toward it.
     ///
     /// Reacts to SelectionRuntime.SelectedSite, the same way ExtractorPanelController reacts to
-    /// SelectedBuilding (CONTRACTS.md §7). When the site finishes it hands over to the panel of the
+    /// SelectedBuilding (UI.md). When the site finishes it hands over to the panel of the
     /// building that has just come into existence rather than closing - see LeaveFinishedSite.
     /// </summary>
     public sealed class ConstructionSitePanelController : MonoBehaviour

@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Game.Data
 {
     /// <summary>
-    /// Static metadata for one item id (CONTRACTS.md §3's "itemId"). Mirrors the source
+    /// Static metadata for one item id (TRANSPORT.md's "itemId"). Mirrors the source
     /// project's single Items registry entry (type/icon/color/label) - Id is the fixed string
     /// key every building/inventory/recipe contract reads by, never a duplicated per-building copy.
     /// </summary>

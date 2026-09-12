@@ -17,33 +17,29 @@ namespace Game.Presentation
 
         SpriteRenderer _spriteRenderer;
 
+        // Pooled arrow slots: sized up as needed, extra ones deactivated rather than
+        // destroyed/recreated every frame (Show() is called once per Update while a tool is armed).
+        //
+        // <b>One pool for both kinds.</b> Entry and exit differ by a flag, exactly as in the built
+        // view (BuildingSpawner.SpawnDirectionalArrow), rather than by being two mechanisms - a
+        // single output slot would say a building has at most one exit, which a Crossroad's two
+        // disprove.
+        //
         // Independent transforms (not children of this sprite) so an arrow's own scale never
         // compounds with the ghost sprite's footprint-driven, often non-uniform scale - the same
         // reason BuildingSpawner keeps its arrows siblings of the sprite, not children of it.
-        Transform _outputArrow;
-        SpriteRenderer _outputArrowRenderer;
-
-        // Pooled entry-arrow slots: sized up as needed, extra ones deactivated rather than
-        // destroyed/recreated every frame (Show() is called once per Update while a tool is armed).
-        readonly List<Transform> _inputArrows = new List<Transform>();
-        readonly List<SpriteRenderer> _inputArrowRenderers = new List<SpriteRenderer>();
+        readonly List<Transform> _arrows = new List<Transform>();
+        readonly List<SpriteRenderer> _arrowRenderers = new List<SpriteRenderer>();
 
         void Awake()
         {
             _spriteRenderer = GetComponent<SpriteRenderer>();
             _spriteRenderer.sortingOrder = SortingBands.PlacementPreview;
-
-            var arrowGo = new GameObject("GhostOutputArrow");
-            arrowGo.transform.SetParent(transform.parent, false);
-            _outputArrowRenderer = arrowGo.AddComponent<SpriteRenderer>();
-            _outputArrowRenderer.sortingOrder = SortingBands.PlacementPreviewArrow;
-            _outputArrow = arrowGo.transform;
-            arrowGo.SetActive(false);
         }
 
         public void Show(Sprite sprite, Vector2 worldSize, Vector3 worldPosition, Direction rotation, bool valid,
-            Sprite outputArrowSprite = null, Vector3? outputArrowWorldPosition = null, float outputArrowWorldSize = 0f,
-            Sprite inputArrowSprite = null, IReadOnlyList<(Vector3 position, Direction direction)> inputArrows = null,
+            Sprite outputArrowSprite = null, Sprite inputArrowSprite = null,
+            IReadOnlyList<(Vector3 position, Direction side, bool inward)> arrows = null, float arrowWorldSize = 0f,
             bool rotateSprite = false, Direction artNativeDirection = default)
         {
             gameObject.SetActive(true);
@@ -74,60 +70,47 @@ namespace Game.Presentation
                 transform.rotation = Quaternion.identity;
             }
 
-            if (outputArrowSprite != null && outputArrowWorldPosition.HasValue)
-            {
-                _outputArrow.gameObject.SetActive(true);
-                _outputArrowRenderer.sprite = outputArrowSprite;
-                _outputArrow.position = outputArrowWorldPosition.Value;
-                _outputArrow.rotation = Quaternion.Euler(0f, 0f, -rotation.ToRotationDegrees());
-                _outputArrow.localScale = Vector3.one * outputArrowWorldSize;
-            }
-            else
-            {
-                _outputArrow.gameObject.SetActive(false);
-            }
-
-            UpdateInputArrows(inputArrowSprite, inputArrows, outputArrowWorldSize);
+            UpdateArrows(outputArrowSprite, inputArrowSprite, arrows, arrowWorldSize);
         }
 
-        void UpdateInputArrows(Sprite sprite, IReadOnlyList<(Vector3 position, Direction direction)> arrows, float worldSize)
+        void UpdateArrows(Sprite outputSprite, Sprite inputSprite, IReadOnlyList<(Vector3 position, Direction side, bool inward)> arrows, float worldSize)
         {
-            int count = sprite != null && arrows != null ? arrows.Count : 0;
+            int count = arrows != null ? arrows.Count : 0;
 
-            while (_inputArrows.Count < count)
+            while (_arrows.Count < count)
             {
-                var arrowGo = new GameObject("GhostInputArrow");
+                var arrowGo = new GameObject("GhostArrow");
                 arrowGo.transform.SetParent(transform.parent, false);
                 var renderer = arrowGo.AddComponent<SpriteRenderer>();
                 renderer.sortingOrder = SortingBands.PlacementPreviewArrow;
                 arrowGo.SetActive(false);
-                _inputArrows.Add(arrowGo.transform);
-                _inputArrowRenderers.Add(renderer);
+                _arrows.Add(arrowGo.transform);
+                _arrowRenderers.Add(renderer);
             }
 
-            for (int i = 0; i < _inputArrows.Count; i++)
+            for (int i = 0; i < _arrows.Count; i++)
             {
-                if (i >= count)
+                (Vector3 position, Direction side, bool inward) = i < count ? arrows[i] : default;
+                Sprite sprite = inward ? inputSprite : outputSprite;
+
+                if (i >= count || sprite == null)
                 {
-                    _inputArrows[i].gameObject.SetActive(false);
+                    _arrows[i].gameObject.SetActive(false);
                     continue;
                 }
 
-                (Vector3 position, Direction direction) = arrows[i];
-                _inputArrows[i].gameObject.SetActive(true);
-                _inputArrowRenderers[i].sprite = sprite;
-                _inputArrows[i].position = position;
-                // Entry arrows point inward (toward the building), the opposite of their own side.
-                _inputArrows[i].rotation = Quaternion.Euler(0f, 0f, -direction.Opposite().ToRotationDegrees());
-                _inputArrows[i].localScale = Vector3.one * worldSize;
+                _arrows[i].gameObject.SetActive(true);
+                _arrowRenderers[i].sprite = sprite;
+                _arrows[i].position = position;
+                _arrows[i].rotation = Quaternion.Euler(0f, 0f, -BuildingSpawner.ArrowPointing(side, inward).ToRotationDegrees());
+                _arrows[i].localScale = Vector3.one * worldSize;
             }
         }
 
         public void Hide()
         {
             gameObject.SetActive(false);
-            if (_outputArrow != null) _outputArrow.gameObject.SetActive(false);
-            foreach (Transform arrow in _inputArrows) arrow.gameObject.SetActive(false);
+            foreach (Transform arrow in _arrows) arrow.gameObject.SetActive(false);
         }
     }
 }

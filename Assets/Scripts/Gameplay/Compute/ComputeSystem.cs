@@ -1,7 +1,7 @@
 namespace Game.Gameplay.Compute
 {
     /// <summary>
-    /// Global compute pool (CONTRACTS.md §10). CU is a currency, not a flow for every spender but
+    /// Global compute pool (CALCUL.md). CU is a currency, not a flow for every spender but
     /// two: a production cycle (recipe-based building, Extractor, Gas Powerplant) still pays in a
     /// single one-shot chunk the moment it starts, via CanSpend/Spend - there is no throttling
     /// ratio for those, a cycle either can afford itself or waits. Research absorption
@@ -13,6 +13,20 @@ namespace Game.Gameplay.Compute
     public sealed class ComputeSystem
     {
         public const float ReserveCap = 70000f;
+
+        /// <summary>
+        /// The reserve level at which the explorer fleet arrives (MAP.md), as a fraction of the
+        /// cap. <b>It lives beside the cap, and is never an absolute.</b>
+        ///
+        /// An absolute is left behind whenever the cap moves, which turns an emergency trigger into
+        /// an introduction trigger with nothing to signal it; a fraction has no second number to
+        /// forget. And it belongs to the reserve it is read against rather than to whatever reads
+        /// it - carried on the robots' own settings, it drifts away with them.
+        /// </summary>
+        public const float ExplorerFleetArrivalFraction = 0.285714f;
+
+        /// <summary>What the reserve has to have fallen to for the fleet to arrive. Derived, so it follows the cap on its own and there is no second value anyone could set.</summary>
+        public static float ExplorerFleetArrivalReserve => ReserveCap * ExplorerFleetArrivalFraction;
 
         /// <summary>Length of the window IncomePerSecond is averaged over - long enough that a Core grant arriving every few seconds reads as a steady rate rather than a spike.</summary>
         const float IncomeWindowSeconds = 5f;
@@ -42,8 +56,8 @@ namespace Game.Gameplay.Compute
 
         /// <summary>
         /// Withdraws up to maxAmount from the reserve - less if the reserve holds less - and
-        /// returns how much was actually taken. The one continuous per-second draw CONTRACTS.md
-        /// §10 allows (research absorption); every other spender still uses the one-shot
+        /// returns how much was actually taken. The one continuous per-second draw CALCUL.md
+        /// allows (research absorption); every other spender still uses the one-shot
         /// CanSpend/Spend pair above. Never drives the reserve below zero and never throws when
         /// there isn't enough - the caller (ResearchSystem) treats a partial or zero return as
         /// the research simply progressing slower, or pausing, that tick.
@@ -68,7 +82,7 @@ namespace Game.Gameplay.Compute
             _windowTimer = 0f;
         }
 
-        /// <summary>Restores a previously-captured reserve (CONTRACTS.md §14), clamped to ReserveCap. Used only by the save/load system.</summary>
+        /// <summary>Restores a previously-captured reserve (SAUVEGARDE.md), clamped to ReserveCap. Used only by the save/load system.</summary>
         public void RestoreReserve(float reserve)
         {
             Reserve = System.Math.Min(System.Math.Max(reserve, 0f), ReserveCap);

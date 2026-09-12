@@ -4,7 +4,7 @@ namespace Game.Data
 {
     /// <summary>
     /// Static definition of the Constructor: crafts the same intermediate components the Factory
-    /// does, through the shared production contract (CONTRACTS.md §6), on a 2x2 footprint.
+    /// does, through the shared production contract (PRODUCTION.md), on a 2x2 footprint.
     ///
     /// <b>Two arrows and no more</b> - one output side, and one input side chosen at placement with
     /// <c>T</c> (see <see cref="HasSingleInputArrow"/>). It accepts on that one side and nowhere

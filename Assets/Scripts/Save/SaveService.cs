@@ -106,7 +106,7 @@ namespace Game.Save
         /// Returns null if that save does not exist, fails to read/parse, or carries a Version that
         /// is not <see cref="SaveData.CurrentVersion"/> - callers must handle null rather than
         /// assume a save is always present and valid. A Version mismatch is refused outright rather
-        /// than tolerated with defaults filled in (TASK_03_DATACENTER.md's decision): silently
+        /// than tolerated with defaults filled in (SAUVEGARDE.md): silently
         /// loading a structurally different save just postpones the incompatibility to wherever it
         /// happens to surface next, in a form far harder to diagnose than a clear refusal here.
         /// </summary>

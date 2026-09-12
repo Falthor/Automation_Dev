@@ -4,7 +4,7 @@ namespace Game.Grid
 {
     /// <summary>
     /// Authoritative per-cell terrain type, a pure function of the seed and the coordinate
-    /// (same seed + same parameters = same result, per DEVELOPMENT_RULES.md §7).
+    /// (same seed + same parameters = same result, per DEVELOPMENT_RULES.md).
     ///
     /// Nothing is materialised: a cell's type is computed when asked. That is what makes the map's
     /// size cost nothing to hold, and what makes the order cells are asked about irrelevant.
@@ -63,7 +63,7 @@ namespace Game.Grid
         ///
         /// <b>Nothing is stored.</b> This used to fill a TerrainType[size, size] at construction -
         /// 90 000 entries on the current map, 100 million on the 10 000-cell one it is heading
-        /// towards, none of which any gameplay rule reads yet (see TERRAIN.md §1).
+        /// towards, none of which any gameplay rule reads yet (see TERRAIN.md).
         ///
         /// Removing the array is not only cheaper, it makes the property the large-map directive
         /// asks for <b>unbreakable rather than merely respected</b>: "the same region generated in

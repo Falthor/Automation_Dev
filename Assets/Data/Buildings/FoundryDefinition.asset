@@ -14,23 +14,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.FoundryDefinition
   id: foundry
   displayName: Fonderie
-  footprintSize: {x: 2, y: 2}
+  footprintSize: {x: 3, y: 3}
   placeholderColor: {r: 0.6, g: 0.4, b: 0.2, a: 1}
-  sprite: {fileID: -6622863259242664493, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
+  sprite: {fileID: 264390709, guid: 70da723794bffe742b8f9d9261caf67a, type: 3}
   animationFrames:
-  - {fileID: -6622863259242664493, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
-  - {fileID: 4138848172959368440, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
-  - {fileID: 5823024787834327110, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
-  - {fileID: -5429809939435209488, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
-  - {fileID: -7409573511083393705, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
-  - {fileID: 2402639969742374697, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
-  - {fileID: 368041112877095050, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
-  - {fileID: -3326688003119052452, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
-  - {fileID: 9209089764030810201, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
-  - {fileID: 7800090583882032772, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
-  - {fileID: -7160256121808793437, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
-  - {fileID: -955268259036638798, guid: 963c5c7b7b895a345adaad8ecebfee43, type: 3}
+  - {fileID: 264390709, guid: 70da723794bffe742b8f9d9261caf67a, type: 3}
+  - {fileID: -222818148, guid: 70da723794bffe742b8f9d9261caf67a, type: 3}
+  - {fileID: -1185847570, guid: 70da723794bffe742b8f9d9261caf67a, type: 3}
+  - {fileID: 1762732458, guid: 70da723794bffe742b8f9d9261caf67a, type: 3}
+  - {fileID: 1468336568, guid: 70da723794bffe742b8f9d9261caf67a, type: 3}
+  - {fileID: -1248298448, guid: 70da723794bffe742b8f9d9261caf67a, type: 3}
+  - {fileID: -1215935432, guid: 70da723794bffe742b8f9d9261caf67a, type: 3}
+  - {fileID: 100947684, guid: 70da723794bffe742b8f9d9261caf67a, type: 3}
+  - {fileID: 1343408053, guid: 70da723794bffe742b8f9d9261caf67a, type: 3}
+  - {fileID: -1475971266, guid: 70da723794bffe742b8f9d9261caf67a, type: 3}
+  - {fileID: 114033675, guid: 70da723794bffe742b8f9d9261caf67a, type: 3}
+  - {fileID: 1764442396, guid: 70da723794bffe742b8f9d9261caf67a, type: 3}
   animationFps: 12
+  animationIntervalSeconds: 0
   cost:
   - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
     amount: 6

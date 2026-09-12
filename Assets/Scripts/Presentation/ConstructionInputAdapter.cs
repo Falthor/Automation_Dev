@@ -29,11 +29,11 @@ namespace Game.Presentation
 
         /// <summary>
         /// Raised when a placement attempt is refused for a reason the player cannot see for
-        /// themselves - the building cap (TASK_04_PLAFOND_RAYON.md §3.2) and insufficient resources.
+        /// themselves - the building cap (CONSTRUCTION.md) and insufficient resources.
         /// Both must name their cause rather than failing silently: nothing on screen distinguishes
         /// "this click did nothing" from "this click was refused", and a gate the player cannot
         /// perceive is worse than no gate at all. See RefusalMessage for why the other reasons stay
-        /// quiet. Game.Presentation must not depend on Game.UI (PROJECT_ARCHITECTURE.md §4's
+        /// quiet. Game.Presentation must not depend on Game.UI (PROJECT_ARCHITECTURE.md's
         /// dependency direction), so this is a plain event a UI-layer listener (TopBarController)
         /// subscribes to instead of a direct reference the other way.
         /// </summary>
@@ -64,6 +64,12 @@ namespace Game.Presentation
         readonly ProceduralSpriteFactory _spriteFactory = new ProceduralSpriteFactory();
         BuildingSpawner _spawner;
 
+        // The ghost's arrows, refilled in place rather than reallocated: UpdateGhost runs on every
+        // frame a tool is armed, and these two lists are the only thing in it that would allocate.
+        readonly List<(Vector3 position, Direction side, bool inward)> _ghostArrows = new List<(Vector3, Direction, bool)>();
+        readonly List<(GridCoord cell, Direction side, bool inward)> _ghostArrowCells = new List<(GridCoord, Direction, bool)>();
+        readonly List<(Direction side, bool inward)> _crossPieceSides = new List<(Direction, bool)>();
+
         // Axis-lock drag: the axis (horizontal/vertical) locks automatically from the first
         // mouse movement after the anchor cell, and placement follows the mouse's projection
         // onto that axis, ignoring drift off it - matching the reference Godot behavior.
@@ -79,7 +85,7 @@ namespace Game.Presentation
         /// <summary>
         /// The single construction site every cell of the current conveyor/splitter drag is
         /// appended to - a whole gesture is one chantier, not one per segment
-        /// (TASK_05_ROBOT_CONSTRUCTEUR.md §3), so a fifty-belt line is seven robot waves rather
+        /// (CONSTRUCTION.md), so a fifty-belt line is seven robot waves rather
         /// than fifty separate sites. Cleared on mouse-up: the next drag opens a new site.
         /// </summary>
         ConstructionSiteRuntime _activeConveyorSite;
@@ -373,63 +379,43 @@ namespace Game.Presentation
             }
 
             bool valid = gameRuntime.Construction.CanPlace(cell);
-            Vector3 worldCenter = gameRuntime.Grid.FootprintCenterToWorld(cell, selected.FootprintSize);
-            // RenderOverscan included: the ghost previews the building that will be built, so it
-            // has to be the size that building is actually drawn at, not the size of its footprint.
-            Vector2 worldSize = BuildingSpawner.ArtWorldSize(selected, gameRuntime.Grid.CellSize);
             Sprite sprite = ResolveGhostSprite(selected);
+            // The size and the lift the built view will use, never the footprint's own: the ghost
+            // previews the building that will be built, art taller than its ground included.
+            Vector2 worldSize = BuildingSpawner.ArtWorldSize(selected, gameRuntime.Grid.CellSize, sprite);
+            Vector3 worldCenter = gameRuntime.Grid.FootprintCenterToWorld(cell, selected.FootprintSize)
+                + Vector3.up * BuildingSpawner.ArtLift(selected, gameRuntime.Grid.CellSize, sprite);
             Direction previewRotation = gameRuntime.Construction.PreviewRotation;
             (bool rotateSprite, Direction artNativeDirection) = ResolveGhostRotation(selected);
 
-            // Output and entry arrows are independent: a building can take deliveries without
-            // producing anything physical (DataCenter), so each side is previewed on its own.
-            Sprite outputArrowSprite = null;
-            Vector3? outputArrowWorldPos = null;
-            if (selected.HasOutputArrow)
+            // Which cells carry an arrow, and which way each points, is one rule and it lives apart
+            // from this adapter so a test can reach it (GhostArrows). All that is left here is
+            // turning each marked cell into a world position, through the inset the built view uses.
+            GhostArrows.For(selected, cell, previewRotation, gameRuntime.Construction.PreviewInputSide,
+                _crossPieceSides, _ghostArrowCells);
+
+            _ghostArrows.Clear();
+            foreach ((GridCoord markedCell, Direction side, bool inward) in _ghostArrowCells)
             {
-                // The building's own rule for which cell of its output edge carries the arrow, not
-                // the first one: they differ on every even-width edge, so a 2x2 Foundry previewed
-                // its arrow one cell away from where it grew it.
-                GridCoord outputCell = BuildingRuntime.ComputeOutputCell(cell, selected.FootprintSize, previewRotation);
-                // Inset the same way the built view does, or the preview would show the arrow a
-                // half-cell further out than where it ends up.
-                outputArrowWorldPos = BuildingSpawner.ArrowPosition(
-                    gameRuntime.Grid.CellCenterToWorld(outputCell), previewRotation, gameRuntime.Grid.CellSize);
-                outputArrowSprite = _spriteFactory.CreateArrowSprite(BuildingSpawner.OutputArrowColor);
+                _ghostArrows.Add((GhostArrowPosition(markedCell, side), side, inward));
             }
 
-            Sprite inputArrowSprite = null;
-            List<(Vector3 position, Direction direction)> inputArrows = null;
-            if (selected.HasInputArrows)
-            {
-                inputArrowSprite = _spriteFactory.CreateArrowSprite(BuildingSpawner.InputArrowColor);
-                inputArrows = new List<(Vector3, Direction)>();
-
-                // One arrow for a single-input building, on the side T has landed on - so the ghost
-                // shows the one face the building will actually take from, rather than three faces
-                // it will refuse two of.
-                if (selected.HasSingleInputArrow)
-                {
-                    (GridCoord inputCell, Direction inputSide) = BuildingRuntime.ComputeSingleInputCell(
-                        cell, selected.FootprintSize, gameRuntime.Construction.PreviewInputSide);
-
-                    inputArrows.Add((BuildingSpawner.ArrowPosition(
-                        gameRuntime.Grid.CellCenterToWorld(inputCell), inputSide, gameRuntime.Grid.CellSize), inputSide));
-                }
-                else
-                {
-                    foreach ((GridCoord edgeCell, Direction fromMySide) in BuildingRuntime.ComputeInputCells(cell, selected.FootprintSize, previewRotation))
-                    {
-                        inputArrows.Add((BuildingSpawner.ArrowPosition(
-                            gameRuntime.Grid.CellCenterToWorld(edgeCell), fromMySide, gameRuntime.Grid.CellSize), fromMySide));
-                    }
-                }
-            }
-
+            // Both sprites every time: they are cached by colour, so this is a dictionary lookup and
+            // the view picks whichever each arrow needs.
             buildingGhostView.Show(sprite, worldSize, worldCenter, previewRotation, valid,
-                outputArrowSprite, outputArrowWorldPos, BuildingSpawner.ArrowWorldSize(gameRuntime.Grid.CellSize),
-                inputArrowSprite, inputArrows, rotateSprite, artNativeDirection);
+                _spriteFactory.CreateArrowSprite(BuildingSpawner.OutputArrowColor),
+                _spriteFactory.CreateArrowSprite(BuildingSpawner.InputArrowColor),
+                _ghostArrows, BuildingSpawner.ArrowWorldSize(gameRuntime.Grid.CellSize),
+                rotateSprite, artNativeDirection);
         }
+
+        /// <summary>
+        /// Where the ghost draws the arrow marking <paramref name="markedCell"/> - the cell outside
+        /// the footprint that items leave to or arrive from. Inset exactly as the built view insets
+        /// it, or the preview would show every arrow a half-cell further out than where it ends up.
+        /// </summary>
+        Vector3 GhostArrowPosition(GridCoord markedCell, Direction side)
+            => BuildingSpawner.ArrowPosition(gameRuntime.Grid.CellCenterToWorld(markedCell), side, gameRuntime.Grid.CellSize);
 
         Sprite ResolveGhostSprite(BuildingDefinition definition)
         {
@@ -969,7 +955,7 @@ namespace Game.Presentation
         {
             // A still-pending segment was never paid for and has no view: right-clicking it cancels
             // that segment (releasing its earmarks) rather than demolishing a building that does not
-            // exist yet (TASK_05_ROBOT_CONSTRUCTEUR.md §4). One segment, not its whole chantier - so
+            // exist yet (CONSTRUCTION.md). One segment, not its whole chantier - so
             // a sweep across three belts of a twenty-belt drag removes exactly those three, and the
             // sweep above needs no special case for it.
             if (gameRuntime.Construction.TryCancelPendingAt(cell))

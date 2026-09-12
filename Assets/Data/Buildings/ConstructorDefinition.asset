@@ -14,22 +14,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ConstructorDefinition
   id: constructor
   displayName: Constructeur
-  footprintSize: {x: 2, y: 2}
+  footprintSize: {x: 3, y: 3}
   placeholderColor: {r: 1, g: 1, b: 1, a: 1}
-  sprite: {fileID: -6622863259242664493, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
+  sprite: {fileID: -253530832, guid: ee29bce314ac92b45874bb6b114fbff6, type: 3}
   animationFrames:
-  - {fileID: -6622863259242664493, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
-  - {fileID: 4138848172959368440, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
-  - {fileID: 5823024787834327110, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
-  - {fileID: -5429809939435209488, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
-  - {fileID: -7409573511083393705, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
-  - {fileID: 2402639969742374697, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
-  - {fileID: 368041112877095050, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
-  - {fileID: -3326688003119052452, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
-  - {fileID: 9209089764030810201, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
-  - {fileID: 7800090583882032772, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
-  - {fileID: -7160256121808793437, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
-  - {fileID: -955268259036638798, guid: 4e1b0210cbc77ef48a1639fd8e5c4daf, type: 3}
+  - {fileID: -253530832, guid: ee29bce314ac92b45874bb6b114fbff6, type: 3}
+  - {fileID: 1679179288, guid: ee29bce314ac92b45874bb6b114fbff6, type: 3}
+  - {fileID: 756035636, guid: ee29bce314ac92b45874bb6b114fbff6, type: 3}
+  - {fileID: -956527738, guid: ee29bce314ac92b45874bb6b114fbff6, type: 3}
+  - {fileID: -962782492, guid: ee29bce314ac92b45874bb6b114fbff6, type: 3}
+  - {fileID: 743894597, guid: ee29bce314ac92b45874bb6b114fbff6, type: 3}
+  - {fileID: -367311529, guid: ee29bce314ac92b45874bb6b114fbff6, type: 3}
+  - {fileID: 1303030704, guid: ee29bce314ac92b45874bb6b114fbff6, type: 3}
+  - {fileID: 963896361, guid: ee29bce314ac92b45874bb6b114fbff6, type: 3}
+  - {fileID: -1319567038, guid: ee29bce314ac92b45874bb6b114fbff6, type: 3}
+  - {fileID: -335760089, guid: ee29bce314ac92b45874bb6b114fbff6, type: 3}
+  - {fileID: -893900061, guid: ee29bce314ac92b45874bb6b114fbff6, type: 3}
   animationFps: 12
   animationIntervalSeconds: 0
   cost:
@@ -37,7 +37,6 @@ MonoBehaviour:
     amount: 6
   - item: {fileID: 11400000, guid: a1c4e07b3f5d42a1b8e6c9d0f2a4b6c8, type: 2}
     amount: 4
-  artCellSize: {x: 2.5, y: 2.5}
   powerDemandKw: 3
   recipeIds:
   - iron_rod

@@ -92,14 +92,14 @@ namespace Game.Presentation
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
 
             // A uniform fit, not the per-axis one the slab and the deposits use: the Core's art is
-            // deliberately taller than its footprint (4 cells wide, 5 tall) to read as having
-            // height, and stretching it to a square footprint would squash exactly that away.
-            // Fitting on the widest-needed ratio pins the width to the 4x4 footprint and lets the
-            // extra cell overhang upward, which is what the sprite's own pivot is placed for -
-            // it sits at the footprint's centre, 2/5 up the art, so the base lands on the cells the
-            // Core actually occupies. The concrete slab above stays on footprintWorldSize.
+            // taller than its footprint (4 cells wide, 5 tall from its own 512x640 frames) to read
+            // as having height, and stretching it to a square footprint would squash exactly that
+            // away. ArtWorldSize pins the width to the 4x4 footprint and takes the height from the
+            // art; the lift below puts the base back on the cells the Core occupies. The concrete
+            // slab above stays on footprintWorldSize.
             BuildingSpawner.FitSpriteUniform(renderer, sprite,
-                BuildingSpawner.ArtWorldSize(definition, _grid.CellSize));
+                BuildingSpawner.ArtWorldSize(definition, _grid.CellSize, sprite));
+            spriteGo.transform.localPosition = Vector3.up * BuildingSpawner.ArtLift(definition, _grid.CellSize, sprite);
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {

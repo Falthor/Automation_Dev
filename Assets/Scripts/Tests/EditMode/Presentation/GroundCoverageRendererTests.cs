@@ -16,7 +16,7 @@ using ZoneDescriptor = Game.Presentation.GroundCoverageRenderer.ZoneDescriptor;
 namespace Game.Tests.EditMode.Presentation
 {
     /// <summary>
-    /// directive-materialisation-nano.md §7: the per-zone ground coverage field. Nothing here
+    /// MATERIALISATION.md: the per-zone ground coverage field. Nothing here
     /// asserts on rendering - GroundCoverageRenderer.Tick is frame-free precisely so the field, the
     /// conversion front, its retreat and the upload gating can be driven step by step.
     /// </summary>

@@ -33,7 +33,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             Assert.AreEqual(2f, component.PowerKw);
             Assert.AreEqual(100f, component.Wear);
             Assert.AreEqual(1f, component.EffectivePerformance);
-            Assert.AreEqual(95f, component.Stability, 0.001f, "Wear=100 (new) must give 95% stability - TASK_03_DATACENTER.md §4.1.");
+            Assert.AreEqual(95f, component.Stability, 0.001f, "Wear=100 (new) must give 95% stability - DATACENTER.md.");
         }
 
         [Test]
@@ -56,30 +56,49 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             ItemDatabase db = NewCpuDatabase(1000f, 2f);
             var component = NewComponent(db);
 
-            Assert.AreEqual(0.70f, component.FluctuationFloor, 0.001f, "A new component's floor is 70% - TASK_03_DATACENTER.md §4.2.");
+            Assert.AreEqual(0.70f, component.FluctuationFloor, 0.001f, "A new component's floor is 70% - DATACENTER.md.");
 
             component.DecayWear(100000f);
             Assert.AreEqual(0f, component.Wear);
             Assert.AreEqual(0.30f, component.FluctuationFloor, 0.001f, "An end-of-life component's floor is 30%.");
         }
 
+        /// <summary>
+        /// Wear decays faster as it drops - 2.6x as fast at 20% as at 100%
+        /// (DATACENTER.md, perte_base × (1 + 2 × (1 − usure/100))).
+        ///
+        /// <b>The rate is measured out of DecayWear, never recomputed beside it.</b> This test used
+        /// to evaluate the formula itself at two wear levels and compare the results - an identity
+        /// in which BaseLossPerSecond cancels, so it held whatever DecayWear did, including nothing
+        /// at all. DEVELOPMENT_RULES §7.
+        /// </summary>
         [Test]
-        public void DecayWear_AcceleratesAsWearDrops_ComponentAt20PercentLosesWear2Point6TimesFaster()
+        public void DecayWear_AcceleratesAsWearDrops_LosingWear2Point6TimesFasterAt20Percent()
         {
             ItemDatabase db = NewCpuDatabase(1000f, 2f);
 
-            var fresh = NewComponent(db); // Wear = 100
-            float freshLossRate = fresh.BaseLossPerSecond * (1f + 2f * (1f - fresh.Wear / 100f));
+            // Long enough that the subtraction below resolves well in float, short enough that the
+            // rate barely moves across it - the measurement is an average over the step.
+            const float probeSeconds = 0.1f;
+
+            var fresh = NewComponent(db);
+            float lostAtFullWear = WearLostOverOneStep(fresh, probeSeconds);
 
             var worn = NewComponent(db);
-            worn.DecayWear(100000f); // drive to 0 first
-            // Nudge back up isn't exposed publicly (Wear only ever decreases) - instead compare
-            // the formula directly at Wear=20 using the same BaseLossPerSecond, which is exactly
-            // what TASK_03_DATACENTER.md §4.3 specifies: "perte_base × (1 + 2 × (1 − usure/100))".
-            float lossRateAt20 = worn.BaseLossPerSecond * (1f + 2f * (1f - 20f / 100f));
-            float lossRateAtFull = worn.BaseLossPerSecond * (1f + 2f * (1f - 100f / 100f));
+            while (worn.Wear > 20f) worn.DecayWear(0.01f);
+            float lostAtTwentyPercent = WearLostOverOneStep(worn, probeSeconds);
 
-            Assert.AreEqual(2.6f, lossRateAt20 / lossRateAtFull, 0.001f, "A component at 20% wear must lose wear 2.6x faster than a fresh one.");
+            Assert.Greater(lostAtFullWear, 0f, "A fresh component must lose wear at all, or the ratio below means nothing.");
+            Assert.AreEqual(2.6f, lostAtTwentyPercent / lostAtFullWear, 0.01f,
+                "Delete the acceleration term from DecayWear and this ratio falls to 1 - which is why it is measured rather than restated.");
+        }
+
+        /// <summary>Wear actually lost by one DecayWear call: Wear has no setter, so this is the only way to read the rate the production code applies.</summary>
+        static float WearLostOverOneStep(ComponentInstance component, float seconds)
+        {
+            float before = component.Wear;
+            component.DecayWear(seconds);
+            return before - component.Wear;
         }
 
         [Test]
@@ -123,7 +142,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             }
 
             // The calibration target is a fixed 5%, not any replacement threshold - a threshold is
-            // where the runtime chooses to stop reading this same curve (TASK_03_DATACENTER.md §4.4).
+            // where the runtime chooses to stop reading this same curve (DATACENTER.md).
             Assert.AreEqual(5f, component.Wear, 0.5f, "Integrating the accelerated decay curve for the drawn lifetime must land on the fixed 5% floor.");
         }
 

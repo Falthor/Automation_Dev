@@ -12,7 +12,7 @@ namespace Game.Presentation
     /// in turn. A player scanning a stalled line needs the answer from the map.
     ///
     /// Reads the runtime every frame rather than subscribing: pause is a bool on the building, the
-    /// building is the single source of truth for it (CONTRACTS.md §7), and one enabled-flag
+    /// building is the single source of truth for it (UI.md), and one enabled-flag
     /// comparison per paused-capable building is far below anything worth an event for.
     /// </summary>
     [RequireComponent(typeof(SpriteRenderer))]

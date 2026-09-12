@@ -6,7 +6,7 @@ using Newtonsoft.Json.Linq;
 namespace Game.Gameplay.Buildings
 {
     /// <summary>
-    /// Pooled-inventory building (CONTRACTS.md §3 Building/Inventory contract). Accepts input
+    /// Pooled-inventory building (TRANSPORT.md's Building/Inventory surface). Accepts input
     /// from any adjacent direction - it has no belt orientation of its own, unlike a conveyor.
     /// </summary>
     public sealed class StorageRuntime : BuildingRuntime
@@ -157,7 +157,7 @@ namespace Game.Gameplay.Buildings
                 slots.Add(new JObject { ["itemId"] = slot.ItemId, ["amount"] = slot.Amount });
             }
             // No intake cooldown any more, so none is written. An older save carrying one is simply
-            // ignored on the way back in - per-field tolerance, CONTRACTS.md §14, which is why the
+            // ignored on the way back in - per-field tolerance, SAUVEGARDE.md, which is why the
             // format version does not move for this.
             return new JObject { ["slots"] = slots };
         }

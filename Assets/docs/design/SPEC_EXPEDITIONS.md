@@ -60,7 +60,7 @@ revanche accueillir des missions ciblant les points d'intérêt qu'il contient.
 
 | Propriété | Valeur |
 |---|---|
-| Apparition | deux robots explorateurs, quand la réserve descend sous **25 000 CU** |
+| Apparition | deux robots explorateurs, quand la réserve descend sous son **seuil d'arrivée** |
 | Coût | offerts, aucun slot de bâtiment, aucun CU à l'usage |
 | Autonomie | **10 missions chacun**, affiché dès la première |
 | Destruction | **jamais** — un robot explorateur s'éteint, batterie vide |
@@ -77,13 +77,14 @@ pousse à explorer tôt. Elle doit couvrir largement l'introduction : si les rob
 quoi produire des unités, et qu'il est à court de CU au même moment, il n'a plus aucune
 sortie.
 
-**Le seuil de 25 000 se lit contre le plafond de réserve, qui vaut 70 000**
-(`ComputeSystem.ReserveCap`) et duquel la réserve part : les robots explorateurs arrivent donc quand le
-joueur a consommé près des deux tiers de sa réserve, assez tard pour l'avoir sentie
-descendre. C'est une valeur d'équilibrage, pas une valeur dérivée — mais elle n'a de sens
-que rapportée à ce plafond, qui est passé de 25 000 à 60 000 puis à 70 000 sans que le seuil
-ne suive. Déplacer l'un sans relire l'autre a déjà produit deux fois un seuil qui ne voulait
-plus dire ce qu'il voulait dire.
+**Le seuil ne se lit que contre le plafond de réserve**, duquel la réserve part : les robots
+explorateurs arrivent quand le joueur en a consommé une bonne part, assez tard pour l'avoir sentie
+descendre. C'est une valeur d'équilibrage, pas une valeur dérivée — mais elle n'a de sens que
+rapportée à ce plafond, et l'écrire en absolu a déjà produit deux fois un seuil qui ne voulait plus
+dire ce qu'il voulait dire. Le code la porte donc en fraction du plafond, à côté de lui.
+
+**La fraction livrée ne vaut pas le seuil décrit ici** : elle reproduit celui que le jeu appliquait
+réellement, les deux ayant divergé en silence. Trancher lequel des deux est le bon demande de jouer.
 
 ### 3.2 Les unités
 
@@ -281,9 +282,9 @@ Récupération existent.**
 > d'expédition : une par zone, sans bande, deux minutes forfaitaires, et ce qu'elle rapporte est la
 > liste des sites de la zone — c'est-à-dire tout ce que les autres missions viseront ensuite. Choisir
 > une direction ne la révèle pas ; y aller, si. Elle tire sur le budget de reconnaissance comme les
-> deux Reconnaissances. Voir `architecture/MAP.md` §5 et `architecture/CONTRACTS.md` §16.
+> deux Reconnaissances. Voir `architecture/MAP.md`.
 >
-> L'**Étude de terrain** manquait aussi à ce récapitulatif : voir §4.3 et `architecture/MAP.md` §5.
+> L'**Étude de terrain** manquait aussi à ce récapitulatif : voir §4.3 et `architecture/MAP.md`.
 
 ---
 
@@ -419,7 +420,7 @@ sépare chaque Noyau secondaire du principal, donc au-delà de l'introduction. P
 l'introduction, les sites sont ceux que le générateur pose — et la règle « un secteur qui porte
 du contenu placé garde ce contenu » les protège de la dérivation, sous réserve de la contrainte
 d'ordonnancement qui l'accompagne : le contenu placé doit exister avant que la dérivation
-n'atteigne ces secteurs (`architecture/MAP.md` §5).
+n'atteigne ces secteurs (`architecture/MAP.md`).
 
 ---
 
@@ -428,8 +429,8 @@ n'atteigne ces secteurs (`architecture/MAP.md` §5).
 Deux moments ne dépendent d'aucun tirage. Le hasard porte sur ce qu'on ramène, jamais sur
 ce qu'on révèle.
 
-**1. L'apparition des robots explorateurs.** Déclenchée par le passage sous 25 000 CU. Ouvre la carte
-dézoomée et le système de missions.
+**1. L'apparition des robots explorateurs.** Déclenchée par la chute de la réserve sous son seuil
+d'arrivée. Ouvre la carte dézoomée et le système de missions.
 
 **2. La découverte du nid dormant.** Site posé par le générateur à une distance donnée, révélé par la
 mission du **signal perturbé**. Celle-ci n'est pas verrouillée : elle est **absente** de la carte

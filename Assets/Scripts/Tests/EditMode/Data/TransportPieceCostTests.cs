@@ -98,6 +98,65 @@ namespace Game.Tests.EditMode.Data
         }
 
         /// <summary>
+        /// A splitter and a crossroad each stand on <b>one</b> cell, like the belts they sit among.
+        ///
+        /// They used to hold a "+" of five cells inside a 3x3 box, and the four arms were ground the
+        /// player could not build on while nothing was drawn there once the art became a single tile.
+        /// Read from the shipped assets rather than from a fixture, because the footprint is a value
+        /// in the asset and a fixture repeating it would stop tracking it the moment it moved.
+        /// </summary>
+        [Test]
+        public void EveryShippedSplitterAndCrossroadIsASingleCell()
+        {
+            var found = 0;
+
+            foreach (BuildingDefinition definition in AllCrossPieces())
+            {
+                Assert.AreEqual(new UnityEngine.Vector2Int(1, 1), definition.FootprintSize, definition.name + ": footprint");
+                Assert.AreEqual(1, definition.FootprintCells.Length,
+                    definition.name + ": occupies one cell - a masked footprint override would say otherwise");
+                found++;
+            }
+
+            Assert.Greater(found, 0, "no splitter or crossroad definition was found");
+        }
+
+        /// <summary>
+        /// Every animation frame comes from the same texture as the sprite itself.
+        ///
+        /// <b>This is the defect that hid a whole art change.</b> Both pieces kept twelve frames of
+        /// their previous sheet after their sprite was repointed at a new single-tile one, and the
+        /// flipbook overwrites the renderer's sprite every frame - so the new art was assigned and
+        /// immediately replaced by the old, with nothing logged and nothing to see but a building
+        /// that appeared not to have changed. Stated as "the frames and the sprite agree" rather than
+        /// "there are no frames", so animating these pieces again stays allowed.
+        /// </summary>
+        [Test]
+        public void NoTransportPieceKeepsFramesFromAnotherSheet()
+        {
+            foreach (BuildingDefinition definition in AllCrossPieces())
+            {
+                if (definition.AnimationFrames == null || definition.AnimationFrames.Length == 0) continue;
+
+                Assert.IsNotNull(definition.Sprite, definition.name + ": frames but no sprite");
+
+                foreach (UnityEngine.Sprite frame in definition.AnimationFrames)
+                {
+                    Assert.IsNotNull(frame, definition.name + ": an unassigned animation frame");
+                    Assert.AreSame(definition.Sprite.texture, frame.texture,
+                        definition.name + ": frame '" + frame.name + "' comes from a different sheet than the sprite - "
+                        + "the flipbook would draw that sheet over the one the definition points at");
+                }
+            }
+        }
+
+        static IEnumerable<BuildingDefinition> AllCrossPieces()
+        {
+            foreach (SplitterDefinition splitter in ShippedAssetsOfType<SplitterDefinition>()) yield return splitter;
+            foreach (CrossroadDefinition crossroad in ShippedAssetsOfType<CrossroadDefinition>()) yield return crossroad;
+        }
+
+        /// <summary>
         /// The boundary of the rule, stated so nobody widens it by accident. A Storage box shares the
         /// cap exemption but not the reason: it is a thing you build, not a wire between two things,
         /// and it is meant to cost something.

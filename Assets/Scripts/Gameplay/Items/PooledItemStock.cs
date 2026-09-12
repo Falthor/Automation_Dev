@@ -5,7 +5,7 @@ namespace Game.Gameplay.Items
     /// <summary>
     /// Pooled per-item stock for production buildings: unlimited distinct item ids, each capped
     /// independently. Distinct from the slot-based Inventory (StorageRuntime's "8 distinct types
-    /// x100" model) - CONTRACTS.md §3's Building/Inventory contract has no distinct-type cap, only
+    /// x100" model) - TRANSPORT.md's Building/Inventory surface has no distinct-type cap, only
     /// a per-item amount cap, which is exactly what production buildings (input and output side
     /// alike) need.
     ///
@@ -56,7 +56,7 @@ namespace Game.Gameplay.Items
             return taken;
         }
 
-        /// <summary>Replaces all contents wholesale. Used only by the save/load system (CONTRACTS.md §14) to restore a previously-captured snapshot - never by gameplay code.</summary>
+        /// <summary>Replaces all contents wholesale. Used only by the save/load system (SAUVEGARDE.md) to restore a previously-captured snapshot - never by gameplay code.</summary>
         public void RestoreContents(IReadOnlyDictionary<string, int> contents)
         {
             _amounts.Clear();

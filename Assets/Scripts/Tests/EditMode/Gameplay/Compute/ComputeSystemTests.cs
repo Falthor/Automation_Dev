@@ -13,7 +13,7 @@ namespace Game.Tests.EditMode.Gameplay.Compute
             Assert.AreEqual(ComputeSystem.ReserveCap, compute.Reserve);
         }
 
-        /// <summary>Pins the actual target value (TASK_01_REBALANCE_DATA.md), not just internal self-consistency with Reserve_StartsAtCap above.</summary>
+        /// <summary>Pins the actual target value, not just internal self-consistency with Reserve_StartsAtCap above.</summary>
         [Test]
         public void ReserveCap_Is70000()
         {
@@ -111,7 +111,7 @@ namespace Game.Tests.EditMode.Gameplay.Compute
             Assert.AreEqual(0f, compute.IncomePerSecond);
         }
 
-        /// <summary>The one continuous per-second draw CONTRACTS.md §10 allows (research absorption) - covers TASK_02_REFONTE_RECHERCHE.md's contract evolution.</summary>
+        /// <summary>The one continuous per-second draw CALCUL.md allows (research absorption).</summary>
         [Test]
         public void SpendUpTo_DeductsExactlyWhatItReturns()
         {

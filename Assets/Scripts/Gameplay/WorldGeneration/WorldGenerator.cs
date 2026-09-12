@@ -31,7 +31,7 @@ namespace Game.Gameplay.WorldGeneration
         /// Distance (cells, Core center to cluster center) for every in-radius cluster - the
         /// guaranteed one per resource and the surplus ones alike. Replaces the old
         /// footprint-derived minimum (~6 cells, which put a cluster almost against the Core)
-        /// with a flat value that leaves room to build around the Core (ALIGNEMENT_PROJET.md §8).
+        /// with a flat value that leaves room to build around the Core.
         /// </summary>
         const float InRadiusMinDistanceCells = 10f;
 
@@ -111,7 +111,7 @@ namespace Game.Gameplay.WorldGeneration
         /// </summary>
         public StorageRuntime CoreStorage { get; private set; }
 
-        /// <summary>Pass-through to Core.ActionRadiusCells (TASK_04_PLAFOND_RAYON.md §4) - Core is the sole owner of the current radius, this is just a convenience for callers that only hold a WorldGenerator reference.</summary>
+        /// <summary>Pass-through to Core.ActionRadiusCells (CONSTRUCTION.md) - Core is the sole owner of the current radius, this is just a convenience for callers that only hold a WorldGenerator reference.</summary>
         public int ActionRadiusCells => Core?.ActionRadiusCells ?? 0;
 
         public IReadOnlyList<DepositRuntime> OreDeposits => _oreDeposits;
@@ -190,8 +190,8 @@ namespace Game.Gameplay.WorldGeneration
             // and inside the radius - 4 deposit slots each, exactly covering the 4/4/2 extractors
             // the introduction needs (coal uses only 2 of its 4). The introduction is not
             // playable without at least one of each resource, so a failure to place any of them
-            // throws rather than silently producing an amputated world (ALIGNEMENT_PROJET.md §8 -
-            // today's 500-attempts-then-silent-skip is the exact bug this guards against).
+            // throws rather than silently producing an amputated world - a
+            // 500-attempts-then-silent-skip is the exact bug this guards against.
             PlaceGuaranteedCluster(grid, random, coreCenter, settings.IronOreDefinition, "fer");
             PlaceGuaranteedCluster(grid, random, coreCenter, settings.CopperOreDefinition, "cuivre");
             PlaceGuaranteedCluster(grid, random, coreCenter, settings.CoalOreDefinition, "charbon");
@@ -294,9 +294,9 @@ namespace Game.Gameplay.WorldGeneration
 
         /// <summary>
         /// Rebuilds this generator's state from a previously-saved snapshot instead of running
-        /// procedural generation (CONTRACTS.md §14). Used only by the save/load restore path -
+        /// procedural generation (SAUVEGARDE.md). Used only by the save/load restore path -
         /// the caller has already reconstructed Core (with its own ActionRadiusCells already
-        /// restored via CoreRuntime.RestoreState - TASK_04_PLAFOND_RAYON.md §4) and every
+        /// restored via CoreRuntime.RestoreState) and every
         /// DepositRuntime, and placed them into Game.Grid at their saved cells. No longer takes
         /// its own actionRadiusCells parameter - ActionRadiusCells here is a pass-through of
         /// core.ActionRadiusCells, so passing a second, separate value could only ever disagree

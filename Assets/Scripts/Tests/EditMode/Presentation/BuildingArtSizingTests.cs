@@ -1,5 +1,6 @@
 using System.IO;
 using Game.Data;
+using Game.Presentation;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -7,37 +8,125 @@ using UnityEngine;
 namespace Game.Tests.EditMode.Presentation
 {
     /// <summary>
-    /// RenderOverscan is not a free number: for a building whose art is meant to fill its own
-    /// footprint, it compensates for the transparent margin around that art, and is therefore
-    /// 1 / (opaque width as a fraction of the frame). That makes it a property of the art file, and
-    /// it goes stale the moment the file is replaced.
+    /// How big a building is drawn is derived, never entered: as wide as its footprint, as tall as
+    /// that width times its frame's own proportion (BuildingSpawner.ArtWorldSize).
     ///
-    /// Which has now happened twice, both times noticed on screen rather than here. The Foundry's
-    /// 1.09 was measured against a sheet with 21 px margins; the replacement has 4 px margins, and
-    /// the stale value drew the building 7% wider than the cells it occupies.
+    /// <b>This replaced two numbers that went stale on every re-export</b> - an art box per
+    /// definition and a margin constant measured against one particular sheet - and both were
+    /// noticed on screen rather than here: a stale 1.09 drew the Foundry 7% wider than the cells it
+    /// stands on. Nothing here is measured against a file any more; what is asserted is the rule,
+    /// against the real definitions, so any sheet that comes back is treated the same way.
     /// </summary>
     public class BuildingArtSizingTests
     {
+        const float CellSize = 1f;
+
+        /// <summary>Every building drawn from a sheet the artist re-exports, so a new cut of any of them is held to this.</summary>
+        static readonly string[] DefinitionPaths =
+        {
+            "Assets/Data/World/CoreDefinition.asset",
+            "Assets/Data/Buildings/ConstructorDefinition.asset",
+            "Assets/Data/Buildings/FactoryDefinition.asset",
+            "Assets/Data/Buildings/FoundryDefinition.asset",
+            "Assets/Data/Buildings/PowerplantGazDefinition.asset",
+            "Assets/Data/Buildings/ExtractorDefinition.asset",
+            "Assets/Data/Buildings/DataCenterDefinition.asset",
+        };
+
+        /// <summary>The sheets exported for the derived rule - 512x640 frames drawn to their own edges.</summary>
+        static readonly string[] ReExportedSheetPaths =
+        {
+            "Assets/Data/World/CoreDefinition.asset",
+            "Assets/Data/Buildings/ConstructorDefinition.asset",
+            "Assets/Data/Buildings/FactoryDefinition.asset",
+            "Assets/Data/Buildings/FoundryDefinition.asset",
+            "Assets/Data/Buildings/PowerplantGazDefinition.asset",
+            "Assets/Data/Buildings/DataCenterDefinition.asset",
+        };
+
+        [Test]
+        public void NoBuildingIsEverDrawnWiderThanTheCellsItStandsOn()
+        {
+            foreach (string path in DefinitionPaths)
+            {
+                var definition = AssetDatabase.LoadAssetAtPath<BuildingDefinition>(path);
+                Assert.IsNotNull(definition, path);
+                Assert.IsNotNull(definition.Sprite, $"{definition.Id} has art assigned");
+
+                Vector2 drawn = BuildingSpawner.ArtWorldSize(definition, CellSize, definition.Sprite);
+
+                Assert.AreEqual(definition.FootprintSize.x * CellSize, drawn.x, 0.0001f,
+                    $"{definition.Id} is drawn {drawn.x} wide on {definition.FootprintSize.x} cells");
+            }
+        }
+
         /// <summary>
-        /// Deliberately only the Foundry. Conveyor, Splitter and Crossroad also override
-        /// RenderOverscan, but for the opposite reason: theirs pushes their arms INTO the
-        /// neighbouring cell to close a seam. Holding them to this rule would be asserting the very
-        /// thing they are built to break.
+        /// The height follows the art, not a figure someone typed: a 512x640 frame over a 3x3
+        /// footprint is 3 wide and 3.75 tall. A frame no taller than it is wide keeps the footprint's
+        /// own height, which is what stops a belt's 256x222 frame from leaving a seam in its cell.
         /// </summary>
         [Test]
-        public void TheFoundrysRenderOverscan_MatchesTheMarginOfTheArtItIsSetAgainst()
+        public void TheHeightFollowsTheFramesProportion_AndNeverFallsBelowTheFootprint()
         {
-            var definition = AssetDatabase.LoadAssetAtPath<FoundryDefinition>("Assets/Data/Buildings/FoundryDefinition.asset");
-            Assert.IsNotNull(definition, "The Foundry definition asset.");
-            Assert.IsNotNull(definition.Sprite, "The Foundry has art assigned.");
+            foreach (string path in DefinitionPaths)
+            {
+                var definition = AssetDatabase.LoadAssetAtPath<BuildingDefinition>(path);
+                Vector2 frame = definition.Sprite.rect.size;
+                Vector2 drawn = BuildingSpawner.ArtWorldSize(definition, CellSize, definition.Sprite);
 
-            float opaqueFraction = OpaqueWidthFractionOf(definition.Sprite);
-            float expected = 1f / opaqueFraction;
+                float expected = Mathf.Max(definition.FootprintSize.y * CellSize, drawn.x * (frame.y / frame.x));
+                Assert.AreEqual(expected, drawn.y, 0.0001f, $"{definition.Id} from a {frame.x}x{frame.y} frame");
+                Assert.GreaterOrEqual(drawn.y, definition.FootprintSize.y * CellSize - 0.0001f, definition.Id);
+            }
+        }
 
-            Assert.AreEqual(expected, definition.RenderOverscan, 0.01f,
-                $"The art's opaque box fills {opaqueFraction:P1} of its frame, so RenderOverscan should be "
-                + $"{expected:0.000}, not {definition.RenderOverscan:0.000}. Re-measure it against the current art "
-                + "rather than adjusting the drawn size somewhere else.");
+        /// <summary>
+        /// And the excess height goes upward: the lift is exactly what puts the art's bottom edge on
+        /// the footprint's bottom edge, so a building stands on its ground rather than straddling it.
+        /// The bug this pins was visible - the Core hung half a cell below its own footprint.
+        /// </summary>
+        [Test]
+        public void TheLiftPutsTheArtsBaseOnTheFootprintsBottomEdge()
+        {
+            foreach (string path in DefinitionPaths)
+            {
+                var definition = AssetDatabase.LoadAssetAtPath<BuildingDefinition>(path);
+                Vector2 drawn = BuildingSpawner.ArtWorldSize(definition, CellSize, definition.Sprite);
+                float lift = BuildingSpawner.ArtLift(definition, CellSize, definition.Sprite);
+
+                // Measured from the footprint's centre, where every view puts the art's own centre.
+                float artBottom = lift - drawn.y * 0.5f;
+                float footprintBottom = -definition.FootprintSize.y * CellSize * 0.5f;
+
+                Assert.AreEqual(footprintBottom, artBottom, 0.0001f, $"{definition.Id}'s base");
+                Assert.GreaterOrEqual(lift, -0.0001f, $"{definition.Id} is never pushed down");
+            }
+        }
+
+        /// <summary>
+        /// The art of the current sheets reaches its own frame edges, which is what makes deriving
+        /// the size from the frame the same thing as deriving it from the building. Measured on the
+        /// source PNG, and loose (94%) on purpose: this guards against a sheet exported with wide
+        /// empty margins - which would draw the building visibly smaller than its ground - not
+        /// against a pixel.
+        ///
+        /// Held against the re-exported sheets only. The older art (the Extractor's fills 91% of its
+        /// frame) predates the rule and is drawn exactly as it always was, since a square frame takes
+        /// the footprint's own box; asking it to pass would be asking for a re-export, not a fix.
+        /// </summary>
+        [Test]
+        public void TheArtFillsItsFrame_SoTheFrameIsAFairMeasureOfTheBuilding()
+        {
+            foreach (string path in ReExportedSheetPaths)
+            {
+                var definition = AssetDatabase.LoadAssetAtPath<BuildingDefinition>(path);
+                float opaqueFraction = OpaqueWidthFractionOf(definition.Sprite);
+
+                Assert.GreaterOrEqual(opaqueFraction, 0.94f,
+                    $"{definition.Id}'s art fills only {opaqueFraction:P1} of its frame's width, so it would be drawn "
+                    + "that much narrower than its footprint. Re-export the sheet to its edges rather than "
+                    + "compensating for the margin somewhere in code.");
+            }
         }
 
         /// <summary>

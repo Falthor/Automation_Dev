@@ -8,16 +8,6 @@ It does **not** cover what a cell's terrain *is* or how the ground *looks*: that
 [`TERRAIN.md`](TERRAIN.md). The boundary is simple — `TERRAIN.md` owns `TerrainRuntime` and the ground
 shader, this document owns everything that divides, reveals or hides the map.
 
-## Related documents
-
-- [`PROJECT_ARCHITECTURE.md`](PROJECT_ARCHITECTURE.md) — §7 Grid (who owns per-cell world state), §10.1 Draw order (the fog's band, and the camera-relative depth ladder that solves the same scaling problem for a different system). Where the two disagree, `PROJECT_ARCHITECTURE.md` wins per the source-of-truth order in `CLAUDE.md`.
-- [`CONTRACTS.md`](CONTRACTS.md) — §14 Save/Restore (`SaveData.Discovered`, and why sectors are not saved).
-- [`TERRAIN.md`](TERRAIN.md) — terrain type and ground rendering.
-- [`../design/expansion-territoriale.md`](../design/expansion-territoriale.md) — secondary Cores, mining zones, deposit density and the generation parameters. **Design intent, none of it implemented**; this document describes what is.
-- [`../carnets/brouillard-et-zonage.md`](../carnets/brouillard-et-zonage.md) — the implementation notebook: decisions taken, deviations and why. Reasoning lives there; current state lives here.
-
----
-
 ## 1. Size and division
 
 The map is square and its size lives on `TerrainGenerationSettings.size`
@@ -102,7 +92,18 @@ and the captured save string is unchanged.
 **`Version` advances only when a call actually changed something.** The fog renderer compares it
 against what it last uploaded, which is the whole of "re-upload only when the state changed".
 
-**Persistence:** `SaveData.Discovered`, run-length encoded — see `CONTRACTS.md` §14.
+**Persistence: `SaveData.Discovered`.** Player progress, not a rebuildable cache: what has been
+explored beyond the Core's reach cannot be derived from anything else in the file.
+
+A **string**, not a `JObject`, for two reasons. `Game.Grid` references only `Game.Core` and
+`Game.Data`, and giving it a JSON type would add a dependency it has no other use for. And the file is
+written indented, so one entry per cell would run to megabytes on a large map. The encoding is
+run-length — `state:length` pairs, comma-separated, row-major — which costs a few hundred characters
+for a map that is mostly unknown.
+
+Restore is tolerant: a null, an empty string or a malformed run leaves the rest of the map unknown
+rather than throwing, and a run past the end of the map is ignored. A save predating the field loads
+as an undiscovered map, and the Core's radius writes its own disc back on the first tick.
 
 ### 2.1 Free exploration
 
@@ -120,8 +121,9 @@ opens its panel — with the same halo a selected building gets, asked for by ce
 because a robot stands between cells and keeps moving. The one button there sends an idle one out and
 turns a wandering one round.
 
-**The fleet arrives when the CU reserve has fallen to `appearAtReserveCu`** (25 000), which is also what
-opens the map screen. A fall rather than a rise: the introduction drains CU, and the thing that pays
+**The fleet arrives when the CU reserve has fallen to `ComputeSystem.ExplorerFleetArrivalReserve`**, which is also what
+opens the map screen. That threshold is a **fraction of the reserve cap**, and lives beside it: written
+as an absolute on the robots' own settings it was left behind twice while the cap moved. A fall rather than a rise: the introduction drains CU, and the thing that pays
 turning up as the player runs dry is what makes it a way out rather than a reward.
 `GameRuntime.startWithEverythingUnlocked` bypasses it for development.
 
@@ -134,7 +136,7 @@ this order:
 |---|---|
 | a **drift** | a value noise sampled over a phase that advances with time, never a fresh draw per frame — independent draws average to nothing over a second and leave the robot shivering along a straight line. This is what makes the trace serpentine |
 | a **pull towards the unknown** | two probes off the current heading (±45°, 30 cells out), each reading a robot-sized patch; the robot leans towards whichever side has less behind it, scaled by the difference rather than its sign. Enough to follow the edge of what it has opened instead of crossing back over it, with nothing that resembles an objective |
-| a **recall** | past `maxRadiusCells` (**330**, the same figure the expedition zones use for their outer edge) the heading bends inwards, ramped over the next 40 cells. Not a wall and not a stop — it turns |
+| a **recall** | past `ExplorerRobotSettings.maxRadiusCells` the heading bends inwards, ramped over the next 40 cells. Not a wall and not a stop — it turns |
 
 **A turn rate is a curve radius, read against the speed**: at `v` cells per second and `w` degrees per
 second the robot turns on a circle of radius `v / (w · π/180)`. At the shipped 2 and 6 that is a
@@ -161,7 +163,7 @@ any of the three.
   reports on it, and the robots are the only caller: when the robot crosses into a new sector it
   materialises the 3×3 block around it — the block, because a 12-cell reveal disc straddles up to four
   16-cell sectors and materialising only the one underneath would leave ore missing from ground the
-  robot plainly uncovered. See `MATERIALISATION.md` and §4.
+  robot plainly uncovered.
 
   **A materialised deposit goes in through `WorldGenerator.AddDeposit`, never straight into the
   grid.** That call is what puts it in `WorldGenerator.OreDeposits` and raises `DepositAppeared` —
@@ -171,9 +173,14 @@ any of the three.
   returns the runtime it creates for exactly this reason, and dropping that return value is the whole
   defect.
 
-**Persistence:** `SaveData.ExplorerRobots` — position, heading, state, plus where the drift had got to
-and how many sorties have been made, so a reloaded robot carries on the bend it was in the middle of
-rather than snapping onto a fresh one. No destination, because there is none to have.
+**Persistence: `SaveData.ExplorerRobots`** — an opaque blob owned by `ExplorerRobotSystem`'s own
+`Capture`/`Restore` pair: per robot its position, heading, state, the datacards it carries, where the
+drift had got to and how many sorties have been made, so a reloaded robot carries on the bend it was
+in the middle of rather than snapping onto a fresh one. No destination, because there is none to have.
+
+An absent key restores as a fleet that has not arrived, standing at the base with nothing - the
+truthful default rather than a convenient one. A blob listing fewer robots than the configured fleet
+restores the rest at home too.
 
 Measured on the shipped values: over a 240 s sortie the path strays well off the line between its own
 two ends (so it is not a ruler), and over 120 s it ends more than half its path length from the base
@@ -231,7 +238,7 @@ breaks that boundary up so it does not read as a circle. The texture is `linear:
 through a gamma curve arrives at the shader as a different number than it was written, and this one is
 compared against a threshold.
 
-The fog sits above every band in the draw-order ladder (`PROJECT_ARCHITECTURE.md` §10.1).
+The fog sits above every band in the draw-order ladder.
 
 ## 4. Sectors
 
@@ -266,14 +273,14 @@ neighbourhood at a different angle worth something. The growth respects the sect
 edge sectors are clipped where the map does not divide evenly.
 
 **Its size grows with distance from the Core** (`OreClusterProfile`): six to ten tiles just outside
-the Core's furthest reach, ten to fifteen at the limit a robot wanders to (330), interpolated
+the Core's furthest reach, ten to fifteen at the limit a robot wanders to, interpolated
 between and clamped at both ends. Distance is the only thing exploring costs, so it has to be the
 thing that pays — a flat size makes the far half of the map the near half with a longer walk.
 Measured on the shipped map: 8.0 tiles on average inside 100 cells, 12.3 past 260.
 
-**Nothing derived lands inside the Core's furthest reach** (`GameRuntime.FurthestActionRadiusCells`,
-80 today) - the highest radius any research grants, derived from the research effects rather than
-written down. The ore in it is placed by hand, at chosen distances, because the introduction depends
+**Nothing derived lands inside the Core's furthest reach** (`GameRuntime.FurthestActionRadiusCells`)
+- the highest radius any research grants, derived from the research effects rather than written
+down, here included. The ore in it is placed by hand, at chosen distances, because the introduction depends
 on it (`WorldGenerator`): one cluster of each resource inside the starting radius, then two rings of
 invitation clusters the radius researches open - centres 26 to 29 cells out, 4 deposits of each, and
 centres 40 to 60 cells out, 8 iron, 8 copper and 4 coal. The second ring is required: a world that
@@ -289,8 +296,8 @@ holds. It knows nothing about discovery — a robot reveals a disc wherever it h
 partition has no part in it.
 
 **How far the world extends is one figure**, and it belongs to the robots:
-`ExplorerRobotSettings.maxRadiusCells` (**330**), which is where a wandering robot is turned back
-(§2.1) and what the map draws as its outer ring (§5).
+`ExplorerRobotSettings.maxRadiusCells`, which is where a wandering robot is turned back
+(§2.1) and what the map draws as its outer ring (§5). It is named here and never quoted.
 
 ## 4a. Wrecks
 
@@ -300,7 +307,7 @@ save restores — so a loaded world finds them where it left them. Each is three
 draws one of three sprites, freely: the same wreck may appear more than once, which is what keeps
 eight of them from reading as a catalogue.
 
-**Rings, because a density cannot answer both questions.** Uniform over 330 cells, the figure that
+**Rings, because a density cannot answer both questions.** Uniform over the whole disc, the figure that
 puts a wreck in the first few minutes puts a hundred on the map, and the figure that makes eight rare
 puts the first one three quarters of an hour in. The rings decouple the two:
 
@@ -412,17 +419,16 @@ because that is what decides whether to go and find one.
 
 - ~~Lazy terrain generation.~~ **Done, and differently than planned.** Terrain is no longer
   materialised at all: `GetTerrainType` computes its answer from the seed and the coordinate, so there
-  is nothing to generate lazily. See `TERRAIN.md` §1.
+  is nothing to generate lazily.
 - ~~The map screen.~~ **Built, then cut back to what it is for** — `SectorMapElement` and
   `SectorMapPanelController` (`Game.UI`): revealed terrain, the base, the Core and its radius, the outer
   ring and the robots. It designates nothing (§5).
-- ~~Sector content materialisation.~~ **Done**, and driven by the robots (§2.1). See
-  `MATERIALISATION.md`.
+- ~~Sector content materialisation.~~ **Done**, and driven by the robots (§2.1).
 - **Nests and units.** Nothing exists yet, which is why the third discovery state (§2) is carried
   entirely by the veil today: terrain, vegetation and deposits are the only things drawn out of
   observation, and all three are static.
 - **A secondary Core.** [`../design/expansion-territoriale.md`](../design/expansion-territoriale.md)
   holds the design; none of it is implemented, and no figure in the project reserves room for it — the
-  only reach the game measures is the robots' own 330 cells.
+  only reach the game measures is the robots' own `maxRadiusCells`.
 - **What the datacard prototype still owes**: the threshold is a guess, and
   `ExplorerHarvestLog` exists to measure it. See the notebook.

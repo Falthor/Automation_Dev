@@ -24,7 +24,7 @@ namespace Game.Gameplay.Buildings
     /// for backward compatibility with an older save that had items in it, but it can never gain
     /// new ones from here on.
     ///
-    /// Also the sole owner of the action radius as runtime state (TASK_04_PLAFOND_RAYON.md §4):
+    /// Also the sole owner of the action radius as runtime state (CONSTRUCTION.md):
     /// CoreDefinition.ActionRadiusCells is only the starting value. ActionRadiusCells here is what
     /// every placement check must read - ActionRadius research effects grow it in place, live, no reload
     /// needed. Persisted directly in CaptureState/RestoreState rather than re-derived from
@@ -77,7 +77,7 @@ namespace Game.Gameplay.Buildings
             _researchSystem.ResearchCompleted -= _onResearchCompleted;
         }
 
-        /// <summary>Read-only snapshot for the Core inspector panel (CONTRACTS.md §12) - always empty from here on, kept for an older save that had items in it.</summary>
+        /// <summary>Read-only snapshot for the Core inspector panel (UI.md) - always empty from here on, kept for an older save that had items in it.</summary>
         public IReadOnlyDictionary<string, int> GetContents() => _inventory.Contents;
 
         /// <summary>Always refuses: the Core no longer receives anything, by design - see the class doc comment.</summary>
@@ -112,8 +112,8 @@ namespace Game.Gameplay.Buildings
 
         /// <summary>
         /// actionRadiusCells falls back to the definition's starting value when absent (a save
-        /// from before TASK_04_PLAFOND_RAYON.md) - never to 0, which would make every placement
-        /// check reject everything (TASK_03_DATACENTER.md's restore-tolerance precedent).
+        /// from before the cap existed) - never to 0, which would make every placement
+        /// check reject everything (SAUVEGARDE.md's restore tolerance).
         /// </summary>
         public override void RestoreState(JObject state)
         {

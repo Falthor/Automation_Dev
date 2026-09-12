@@ -122,7 +122,7 @@ modification dans `Game.Gameplay`.** Contrainte levée sciemment sur ce seul poi
 s'assembler segment par segment. Refaire le calcul dans Presentation aurait mis une règle de jeu à
 deux endroits, dont l'un se désynchronise en silence — **ça viole l'esprit de la contrainte plus
 gravement qu'un accesseur n'en viole la lettre**. Lecture seule, et n'expose que le résultat, jamais
-la somme préfixe. Consigné dans `CONTRACTS.md` §15.
+la somme préfixe.
 
 **Le cyan est réservé par la matérialisation, donc l'UI de chantier distingue par la texture.** Le
 joueur a appris cette couleur comme « construction en cours », pas comme une catégorie de stock : le
@@ -146,8 +146,9 @@ où les robots vont justement le chercher.
 
 **Le second `BuildingSpawner` du chemin de restauration était construit sans dalle, sans linker et
 sans ombre.** Un bâtiment rechargé depuis une sauvegarde n'avait donc ni dalle de béton ni ombre,
-alors que le même bâtiment posé à la main en avait. Corrigé — mais le **dédoublement du spawner
-lui-même ne l'est pas**, et c'est exactement le piège que `SetViewSpawner` évite côté chantiers.
+alors que le même bâtiment posé à la main en avait. Le dédoublement lui-même a été supprimé depuis :
+il n'y a plus qu'un spawner, `GameRuntime.BuildingViews`, et c'est la même parade que
+`SetViewSpawner` côté chantiers.
 
 Même classe de défaut que l'overscan et que l'ajustement par axe : **quatre chemins dessinent un
 bâtiment, et une correction appliquée à un seul reste invisible jusqu'à ce qu'on regarde le bon.**

@@ -6,7 +6,7 @@ namespace Game.Data
     /// <summary>
     /// Single source of truth for the research tree, on the same model as ItemDatabase and
     /// RecipeDatabase - one asset assigned on GameRuntime, not a scene-serialized array
-    /// (TASK_02_REFONTE_RECHERCHE.md §4). The tree is data the UI reads, it no longer defines it.
+    /// (RECHERCHE.md). The tree is data the UI reads, it no longer defines it.
     /// </summary>
     [CreateAssetMenu(fileName = "ResearchDatabase", menuName = "Game/Research/Research Database")]
     public sealed class ResearchDatabase : ScriptableObject
@@ -14,8 +14,8 @@ namespace Game.Data
         [SerializeField] ResearchDefinition[] researches;
 
         /// <summary>
-        /// The roots of the research network, in the order the panel lays them out around the
-        /// Datacenter: Research, Buildings, Armament (GDD §5.4).
+        /// The roots of the research network: Research, Buildings, Armament (GDD §5.4). Where each
+        /// sits is its own Tier and Angle, not its place in this list.
         ///
         /// Kept apart from the researches because a core is never bought: it is an unlock id granted
         /// by whatever powers it (ResearchSystem.Grant), and a research joins a branch by naming its

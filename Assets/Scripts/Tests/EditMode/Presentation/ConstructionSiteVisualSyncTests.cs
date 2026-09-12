@@ -19,7 +19,7 @@ using UnityEngine;
 namespace Game.Tests.EditMode.Presentation
 {
     /// <summary>
-    /// directive-materialisation-nano.md §2 and §3: the three visual states of a construction site
+    /// MATERIALISATION.md: the three visual states of a construction site
     /// segment, and above all the handover to the real building view.
     ///
     /// The state machine is what is under test, never the rendering. ConstructionSiteVisualSync.Tick
@@ -263,21 +263,28 @@ namespace Game.Tests.EditMode.Presentation
         }
 
         /// <summary>
-        /// A Splitter/Crossroad's "+" occupies five cells of a 3x3 box and deliberately leaves the
-        /// four corners free - its placement origin among them. A detached segment's liveness was
-        /// read off that origin cell, so the grid answered "nothing there" for a building that was
-        /// perfectly alive: every splitter was discarded the frame it materialised, its dissolve cut
-        /// on the spot and no real view ever spawned behind it. It simply vanished once built.
+        /// A materialised Splitter hands over to a real view instead of vanishing.
+        ///
+        /// <b>The defect this pins was a liveness test read off the origin cell alone.</b> The
+        /// Splitter was then a "+" of five cells inside a 3x3 box whose four corners - its placement
+        /// origin among them - were deliberately free, so the grid answered "nothing there" for a
+        /// building that was perfectly alive: every splitter was discarded the frame it materialised,
+        /// its dissolve cut on the spot and no real view spawned behind it.
+        ///
+        /// The Splitter is a single cell now and stands on its own origin, so it can no longer
+        /// reproduce that shape - the premise it used to open with is false by construction, and
+        /// asserting it would only pin the old footprint. What is still worth holding is the other
+        /// half: a site that completes becomes a real view exactly once. The origin-cell defect
+        /// itself is guarded where it lives, by ConstructionSiteVisualSync asking the whole
+        /// footprint rather than the origin.
         /// </summary>
         [Test]
-        public void AMaterializedSplitter_IsNotDiscarded_ThoughItsOriginCellIsFreeByDesign()
+        public void AMaterializedSplitter_HandsOverToARealView()
         {
             Fixture fixture = NewFixture(coreChestContents: 4);
             SplitterDefinition splitter = TestDataFactory.NewSplitter("splitter", (fixture.Plate, 4));
             ConstructionSiteRuntime site = PlaceSite(fixture, splitter, new GridCoord(5, 5));
             BuildingRuntime segment = site.Segments[0];
-
-            Assert.IsNull(fixture.Grid.GetOccupant(segment.Cell), "The premise: a '+' does not stand on its own origin.");
 
             fixture.Views.Tick();
             fixture.Simulate(12f);
@@ -318,18 +325,16 @@ namespace Game.Tests.EditMode.Presentation
         }
 
         /// <summary>
-        /// The silhouette, the assembling sprite and the real view must all be the size the
-        /// building is actually drawn at - BuildingSpawner.ArtWorldSize, RenderOverscan included.
-        /// Overscan used to be applied only inside BuildingSpawner, so everything previewing a
-        /// building came out that much smaller than what got built: 9% on the Foundry, visible to
-        /// the naked eye against a finished neighbour.
+        /// The silhouette, the assembling sprite and the real view must all be the size the building
+        /// is actually drawn at - BuildingSpawner.ArtWorldSize, which derives it from the art. This
+        /// used to be applied only inside BuildingSpawner, so everything previewing a building came
+        /// out smaller than what got built, visible to the naked eye against a finished neighbour.
         /// </summary>
         [Test]
-        public void SilhouetteAndAssembly_AreSizedToTheArtTheRealViewWillUse_OverscanIncluded()
+        public void SilhouetteAndAssembly_AreSizedToTheArtTheRealViewWillUse()
         {
             Fixture fixture = NewFixture(coreChestContents: 4);
             FoundryDefinition foundry = TestDataFactory.NewFoundry(0f, 0f);
-            Assert.AreNotEqual(1f, foundry.RenderOverscan, "Precondition: the Foundry is the overscanned case this guards.");
 
             // A cost, so the site actually waits on robots and can be sampled while still pending.
             SetCost(foundry, fixture.Plate, 4);
@@ -342,7 +347,7 @@ namespace Game.Tests.EditMode.Presentation
             SpriteRenderer silhouette = fixture.Views.SilhouetteOf(segment);
             Assert.IsNotNull(silhouette, "The segment must still be pending for this to mean anything.");
 
-            Vector2 expected = BuildingSpawner.ArtWorldSize(foundry, fixture.Grid.CellSize);
+            Vector2 expected = BuildingSpawner.ArtWorldSize(foundry, fixture.Grid.CellSize, silhouette.sprite);
             AssertDrawnWorldSize(silhouette, expected, "silhouette");
             AssertDrawnWorldSize(fixture.Views.DissolveOf(segment).GetComponent<SpriteRenderer>(), expected, "assembling sprite");
         }

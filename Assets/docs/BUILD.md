@@ -1,10 +1,9 @@
-# Building the game
+# Building the game, and the project's own tools
 
-How to produce a runnable Windows build, and the two things that silently break one.
+How to produce a runnable Windows build, the two things that silently break one, and the editor tools
+the project carries for its own content.
 
-Not an architecture document: this describes the build procedure only. Source of truth for the
-project itself stays `architecture/DEVELOPMENT_RULES.md` → `PROJECT_ARCHITECTURE.md` →
-`CONTRACTS.md` → `WORKFLOW.md`.
+Not an architecture document: nothing here describes what the game does.
 
 ---
 
@@ -111,3 +110,55 @@ Under `%USERPROFILE%\AppData\LocalLow\DefaultCompany\Automation_Dev\`:
   a New Game writes its starting state once. Playing `Bootstrap` directly, without going through
   MainMenu, generates a fresh world and writes it over the save at once, as a New Game does - copy
   the file aside before such a session.
+
+---
+
+## 7. The research tree editor
+
+`Tools > Research Tree > Open Editor Scene` opens `Assets/Scenes/Tools/ResearchTree.unity`: one object
+per research in the database, cores included, placed at its distance from the centre and its angle.
+
+- **Create** — `Tools > Research Tree > New Research`. With a node selected, the new research lands one
+  ring further out at the same angle and takes it as a prerequisite; with nothing selected it arrives on
+  the second ring, outside every branch, and is flagged unreachable.
+- **Fill in** — a node's inspector is its asset's own. The hierarchy shows the display name, and
+  renaming a node there renames the research. The file takes the name of the identifier a second after
+  the last keystroke, not on every key. An identifier that cannot be a file name, or is already taken,
+  is reported once in the console and the file keeps its name. Renaming breaks no reference: the
+  database and the prerequisites point at the asset, not at its name.
+- **Link** — the *Link* tool in the scene toolbar, offered as soon as a node is selected. Click one
+  node, then another: the first becomes a prerequisite of the second. Clicking the same pair again
+  removes the link; clicking empty ground drops the first.
+- **Move** — the ordinary translate tool. The node follows the mouse and stays where it is dropped, on
+  a ring or between two, to a tenth of a ring; within 0.15 of a ring it snaps to it. Settling it *during*
+  the drag pinned it to its ring and made it look immobile.
+- **Look** — a *Research Tree* overlay sets how big the balls are drawn, one slider for the cores and
+  one for the researches. Each ball shows its research's own icon; names are not painted permanently,
+  only the ball under the cursor names itself.
+
+Everything goes through Unity's own undo. Nothing is written to disk before `File > Save Project`,
+except creation, which saves the asset it makes immediately.
+
+**The scene stores nothing.** The objects are handles and the asset is the only truth: dropping a node
+writes its distance and angle to the asset, then puts the node back where the asset says. Any other
+change to the asset - the inspector, an undo, a merge - moves the node. The scene is rebuilt from the
+database on opening and on every hierarchy change: a missing handle is created, one whose research is
+gone or already has a handle is removed. Deleting a node therefore deletes nothing; it comes back. The
+scene file is disposable, and is versioned so it can be found rather than because it holds anything.
+
+**The two validations are the game's own**, not a copy: a node on a prerequisite cycle is drawn red and
+its links with it, an unreachable node orange, and a summary in the top-left names the offenders.
+Linking two nodes so as to close a cycle also writes a console warning.
+
+**How big the balls are drawn is a view preference, and it lives in `EditorPrefs`** - not in the scene,
+which is rebuilt and would erase it, and not in an asset, which would put one person's reading comfort
+into the tree's own data and into everyone's commits.
+
+`Game.Tools` exists for this tool alone: Unity refuses to attach a component that comes from an editor
+assembly, so the scene handle has to live in a runtime one. It carries the `UNITY_EDITOR` constraint, so
+no build embeds it, and the rest of the tool lives in `Assets/Editor/ResearchTree/`.
+
+**What it does not do.** Deleting a research - it would have to be removed from the database and from
+every other research's prerequisites. And undoing a creation leaves the file: the undo removes the
+research from the database and its node from the scene, but the asset stays on disk, outside the
+database and therefore outside the game.

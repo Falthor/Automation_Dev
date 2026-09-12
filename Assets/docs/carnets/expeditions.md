@@ -37,12 +37,12 @@ réserves de CU sont comparées.
 
 Le plafond de réserve est passé de **25 000 à 60 000 puis 70 000**. Le seuil, écrit en absolu, n'a
 pas suivi : un déclencheur d'urgence est devenu un déclencheur d'introduction sans que rien ne le
-signale, deux fois. `MissionSettings` n'expose donc qu'une **fraction du plafond**, et le seuil en CU
-est une méthode qui prend le plafond en argument — ce qui rend impossible de stocker un seuil ayant
-cessé d'être d'accord avec la réserve qu'il décrit.
+signale, deux fois. Le seuil n'est donc plus stocké qu'en **fraction du plafond**, et il vit à côté du
+plafond qu'il lit plutôt que dans le réglage de la flotte : rangé près de ce qu'il déclenche, il avait
+déjà été laissé derrière deux fois.
 
-0,357143 du plafond livré de 70 000 fait 25 000. `MovingTheReserveCap_MovesTheRobotThreshold` vérifie
-que doubler le plafond double le seuil.
+La fraction livrée a été choisie pour reproduire le seuil que le jeu appliquait réellement, et non
+celui que les documents de conception décrivaient — les deux avaient divergé sans que rien ne le dise.
 
 ## 3. L'écart assumé : §8 a été écrite pour une carte de 300
 
@@ -248,7 +248,7 @@ composer six aurait été six fois le travail pour cinq qu'on ne verra jamais. C
 compose, pas la géométrie — `IsComposed(zone)` répond « c'est celle qu'on a choisie », et il n'existe
 nulle part de test « est-ce la zone 0 ».
 
-C'est la forme de la règle déjà en place pour les secteurs (`MAP.md` §6) : une règle sur la donnée, pas
+C'est la forme de la règle déjà en place pour les secteurs (`MAP.md`) : une règle sur la donnée, pas
 sur la géométrie, donc aucun périmètre de départ à entretenir.
 
 **Ce qui est posé, c'est le compte, pas les coordonnées.** Une position ne peut pas être écrite à
@@ -260,7 +260,7 @@ gisement à une cellule précise, et il vaut d'être noté plutôt que d'être p
 **Le piège d'ordonnancement, et sa forme ici.** Le contenu d'une zone est dérivé à la première demande
 puis conservé. Un écran qui présente les six avant le choix aurait donc figé le contenu dérivé, et la
 composition serait arrivée trop tard pour être vue — le contenu posé écrasé par la dérivation, exactement
-le danger que `MAP.md` §6 nomme pour les secteurs, dans son autre sens. `Choose` jette ce que la zone
+le danger que `MAP.md` nomme pour les secteurs, dans son autre sens. `Choose` jette ce que la zone
 avait dérivé, ce qui rend l'ordre des deux sans importance au lieu d'en faire une étape à respecter.
 Rien n'est perdu : aucune mission ne part avant qu'une zone soit choisie, donc aucun site ne porte
 encore d'état — et un test l'énonce plutôt que de le supposer.
@@ -512,7 +512,7 @@ cartographie resterait à zéro la moitié du voyage puis sauterait — ce qui s
 `surveyed` vient d'une version où le choix montrait les sites : la restaurer en « jamais visitée »
 reprendrait ce que la partie avait déjà et redemanderait une exploration déjà faite. Absente, la zone
 choisie compte comme reconnue. C'est la seule exception au défaut tolérant habituel, et elle est écrite
-dans `CONTRACTS.md` §16 pour qu'elle ne passe pas pour un oubli.
+pour qu'elle ne passe pas pour un oubli.
 
 ---
 
@@ -863,8 +863,9 @@ existent ». La seule portée qui reste est `ExplorerRobotSettings.maxRadiusCell
 
 **L'ouverture de la carte a changé de source, pas de règle.** Le bouton CARTE apparaissait sur
 `Missions.RobotsHaveAppeared` ; il apparaît sur `ExplorerRobots.RobotsHaveAppeared`, avec le même
-déclencheur — la réserve de CU **retombée** à 25 000. Une chute et non une montée : l'introduction
-consomme du CU, et la chose qui paie qui arrive quand le joueur s'assèche est une sortie, pas une
+déclencheur — la réserve de CU **retombée** sous son seuil d'arrivée. Une chute et non une montée :
+l'introduction consomme du CU, et la chose qui paie qui arrive quand le joueur s'assèche est une
+sortie, pas une
 récompense.
 
 **La notification a gagné une action, et c'est resté propre parce que le délégué appartient au

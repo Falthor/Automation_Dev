@@ -52,25 +52,6 @@ namespace Game.Data
         /// </summary>
         public virtual float RenderOverscan => 1f;
 
-        /// <summary>
-        /// How big the art is drawn, in cells, when that is <b>not</b> the shape of the footprint.
-        /// Zero (the default) means "the footprint", which is what almost every building wants.
-        ///
-        /// It exists for a building taller than the ground it stands on: art of 64x85 pixels over a
-        /// 2x2 footprint is 2 cells wide and 2.66 tall, and it has to overflow upward rather than be
-        /// squeezed into a square or stretched out of proportion. <see cref="RenderOverscan"/> cannot
-        /// express that - it is a single uniform factor, so it scales both axes together.
-        ///
-        /// <b>Stated in cells, not in pixels.</b> How many screen pixels a cell is worth depends on
-        /// the zoom, so a size in pixels would only be true at one camera distance; what is fixed is
-        /// the art's proportion against the ground.
-        /// </summary>
-        [SerializeField] Vector2 artCellSize = Vector2.zero;
-
-        /// <summary>The art's size in cells - <see cref="artCellSize"/> when set, the footprint otherwise.</summary>
-        public Vector2 ArtCellSize =>
-            artCellSize.x > 0f && artCellSize.y > 0f ? artCellSize : (Vector2)FootprintSize;
-
 
         /// <summary>Items required (from Core + every Storage) to place one of this building. Empty means free.</summary>
         public RecipeIngredient[] Cost => cost;
@@ -103,10 +84,11 @@ namespace Game.Data
 
         /// <summary>
         /// Every cell (relative to the placement origin) this building actually occupies. A full
-        /// FootprintSize rectangle by default - only a non-rectangular building (Splitter's "+"
-        /// shape, whose 3x3 bounding box has 4 free corners) overrides this. Grid occupancy,
-        /// demolition and the action-radius check all go through this rather than FootprintSize
-        /// directly, so they automatically support a masked shape with no per-caller special case.
+        /// FootprintSize rectangle for every building shipped today; the hook stays virtual because
+        /// grid occupancy, demolition and the action-radius check all go through it rather than
+        /// through FootprintSize directly, so a masked shape would work with no per-caller special
+        /// case. The Splitter and the Crossroad were the one masked footprint - a "+" inside a 3x3
+        /// box - until they became single cells.
         /// </summary>
         public virtual Vector2Int[] FootprintCells => RectangleCells(FootprintSize);
 
@@ -125,20 +107,6 @@ namespace Game.Data
         }
 
         /// <summary>
-        /// Center + one arm per cardinal side inside a 3x3 bounding box, corners free - the
-        /// footprint shared by Splitter and Crossroad. See CrossFootprint (Game.Gameplay) for the
-        /// matching absolute-cell math used by their runtimes.
-        /// </summary>
-        protected static readonly Vector2Int[] CrossShapeCells =
-        {
-            new Vector2Int(1, 0), // south arm
-            new Vector2Int(0, 1), // west arm
-            new Vector2Int(1, 1), // center
-            new Vector2Int(2, 1), // east arm
-            new Vector2Int(1, 2), // north arm
-        };
-
-        /// <summary>
         /// Whether one of these takes a slot against the building cap (ConstructionService.BuildingCap).
         ///
         /// True by default. Transport pieces (Conveyor, Splitter, Crossroad) and Storage boxes say
@@ -152,6 +120,18 @@ namespace Game.Data
         /// silently missing from the others.
         /// </summary>
         public virtual bool CountsAgainstBuildingCap => true;
+
+        /// <summary>
+        /// Whether this is a transport piece - a belt, a Splitter or a Crossroad. They lie flat on
+        /// whatever ground they were laid on and change none of it: no concrete pad, no ground
+        /// conversion, and inside the belt network an item passes along unmetered.
+        ///
+        /// Asked of the definition rather than by listing concrete runtime types, so a fourth kind
+        /// of transport answers for itself instead of being missed by whichever of the three readers
+        /// nobody thought to update. <b>Not the same question as <see cref="CountsAgainstBuildingCap"/></b>,
+        /// which a Storage box and a Showcase also answer false without being part of the network.
+        /// </summary>
+        public virtual bool IsTransportPiece => false;
 
         /// <summary>
         /// Whether this building has a single fixed output side (drawn as an arrow, both on the

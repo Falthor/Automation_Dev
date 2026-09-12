@@ -5,7 +5,7 @@ namespace Game.Save
     /// Bootstrap.unity, where GameRuntime.Awake() consumes and clears it immediately.
     ///
     /// This is the one deliberately mutable static state introduced by the save system
-    /// (DEVELOPMENT_RULES.md §5 requires flagging this explicitly): two fields, alive only for
+    /// (DEVELOPMENT_RULES.md requires flagging this explicitly): two fields, alive only for
     /// the duration of one scene transition, never read outside GameRuntime.Awake() - not a
     /// general-purpose singleton or a second source of truth for game state.
     /// </summary>

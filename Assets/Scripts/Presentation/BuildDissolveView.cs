@@ -47,8 +47,8 @@ namespace Game.Presentation
 
         /// <summary>
         /// Serialized rather than a plain auto-property so it shows up in the inspector: with no
-        /// site bound, dragging this by hand during play is how the effect gets judged by eye
-        /// (directive-materialisation-nano.md §11, step 1). A bound site overwrites it every tick.
+        /// site bound, dragging this by hand during play is how the effect gets judged by eye.
+        /// A bound site overwrites it every tick.
         /// </summary>
         [SerializeField, Range(0f, 1f)] float targetProgress;
 

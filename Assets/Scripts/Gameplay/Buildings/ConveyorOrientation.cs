@@ -5,8 +5,8 @@ namespace Game.Gameplay.Buildings
 {
     /// <summary>
     /// A conveyor's visual/logical orientation. Mirrored is an internal representation
-    /// detail (corner chirality) that callers never set directly - see CONTRACTS.md
-    /// "must not depend on an internal conveyor enum/type".
+    /// detail (corner chirality) that callers never set directly - see TRANSPORT.md:
+    /// callers must not depend on an internal conveyor enum/type.
     /// </summary>
     public readonly struct ConveyorOrientation
     {

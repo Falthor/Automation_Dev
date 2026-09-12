@@ -17,8 +17,8 @@ using UnityEngine;
 namespace Game.Tests.EditMode.Gameplay.Sites
 {
     /// <summary>
-    /// TASK_05_ROBOT_CONSTRUCTEUR.md §9's test list: construction sites, localized reservation,
-    /// the two builder robots, demolition/repatriation and the save round-trip.
+    /// Construction sites, localized reservation, the two builder robots,
+    /// demolition/repatriation and the save round-trip.
     /// </summary>
     public class ConstructionSiteSystemTests
     {
@@ -469,7 +469,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Assert.IsNotNull(belt.PeekPullableItem(), "And the belt kept what it had nowhere to put - nothing was destroyed in the refusal.");
         }
 
-        /// <summary>A straight belt one cell west of that cell, pointing east onto it - the only intake a chest accepts (CONTRACTS.md §3a).</summary>
+        /// <summary>A straight belt one cell west of that cell, pointing east onto it - the only intake a chest accepts (TRANSPORT.md).</summary>
         static ConveyorRuntime AddBeltEndingOn(Fixture fixture, GridCoord cell)
         {
             var belt = new ConveyorRuntime(TestDataFactory.NewConveyor(), new GridCoord(cell.X - 1, cell.Y), Direction.East);
@@ -844,10 +844,10 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Assert.IsTrue(belt.IsComplete, "The belt has to be really built for this to be a demolition at all.");
             Assert.AreEqual(0, fixture.CoreChest.GetInputAmount(PlateId), "Its plates left the chest.");
 
-            // A Splitter's "+" covers (6,5) among its five cells, so the belt loses its ground.
+            // A Splitter stands on one cell, so it takes the belt's ground by standing on it.
             SplitterDefinition splitter = TestDataFactory.NewSplitter("splitter");
             fixture.Construction.SelectBuilding(splitter);
-            Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5, 5), Direction.North, out _));
+            Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(6, 5), Direction.North, out _));
 
             fixture.Simulate(30f);
 

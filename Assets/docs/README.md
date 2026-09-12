@@ -1,76 +1,68 @@
 # Documentation du projet
 
-Trois dossiers, trois questions. Un document qui ne répond à aucune n'a pas sa place ici.
+**Une information, un document.** Un sujet est décrit à un seul endroit et absent de tous les autres :
+pas de résumé ailleurs, pas de rappel, pas de renvoi. Tous les documents sont lus, donc un renvoi
+n'apporte rien et coûte une ligne à maintenir.
 
 | Dossier | La question à laquelle il répond |
 |---|---|
-| [`architecture/`](architecture/) | **ce qui est** — le code livré, ses contrats, ses règles |
-| [`design/`](design/) | **ce qui est voulu** — la conception, pas encore construite |
-| [`carnets/`](carnets/) | **pourquoi c'est comme ça** — les décisions, les écarts, les mesures |
-| [`archive/`](archive/) | rien. Ne fait pas foi, conservé comme trace. |
+| [`architecture/`](architecture/) | **ce qui est** — le code livré, ses surfaces, ses règles |
+| [`design/`](design/) | **ce qui est voulu** — conçu, pas encore construit |
+| [`carnets/`](carnets/) | **pourquoi c'est comme ça** — fausses pistes, mesures, pièges |
 
 ---
 
-## Ce qui fait foi
+## Qui possède quoi
 
-**`architecture/` décide.** Dans cet ordre en cas de contradiction :
+**Les règles d'abord.** [`DEVELOPMENT_RULES.md`](architecture/DEVELOPMENT_RULES.md) gouverne toute
+modification du projet et l'emporte sur le reste.
 
-1. [`DEVELOPMENT_RULES.md`](architecture/DEVELOPMENT_RULES.md) — les règles de travail
-2. [`PROJECT_ARCHITECTURE.md`](architecture/PROJECT_ARCHITECTURE.md) — les systèmes et leurs frontières
-3. [`CONTRACTS.md`](architecture/CONTRACTS.md) — les contrats publics, dont le format de sauvegarde
-4. [`WORKFLOW.md`](architecture/WORKFLOW.md) — la marche à suivre
+| Sujet | Document |
+|---|---|
+| Comment le projet est structuré : assemblages, principes, ordre de tri, amorçage | [`PROJECT_ARCHITECTURE.md`](architecture/PROJECT_ARCHITECTURE.md) |
+| La carte : découpage, découverte, brouillard, secteurs, épaves, robots explorateurs | [`MAP.md`](architecture/MAP.md) |
+| Le terrain, le sol, les biomes, le décor | [`TERRAIN.md`](architecture/TERRAIN.md) |
+| L'assemblage nano d'un bâtiment et la conversion du sol sous lui | [`MATERIALISATION.md`](architecture/MATERIALISATION.md) |
+| Le déplacement des objets : surfaces, géométrie, débit, tapis, splitters | [`TRANSPORT.md`](architecture/TRANSPORT.md) |
+| Les bâtiments à recette : cycles, états, tampons | [`PRODUCTION.md`](architecture/PRODUCTION.md) |
+| Poser, déplacer, démolir ; chantiers, robots constructeurs, GlobalStock | [`CONSTRUCTION.md`](architecture/CONSTRUCTION.md) |
+| L'énergie et sa répartition par priorité | [`ENERGIE.md`](architecture/ENERGIE.md) |
+| La réserve de CU | [`CALCUL.md`](architecture/CALCUL.md) |
+| La recherche, ses effets, l'arbre et ses validations | [`RECHERCHE.md`](architecture/RECHERCHE.md) |
+| Le matériel du Datacenter : usure, stabilité, rendement | [`DATACENTER.md`](architecture/DATACENTER.md) |
+| L'interface : sélection, Échap, raccourcis, barres et panneaux | [`UI.md`](architecture/UI.md) |
+| La sauvegarde : mécanisme, version, liste des clés | [`SAUVEGARDE.md`](architecture/SAUVEGARDE.md) |
+| Produire un build, et les outils d'éditeur du projet | [`BUILD.md`](BUILD.md) |
 
-Puis les documents de sous-système, qui font autorité sur leur propre domaine et seulement sur lui :
-[`MAP.md`](architecture/MAP.md) (découpage, découverte, brouillard, secteurs),
-[`TERRAIN.md`](architecture/TERRAIN.md) (terrain, sol, décor),
-[`MATERIALISATION.md`](architecture/MATERIALISATION.md) (l'assemblage nano d'un bâtiment et la
-conversion du sol sous lui), [`GLOBAL_UI.md`](architecture/GLOBAL_UI.md)
-(barre haute, navigation, panneaux — spécification Godot importée, lire son propre en-tête pour savoir
-ce qui est implémenté).
-
-[`BUILD.md`](BUILD.md) reste à la racine : il ne décrit pas le jeu mais la façon de le produire, et
-les contraintes qu'un build impose que l'éditeur ne révèle jamais.
+Chaque champ de sauvegarde est décrit par le document du système qui le produit ;
+[`SAUVEGARDE.md`](architecture/SAUVEGARDE.md) ne tient que le mécanisme et la liste des clés.
 
 ## Ce qui est voulu mais pas construit
 
 [`design/`](design/) — à lire comme une intention, jamais comme un état.
 
-- [`gdd-intro-recherche-expeditions.md`](design/gdd-intro-recherche-expeditions.md) — le GDD de
-  l'introduction : économie CU, déroulé en treize étapes, recherche, expéditions.
-- [`SPEC_EXPEDITIONS.md`](design/SPEC_EXPEDITIONS.md) — le système d'expéditions en détail. **Rien
-  n'en subsiste dans le code** : le processus a été construit puis retiré avec `MissionSystem` et
-  `ExpeditionZoneSystem`, et les robots explorateurs qui restent errent sans mission. À relire comme
-  une intention, comme le reste de `design/`.
-- [`expansion-territoriale.md`](design/expansion-territoriale.md) — Noyaux secondaires, zones
-  minières, densité des gisements, paramètres de génération. **Rien n'en est implémenté.**
-- [`maquettes/`](design/maquettes/) — les écrans, en HTML.
+**Un document de design est supprimé à la livraison, pas amendé.** Ce qui a été construit est décrit
+dans `architecture/`, le raisonnement va au carnet. Le garder ferait un troisième exemplaire, qui
+divergerait — c'est ainsi qu'une spécification finit par décrire un système retiré du code.
 
-En cas de contradiction entre le GDD et l'architecture : l'architecture décide *comment*, le GDD
-décide *quoi*.
+La règle est celle du mouvement, pas du contenu : ce qui entre dans `design/` en ressort à la
+livraison. Un dossier de design presque vide n'est pas un défaut, c'est le bon signal — ce qui a été
+conçu a été construit.
 
 ## Pourquoi c'est comme ça
 
 [`carnets/`](carnets/) — un carnet par chantier. Ils ne décrivent pas l'état du code : ils gardent ce
-que l'état du code ne peut pas dire, c'est-à-dire les décisions prises, les écarts assumés par rapport
-aux spécifications, les pièges rencontrés et les mesures qui ont tranché.
+que l'état du code ne peut pas dire — les fausses pistes et pourquoi elles l'étaient, les mesures qui
+ont contredit une intuition avec leurs chiffres, les pièges d'outillage, et les écarts assumés par
+rapport à une spécification.
 
-- [`brouillard-et-zonage.md`](carnets/brouillard-et-zonage.md) — brouillard, découverte, secteurs,
-  puis le passage de la carte à 10 000
-- [`materialisation-nano.md`](carnets/materialisation-nano.md) — dissolve et couverture au sol
-- [`expeditions.md`](carnets/expeditions.md) — le processus de mission
-- [`entrees-clavier.md`](carnets/entrees-clavier.md) — clavier et souris : `Key` est une
-  position et non une lettre, le focus qui volait Espace, ce qu'un grep ne trouve pas
-- [`datacenter-usure.md`](carnets/datacenter-usure.md) — usure, stabilité et rendement des pièces :
-  les formules, les chiffres qu'elles donnent, et les deux sens du mot « rendement »
-- [`effets-de-recherche.md`](carnets/effets-de-recherche.md) — pourquoi une recherche porte ses effets,
-  et pourquoi plus aucun système ne compare un identifiant de recherche
+**Un carnet est une mémoire de travail, pas une archive.** Une entrée n'y a sa place que tant que sa
+conclusion n'est nulle part ailleurs ; une fois absorbée dans un document permanent, elle devient un
+doublon qui vieillit plus mal que l'original. Relire un carnet à la fin d'un chantier fait partie du
+chantier.
 
-**Les directives ont disparu.** Chaque chantier en avait une, qui disait ce qu'il fallait faire ; une
-fois le chantier fini, elle ne pouvait plus que diverger du code sans que rien ne le signale. Ce
-qu'elles contenaient de vrai a migré dans `architecture/` (l'état) et dans les carnets (les raisons),
-ce qu'elles contenaient de non construit dans `design/`. Git garde leur texte.
+## Ce qui n'est plus ici
 
-## Ce qui ne fait pas foi
-
-[`archive/`](archive/) — voir son propre README. Rien de ce qui s'y trouve ne décrit l'état courant,
-et plusieurs de ces documents ont été présentés comme des références jusqu'à ce rangement.
+Les directives de chantier et les audits datés ont été supprimés : une fois le chantier fini, ils ne
+pouvaient plus que diverger du code en gardant l'air de faire autorité. **Git garde leur texte**, ce
+qui est tout ce qu'une trace doit être.

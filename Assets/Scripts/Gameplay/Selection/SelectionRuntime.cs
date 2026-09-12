@@ -6,7 +6,7 @@ using Game.Gameplay.Sites;
 namespace Game.Gameplay.Selection
 {
     /// <summary>
-    /// Owns what is currently inspected and the global UI-panel selection state (CONTRACTS.md §7).
+    /// Owns what is currently inspected and the global UI-panel selection state (UI.md).
     /// Three slots, and at most one of them is ever set: a building, a construction site, or a named
     /// global panel. Opening any of them closes the other two, matching the source project's
     /// behavior.

@@ -8,7 +8,7 @@ using UnityEngine.UIElements;
 namespace Game.UI
 {
     /// <summary>
-    /// Left-edge notification banner (TASK_05_ROBOT_CONSTRUCTEUR.md §6). Deliberately generic: it
+    /// Left-edge notification banner. Deliberately generic: it
     /// renders whatever NotificationSystem currently holds - severity, message, optional countdown -
     /// and knows nothing about robots, construction sites, or any other specific source.
     ///

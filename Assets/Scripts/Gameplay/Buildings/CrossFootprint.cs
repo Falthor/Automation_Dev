@@ -3,26 +3,21 @@ using Game.Core;
 namespace Game.Gameplay.Buildings
 {
     /// <summary>
-    /// Absolute-cell math for the "+"-shaped footprint shared by Splitter and Crossroad (center +
-    /// one arm per cardinal side, inside a 3x3 bounding box with free corners - see
-    /// SplitterDefinition/CrossroadDefinition.FootprintCells). The shape itself is rotationally
-    /// symmetric, so these offsets never change with FacingRotation - only which side plays
+    /// Absolute-cell math for the single-cell footprint shared by Splitter and Crossroad. The shape
+    /// is rotationally symmetric, so these never change with FacingRotation - only which side plays
     /// which role (entry/exit) does, on the runtime types themselves.
+    ///
+    /// <b>Kept as a named pair although both are now one line.</b> Every side both runtimes and both
+    /// of TransportSystem's dedicated steps address goes through here, so how a cross piece reaches
+    /// its neighbours is stated once rather than as an offset repeated at a dozen call sites - which
+    /// is exactly what made moving from the old "+" footprint to a single cell a two-line change.
     /// </summary>
-    static class CrossFootprint
+    public static class CrossFootprint
     {
-        public static GridCoord ArmCell(GridCoord origin, Direction direction)
-        {
-            switch (direction)
-            {
-                case Direction.North: return new GridCoord(origin.X + 1, origin.Y + 2);
-                case Direction.South: return new GridCoord(origin.X + 1, origin.Y);
-                case Direction.East: return new GridCoord(origin.X + 2, origin.Y + 1);
-                default: return new GridCoord(origin.X, origin.Y + 1); // West
-            }
-        }
+        /// <summary>The piece's own cell, whichever side is asked: it occupies one.</summary>
+        public static GridCoord ArmCell(GridCoord origin, Direction direction) => origin;
 
-        /// <summary>The cell one step beyond the arm tip - where a neighbor must sit to count as touching this side.</summary>
+        /// <summary>The cell one step beyond - where a neighbour must sit to count as touching this side.</summary>
         public static GridCoord NeighborCell(GridCoord origin, Direction direction) => ArmCell(origin, direction) + direction.ToOffset();
     }
 }

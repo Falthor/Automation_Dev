@@ -4,14 +4,6 @@ Authoritative subsystem document for terrain: the gameplay-side terrain data own
 
 It does **not** cover how the map is divided, discovered or hidden — chunks, sectors, discovery state and fog of war are [`MAP.md`](MAP.md).
 
-## Related documents
-
-- [`MAP.md`](MAP.md) — the map's division, discovery state, fog of war and sectors. `TerrainRuntime.Seed` is what its sector identities derive from.
-- [`DEVELOPMENT_RULES.md`](DEVELOPMENT_RULES.md) — determinism rule (§ "Deterministic generators must produce identical results for identical seed and parameters when determinism is part of the contract").
-- [`PROJECT_ARCHITECTURE.md`](PROJECT_ARCHITECTURE.md) — §7 Grid (terrain gameplay data ownership), §10 Presentation (the `GroundTextureProfile` preset pattern). This document expands both with implementation detail; where the two disagree, `PROJECT_ARCHITECTURE.md` wins per the source-of-truth order in `CLAUDE.md`.
-
----
-
 ## 1. Gameplay-authoritative terrain (`Game.Grid`)
 
 `TerrainRuntime` (`Assets/Scripts/Grid/TerrainRuntime.cs`) is the sole source of truth for per-cell terrain type. It is a **pure function of the seed and the coordinate**, computed on demand from `TerrainGenerationSettings` (`Game.Data`: `size`, `seed`, `terrainScale`, `proportion`):
@@ -26,7 +18,7 @@ It does **not** cover how the map is divided, discovered or hidden — chunks, s
 
 **Terrain does not enter the save.** It is re-derived at load from the four numbers the save carries (`TerrainSeed`, `TerrainSize`, `TerrainScale`, `TerrainProportion`), which is why those must be captured from the **running world** rather than from the settings asset — editing the asset between two sessions would otherwise regenerate a different world underneath buildings already placed.
 
-`Game.Grid` owns this data (`PROJECT_ARCHITECTURE.md` §7); do not access `TerrainRuntime` internals from outside approved contracts, and do not let a Tilemap or any visual stand in as the source of truth for terrain type.
+`Game.Grid` owns this data (`PROJECT_ARCHITECTURE.md`); do not access `TerrainRuntime` internals from outside approved contracts, and do not let a Tilemap or any visual stand in as the source of truth for terrain type.
 
 ## 2. Ground rendering (`Game.Presentation`)
 
@@ -39,7 +31,7 @@ Ground rendering reads no gameplay state beyond `TerrainRuntime.Size` and `GridR
 
 ### 2.1 `GroundTextureProfile`
 
-A ScriptableObject preset (`Terrain/Ground Texture Profile` asset menu) holding every tunable for the look below, so the active look can be swapped by reassigning one asset (`TerrainView.textureProfile`) instead of editing code. It is presentation-only: no corresponding Runtime type, per `PROJECT_ARCHITECTURE.md` §10.
+A ScriptableObject preset (`Terrain/Ground Texture Profile` asset menu) holding every tunable for the look below, so the active look can be swapped by reassigning one asset (`TerrainView.textureProfile`) instead of editing code. It is presentation-only: no corresponding Runtime type, per `PROJECT_ARCHITECTURE.md`.
 
 The live asset in `Bootstrap.unity` is `Assets/Data/Terrain/GroundProfile_Yughues.asset`.
 
@@ -93,7 +85,7 @@ Deriving a chunk therefore also derives the anchors of its **eight neighbours**,
 
 **Two filters, and the difference between them is the whole design:**
 
-- **What the player cleared** is stored, in `SaveData.DecorRemoved` (`CONTRACTS.md` §14). The derivation knows nothing of what happened on the ground, so without this a rock cleared to make room for a building grows back the moment the camera leaves and returns. `ConstructionService.CreateAndRegister` is the single chokepoint that records it — every building passes through it, whether placed, restored from a save, or materialised by a robot, and it clears **before** taking the cell.
+- **What the player cleared** is stored, in `SaveData.DecorRemoved`, as a comma-separated list of cell indices — a string rather than a `JObject` for the same dependency reason as the discovery state, `Game.Grid` referencing only `Game.Core` and `Game.Data`. The derivation knows nothing of what happened on the ground, so without this a rock cleared to make room for a building grows back the moment the camera leaves and returns. Restore is tolerant, and a save predating the field loads as a world nobody has cleared anything in — which is exactly what it recorded. `ConstructionService.CreateAndRegister` is the single chokepoint that records it — every building passes through it, whether placed, restored from a save, or materialised by a robot, and it clears **before** taking the cell.
 - **What is taken by something the seed already knows** — today an ore deposit — is filtered live through `DecorRuntime.GroundIsTaken` and never stored. Recording a deposit's footprint would write hundreds of cells into every save to say something the seed can answer, and would leave the ground bare once the deposit was mined out.
 
 Nothing is recorded where nothing grows: a footprint is cells, decor is roughly one item per hundred cells, so an unfiltered sweep would put about a hundred useless entries in the save for every rock actually cleared. `DecorRuntime.GrowsAt` memoises the chunk derivations it needs for this — measured, a 200-building base sweeping its own footprint at load costs 3 ms rather than 231.

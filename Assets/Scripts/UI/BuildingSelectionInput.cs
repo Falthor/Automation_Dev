@@ -17,7 +17,7 @@ namespace Game.UI
     /// Storage keeps its own dedicated global-panel mechanism (aggregate vs per-box, opened via
     /// the Bottom Nav or a click here) - clicking one calls StoragePanelController.Show directly.
     /// Every other per-building info panel (Extractor now, more later) instead goes through
-    /// SelectionRuntime.Select(building) (CONTRACTS.md §7's "currently inspected building"),
+    /// SelectionRuntime.Select(building) (UI.md's "currently inspected building"),
     /// which the matching panel controller (e.g. ExtractorPanelController) reacts to - so adding
     /// a new building type's panel never means touching this router's Storage-specific branch.
     ///

@@ -4,20 +4,7 @@ Authoritative subsystem document for the nano assembly effect: a placed building
 at the pace of its deliveries, and the ground under it converts at the same pace.
 
 It does **not** cover what a construction site is, who delivers to it, or when a building starts
-working — that is `CONTRACTS.md` §15 and `PROJECT_ARCHITECTURE.md` §17. This document covers what is
-drawn.
-
-## Related documents
-
-- [`PROJECT_ARCHITECTURE.md`](PROJECT_ARCHITECTURE.md) — §10 Presentation, §10.1 draw order (the
-  bands this subsystem's layers sit in), §17 (the central tick that drives sites).
-- [`CONTRACTS.md`](CONTRACTS.md) — §15, including `ConstructionSiteRuntime.SegmentProgress`, the one
-  read-only accessor Presentation was granted.
-- [`TERRAIN.md`](TERRAIN.md) — the ground this effect converts, and the shared noise primitive.
-- [`../carnets/materialisation-nano.md`](../carnets/materialisation-nano.md) — the false trails, the
-  measurements that overturned an intuition, and the traps. Not needed to use the system.
-
----
+working. This document covers what is drawn.
 
 ## 1. Where it lives
 
@@ -47,9 +34,11 @@ place that answers the size question; four paths draw a building and all four go
 **`RenderOverscan` is a measurement of the art, not a free number.** For a building whose art is
 meant to fill its footprint, it compensates the transparent margin: `1 / (opaque width ÷ frame
 width)`. It is therefore a property **of the file** and expires the moment the file is replaced. A
-test reads the source PNG and measures the opaque box. The Conveyor, Splitter and Crossroad have an
-overscan of the opposite sense — theirs deliberately pushes their arms into the neighbouring cell to
-close a seam — and the test excludes them explicitly.
+test reads the source PNG and measures the opaque box. The **conveyor corner** is the one exception
+and the test excludes it: its overscan is of the opposite sense, pushing the art into the
+neighbouring cell to close the seam between two belts rather than compensating a margin of its own.
+The straight conveyor, the Splitter and the Crossroad each sit at 1 — their art fills its cell
+exactly, so there is neither a margin to compensate nor a gap to close.
 
 **Height overhang is carried by the sprite's pivot**, never by a transform offset: the pivot sits at
 the centre of the *footprint* inside a taller frame. Any path that positions the art at the centre of
@@ -100,7 +89,7 @@ deliberate. Changes show immediately in Play: the component re-reads the asset e
 | `sitePlaceholderAlpha`, `siteSilhouetteSortingOrder` | The blue silhouette during assembly. |
 
 `dissolveShader` points at `Custom/BuildDissolve`, **as an asset reference, never `Shader.Find`** —
-see [`../BUILD.md`](../BUILD.md) §5.
+a shader reached only by name is stripped from a player build.
 
 **The assembly rate is deliberately not here.** It lives in `Game.Gameplay.Sites.SegmentAssembly`,
 because it decides **when a building starts working**: a segment is not registered, powered or active
@@ -152,8 +141,6 @@ empty; restored buildings get their real view directly.
   deposit, which is drawn higher, so its waiting silhouette passes *behind* the deposit it is
   reserving — the single most useful placement cue, on the most-placed building in the game. Fixing
   it needs a full renumbering of the ladder; deliberately out of scope.
-- **`GameRuntime` builds a second `BuildingSpawner`** for the restore path, with its own per-cell view
-  dictionary — exactly the trap `SetViewSpawner` avoids for sites. Pre-existing.
 - **Progress weights each item by its unit count.** A screw is worth a circuit board. Real, known, and
   untriaged; the fallback, when it bites, is the mean of per-ingredient rates.
 - The bar counts only **delivered** material, not what is in flight.

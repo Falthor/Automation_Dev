@@ -8,8 +8,8 @@ namespace Game.Gameplay.Sites
     /// <summary>
     /// A single earmarked promise: `amount` of `ItemId` sitting inside `Container` (a StorageRuntime
     /// or a ProductionBuildingRuntime's output), reserved for one ConstructionSiteRuntime and no
-    /// longer available to anything else - the "couples contenant-quantité" TASK_05_ROBOT_CONSTRUCTEUR.md
-    /// §1 requires instead of a single total. Physically still sitting in Container until a robot
+    /// longer available to anything else - the "couples contenant-quantité"
+    /// CONSTRUCTION.md requires instead of a single total. Physically still sitting in Container until a robot
     /// actually picks it up.
     /// </summary>
     public struct Reservation
@@ -20,13 +20,13 @@ namespace Game.Gameplay.Sites
     }
 
     /// <summary>
-    /// A construction site (TASK_05_ROBOT_CONSTRUCTEUR.md §3/§7): one or more already-constructed
+    /// A construction site (CONSTRUCTION.md): one or more already-constructed
     /// but not-yet-registered BuildingRuntime segments (one for a normal building, several in
     /// placement order for a dragged conveyor/splitter run), plus the bill of materials still owed
     /// and the reservations already earmarked toward it. A segment's BuildingRuntime is real from
     /// the moment it is placed (already occupying its grid cell, already correctly configured) - it
     /// simply is not yet registered with TransportSystem and has no spawned view, so it neither
-    /// ticks, transports, nor produces anything (PROJECT_ARCHITECTURE.md §12/§13) until this site
+    /// ticks, transports, nor produces anything (PROJECT_ARCHITECTURE.md) until this site
     /// materializes it.
     /// </summary>
     public sealed class ConstructionSiteRuntime
@@ -381,8 +381,7 @@ namespace Game.Gameplay.Sites
         /// <summary>
         /// Whether the next not-yet-materialized segment's own cost has been fully delivered -
         /// i.e. it can become a real, registered building right now. Segments materialize strictly
-        /// in placement order (TASK_05_ROBOT_CONSTRUCTEUR.md §3: "les segments se matérialisent au
-        /// fur et à mesure le long du tracé").
+        /// in placement order (CONSTRUCTION.md).
         /// </summary>
         public bool CanMaterializeNextSegment()
         {
@@ -422,8 +421,7 @@ namespace Game.Gameplay.Sites
         {
             if (MaterializedCount >= _segments.Count) return;
 
-            // The footprint's bounding area, matching what the effect was tuned on - a Splitter's "+"
-            // assembles as the 3x3 box it is drawn in, not as its five occupied cells.
+            // The footprint's bounding area, matching what the effect was tuned on.
             UnityEngine.Vector2Int footprint = _segments[MaterializedCount].Definition.FootprintSize;
 
             float rate = SegmentAssembly.RateFor(footprint.x * footprint.y);
@@ -520,7 +518,7 @@ namespace Game.Gameplay.Sites
         }
 
         /// <summary>
-        /// Envelope for save/restore (CONTRACTS.md §14 convention): each segment is captured as
+        /// Envelope for save/restore (SAUVEGARDE.md convention): each segment is captured as
         /// definitionId+cell+rotation, not a live reference - ConstructionSiteSystem.RestoreState
         /// reconstructs the actual BuildingRuntime instances (via the same factory TryPlace uses,
         /// with no cost/placement check, exactly like ConstructionService.CreateForRestore) before

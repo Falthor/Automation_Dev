@@ -11,10 +11,10 @@ namespace Game.UI
 {
     /// <summary>
     /// Storage panel, opened either from the Bottom Nav "Storage" category button (the dedicated
-    /// aggregate view TASK_05_ROBOT_CONSTRUCTEUR.md §1 asks for: GlobalStock, i.e. everything a
+    /// aggregate view CONSTRUCTION.md describes: GlobalStock, i.e. everything a
     /// builder robot could still be sent to fetch, grid sized to however many item types actually
     /// exist) or by clicking a specific Storage in the world (that box's own fixed slots, empty
-    /// ones included). Same panel shell, same global-panel slot (CONTRACTS.md §7/§12: UI reads the
+    /// ones included). Same panel shell, same global-panel slot (UI.md: UI reads the
     /// public contract, never a private field).
     /// </summary>
     public sealed class StoragePanelController : MonoBehaviour
@@ -180,7 +180,7 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// The aggregate view is now a straight read of GlobalStock (CONTRACTS.md §15) - the Core
+        /// The aggregate view is now a straight read of GlobalStock (CONSTRUCTION.md) - the Core
         /// chest, every placed Storage and every production building's output, minus what
         /// construction sites have already reserved. It no longer sums those sources itself: what
         /// this panel shows must be exactly what a builder robot could still be sent to fetch, and

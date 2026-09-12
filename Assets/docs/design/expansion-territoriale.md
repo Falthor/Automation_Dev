@@ -87,7 +87,7 @@ contenu dérivé : il est écrit au moment où le site de Noyau est déterminé,
 dérivation générale ne s'applique à ces secteurs. La règle « un secteur qui porte du contenu placé
 garde ce contenu » suffit ensuite à le protéger — c'est la même contrainte d'ordonnancement que celle
 de la zone de départ, et elle est déjà documentée dans
-[`../architecture/MAP.md`](../architecture/MAP.md) §5.
+[`../architecture/MAP.md`](../architecture/MAP.md).
 
 **Question ouverte :** trois ressources de base suffisent-elles à l'autonomie, ou un Noyau secondaire
 doit-il pouvoir produire toute la chaîne ? La réponse décide si la garantie porte sur trois
@@ -162,7 +162,7 @@ territoires qui se chevauchent, et le générateur doit arbitrer entre deux cons
 Expose les causes, calcule les conséquences.
 
 *(Ce principe est déjà appliqué au seuil de mission : `SectorMissionRange.ExplorationMinimumCells` est
-une propriété calculée, jamais un champ. Voir [`../architecture/MAP.md`](../architecture/MAP.md) §4.)*
+une propriété calculée, jamais un champ. Voir [`../architecture/MAP.md`](../architecture/MAP.md).)*
 
 ### Le mécanisme, pas seulement l'écran
 
@@ -201,7 +201,7 @@ réglées.
 | Rayon maximal d'un Noyau | 80 | **livré** |
 | Rayon initial d'un Noyau secondaire | 40 | à confirmer |
 | Nombre de Noyaux secondaires | 6 | répartis à 360°/n |
-| Vide minimal entre deux territoires | 90 | **livré** (`SectorSettings.territorySpacingCells`) |
+| Vide minimal entre deux territoires | 90 | **plus dans le code** : le réglage a été retiré avec le seuil qu'il dérivait |
 | Variation de rayon | ±20 | casse le cercle parfait |
 | Variation d'angle | ±10 % | au-delà, la marge devient courte |
 | *Distance nominale d'un Noyau secondaire* | *250 à rayon max 80 ; 154 à 32* | **dérivée** : 2 × rayon max + vide minimal |
@@ -231,7 +231,7 @@ avant-postes contre quarante-sept — c'est cette différence-là qu'on règle.
 | Taille d'une grappe au-delà des Noyaux secondaires | à régler | croissante avec la distance |
 | Au moins une zone minière de chaque type entre un Noyau secondaire et le principal | oui | garantie, pas une probabilité |
 
-**Missions** — livrées, voir [`../architecture/MAP.md`](../architecture/MAP.md) §4 et
+**Missions** — livrées, voir [`../architecture/MAP.md`](../architecture/MAP.md) et
 [`SPEC_EXPEDITIONS.md`](SPEC_EXPEDITIONS.md).
 
 | Paramètre | Défaut | Note |
@@ -240,7 +240,7 @@ avant-postes contre quarante-sept — c'est cette différence-là qu'on règle.
 | *Portée de la prospection minière* | *du rayon courant au seuil* | **dérivée** — livrée |
 | Robots explorateurs au démarrage | 2 | **livré** |
 | Missions par robot | 10 | **livré** |
-| Seuil de CU déclenchant les missions | 25 000 | **livré**, en fraction du plafond de réserve (70 000) |
+| Seuil de CU déclenchant les missions | *dérivé* | **livré**, en fraction du plafond de réserve — jamais en absolu |
 
 ### Pourquoi cette liste maintenant
 

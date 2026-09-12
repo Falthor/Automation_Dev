@@ -25,4 +25,5 @@ MonoBehaviour:
     recipe: {fileID: 0}
     value: 200
   absorptionRatePerSecond: 40
-  tier: 7
+  tier: 3.3
+  angle: 101.1

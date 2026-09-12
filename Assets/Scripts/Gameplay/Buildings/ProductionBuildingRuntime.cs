@@ -11,11 +11,11 @@ using Newtonsoft.Json.Linq;
 namespace Game.Gameplay.Buildings
 {
     /// <summary>
-    /// Generic single-active-recipe production contract (CONTRACTS.md §6), shared by every
+    /// Generic single-active-recipe production contract (PRODUCTION.md), shared by every
     /// recipe-based production building (Foundry today; Factory/AdvancedFoundry in
     /// later phases). A recipe cycle takes ALL its ingredients and its one-shot Compute cost at
     /// once, the moment it starts (transition into Producing) - switching recipes mid-cycle
-    /// abandons it without refunding what was already taken (CONTRACTS.md §6). Power demand is
+    /// abandons it without refunding what was already taken (PRODUCTION.md). Power demand is
     /// reported only while actually Producing; Compute is never a continuous draw for these
     /// buildings, only the recipe's one-shot cost spent from the global reserve.
     /// </summary>
@@ -104,7 +104,7 @@ namespace Game.Gameplay.Buildings
             return _acceptedItemIds == null || _acceptedItemIds.Length == 0 || System.Array.IndexOf(_acceptedItemIds, itemId) >= 0;
         }
 
-        // ---- CONTRACTS.md §6 ----
+        // ---- PRODUCTION.md ----
 
         /// <summary>Every recipe in this building's whitelist that also exists in the database and isn't behind an unfinished research.</summary>
         public IReadOnlyList<string> GetRecipeIds()
@@ -292,7 +292,7 @@ namespace Game.Gameplay.Buildings
             _timer = 0f;
         }
 
-        // ---- Building/Inventory contract (CONTRACTS.md §3) ----
+        // ---- Building/Inventory surface (TRANSPORT.md) ----
 
         public override bool CanAcceptInput(string itemId, int amount, Direction fromDirection)
         {
@@ -319,10 +319,10 @@ namespace Game.Gameplay.Buildings
         public override int TakeOutput(string itemId, int amount) => _output.Take(itemId, amount);
         public override IReadOnlyDictionary<string, int> GetOutputContents() => _output.Contents;
 
-        /// <summary>Read-only snapshot of everything currently held in input (raw materials waiting on a cycle to start) - mirrors GetOutputContents() (CONTRACTS.md §3), for a caller that needs to display or enumerate a building's whole internal stock rather than a single item's amount (GetInputAmount).</summary>
+        /// <summary>Read-only snapshot of everything currently held in input (raw materials waiting on a cycle to start) - mirrors GetOutputContents() (TRANSPORT.md), for a caller that needs to display or enumerate a building's whole internal stock rather than a single item's amount (GetInputAmount).</summary>
         public IReadOnlyDictionary<string, int> GetInputContents() => _input.Contents;
 
-        // ---- Building/Flow contract (CONTRACTS.md §2) - lets an existing conveyor placed
+        // ---- Building/Flow surface (TRANSPORT.md) - lets an existing conveyor placed
         // behind this building pull its output exactly like it already pulls from an Extractor. ----
 
         public override object PeekPullableItem()
@@ -339,7 +339,7 @@ namespace Game.Gameplay.Buildings
             if (item is string itemId) _output.Take(itemId, 1);
         }
 
-        // ---- Save/Restore (CONTRACTS.md §14) ----
+        // ---- Save/Restore (SAUVEGARDE.md) ----
 
         public override JObject CaptureState()
         {
