@@ -276,7 +276,7 @@ l'indiquer autrement, sinon l'indicateur devient une frustration au lieu d'un ob
 |---|---|---|
 | 1 | Réserve finie, chaque objet produit en consomme. Le joueur pose extracteurs, fonderies, premières lignes. Les vis sont disponibles d'emblée. | début de partie |
 | 2 | Recherche **Circuit imprimé**. Le joueur monte ses lignes de vis et de PCB. | choix du joueur |
-| 3 | Passage sous **25 000 CU**. | seuil de réserve |
+| 3 | La réserve passe **sous le seuil d'arrivée de la flotte**. | seuil de réserve |
 | 4 | **Introduction du système de missions** : deux robots explorateurs apparaissent, la carte dézoomée devient accessible, les secteurs limitrophes sont marqués *non reconnu*. | étape 3 |
 | 5 | **Premières missions.** Reconnaissance à 500 CU, Récupération à 1 500 CU. Le joueur découvre que l'exploration paie. | choix du joueur |
 | 6 | Une expédition découvre un **signal anormal** : le nœud ??? se révèle et donne une **troisième robot explorateur**. | site scénarisé, révélé à coup sûr |
@@ -565,16 +565,11 @@ ligne du budget (§4.4), pas comme une description du système qui le produit.
 
 ## 7. L'interface générale
 
-> **Cette section ne recoupe pas [`../architecture/GLOBAL_UI.md`](../architecture/GLOBAL_UI.md)**, et
-> les deux répondent à des questions différentes. GLOBAL_UI décrit **ce que le HUD est** — les cartes,
-> leur ancrage, l'expansion au survol, le routage des panneaux. Cette section-ci décrit **quand ses
-> parties apparaissent** au fil de l'introduction, et un composant que GLOBAL_UI ne mentionne nulle
-> part.
->
 > **Rien de ce qui suit n'est implémenté.** Les cinq cartes de la top bar existent toutes dès la
-> première frame, et il n'y a pas de widget de bridage dans le projet. C'est de l'intention, à sa
-> place dans `design/`. La « révélation progressive » que GLOBAL_UI mentionne est autre chose : le
-> détail d'une carte qui se déplie au survol, pas une carte qui apparaît en cours de partie.
+> première frame, et il n'y a pas de widget de bridage dans le projet. Ce que le HUD **est** — les
+> cartes, leur ancrage, l'expansion au survol, le routage des panneaux — appartient à
+> [`../architecture/UI.md`](../architecture/UI.md) ; cette section-ci décrit **quand ses parties
+> apparaissent** au fil de l'introduction, ce qui reste une intention.
 
 La top bar se révèle **au même rythme que le cerveau se répare** :
 
@@ -604,11 +599,11 @@ sites.
 
 **Runtime.** `Game.Gameplay.Research.ResearchSystem` expose des events pour que bâtiments et recettes
 se débloquent en réaction, sans que l'UI soit recâblée à chaque ajout. Son contrat public est
-`architecture/CONTRACTS.md` §11.
+`architecture/RECHERCHE.md`.
 
 **Rendu du menu neuronal — en UI Toolkit, pas en uGUI.** Ce paragraphe recommandait l'inverse, pour
 « plus de liberté sur les effets de tracé et de pulsation ». La recommandation contredit
-`architecture/DEVELOPMENT_RULES.md` §6, qui pose UI Toolkit comme technologie primaire — et le besoin
+`architecture/DEVELOPMENT_RULES.md`, qui pose UI Toolkit comme technologie primaire — et le besoin
 qui la motivait est déjà résolu dans le projet : `HistoryGraphElement`, `HatchFillElement` et
 `ClockGlyphElement` tracent tous en **Painter2D**, à l'angle et à la taille exacts, sans texture à
 importer ni durée de vie à gérer. Les synapses relèvent du même geste. Une seconde technologie d'UI
@@ -653,10 +648,3 @@ Restent ici les points qui n'appartiennent qu'à l'économie de l'introduction :
 | 7 | Carte dézoomée : l'image existe (`SectorMapImage`), l'écran non | **en cours** |
 | 8 | Menu de recherche en réseau radial, trois noyaux, algorithme de placement, zoom et recentrage | **fait** |
 | 9 | Nid, branche armement, unités, usure, entretien, réparation | à faire |
-
-L'étape qui ouvrait cette liste — modifier `CONTRACTS.md` §10, parce que le modèle de recherche par
-débit d'absorption contredisait « CU est une monnaie, pas un flux » — est **accomplie** : §10 porte
-maintenant l'exception, nommée, avec ses deux seuls appelants (`SpendUpTo` pour la recherche et
-l'amorçage du Datacenter) et le renvoi à §13. Elle est retirée d'ici plutôt que marquée faite : une
-première ligne qui demande de modifier un contrat déjà modifié se lit comme une consigne, pas comme
-un historique.

@@ -18,7 +18,7 @@ It does **not** cover how the map is divided, discovered or hidden — chunks, s
 
 **Terrain does not enter the save.** It is re-derived at load from the four numbers the save carries (`TerrainSeed`, `TerrainSize`, `TerrainScale`, `TerrainProportion`), which is why those must be captured from the **running world** rather than from the settings asset — editing the asset between two sessions would otherwise regenerate a different world underneath buildings already placed.
 
-`Game.Grid` owns this data (`PROJECT_ARCHITECTURE.md` §7); do not access `TerrainRuntime` internals from outside approved contracts, and do not let a Tilemap or any visual stand in as the source of truth for terrain type.
+`Game.Grid` owns this data (`PROJECT_ARCHITECTURE.md`); do not access `TerrainRuntime` internals from outside approved contracts, and do not let a Tilemap or any visual stand in as the source of truth for terrain type.
 
 ## 2. Ground rendering (`Game.Presentation`)
 
@@ -31,7 +31,7 @@ Ground rendering reads no gameplay state beyond `TerrainRuntime.Size` and `GridR
 
 ### 2.1 `GroundTextureProfile`
 
-A ScriptableObject preset (`Terrain/Ground Texture Profile` asset menu) holding every tunable for the look below, so the active look can be swapped by reassigning one asset (`TerrainView.textureProfile`) instead of editing code. It is presentation-only: no corresponding Runtime type, per `PROJECT_ARCHITECTURE.md` §10.
+A ScriptableObject preset (`Terrain/Ground Texture Profile` asset menu) holding every tunable for the look below, so the active look can be swapped by reassigning one asset (`TerrainView.textureProfile`) instead of editing code. It is presentation-only: no corresponding Runtime type, per `PROJECT_ARCHITECTURE.md`.
 
 The live asset in `Bootstrap.unity` is `Assets/Data/Terrain/GroundProfile_Yughues.asset`.
 
