@@ -208,8 +208,8 @@ Core chest (the core_storage fixture)
       → every production building's OUTPUT
 ```
 
-minus everything already reserved by a construction site. Its invariant: **what GlobalStock reports is
-exactly what a builder robot could still be sent to fetch.** Items riding a conveyor or already in a
+minus everything already reserved - by a construction site, or by an in-flight Core delivery (§10). Its
+invariant: **what GlobalStock reports is exactly what a builder robot could still be sent to fetch.** Items riding a conveyor or already in a
 robot's cargo are never counted - they are no longer claimable. A production building's *input* is not
 part of it either, a deliberate narrowing: the aggregate and the robots' collection order must be the
 same list, and a robot does not raid work-in-progress ingredients out of a machine.
@@ -228,6 +228,11 @@ site blocked on a material nobody has is skipped rather than blocking the queue,
 robots as soon as it can be served again. "One chantier at a time" is about simultaneous execution -
 both robots serve the same one - not about strict queue order. Each robot claims its share of a site's
 reservations before leaving, so two robots never fetch the same promised piece twice.
+
+**A free robot's task order is fixed: a construction site's earmark first, an in-flight Core delivery
+second, a repatriation job last.** A directive never takes a robot from a building already waiting on
+its material, and a demolished building's cargo only claims whichever robot the first two have nothing
+left to hand.
 
 **Cargo is uncapped for construction and capped at `DirectiveCargoCapacity` for a Core directive.** The
 two are different kinds of job: a building waiting on its materials should not take five waves to
