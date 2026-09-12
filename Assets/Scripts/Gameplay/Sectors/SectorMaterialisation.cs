@@ -7,7 +7,8 @@ using UnityEngine;
 namespace Game.Gameplay.Sectors
 {
     /// <summary>
-    /// Turns a sector's derived contents into real deposits, once, when a mission opens it.
+    /// Turns a sector's derived contents into real deposits, once, when a wandering explorer robot
+    /// opens it (<see cref="Game.Gameplay.Exploration.ExplorerRobotSystem"/>).
     ///
     /// <b>Placed content wins, and that is the whole rule.</b> A sector already carrying something put
     /// there deliberately keeps it, and the derivation only fills sectors that carry nothing. Stated
@@ -18,9 +19,9 @@ namespace Game.Gameplay.Sectors
     /// <b>The ordering constraint is the real risk.</b> Placed content must exist before the
     /// derivation reaches those sectors; reverse the two and the starting area is overwritten by
     /// random ore, and the introduction stops being playable. Today the order holds by construction -
-    /// `WorldGenerator` places its clusters during `Awake`, and nothing materialises until a mission
-    /// lands or the Core's own disc is walked, both of which happen later. This class does not rely on
-    /// that: it checks the grid at the moment it writes.
+    /// `WorldGenerator` places its clusters during `Awake`, and nothing materialises until a robot
+    /// wanders into a sector, which happens later. This class does not rely on that: it checks the
+    /// grid at the moment it writes.
     ///
     /// <b>Nothing derived lands inside the Core's reach.</b> The ground within
     /// <c>GameRuntime.FurthestActionRadiusCells</c> - the highest radius any research grants - is the starting territory: its ore is placed by

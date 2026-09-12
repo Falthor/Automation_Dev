@@ -15,9 +15,11 @@ namespace Game.Data
     /// <b>A turn rate is a curve radius, read against the speed.</b> Worth knowing before touching
     /// them: at <c>v</c> cells per second and <c>w</c> degrees per second the robot turns on a circle
     /// of radius <c>v / (w x pi / 180)</c>. Raising a rate tightens that circle in proportion, and a
-    /// rate high enough turns a meander into a robot spinning on the spot - which is why the drift is
-    /// the smallest of the three. The figures themselves are on the asset and not repeated here:
-    /// quoted in this comment they went stale the first time the asset was retuned.
+    /// rate high enough turns a meander into a robot spinning on the spot - which is why the drift
+    /// especially must stay low: it is the one of the three meant to read as wander rather than a
+    /// turn, unlike the pull and the recall, which are meant to be seen steering the robot. The
+    /// figures themselves are on the asset and not repeated here: quoted in this comment they went
+    /// stale the first time the asset was retuned.
     /// </summary>
     [CreateAssetMenu(fileName = "ExplorerRobotSettings", menuName = "Game/World/Explorer Robot Settings")]
     public sealed class ExplorerRobotSettings : ScriptableObject
