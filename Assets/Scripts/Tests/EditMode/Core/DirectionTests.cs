@@ -37,10 +37,9 @@ namespace Game.Tests.EditMode.Core
         [TestCase(Direction.East, 90)]
         [TestCase(Direction.South, 180)]
         [TestCase(Direction.West, 270)]
-        public void RotationDegrees_RoundTrips(Direction direction, int degrees)
+        public void ToRotationDegrees_MatchesTheCardinalConvention(Direction direction, int degrees)
         {
             Assert.AreEqual(degrees, direction.ToRotationDegrees());
-            Assert.AreEqual(direction, DirectionExtensions.FromRotationDegrees(degrees));
         }
     }
 }

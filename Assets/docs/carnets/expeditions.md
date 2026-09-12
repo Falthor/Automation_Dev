@@ -559,8 +559,13 @@ aux mêmes coordonnées.
 **Le correctif est à l'étage de la graine, pas à celui du tirage.** Ajouter de l'aléatoire dans le
 placement aurait cassé la règle qui tient tout le projet — un site doit se redériver identique après un
 rechargement. Une partie neuve tire maintenant sa graine une fois, et tout ce qui suit continue de
-passer par `DeterministicHash`. C'est le seul tirage non déterministe du projet, il a lieu une fois, et
-il part immédiatement dans la sauvegarde.
+passer par `DeterministicHash`.
+
+**Ce n'est pas le seul tirage non déterministe du projet, c'est le seul qui entre dans la
+sauvegarde** — et c'est cela qui rend le monde reproductible. Les autres existent et n'ont pas à être
+reproductibles : la graine des gisements est remplacée au rechargement par les gisements eux-mêmes, la
+graine visuelle du sol est retirée à chaque lancement, et le tirage de stabilité du Datacenter est
+rejoué en continu, son résultat étant ce que la sauvegarde porte.
 
 `randomiseSeedEachRun` peut être décoché pour rejouer un monde précis — ce qui est la seule façon de
 retrouver un bug lié à une carte particulière.

@@ -257,10 +257,9 @@ pure function of the world seed and the sector index, when asked. The seed is th
 (`TerrainRuntime.Seed`) — the only one a save restores — so the same sector answers the same thing in
 a loaded game, and nothing about a sector enters the save.
 
-The mixing goes through `Game.Core.DeterministicHash`, shared with the terrain and explicitly written
-out: `System.Random` and `string.GetHashCode` are barred from anything derived, because neither is
-guaranteed stable across runtime versions and a change would move every unmaterialised deposit in
-every existing world. Frozen by tests with hard-coded features, centres and deposit cells.
+The mixing goes through `Game.Core.DeterministicHash`: a mixer that answered differently would move
+every unmaterialised deposit in every existing world. Frozen by tests with hard-coded features,
+centres and deposit cells.
 
 **One sector in `SectorSettings.oreClusterOneSectorIn` holds an ore cluster. The rest hold
 nothing.**

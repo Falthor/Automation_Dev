@@ -38,11 +38,5 @@ namespace Game.Core
 
         /// <summary>North=0, East=90, South=180, West=270.</summary>
         public static int ToRotationDegrees(this Direction direction) => (int)direction * 90;
-
-        public static Direction FromRotationDegrees(int degrees)
-        {
-            int normalized = ((degrees / 90) % 4 + 4) % 4;
-            return (Direction)normalized;
-        }
     }
 }

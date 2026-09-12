@@ -1,5 +1,4 @@
 using System;
-using UnityEngine;
 
 namespace Game.Core
 {
@@ -17,9 +16,6 @@ namespace Game.Core
 
         public static GridCoord operator +(GridCoord a, GridCoord b) => new GridCoord(a.X + b.X, a.Y + b.Y);
         public static GridCoord operator +(GridCoord coord, Direction direction) => coord + direction.ToOffset();
-
-        public Vector2Int ToVector2Int() => new Vector2Int(X, Y);
-        public static GridCoord FromVector2Int(Vector2Int v) => new GridCoord(v.x, v.y);
 
         public bool Equals(GridCoord other) => X == other.X && Y == other.Y;
         public override bool Equals(object obj) => obj is GridCoord other && Equals(other);
