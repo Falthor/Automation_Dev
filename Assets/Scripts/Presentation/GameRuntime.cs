@@ -1356,12 +1356,9 @@ namespace Game.Presentation
             // different moments: the Core chest below, every building coming back from a save, and
             // the input adapter on its first Update.
             //
-            // There were three of them, one per caller, and that is a defect with a precise
-            // symptom: a spawner keeps a per-cell dictionary of the views it created, demolition
-            // asks the input adapter's, and a building restored from a save was in one of the other
-            // two. Demolishing it removed the building and left its sprite standing on the ground
-            // for the rest of the run - and only ever the ones the save had brought back, which is
-            // exactly how it was reported.
+            // It has to stay one: a spawner keeps a per-cell dictionary of the views it created and
+            // demolition reads the input adapter's, so a view created by any other spawner cannot be
+            // removed at all - the building goes and its sprite stays standing on the ground.
             BuildingViews = new BuildingSpawner(Grid, new ProceduralSpriteFactory(),
                 ConveyorArt(ConveyorShapeKind.Straight), ConveyorArt(ConveyorShapeKind.Corner),
                 GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings, DepthSort);

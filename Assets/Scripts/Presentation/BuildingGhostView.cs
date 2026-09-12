@@ -20,11 +20,10 @@ namespace Game.Presentation
         // Pooled arrow slots: sized up as needed, extra ones deactivated rather than
         // destroyed/recreated every frame (Show() is called once per Update while a tool is armed).
         //
-        // <b>One pool for both kinds.</b> There used to be a single output slot beside this list,
-        // which said a building has at most one exit - true of every production building and of
-        // nothing in the transport family: a Crossroad has two of each, and could not be previewed
-        // at all. Entry and exit differ by a flag here, exactly as they do in the built view
-        // (BuildingSpawner.SpawnDirectionalArrow), not by being two mechanisms.
+        // <b>One pool for both kinds.</b> Entry and exit differ by a flag, exactly as in the built
+        // view (BuildingSpawner.SpawnDirectionalArrow), rather than by being two mechanisms - a
+        // single output slot would say a building has at most one exit, which a Crossroad's two
+        // disprove.
         //
         // Independent transforms (not children of this sprite) so an arrow's own scale never
         // compounds with the ghost sprite's footprint-driven, often non-uniform scale - the same

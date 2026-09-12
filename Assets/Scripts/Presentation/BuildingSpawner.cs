@@ -618,10 +618,8 @@ namespace Game.Presentation
         /// corner's chirality) re-apply the flip after fitting.
         /// </summary>
         /// <summary>
-        /// Public rather than internal because it is the one entry point for sizing a building's art -
-        /// four production paths call it, and the test that pins its arithmetic has to reach it. It
-        /// used to be internal behind a public wrapper; the wrapper existed only to choose between two
-        /// fits, and there is only one now.
+        /// The one entry point for sizing a building's art: four production paths call it, and the
+        /// test that pins its arithmetic has to reach it.
         /// </summary>
         public static void FitSpriteUniform(SpriteRenderer renderer, Sprite sprite, Vector2 desiredWorldSize)
         {
