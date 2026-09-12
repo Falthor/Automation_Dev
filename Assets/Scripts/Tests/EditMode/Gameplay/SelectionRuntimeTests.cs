@@ -9,7 +9,7 @@ using NUnit.Framework;
 namespace Game.Tests.EditMode.Gameplay
 {
     /// <summary>
-    /// CONTRACTS.md §7: what is currently inspected. Three slots - a building, a construction site,
+    /// UI.md: what is currently inspected. Three slots - a building, a construction site,
     /// a named global panel - and at most one of them set at a time.
     ///
     /// The site has a slot of its own rather than riding on SelectedBuilding, and that is the thing

@@ -33,7 +33,7 @@ namespace Game.UI
     /// ConstructionService immediately and closes the menu, matching the source behavior
     /// (single click arms the tool, no separate confirm step).
     ///
-    /// Also owns the 8 Bottom Nav toolbar slot assignments (CONTRACTS.md-equivalent: this panel
+    /// Also owns the 8 Bottom Nav toolbar slot assignments (UI.md: this panel
     /// is the source of truth, the Bottom Nav is just a reflecting view) and which card is
     /// currently hovered, so a 1-8 key press elsewhere can assign a slot without a second
     /// independent input system.
@@ -334,7 +334,7 @@ namespace Game.UI
         /// Hover-only details (matches the source project's building_panel.gd): icon, name, its
         /// construction cost (item icon + name + ×amount + how much is currently available) and
         /// an affordability status line - all read through ConstructionService's public
-        /// CanAfford/GetAvailableAmount (CONTRACTS.md §12), never a second cost-aggregation path.
+        /// CanAfford/GetAvailableAmount (UI.md), never a second cost-aggregation path.
         /// </summary>
         void PopulateDetails(BuildingDefinition definition)
         {

@@ -6,7 +6,7 @@ namespace Game.Data
     /// <summary>
     /// Single source of truth for the research tree, on the same model as ItemDatabase and
     /// RecipeDatabase - one asset assigned on GameRuntime, not a scene-serialized array
-    /// (TASK_02_REFONTE_RECHERCHE.md §4). The tree is data the UI reads, it no longer defines it.
+    /// (RECHERCHE.md). The tree is data the UI reads, it no longer defines it.
     /// </summary>
     [CreateAssetMenu(fileName = "ResearchDatabase", menuName = "Game/Research/Research Database")]
     public sealed class ResearchDatabase : ScriptableObject

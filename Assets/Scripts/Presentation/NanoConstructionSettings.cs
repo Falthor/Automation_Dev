@@ -7,7 +7,7 @@ namespace Game.Presentation
     /// per-building on purpose: the whole base must be retuned by editing one asset, so a building
     /// never carries its own copy of any of these values.
     ///
-    /// A definition asset, not runtime state (DEVELOPMENT_RULES.md §1): authored in the inspector
+    /// A definition asset, not runtime state (DEVELOPMENT_RULES.md): authored in the inspector
     /// and only ever read, hence private fields with getters. That also keeps it safe under this
     /// project's disabled Domain Reload, where a runtime write to an asset would survive into the
     /// next Play session.

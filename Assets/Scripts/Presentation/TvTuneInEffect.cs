@@ -10,7 +10,7 @@ namespace Game.Presentation
     /// anything a camera renders, so a world-space quad in front of the main camera could never
     /// visually cover the boot text. GenesisController instead displays RenderTexture as a
     /// full-screen UI Toolkit background image and shows/hides it around calls to Play(), which
-    /// keeps this component free of any UI Toolkit knowledge (DEVELOPMENT_RULES.md §6 - UI reads
+    /// keeps this component free of any UI Toolkit knowledge (DEVELOPMENT_RULES.md - UI reads
     /// a public contract, does not get read from).
     /// </summary>
     public sealed class TvTuneInEffect : MonoBehaviour

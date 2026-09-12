@@ -10,7 +10,7 @@ namespace Game.UI
     /// Contextual PowerplantGaz inspector - deliberately minimal (no recipe/production controls,
     /// this building has none): just its fuel stock and the current burn-cycle progress, read
     /// live from PowerplantGazRuntime's own public FuelAmount/FuelTimer and its Definition's
-    /// FuelItem/FuelCycleTimeSeconds (static content data, CONTRACTS.md §12 allows UI to read it
+    /// FuelItem/FuelCycleTimeSeconds (static content data, UI.md allows UI to read it
     /// directly). Same shell/routing as ExtractorPanelController.
     /// </summary>
     public sealed class PowerplantGazPanelController : MonoBehaviour

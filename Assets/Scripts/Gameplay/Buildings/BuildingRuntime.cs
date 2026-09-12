@@ -10,7 +10,7 @@ namespace Game.Gameplay.Buildings
 {
     /// <summary>
     /// Base runtime state for a placed building. Implements the Building/Flow and
-    /// Building/Inventory contracts (CONTRACTS.md §2/§3) with neutral defaults; only
+    /// Building/Inventory surfaces (TRANSPORT.md) with neutral defaults; only
     /// participating buildings override them.
     /// </summary>
     public class BuildingRuntime
@@ -19,7 +19,7 @@ namespace Game.Gameplay.Buildings
         /// Frees the cells a building holds, putting back whatever was under it.
         ///
         /// An Extractor stands <b>on its ore deposit</b>, not on open ground: the deposit is a world
-        /// entity that outlives anything built over it (PROJECT_ARCHITECTURE.md §12), and placing the
+        /// entity that outlives anything built over it (PROJECT_ARCHITECTURE.md), and placing the
         /// Extractor merely covered it up. Releasing the footprint therefore restores the deposit
         /// rather than leaving bare cells - anything else destroys the ore by side effect.
         ///
@@ -390,7 +390,7 @@ namespace Game.Gameplay.Buildings
             return result.ToArray();
         }
 
-        // Building/Inventory contract (CONTRACTS.md §3), for non-belt buildings. Neutral
+        // Building/Inventory surface (TRANSPORT.md), for non-belt buildings. Neutral
         // defaults here; only pooled-inventory buildings (e.g. StorageRuntime,
         // ProductionBuildingRuntime) override them. Must not be mixed with the belt lane model
         // (the Flow contract above). itemId is the fixed string key from Game.Data.ItemDatabase.
@@ -446,7 +446,7 @@ namespace Game.Gameplay.Buildings
         }
 
         /// <summary>
-        /// Type-specific runtime state for the save/load system (CONTRACTS.md §14) - everything
+        /// Type-specific runtime state for the save/load system (SAUVEGARDE.md) - everything
         /// beyond Definition/Cell/FacingRotation, which the save layer already captures generically
         /// for every building. Empty by default; only a building with real mutable state (recipe
         /// progress, pooled contents, belt items, ...) overrides this and RestoreState. The save
@@ -460,7 +460,7 @@ namespace Game.Gameplay.Buildings
         }
 
         /// <summary>
-        /// Shared Power gating pipeline (CONTRACTS.md §9), used by every building whose own tick
+        /// Shared Power gating pipeline (ENERGIE.md), used by every building whose own tick
         /// progress must freeze while unpowered: draws its demand only while "active", and returns
         /// 0 if the network could not serve it. The caller multiplies its own deltaTime by the
         /// returned value before advancing any timer. Compute plays no part here - CU is a reserve

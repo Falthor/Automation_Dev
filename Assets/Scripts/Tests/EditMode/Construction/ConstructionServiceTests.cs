@@ -24,7 +24,7 @@ namespace Game.Tests.EditMode.Construction
 
         // Item/Recipe databases are only needed to place a Foundry - none of these tests do, so
         // null is fine here (would throw only if a test actually selected a FoundryDefinition).
-        // Since TASK_05_ROBOT_CONSTRUCTEUR.md, placing opens a construction site rather than
+        // Placing opens a construction site rather than
         // building instantly, so a ConstructionSiteSystem is now part of the minimal setup.
         static ConstructionService NewService(GridRuntime grid) => NewService(grid, out _);
 
@@ -205,7 +205,7 @@ namespace Game.Tests.EditMode.Construction
         [Test]
         public void TryPlace_ReservesFromProductionOutput_WithoutTakingAnythingYet()
         {
-            // Since TASK_05_ROBOT_CONSTRUCTEUR.md, placing never deducts: it reserves. The items
+            // Placing never deducts: it reserves. The items
             // stay physically in the production building's output until a robot picks them up, but
             // stop counting as available (GlobalStock's invariant: what it shows is exactly what a
             // robot could still be sent to fetch).
@@ -277,7 +277,7 @@ namespace Game.Tests.EditMode.Construction
             Assert.IsNull(service.Selected);
         }
 
-        // --- TASK_04_PLAFOND_RAYON.md: building cap + action radius as runtime state ---
+        // --- Building cap + action radius as runtime state ---
 
         static (ConstructionService service, TransportSystem transport, ResearchSystem research, CoreRuntime core) NewServiceWithCore(int actionRadiusCells, params ResearchDefinition[] known)
             => NewServiceWithCore(actionRadiusCells, out _, known);

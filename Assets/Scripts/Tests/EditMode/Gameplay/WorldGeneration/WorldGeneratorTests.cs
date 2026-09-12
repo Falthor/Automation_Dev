@@ -141,7 +141,7 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
         }
 
         /// <summary>
-        /// TASK_04_PLAFOND_RAYON.md's follow-up correction: the invitation band
+        /// The invitation band
         /// (InvitationMinDistanceCells/MaxDistanceCells) must sit entirely beyond the starting
         /// 22-cell radius, entirely within the fog's starting reveal (22 + fogRadiusMarginCells,
         /// mirrored here from GameRuntime), and entirely within the first extension (42, the first

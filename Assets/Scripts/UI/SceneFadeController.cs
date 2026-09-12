@@ -9,7 +9,7 @@ namespace Game.UI
     /// Genesis's own fade-in). Lazily creates a VisualElement on the owning UIDocument's root and
     /// keeps it topmost via BringToFront() on every fade start, since Awake/Start ordering between
     /// this component and the scene's own UI content is not guaranteed. One instance per scene -
-    /// not a singleton, no DontDestroyOnLoad (DEVELOPMENT_RULES.md §1).
+    /// not a singleton, no DontDestroyOnLoad (DEVELOPMENT_RULES.md).
     /// </summary>
     public sealed class SceneFadeController : MonoBehaviour
     {

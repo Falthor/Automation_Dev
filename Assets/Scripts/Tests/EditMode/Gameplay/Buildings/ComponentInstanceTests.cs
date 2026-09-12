@@ -33,7 +33,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             Assert.AreEqual(2f, component.PowerKw);
             Assert.AreEqual(100f, component.Wear);
             Assert.AreEqual(1f, component.EffectivePerformance);
-            Assert.AreEqual(95f, component.Stability, 0.001f, "Wear=100 (new) must give 95% stability - TASK_03_DATACENTER.md §4.1.");
+            Assert.AreEqual(95f, component.Stability, 0.001f, "Wear=100 (new) must give 95% stability - DATACENTER.md.");
         }
 
         [Test]
@@ -56,7 +56,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             ItemDatabase db = NewCpuDatabase(1000f, 2f);
             var component = NewComponent(db);
 
-            Assert.AreEqual(0.70f, component.FluctuationFloor, 0.001f, "A new component's floor is 70% - TASK_03_DATACENTER.md §4.2.");
+            Assert.AreEqual(0.70f, component.FluctuationFloor, 0.001f, "A new component's floor is 70% - DATACENTER.md.");
 
             component.DecayWear(100000f);
             Assert.AreEqual(0f, component.Wear);
@@ -65,7 +65,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
         /// <summary>
         /// Wear decays faster as it drops - 2.6x as fast at 20% as at 100%
-        /// (TASK_03_DATACENTER.md §4.3, perte_base × (1 + 2 × (1 − usure/100))).
+        /// (DATACENTER.md, perte_base × (1 + 2 × (1 − usure/100))).
         ///
         /// <b>The rate is measured out of DecayWear, never recomputed beside it.</b> This test used
         /// to evaluate the formula itself at two wear levels and compare the results - an identity
@@ -142,7 +142,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             }
 
             // The calibration target is a fixed 5%, not any replacement threshold - a threshold is
-            // where the runtime chooses to stop reading this same curve (TASK_03_DATACENTER.md §4.4).
+            // where the runtime chooses to stop reading this same curve (DATACENTER.md).
             Assert.AreEqual(5f, component.Wear, 0.5f, "Integrating the accelerated decay curve for the drawn lifetime must land on the fixed 5% floor.");
         }
 

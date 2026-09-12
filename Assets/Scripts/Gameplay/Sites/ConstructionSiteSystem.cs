@@ -13,7 +13,7 @@ using UnityEngine;
 namespace Game.Gameplay.Sites
 {
     /// <summary>
-    /// Owns every construction site and both builder robots (TASK_05_ROBOT_CONSTRUCTEUR.md), and
+    /// Owns every construction site and both builder robots (CONSTRUCTION.md), and
     /// is the sole authority on GlobalStock's new meaning: a read-only aggregate over the Core
     /// chest, every placed Storage, and every production building's output, minus whatever is
     /// currently reserved - "ce que GlobalStock affiche est exactement ce dans quoi un robot peut
@@ -118,7 +118,7 @@ namespace Game.Gameplay.Sites
             return site;
         }
 
-        /// <summary>Appends one more segment to an in-progress conveyor/splitter/crossroad drag's site - still one chantier for the whole gesture (TASK_05_ROBOT_CONSTRUCTEUR.md §3).</summary>
+        /// <summary>Appends one more segment to an in-progress conveyor/splitter/crossroad drag's site - still one chantier for the whole gesture (CONSTRUCTION.md).</summary>
         public void AppendSegment(ConstructionSiteRuntime site, BuildingRuntime segment)
         {
             site.AddSegment(segment);
@@ -131,7 +131,7 @@ namespace Game.Gameplay.Sites
         /// alone justified go back to their containers, and every sibling keeps its own cell and its
         /// own share. A site left with no segment at all is over and leaves the queue, which
         /// releases any robot still working for it (cargo already picked up is dropped off, never
-        /// lost - TASK_05_ROBOT_CONSTRUCTEUR.md §4).
+        /// lost - CONSTRUCTION.md).
         ///
         /// The ground is deliberately <b>not</b> freed here: this is the overtaking path, where a
         /// new placement has already claimed that cell and is about to put its own segment on it.
@@ -449,7 +449,7 @@ namespace Game.Gameplay.Sites
         }
 
         /// <summary>
-        /// The read-only aggregate GlobalStock now is (TASK_05_ROBOT_CONSTRUCTEUR.md §1): Core
+        /// The read-only aggregate GlobalStock now is (CONSTRUCTION.md): Core
         /// chest + every Storage + every production building's output, minus whatever any site has
         /// already reserved - exactly what a robot could still go claim right now. Never includes
         /// items in transit on a conveyor or in a robot's cargo, by design (§1's invariant).
@@ -735,8 +735,8 @@ namespace Game.Gameplay.Sites
             object destination = FindRepatriationDestination(cargo);
             if (destination == null)
             {
-                // Nothing anywhere can take this cargo - anti-deadlock (TASK_05_ROBOT_CONSTRUCTEUR.md
-                // §5): the robot keeps it and a 20s countdown starts, right here, without moving.
+                // Nothing anywhere can take this cargo - anti-deadlock (CONSTRUCTION.md): the
+                // robot keeps it and a 20s countdown starts, right here, without moving.
                 foreach (var kvp in cargo) robot.AddCargo(kvp.Key, kvp.Value);
                 EnterBlocked(robot);
                 return;
@@ -748,7 +748,7 @@ namespace Game.Gameplay.Sites
             robot.State = BuilderRobotState.Repatriating;
         }
 
-        /// <summary>Core chest first, then every Storage in registration order - the first that can accept every item in the cargo at once wins (TASK_05_ROBOT_CONSTRUCTEUR.md §5). No partial split across containers.</summary>
+        /// <summary>Core chest first, then every Storage in registration order - the first that can accept every item in the cargo at once wins (CONSTRUCTION.md). No partial split across containers.</summary>
         object FindRepatriationDestination(IReadOnlyDictionary<string, int> cargo)
         {
             foreach (StorageRuntime storage in StoragesInCollectionOrder())
@@ -797,7 +797,7 @@ namespace Game.Gameplay.Sites
             robot.MoveTarget = ContainerPosition(destination);
         }
 
-        /// <summary>A cancelled site's already-committed cargo is dropped off exactly like a repatriation, not lost (TASK_05_ROBOT_CONSTRUCTEUR.md §4).</summary>
+        /// <summary>A cancelled site's already-committed cargo is dropped off exactly like a repatriation, not lost (CONSTRUCTION.md).</summary>
         void BeginDropOffCarriedCargo(BuilderRobotRuntime robot)
         {
             object destination = FindRepatriationDestination(robot.Cargo);
@@ -928,7 +928,7 @@ namespace Game.Gameplay.Sites
             public Dictionary<string, int> Remaining;
         }
 
-        // ---- Save/Restore (CONTRACTS.md §14 convention) ----
+        // ---- Save/Restore (SAUVEGARDE.md convention) ----
 
         /// <summary>
         /// segmentFactory mirrors ConstructionService.CreateForRestore exactly (no cost/placement
@@ -995,7 +995,7 @@ namespace Game.Gameplay.Sites
         /// building (including a restored Core chest/Storage) is already registered with
         /// TransportSystem and placed in Game.Grid, since containers are re-resolved by cell.
         /// Tolerates a blob missing these keys entirely (falls back to two idle robots parked, no
-        /// site, no repatriation - TASK_05_ROBOT_CONSTRUCTEUR.md §8) without throwing.
+        /// site, no repatriation) without throwing.
         /// </summary>
         public void RestoreState(JObject state, Func<BuildingDefinition, GridCoord, Direction, BuildingRuntime> segmentFactory, Func<string, BuildingDefinition> resolveDefinition)
         {

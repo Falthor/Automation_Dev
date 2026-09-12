@@ -564,7 +564,7 @@ namespace Game.Gameplay.Exploration
 
         static float Frac(float value) => value - Mathf.Floor(value);
 
-        // ---- Save / Restore (CONTRACTS.md §14) ----
+        // ---- Save / Restore (SAUVEGARDE.md) ----
 
         /// <summary>
         /// Position, heading and state, plus the two things that make a restored robot carry on

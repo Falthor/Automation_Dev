@@ -145,7 +145,7 @@ namespace Game.Grid
         }
 
         /// <summary>
-        /// Places a deposit (a world entity, not a building - PROJECT_ARCHITECTURE.md §12) and
+        /// Places a deposit (a world entity, not a building - PROJECT_ARCHITECTURE.md) and
         /// registers it as the occupant of its whole footprint. Grid owns the ore/deposit
         /// registry (§7); this is the only place a DepositRuntime is constructed.
         /// </summary>

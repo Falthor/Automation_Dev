@@ -4,7 +4,7 @@ namespace Game.Data
 {
     /// <summary>
     /// Static definition of the Factory: crafts tier-1/tier-2 intermediate components via the
-    /// shared production contract (CONTRACTS.md §6), player-selected among its recipe list.
+    /// shared production contract (PRODUCTION.md), player-selected among its recipe list.
     /// </summary>
     [CreateAssetMenu(fileName = "FactoryDefinition", menuName = "Game/Buildings/Factory Definition")]
     public sealed class FactoryDefinition : BuildingDefinition

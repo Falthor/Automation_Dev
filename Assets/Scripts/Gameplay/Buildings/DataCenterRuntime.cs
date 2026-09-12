@@ -11,13 +11,13 @@ namespace Game.Gameplay.Buildings
 {
     /// <summary>
     /// Aggregates installed CPU/Memory components into Compute supply and Power demand
-    /// (TASK_03_DATACENTER.md). Pooled input accepts cpu_mkI/Memory_MK1 via the standard
+    /// (DATACENTER.md). Pooled input accepts cpu_mkI/Memory_MK1 via the standard
     /// Building/Inventory contract - see ComponentInstance for the per-slot wear/stability/
     /// replacement rules.
     ///
     /// A freshly placed Data Center primes for 90s (1500 CU consumed, no production, no wear -
     /// GDD §2.3) before any of that applies; priming is a second continuous per-second CU draw
-    /// alongside research's own (CONTRACTS.md §10/§13), and pauses at zero CU exactly like
+    /// alongside research's own (CALCUL.md), and pauses at zero CU exactly like
     /// research does. Once primed, its output splits across two axes (research/buildings) via a
     /// concentration-based yield curve (§7) - both currently credit the same single reserve, so
     /// the split only matters for what the UI reports until per-axis reserves exist.
@@ -71,7 +71,7 @@ namespace Game.Gameplay.Buildings
         readonly List<ComponentInstance> _memorySlots;
         readonly System.Action<string> _onResearchCompleted;
 
-        /// <summary>Owns every per-component lifetime draw for this Data Center's whole lifetime - one seeded stream, not re-seeded per install, so a fixed seed plus a fixed installation sequence always reproduces the same drawn lifetimes (DEVELOPMENT_RULES.md §7).</summary>
+        /// <summary>Owns every per-component lifetime draw for this Data Center's whole lifetime - one seeded stream, not re-seeded per install, so a fixed seed plus a fixed installation sequence always reproduces the same drawn lifetimes (DEVELOPMENT_RULES.md).</summary>
         readonly System.Random _lifetimeRandom;
 
         float _stabilityTimer;
@@ -84,7 +84,7 @@ namespace Game.Gameplay.Buildings
         public IReadOnlyList<ComponentInstance> CpuSlots => _cpuSlots;
         public IReadOnlyList<ComponentInstance> MemorySlots => _memorySlots;
 
-        /// <summary>5..60, default 25 - adjustable at any time, for free (TASK_03_DATACENTER.md §5).</summary>
+        /// <summary>5..60, default 25 - adjustable at any time, for free (DATACENTER.md).</summary>
         public float CpuReplacementThresholdPercent { get; private set; } = DefaultReplacementThresholdPercent;
 
         /// <summary>5..60, default 25 - independent of the CPU setting.</summary>
@@ -209,7 +209,7 @@ namespace Game.Gameplay.Buildings
         }
         public float GetTotalPowerDemand() => TotalPowerDemand();
 
-        /// <summary>Σ(share²) of the two axes - TASK_03_DATACENTER.md §7. 1.0 at either extreme (100/0), lowest at an even split.</summary>
+        /// <summary>Σ(share²) of the two axes - DATACENTER.md. 1.0 at either extreme (100/0), lowest at an even split.</summary>
         public float GetConcentration()
         {
             float research = ResearchAxisShare;
@@ -406,7 +406,7 @@ namespace Game.Gameplay.Buildings
         }
 
         /// <summary>
-        /// Every key is read with a fallback (CONTRACTS.md §14 / TASK_03_DATACENTER.md §9): a
+        /// Every key is read with a fallback (SAUVEGARDE.md): a
         /// blob missing a key falls back to a reasonable default instead of throwing, so this
         /// shape can keep growing without breaking an earlier save of the same Version.
         /// </summary>

@@ -7,7 +7,7 @@ using UnityEngine.UIElements;
 namespace Game.UI
 {
     /// <summary>
-    /// Global Compute panel (CONTRACTS.md §10/§12), opened from the Top Bar's Compute card.
+    /// Global Compute panel (CALCUL.md and UI.md), opened from the Top Bar's Compute card.
     /// CU is a pooled currency: the panel shows how much is banked against the cap, and the rate
     /// it is being credited at, plus a 5-minute history graph of the reserve (sampled every 5s).
     /// There is no continuous-draw figure - CU is only ever spent in one shot when a production

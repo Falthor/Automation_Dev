@@ -7,7 +7,7 @@ namespace Game.Presentation
     /// one depth. Changing the offset here turns every building's shadow at once - no per-building
     /// override exists, deliberately, because a scene lit by two suns reads as a bug.
     ///
-    /// A definition asset, not runtime state (DEVELOPMENT_RULES.md §1): the fields are authored in
+    /// A definition asset, not runtime state (DEVELOPMENT_RULES.md): the fields are authored in
     /// the inspector and only ever read at runtime, so they stay private with getters rather than
     /// public fields. That also keeps them safe under this project's disabled Domain Reload, where
     /// a runtime write to an asset would survive into the next Play session.

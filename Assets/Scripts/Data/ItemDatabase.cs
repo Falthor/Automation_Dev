@@ -4,9 +4,9 @@ using UnityEngine;
 namespace Game.Data
 {
     /// <summary>
-    /// Single source of truth for item metadata (PROJECT_ARCHITECTURE.md §6: static content).
+    /// Single source of truth for item metadata (PROJECT_ARCHITECTURE.md: static content).
     /// One asset assigned on GameRuntime - not a Resources-loaded service locator
-    /// (DEVELOPMENT_RULES.md §5).
+    /// (DEVELOPMENT_RULES.md).
     /// </summary>
     [CreateAssetMenu(fileName = "ItemDatabase", menuName = "Game/Items/Item Database")]
     public sealed class ItemDatabase : ScriptableObject

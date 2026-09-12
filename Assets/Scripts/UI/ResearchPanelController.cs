@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 namespace Game.UI
 {
     /// <summary>
-    /// Global Research panel (CONTRACTS.md §11/§12): the neural network of GDD §5.4, and the only
+    /// Global Research panel (RECHERCHE.md and UI.md): the neural network of GDD §5.4, and the only
     /// research menu the game has. It takes the whole screen, brought in front of everything else
     /// when it opens. It does not exist before the Datacenter has finished priming - see
     /// IsAvailable - and the introduction runs on the Core's directives alone.

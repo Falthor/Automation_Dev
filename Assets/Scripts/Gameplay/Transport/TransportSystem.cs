@@ -23,7 +23,7 @@ namespace Game.Gameplay.Transport
     /// neighbor's own facing) and takes one unit from the first neighbor whose
     /// PeekPullableItem()/CanAcceptInput lines up. This replaces the previous Storage-specific
     /// pull loop with the same shared code path - Storage no longer requires the neighbor's own
-    /// output to be aimed at it (CONTRACTS.md §13: this is a deliberate, documented behavior
+    /// output to be aimed at it (TRANSPORT.md: this is a deliberate, documented behavior
     /// change, matching the source project's building.gd exactly, not a Storage-specific redesign).
     /// </summary>
     public sealed class TransportSystem
@@ -102,7 +102,7 @@ namespace Game.Gameplay.Transport
         /// <summary>Every registered Storage in the world, for UI that needs to aggregate across all of them (e.g. the global Storage panel).</summary>
         public IReadOnlyList<StorageRuntime> Storages => _storages;
 
-        /// <summary>Every registered building across every internal list (CONTRACTS.md §14). Three consumers, all of them needing the whole set at once: the save, the building cap (CONTRACTS.md §8) and the map's drawing of the base (MAP.md §6). Not a general-purpose accessor - anything that wants one building has a narrower way to it.</summary>
+        /// <summary>Every registered building across every internal list (SAUVEGARDE.md). Three consumers, all of them needing the whole set at once: the save, the building cap (CONSTRUCTION.md) and the map's drawing of the base (MAP.md). Not a general-purpose accessor - anything that wants one building has a narrower way to it.</summary>
         /// <summary>
         /// Every registered building that is not a belt, a Splitter or a Crossroad - the machines,
         /// the chests, the Core.

@@ -32,7 +32,7 @@ namespace Game.Presentation
     ///
     /// Awake() branches on PendingGameStart.LoadedSave (Game.Save): null means a fresh game
     /// (world generation, exactly as before), a non-null SaveData means every system is restored
-    /// from it instead (CONTRACTS.md §14) - MainMenu.unity is the only place that sets this,
+    /// from it instead (SAUVEGARDE.md) - MainMenu.unity is the only place that sets this,
     /// via New Game/Load before loading Bootstrap.unity.
     /// </summary>
     public sealed class GameRuntime : MonoBehaviour
@@ -133,10 +133,10 @@ namespace Game.Presentation
         /// </summary>
         [SerializeField] ConstructionSiteVisualSync constructionSiteVisuals;
 
-        [Header("Save/Load id -> asset resolution (CONTRACTS.md §14)")]
+        [Header("Save/Load id -> asset resolution (SAUVEGARDE.md)")]
         [SerializeField] BuildingDefinition[] buildingCatalog = System.Array.Empty<BuildingDefinition>();
 
-        [Header("Research (CONTRACTS.md §11)")]
+        [Header("Research (RECHERCHE.md)")]
         [SerializeField] ResearchDatabase researchDatabase;
 
         [Header("Core directives - what the Core asks the player for, in order")]
@@ -315,7 +315,7 @@ namespace Game.Presentation
 
         /// <summary>
         /// Whether the player has acted since their last save - what the in-game menu's Quit asks
-        /// before closing (GLOBAL_UI.md §8b). True from the start of a session until the player
+        /// before closing (UI.md). True from the start of a session until the player
         /// saves: only a save of theirs, with nothing done since, lets them quit without a warning.
         ///
         /// <b>Player actions only</b>, noted where the player issues them (<see cref="NotePlayerAction"/>).
@@ -362,11 +362,11 @@ namespace Game.Presentation
         public CoreDirectiveSystem CoreDirectives { get; private set; }
 
         /// <summary>
-        /// GlobalStock keeps its name but its contract is inverted since TASK_05_ROBOT_CONSTRUCTEUR.md:
+        /// GlobalStock keeps its name but its contract is inverted (CONSTRUCTION.md):
         /// it holds nothing at all any more. It is a read-only aggregated view over the Core chest,
         /// every placed Storage and every production building's output, minus everything already
         /// reserved by a construction site - i.e. exactly what a builder robot could still be sent
-        /// to fetch (CONTRACTS.md §15). Recomputed on every read; never serialized.
+        /// to fetch (CONSTRUCTION.md). Recomputed on every read; never serialized.
         /// </summary>
         public IReadOnlyDictionary<string, int> GlobalStock =>
             ConstructionSites != null ? ConstructionSites.GetAvailableAggregate() : new Dictionary<string, int>();
@@ -399,10 +399,10 @@ namespace Game.Presentation
         /// </summary>
         public bool KeyboardOwnedByPanel { get; set; }
 
-        /// <summary>Construction sites + the two builder robots (TASK_05_ROBOT_CONSTRUCTEUR.md), ticked from this object's central Update() like every other simulation system.</summary>
+        /// <summary>Construction sites + the two builder robots (CONSTRUCTION.md), ticked from this object's central Update() like every other simulation system.</summary>
         public ConstructionSiteSystem ConstructionSites { get; private set; }
 
-        /// <summary>Generic notification banner feed (TASK_05_ROBOT_CONSTRUCTEUR.md §6) - a robot unable to unload is its first user, not its only intended one.</summary>
+        /// <summary>Generic notification banner feed - a robot unable to unload is its first user, not its only intended one.</summary>
         public NotificationSystem Notifications { get; private set; }
 
         /// <summary>How long this run has been played, in simulated seconds - stops with the pause and survives a save/load. Read by the Top Bar; see PlayClock for why it never has to check whether the game is paused.</summary>
@@ -414,8 +414,8 @@ namespace Game.Presentation
         /// skip their own click handling while this is set, otherwise a click that selects a
         /// menu item or closes a panel also leaks through as a world click on the same frame.
         /// Derived from Selection (both the named global panel and the currently inspected
-        /// building) - there is exactly one source of truth for "is a panel open" (CONTRACTS.md
-        /// §7), panels no longer track this themselves.
+        /// building) - there is exactly one source of truth for "is a panel open" (UI.md),
+        /// panels no longer track this themselves.
         /// </summary>
         public bool IsUIBlockingInput => Selection.ActiveGlobalPanel != null
             || Selection.SelectedBuilding != null
@@ -652,8 +652,8 @@ namespace Game.Presentation
         }
 
         /// <summary>
-        /// Reconstructs Core, every deposit and every placed building from a save (CONTRACTS.md
-        /// §14), in the same dependency order World generation followed: Core, then deposits
+        /// Reconstructs Core, every deposit and every placed building from a save
+        /// (SAUVEGARDE.md), in the same dependency order World generation followed: Core, then deposits
         /// (an Extractor resolves its deposit from whatever already occupies its cell), then
         /// every other building. Views are spawned later, in Start().
         /// </summary>
@@ -712,7 +712,7 @@ namespace Game.Presentation
             ConstructionSites.RestoreState(save.ConstructionSites, Construction.CreateForRestore, FindBuildingDefinition);
         }
 
-        /// <summary>Where the two builder robots park when idle (TASK_05_ROBOT_CONSTRUCTEUR.md §2) - just south of the Core, next to the Core chest. Grid-space, like BuilderRobotRuntime.Position.</summary>
+        /// <summary>Where the two builder robots park when idle (CONSTRUCTION.md) - just south of the Core, next to the Core chest. Grid-space, like BuilderRobotRuntime.Position.</summary>
         Vector2 RobotParkOrigin()
         {
             if (World?.Core == null) return Vector2.zero;
@@ -746,7 +746,7 @@ namespace Game.Presentation
         ResearchDefinition FindResearchDefinition(string id) => researchDatabase != null ? researchDatabase.Get(id) : null;
 
         /// <summary>
-        /// Every research the game knows, for ResearchSystem's catalog (CONTRACTS.md §11): the tree's
+        /// Every research the game knows, for ResearchSystem's catalog (RECHERCHE.md): the tree's
         /// researches and cores, and the unlocks the Core's directives grant - those are researches
         /// too, and carry their own effects. An effect declared on any of them is found, whichever
         /// of them the player completes.
@@ -889,7 +889,7 @@ namespace Game.Presentation
             return written;
         }
 
-        /// <summary>Captures every system's current state into a SaveData and writes it under CurrentSaveName (CONTRACTS.md §14). Called by New Game (its initial state) and by SaveAs - never on quit.</summary>
+        /// <summary>Captures every system's current state into a SaveData and writes it under CurrentSaveName (SAUVEGARDE.md). Called by New Game (its initial state) and by SaveAs - never on quit.</summary>
         void SaveCurrentGame()
         {
             var data = new SaveData
@@ -1251,7 +1251,7 @@ namespace Game.Presentation
         void Update()
         {
             // Settle last frame's Power reports before this frame's buildings report new ones -
-            // the one-frame lag is intentional (CONTRACTS.md §9's report-then-settle contract),
+            // the one-frame lag is intentional (ENERGIE.md's report-then-settle contract),
             // not an ordering bug. Compute has no such flow: its Tick only advances the window
             // its displayed income rate is averaged over.
             Power.Settle();
@@ -1263,7 +1263,7 @@ namespace Game.Presentation
             // contents (a production building's output has already been pushed/pulled by now), and
             // so a segment materialized this frame is registered before the next frame's transport
             // pass. Robots and construction sites are driven from here and only from here - never
-            // from an individual Update() (PROJECT_ARCHITECTURE.md §17).
+            // from an individual Update() (PROJECT_ARCHITECTURE.md).
             ConstructionSites?.Tick(Time.deltaTime);
             Notifications?.Tick(Time.deltaTime);
 
@@ -1276,7 +1276,7 @@ namespace Game.Presentation
             // Free exploration, after the Core's disc for the same reason a mission is: a robot
             // uncovering ground this frame writes on top of an up-to-date map rather than under it.
             // Driven from here and only from here - no robot has an Update of its own
-            // (PROJECT_ARCHITECTURE.md §17).
+            // (PROJECT_ARCHITECTURE.md).
             ExplorerRobots?.Tick(Time.deltaTime);
             _explorerFleet?.Refresh(ExplorerRobots, Time.deltaTime);
 
@@ -1370,7 +1370,7 @@ namespace Game.Presentation
 
             if (gridLineView != null)
             {
-                // The chunk size comes from the one asset that holds it (MAP.md §1). A copy here
+                // The chunk size comes from the one asset that holds it (MAP.md). A copy here
                 // could only ever disagree with the division everything else aligns on.
                 gridLineView.Initialize(Grid, Terrain.Size, sectorSettings.ChunkSizeCells);
             }
@@ -1428,7 +1428,7 @@ namespace Game.Presentation
                     // from the current radius), so refreshing on every completion rather than only
                     // on a radius effect keeps this generic - the view reflects whatever
                     // World.ActionRadiusCells (Core.ActionRadiusCells) is right now, live, with no
-                    // reload (TASK_04_PLAFOND_RAYON.md §4.3).
+                    // reload.
                     Research.ResearchCompleted += _ => actionRadiusView.Initialize(coreCenter, World.ActionRadiusCells * Grid.CellSize);
                 }
 

@@ -3,8 +3,8 @@ using System.Collections.Generic;
 namespace Game.Data
 {
     /// <summary>
-    /// Every research the game knows, indexed the two ways the game asks about them (CONTRACTS.md
-    /// §11): by unlock id, to read a completed research's effects, and by what it unlocks, to answer
+    /// Every research the game knows, indexed the two ways the game asks about them
+    /// (RECHERCHE.md): by unlock id, to read a completed research's effects, and by what it unlocks, to answer
     /// a gate. Built once from definitions and holding no state of its own.
     ///
     /// <b>The reverse index is what lets an effect live on the research alone.</b> A building does not

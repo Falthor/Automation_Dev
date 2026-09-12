@@ -116,7 +116,7 @@ namespace Game.Gameplay.Directives
             DirectiveCompleted?.Invoke(completed);
         }
 
-        // ---- Save / Restore (CONTRACTS.md §14 convention) ----
+        // ---- Save / Restore (SAUVEGARDE.md convention) ----
 
         /// <summary>
         /// Only the index is saved. A delivery in flight is not: its material has already left the

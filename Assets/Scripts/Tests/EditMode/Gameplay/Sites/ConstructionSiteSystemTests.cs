@@ -17,8 +17,8 @@ using UnityEngine;
 namespace Game.Tests.EditMode.Gameplay.Sites
 {
     /// <summary>
-    /// TASK_05_ROBOT_CONSTRUCTEUR.md §9's test list: construction sites, localized reservation,
-    /// the two builder robots, demolition/repatriation and the save round-trip.
+    /// Construction sites, localized reservation, the two builder robots,
+    /// demolition/repatriation and the save round-trip.
     /// </summary>
     public class ConstructionSiteSystemTests
     {
@@ -469,7 +469,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Assert.IsNotNull(belt.PeekPullableItem(), "And the belt kept what it had nowhere to put - nothing was destroyed in the refusal.");
         }
 
-        /// <summary>A straight belt one cell west of that cell, pointing east onto it - the only intake a chest accepts (CONTRACTS.md §3a).</summary>
+        /// <summary>A straight belt one cell west of that cell, pointing east onto it - the only intake a chest accepts (TRANSPORT.md).</summary>
         static ConveyorRuntime AddBeltEndingOn(Fixture fixture, GridCoord cell)
         {
             var belt = new ConveyorRuntime(TestDataFactory.NewConveyor(), new GridCoord(cell.X - 1, cell.Y), Direction.East);

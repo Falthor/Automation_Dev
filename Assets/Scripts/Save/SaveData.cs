@@ -4,7 +4,7 @@ using Newtonsoft.Json.Linq;
 namespace Game.Save
 {
     /// <summary>
-    /// Root save file contents (CONTRACTS.md §14). Plain data only - no Unity/gameplay types, so
+    /// Root save file contents (SAUVEGARDE.md). Plain data only - no Unity/gameplay types, so
     /// Game.Save has no dependency on Game.Presentation/Game.Gameplay; the Presentation layer
     /// (GameRuntime) is the only place that knows how to turn this into/from live runtime state.
     /// Per-building free-form state is stored as JObject rather than a typed DTO per building
@@ -23,10 +23,10 @@ namespace Game.Save
         /// <summary>
         /// Bumped whenever a change to this format (or to what a per-building CaptureState blob
         /// is expected to contain) would make an older save meaningfully different to interpret -
-        /// TASK_03_DATACENTER.md's decision: SaveService.Load refuses a save whose Version
+        /// SAUVEGARDE.md: SaveService.Load refuses a save whose Version
         /// doesn't match this exactly, rather than attempting to load it with defaults filled in.
-        /// A per-building blob missing an individual key still falls back gracefully (CONTRACTS.md
-        /// §14) - Version is a coarser, all-or-nothing gate for changes too structural for that,
+        /// A per-building blob missing an individual key still falls back gracefully
+        /// (SAUVEGARDE.md) - Version is a coarser, all-or-nothing gate for changes too structural for that,
         /// like this task's Data Center Capture/Restore reshaping and Research's RP-to-CU switch.
         /// </summary>
         public const int CurrentVersion = 3;
@@ -103,13 +103,13 @@ namespace Game.Save
         /// <summary>
         /// Construction sites (their remaining bill of materials and their reservations) and both
         /// builder robots (position, state, cargo), plus any repatriation still in flight -
-        /// TASK_05_ROBOT_CONSTRUCTEUR.md §8. An opaque blob owned by
+        /// CONSTRUCTION.md. An opaque blob owned by
         /// Game.Gameplay.Sites.ConstructionSiteSystem's own Capture/Restore pair, like every
-        /// per-building blob. Absent (a save from before that task) restores as two idle robots
+        /// per-building blob. Absent (a save from before chantiers existed) restores as two idle robots
         /// with no site, without throwing.
         ///
         /// There is deliberately no GlobalStock field any more: it holds nothing to serialize -
-        /// it is recomputed at load from the real containers (CONTRACTS.md §15).
+        /// it is recomputed at load from the real containers (CONSTRUCTION.md).
         /// </summary>
         public JObject ConstructionSites;
 
@@ -122,8 +122,8 @@ namespace Game.Save
         public JObject CoreState = new JObject();
 
         /// <summary>
-        /// Current building slot cap (TASK_04_PLAFOND_RAYON.md §3/§6) - nullable so an absent key
-        /// (a save from before this task) is distinguishable from an explicit value and falls back
+        /// Current building slot cap (CONSTRUCTION.md) - nullable so an absent key
+        /// (a save from before the cap existed) is distinguishable from an explicit value and falls back
         /// to ConstructionService.DefaultBuildingCap, never to 0. The Core's own current action
         /// radius is not a separate field here - it already round-trips through CoreState via
         /// CoreRuntime.CaptureState/RestoreState, alongside cuTimer and inventory contents.
@@ -156,8 +156,8 @@ namespace Game.Save
     }
 
     /// <summary>
-    /// Where a deposit is and what it is - all of it. A deposit never runs out
-    /// (ALIGNEMENT_PROJET.md §8), so it has no mutable state to carry: no quantity is written, and
+    /// Where a deposit is and what it is - all of it. A deposit never runs out, so it has no
+    /// mutable state to carry: no quantity is written, and
     /// the RemainingQuantity an older save still holds is simply ignored, which is exactly right
     /// now that the answer is "infinite" whatever the number said.
     /// </summary>

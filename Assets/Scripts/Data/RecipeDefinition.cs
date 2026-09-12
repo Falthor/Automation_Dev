@@ -17,8 +17,8 @@ namespace Game.Data
     /// <summary>
     /// Static crafting recipe. Id is always the produced item's id (same convention as the
     /// source project's Items.RECIPES) - callers never need a separate "what item does this
-    /// recipe make" lookup. ComputeCost is a one-time deduction at cycle start (CONTRACTS.md
-    /// §10: "continuous demand and one-time cycle costs remain distinct concepts"), never a
+    /// recipe make" lookup. ComputeCost is a one-time deduction at cycle start (CALCUL.md:
+    /// "continuous demand and one-time cycle costs remain distinct concepts"), never a
     /// per-second draw.
     /// </summary>
     [CreateAssetMenu(fileName = "RecipeDefinition", menuName = "Game/Items/Recipe Definition")]

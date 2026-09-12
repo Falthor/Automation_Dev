@@ -13,7 +13,7 @@ namespace Game.Gameplay.Session
     /// precisely because where the player is looking is not part of the simulation being frozen.
     ///
     /// Advanced once per frame from GameRuntime's central tick, never from an Update of its own
-    /// (PROJECT_ARCHITECTURE.md §17), so it counts the same time the factory does.
+    /// (PROJECT_ARCHITECTURE.md), so it counts the same time the factory does.
     /// </summary>
     public sealed class PlayClock
     {

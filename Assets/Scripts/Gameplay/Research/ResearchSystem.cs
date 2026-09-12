@@ -6,7 +6,7 @@ using Game.Gameplay.Compute;
 namespace Game.Gameplay.Research
 {
     /// <summary>
-    /// CU/absorption research model (CONTRACTS.md §11, TASK_02_REFONTE_RECHERCHE.md). A research
+    /// CU/absorption research model (RECHERCHE.md). A research
     /// defines a total CU cost and an absorption-rate ceiling, never a duration - the duration is
     /// the consequence of how fast the active research can actually draw CU out of the shared
     /// reserve: cost / min(AbsorptionRatePerSecond, what the reserve currently gives). One active
@@ -54,7 +54,7 @@ namespace Game.Gameplay.Research
 
         public bool IsUnlocked(string researchId) => researchId != null && _unlocked.Contains(researchId);
 
-        /// <summary>Every unlocked research id: for the save/load system (CONTRACTS.md §14), and for a building that must count what was completed before it existed (DataCenterRuntime's bays). Anything else queries IsUnlocked instead.</summary>
+        /// <summary>Every unlocked research id: for the save/load system (SAUVEGARDE.md), and for a building that must count what was completed before it existed (DataCenterRuntime's bays). Anything else queries IsUnlocked instead.</summary>
         public IEnumerable<string> GetUnlockedIds() => _unlocked;
 
         /// <summary>
@@ -189,7 +189,7 @@ namespace Game.Gameplay.Research
             ResearchCompleted?.Invoke(completedId);
         }
 
-        /// <summary>Restores a previously-captured snapshot (CONTRACTS.md §14). Used only by the save/load system - never by gameplay code, which drives state through Enqueue/Tick instead.</summary>
+        /// <summary>Restores a previously-captured snapshot (SAUVEGARDE.md). Used only by the save/load system - never by gameplay code, which drives state through Enqueue/Tick instead.</summary>
         public void RestoreState(ResearchDefinition activeResearch, float absorbedCu, IEnumerable<ResearchDefinition> queue, IEnumerable<string> unlockedIds)
         {
             ActiveResearch = activeResearch;

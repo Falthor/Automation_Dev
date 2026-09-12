@@ -23,7 +23,7 @@ namespace Game.Data
     }
 
     /// <summary>
-    /// One effect of a research (CONTRACTS.md §11), declared on the research and nowhere else.
+    /// One effect of a research (RECHERCHE.md), declared on the research and nowhere else.
     ///
     /// <b>A tagged record rather than a class hierarchy.</b> The list is short and closed, and Unity
     /// serialises a plain struct without SerializeReference. Only the field its kind names is read:

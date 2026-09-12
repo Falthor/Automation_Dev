@@ -6,7 +6,7 @@ namespace Game.Presentation
     /// <summary>
     /// Purely visual boundary overlay covering the grid extent - no gameplay data. It carries two
     /// trames in one material: the cells, and the chunks everything region-shaped aligns on
-    /// (MAP.md §1).
+    /// (MAP.md).
     ///
     /// Hidden by default, and the two trames are shown for different reasons: the cell grid is a
     /// placement aid that appears on its own while a building is armed, while both together are what

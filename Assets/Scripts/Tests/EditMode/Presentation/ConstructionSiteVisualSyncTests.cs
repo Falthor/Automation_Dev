@@ -19,7 +19,7 @@ using UnityEngine;
 namespace Game.Tests.EditMode.Presentation
 {
     /// <summary>
-    /// directive-materialisation-nano.md §2 and §3: the three visual states of a construction site
+    /// MATERIALISATION.md: the three visual states of a construction site
     /// segment, and above all the handover to the real building view.
     ///
     /// The state machine is what is under test, never the rendering. ConstructionSiteVisualSync.Tick

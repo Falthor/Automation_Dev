@@ -4,7 +4,7 @@ namespace Game.Data
 {
     /// <summary>
     /// Static definition of the Foundry: smelts ore into plates via the shared production
-    /// contract (CONTRACTS.md §6). <b>Two arrows and no more</b> - one output side, and one input
+    /// contract (PRODUCTION.md). <b>Two arrows and no more</b> - one output side, and one input
     /// side chosen at placement (see HasSingleInputArrow). Deliveries on that one side are subject
     /// to an intake cooldown between them.
     /// </summary>

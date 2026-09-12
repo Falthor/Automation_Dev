@@ -36,7 +36,7 @@ namespace Game.Tests.EditMode.TestSupport
         }
 
         /// <summary>
-        /// Storage Box definition, with the shape overrides TASK_05_ROBOT_CONSTRUCTEUR.md's Core
+        /// Storage Box definition, with the shape overrides the Core
         /// chest needs (6 slots x 200, refusing every conveyor connection). slotCountOverride /
         /// capacityPerSlotOverride left at 0 fall back to Inventory's own defaults, exactly like a
         /// regular player-built Storage.

@@ -388,7 +388,7 @@ namespace Game.Tests.EditMode.Grid
         }
 
         /// <summary>
-        /// The captured string is a contract (CONTRACTS.md §14) and the storage is not. Two maps with
+        /// The captured string is a contract (SAUVEGARDE.md) and the storage is not. Two maps with
         /// the same revelations but different chunk sizes have to capture identically, or the save
         /// format would depend on an implementation detail.
         /// </summary>

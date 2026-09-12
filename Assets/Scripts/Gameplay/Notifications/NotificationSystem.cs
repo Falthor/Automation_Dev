@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Game.Gameplay.Notifications
 {
     /// <summary>
-    /// Generic notification queue (TASK_05_ROBOT_CONSTRUCTEUR.md §6): a bandeau on the left edge
+    /// Generic notification queue: a bandeau on the left edge
     /// of the screen informs the player of an event they did not directly cause. Deliberately
     /// generic from the start - a robot unable to unload its cargo is the first caller, not the
     /// reason this exists; the building cap, a construction site missing materials, and later an

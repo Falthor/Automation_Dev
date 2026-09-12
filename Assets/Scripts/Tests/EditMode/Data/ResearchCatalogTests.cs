@@ -4,7 +4,7 @@ using NUnit.Framework;
 
 namespace Game.Tests.EditMode.Data
 {
-    /// <summary>The Core's furthest reach, derived from the research effects rather than written down (CONTRACTS.md §8/§11).</summary>
+    /// <summary>The Core's furthest reach, derived from the research effects rather than written down (CONSTRUCTION.md and RECHERCHE.md).</summary>
     public class ResearchCatalogTests
     {
         static ResearchDefinition Radius(int cells)

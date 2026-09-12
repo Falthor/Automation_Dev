@@ -10,7 +10,7 @@ using NUnit.Framework;
 namespace Game.Tests.EditMode.Save
 {
     /// <summary>
-    /// Pins the on-disk save format (CONTRACTS.md §14): the exact set of keys, their values, and the
+    /// Pins the on-disk save format (SAUVEGARDE.md): the exact set of keys, their values, and the
     /// fact that a null still occupies its key rather than vanishing.
     ///
     /// Written for a cleanup that had to touch SaveData without moving the format by one iota, and
@@ -86,7 +86,7 @@ namespace Game.Tests.EditMode.Save
             "CoreDefinitionId", "CoreCellX", "CoreCellY", "CoreState",
             "BuildingCap", "PlayTimeSeconds",
 
-            // The power priority order (CONTRACTS.md §9a). Absent restores as the building
+            // The power priority order (ENERGIE.md). Absent restores as the building
             // catalogue's own order, which is the default arbitration anyway - so CurrentVersion is
             // deliberately not bumped, for the same reason as WrecksDiscovered above.
             "PowerPriority",

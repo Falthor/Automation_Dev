@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Game.Data
 {
     /// <summary>
-    /// Static definition of one research (CONTRACTS.md §11): its cost, its prerequisites and its
+    /// Static definition of one research (RECHERCHE.md): its cost, its prerequisites and its
     /// effects. Enumerated by ResearchDatabase for the tree, and by ResearchCatalog for everything
     /// the game asks about researches.
     ///

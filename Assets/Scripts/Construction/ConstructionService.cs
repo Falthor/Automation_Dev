@@ -12,9 +12,9 @@ using UnityEngine;
 namespace Game.Construction
 {
     /// <summary>
-    /// Why a placement is refused - CONTRACTS.md §8's CanPlace/TryPlace stay a plain bool for
+    /// Why a placement is refused - CONSTRUCTION.md's CanPlace/TryPlace stay a plain bool for
     /// ghost tinting; this is the explanatory read GetPlacementRefusalReason exposes for
-    /// player-facing messaging (TASK_04_PLAFOND_RAYON.md §3.2).
+    /// player-facing messaging.
     ///
     /// CannotAfford is a real refusal: a building whose materials do not exist cannot be placed at
     /// all. Placing still does not PAY - it opens a site that reserves the whole bill and waits for
@@ -32,7 +32,7 @@ namespace Game.Construction
     }
 
     /// <summary>
-    /// Construction tool state and placement orchestration (CONTRACTS.md §8).
+    /// Construction tool state and placement orchestration (CONSTRUCTION.md).
     /// Exposes intent-level operations; owns preview/ghost state (selected definition,
     /// preview rotation) but never creates GameObjects - that is Presentation's job.
     /// </summary>
@@ -64,7 +64,7 @@ namespace Game.Construction
         public Direction PreviewInputSide { get; private set; } = Direction.South;
 
         /// <summary>
-        /// Current building slot cap (TASK_04_PLAFOND_RAYON.md §3) - starts at
+        /// Current building slot cap (CONSTRUCTION.md) - starts at
         /// DefaultBuildingCap, raised by each BuildingCap research effect completed. Runtime state
         /// owned here (the same layer that enforces it), not on
         /// any definition; persisted directly by the save layer via RestoreBuildingCap, with a
@@ -77,7 +77,7 @@ namespace Game.Construction
         /// building except the Core (placed by world generation, not a player decision) and
         /// Conveyor/Splitter/Crossroad (transport pieces, never slot-limited), plus every pending
         /// construction site of a slot-consuming type. A site counts from the moment it is placed
-        /// rather than only once its materials arrive (TASK_05_ROBOT_CONSTRUCTEUR.md): otherwise
+        /// rather than only once its materials arrive (CONSTRUCTION.md): otherwise
         /// the cap could be walked straight past by queueing sites faster than robots can serve
         /// them. Computed live from TransportSystem's registry plus the site queue rather than
         /// tracked as a separate counter, so placing/cancelling/demolishing can never drift out of
@@ -96,7 +96,7 @@ namespace Game.Construction
                 {
                     if (ReferenceEquals(building, _core)) continue;
                     // The Core chest is a world-generated fixture like the Core itself, never a
-                    // player decision (TASK_05_ROBOT_CONSTRUCTEUR.md §1b) - a player-built Storage
+                    // player decision - a player-built Storage
                     // Box still counts.
                     if (building.Definition.Id == CoreStorageDefinitionId) continue;
                     if (!building.Definition.CountsAgainstBuildingCap) continue;
@@ -139,7 +139,7 @@ namespace Game.Construction
             }
         }
 
-        /// <summary>Restores the persisted cap directly (TASK_04_PLAFOND_RAYON.md §6) - never re-derived from ResearchSystem.IsUnlocked, so a future non-research source of extra cap wouldn't need to also be mirrored here. Falls back to DefaultBuildingCap for an absent/older save.</summary>
+        /// <summary>Restores the persisted cap directly (SAUVEGARDE.md) - never re-derived from ResearchSystem.IsUnlocked, so a future non-research source of extra cap wouldn't need to also be mirrored here. Falls back to DefaultBuildingCap for an absent/older save.</summary>
         public void RestoreBuildingCap(int? cap) => BuildingCap = cap ?? DefaultBuildingCap;
 
         /// <summary>
@@ -229,7 +229,7 @@ namespace Game.Construction
         /// <summary>
         /// How much of one item id is still unreserved across the Core chest, every placed Storage
         /// and every production building's output - i.e. GlobalStock's new read-only aggregate
-        /// (TASK_05_ROBOT_CONSTRUCTEUR.md §1), the single source of truth for what a robot could
+        /// (CONSTRUCTION.md), the single source of truth for what a robot could
         /// still be sent to fetch. This service no longer aggregates that itself: it asks
         /// ConstructionSiteSystem, which also owns the reservations that must be subtracted.
         /// </summary>
@@ -241,7 +241,7 @@ namespace Game.Construction
 
         /// <summary>
         /// Opens a construction site for the currently selected building at the requested
-        /// cell/rotation (TASK_05_ROBOT_CONSTRUCTEUR.md §3/§7). Nothing is paid here and nothing
+        /// cell/rotation (CONSTRUCTION.md). Nothing is paid here and nothing
         /// becomes functional: the BuildingRuntime is instantiated and occupies its grid cells
         /// immediately (so nothing else can be placed on top of it, and a conveyor drag can keep
         /// reshaping its anchor exactly as before), but it is deliberately NOT registered with
@@ -287,8 +287,8 @@ namespace Game.Construction
         }
 
         /// <summary>
-        /// Cancels whatever unbuilt segment holds this cell, if any (TASK_05_ROBOT_CONSTRUCTEUR.md
-        /// §4): its earmarks go back to their containers and its ground is freed.
+        /// Cancels whatever unbuilt segment holds this cell, if any (CONSTRUCTION.md): its
+        /// earmarks go back to their containers and its ground is freed.
         ///
         /// Scoped to the one segment under the cursor rather than to its whole chantier. A drag lays
         /// one site across many belts, and cancelling all of them because the player right-clicked
@@ -442,7 +442,7 @@ namespace Game.Construction
         /// <summary>
         /// Reconstructs a previously-placed building from a saved definition/cell/rotation, with
         /// no cost deduction and no placement validity check - both already happened once, at the
-        /// original construction time the save captured (CONTRACTS.md §14). The only other caller
+        /// original construction time the save captured (SAUVEGARDE.md). The only other caller
         /// allowed to bypass TryPlace's gate; used exclusively by the save/load restore path
         /// (Game.Save.SaveService). The caller is responsible for placing deposits/Core into
         /// Game.Grid first, since an Extractor resolves its deposit from whatever already
@@ -614,7 +614,7 @@ namespace Game.Construction
         /// The building disappears immediately - the player wants the space back, which is usually
         /// the whole point of demolishing - but its materials are no longer refunded anywhere on
         /// the spot: a robot must physically haul them back to the Core chest or a Storage
-        /// (TASK_05_ROBOT_CONSTRUCTEUR.md §5). A still-pending construction site is never
+        /// (CONSTRUCTION.md). A still-pending construction site is never
         /// demolished through here (its building was never paid for); the caller routes that to
         /// TryCancelPendingAt instead.
         /// </summary>
@@ -658,7 +658,7 @@ namespace Game.Construction
 
         /// <summary>
         /// Single source of truth for every placement gate, driving both CanPlace (ghost tinting,
-        /// bool only) and this explanatory read (TASK_04_PLAFOND_RAYON.md §3.2 - a refusal at the
+        /// bool only) and this explanatory read (a refusal at the
         /// building cap must name that cause, not fail silently or generically). Meaningful only
         /// while Selected != null; callers check that themselves via CanPlace/TryPlace first.
         /// </summary>
@@ -778,7 +778,7 @@ namespace Game.Construction
         /// True when every cell of the footprint is within the Core's action radius. No Core in this
         /// scene (e.g. a headless test) means no restriction at all. Reads _core.ActionRadiusCells
         /// (runtime, extendable by research), never CoreDefinition's own ActionRadiusCells (the
-        /// starting value only) - TASK_04_PLAFOND_RAYON.md §4.1/§4.3.
+        /// starting value only).
         ///
         /// <b>Measured from the same point the ring is drawn around, which it used not to be.</b>
         /// ActionRadiusView is centred on the Core's footprint centre
@@ -844,7 +844,7 @@ namespace Game.Construction
                 }
             }
 
-            // No "still has ore left" test: a deposit never runs out (ALIGNEMENT_PROJET.md §8).
+            // No "still has ore left" test: a deposit never runs out.
             return deposit != null;
         }
     }

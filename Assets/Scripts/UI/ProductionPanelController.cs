@@ -14,7 +14,7 @@ namespace Game.UI
     /// project's production_panel.gd/recipe_card.gd: recipe cards only stage a pending choice
     /// (_pendingRecipeId); only the bottom action button ("COMMENCER"/"CHANGER DE RECETTE")
     /// actually calls SetSelectedRecipe. Reacts to SelectionRuntime.SelectionChanged
-    /// (CONTRACTS.md §7), same pattern as ExtractorPanelController.
+    /// (UI.md), same pattern as ExtractorPanelController.
     /// </summary>
     public sealed class ProductionPanelController : MonoBehaviour
     {

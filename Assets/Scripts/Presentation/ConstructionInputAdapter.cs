@@ -29,11 +29,11 @@ namespace Game.Presentation
 
         /// <summary>
         /// Raised when a placement attempt is refused for a reason the player cannot see for
-        /// themselves - the building cap (TASK_04_PLAFOND_RAYON.md §3.2) and insufficient resources.
+        /// themselves - the building cap (CONSTRUCTION.md) and insufficient resources.
         /// Both must name their cause rather than failing silently: nothing on screen distinguishes
         /// "this click did nothing" from "this click was refused", and a gate the player cannot
         /// perceive is worse than no gate at all. See RefusalMessage for why the other reasons stay
-        /// quiet. Game.Presentation must not depend on Game.UI (PROJECT_ARCHITECTURE.md §4's
+        /// quiet. Game.Presentation must not depend on Game.UI (PROJECT_ARCHITECTURE.md's
         /// dependency direction), so this is a plain event a UI-layer listener (TopBarController)
         /// subscribes to instead of a direct reference the other way.
         /// </summary>
@@ -85,7 +85,7 @@ namespace Game.Presentation
         /// <summary>
         /// The single construction site every cell of the current conveyor/splitter drag is
         /// appended to - a whole gesture is one chantier, not one per segment
-        /// (TASK_05_ROBOT_CONSTRUCTEUR.md §3), so a fifty-belt line is seven robot waves rather
+        /// (CONSTRUCTION.md), so a fifty-belt line is seven robot waves rather
         /// than fifty separate sites. Cleared on mouse-up: the next drag opens a new site.
         /// </summary>
         ConstructionSiteRuntime _activeConveyorSite;
@@ -955,7 +955,7 @@ namespace Game.Presentation
         {
             // A still-pending segment was never paid for and has no view: right-clicking it cancels
             // that segment (releasing its earmarks) rather than demolishing a building that does not
-            // exist yet (TASK_05_ROBOT_CONSTRUCTEUR.md §4). One segment, not its whole chantier - so
+            // exist yet (CONSTRUCTION.md). One segment, not its whole chantier - so
             // a sweep across three belts of a twenty-belt drag removes exactly those three, and the
             // sweep above needs no special case for it.
             if (gameRuntime.Construction.TryCancelPendingAt(cell))

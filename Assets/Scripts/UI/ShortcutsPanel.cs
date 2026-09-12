@@ -240,7 +240,7 @@ namespace Game.UI
             InputBindings.Suspend();
 
             _capture = row.Action.PerformInteractiveRebinding(0)
-                // Keyboard only: the table is keyboard-only by contract (CONTRACTS.md §12b), and a
+                // Keyboard only: the table is keyboard-only by contract (UI.md), and a
                 // mouse button captured here would be a binding the rest of the game cannot honour.
                 .WithControlsHavingToMatchPath("<Keyboard>")
                 .WithCancelingThrough("<Keyboard>/escape")

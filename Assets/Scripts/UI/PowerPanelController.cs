@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 namespace Game.UI
 {
     /// <summary>
-    /// Global Power panel (CONTRACTS.md §9/§12), opened from the Top Bar's Power card. Two tabs:
+    /// Global Power panel (ENERGIE.md and UI.md), opened from the Top Bar's Power card. Two tabs:
     ///
     /// <b>Courbes</b> - demand/production/balance, the saturation bar and the 5-minute history
     /// graph (sampled every 5s). This was the whole panel before; it became a tab rather than

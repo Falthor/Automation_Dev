@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace Game.Gameplay.Power
 {
     /// <summary>
-    /// Global power supply/demand (CONTRACTS.md §9), and the allocation of it.
+    /// Global power supply/demand (ENERGIE.md), and the allocation of it.
     ///
     /// <b>Report-then-settle, one frame of lag by design</b>: buildings draw during their own tick
     /// this frame; <see cref="Settle"/> (called once per GameRuntime.Update(), before that tick)

@@ -28,8 +28,8 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
         /// <summary>
         /// A plain deposit. Nothing is done to top it up: a deposit is meant never to run out
-        /// (ALIGNEMENT_PROJET.md §8 - the depletion still in the code is a tracked removal, not a
-        /// rule), and even the stock it currently carries outlasts the measured minute many times
+        /// (the depletion still in the code is a tracked removal, not a rule), and even the stock
+        /// it currently carries outlasts the measured minute many times
         /// over. What is measured here is the extractor's rate, never the ore.
         /// </summary>
         static DepositRuntime NewDeposit(ItemDefinition item)

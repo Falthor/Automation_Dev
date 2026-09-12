@@ -92,7 +92,7 @@ namespace Game.Gameplay.Buildings
             _productionTimer = 0f;
             _cycleCharged = false;
 
-            // The deposit is inexhaustible (ALIGNEMENT_PROJET.md §8), so the only thing that can
+            // The deposit is inexhaustible, so the only thing that can
             // limit a cycle's yield is this extractor's own buffer.
             int room = InternalStorageCapacity - _bufferedAmount;
             _bufferedAmount += System.Math.Min(_definition.ItemsPerCycle, room);
