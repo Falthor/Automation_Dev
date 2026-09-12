@@ -10,20 +10,29 @@ lookup and two `PooledItemStock` instances, one for input and one for output.
 
 ```csharp
 public IReadOnlyList<string> GetRecipeIds()
-public RecipeDefinition GetSelectedRecipe()
+public string GetSelectedRecipe()
 public void SetSelectedRecipe(string recipeId)
 public float GetProductionTime()
-public IReadOnlyList<RecipeIngredient> GetRequiredIngredients()
+public IReadOnlyDictionary<string,int> GetRequiredIngredients()
 public float GetProgress()
 public bool HasRequiredResources()
 public bool HasResourcesFor(string recipeId)
 public ProductionState GetState()
-public string GetStateLabel()
 public IReadOnlyDictionary<string,int> GetInputContents()
+public bool IsPaused { get; }
+public void SetPaused(bool paused)
 ```
 
 `GetRecipeIds()` leaves out any recipe a research gates until one of those researches is completed.
 `SetSelectedRecipe` is the sole public entry point for starting or changing the active recipe.
+`GetSelectedRecipe()` returns the recipe's id, not the definition - the UI resolves it against
+`RecipeDatabase` itself. There is no `GetStateLabel()`: the words shown under the progress bar
+(`ProductionPanelController.StateCaption`) are the UI's own, kept out of Game.Gameplay.
+
+`IsPaused`/`SetPaused` switch a building off and on at the player's request - distinct from `Idle`
+(nothing to do): a paused building draws no power and holds its cycle exactly where it stood. It
+persists across save/load. Paused also refuses input on both sides, so a belt feeding it backs up
+rather than piling material into a stopped machine.
 
 `GetInputContents()` is **not** part of the base building contract - only a building with a pooled input
 has one to enumerate. It mirrors `GetOutputContents()` for the other side of the same building, and is
@@ -35,7 +44,7 @@ The UI does not access timers or inventories directly.
 ## 2. One cycle
 
 ```text
-IDLE  PRODUCING  WAITING_RESOURCES  OUTPUT_BLOCKED  WAITING_COMPUTE
+IDLE  PRODUCING  WAITING_RESOURCES  OUTPUT_BLOCKED  WAITING_COMPUTE  PAUSED
 ```
 
 A cycle takes **all** its ingredients and its recipe's one-shot compute cost at once, the instant it

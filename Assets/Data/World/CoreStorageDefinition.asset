@@ -33,7 +33,6 @@ MonoBehaviour:
   animationFps: 9
   animationIntervalSeconds: 4
   cost: []
-  intakeIntervalSeconds: 1
   slotCountOverride: 6
   capacityPerSlotOverride: 200
   rejectsConveyorInput: 1

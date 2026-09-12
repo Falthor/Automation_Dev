@@ -143,7 +143,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         public void OneMissingIngredient_RefusesTheWholePlacement_RatherThanOpeningAHalfSuppliedSite()
         {
             Fixture fixture = NewFixture(plates: 4, gears: 0);
-            StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, 0f, (fixture.Plate, 4), (fixture.Gear, 3));
+            StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, (fixture.Plate, 4), (fixture.Gear, 3));
 
             fixture.Construction.SelectBuilding(costly);
             var cell = new GridCoord(5, 5);
@@ -166,7 +166,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         public void APlacedSite_HasItsWholeBillReserved_AndNothingMissing()
         {
             Fixture fixture = NewFixture(plates: 4, gears: 3);
-            StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, 0f, (fixture.Plate, 4), (fixture.Gear, 3));
+            StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, (fixture.Plate, 4), (fixture.Gear, 3));
 
             ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
 
@@ -212,7 +212,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         public void TheThreeStates_AlwaysAccountForTheWholeBill()
         {
             Fixture fixture = NewFixture(plates: 8, gears: 6);
-            StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, 0f, (fixture.Plate, 8), (fixture.Gear, 6));
+            StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, (fixture.Plate, 8), (fixture.Gear, 6));
             ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(6, 6));
 
             for (int step = 0; step < 40; step++)
@@ -243,7 +243,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         public void WhenProductionCatchesUp_ThePlacementBecomesAllowed()
         {
             Fixture fixture = NewFixture(plates: 4, gears: 0);
-            StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, 0f, (fixture.Plate, 4), (fixture.Gear, 3));
+            StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, (fixture.Plate, 4), (fixture.Gear, 3));
 
             fixture.Construction.SelectBuilding(costly);
             var cell = new GridCoord(5, 5);
@@ -266,7 +266,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         public void TheRowOrder_FollowsTheBill_AndDoesNotMoveBetweenReads()
         {
             Fixture fixture = NewFixture(plates: 4, gears: 3);
-            StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, 0f, (fixture.Plate, 4), (fixture.Gear, 3));
+            StorageDefinition costly = TestDataFactory.NewStorage("target", 0, 0, false, (fixture.Plate, 4), (fixture.Gear, 3));
             ConstructionSiteRuntime site = PlaceSite(fixture, costly, new GridCoord(5, 5));
 
             site.GetSupply(Lines);

@@ -1100,7 +1100,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
         public void ACostedSegment_IsNotBuiltOnPlacement_EvenWhenItIsAffordable()
         {
             Fixture fixture = NewFixture(coreChestContents: 2);
-            StorageDefinition costed = TestDataFactory.NewStorage("paid_box", 4, 100, false, 0f, (TestDataFactory.NewItem(PlateId), 2));
+            StorageDefinition costed = TestDataFactory.NewStorage("paid_box", 4, 100, false, (TestDataFactory.NewItem(PlateId), 2));
 
             ConstructionSiteRuntime site = PlaceSite(fixture, costed, new GridCoord(6, 6));
             Assert.AreEqual(0, site.MaterializedCount, "Placed, not built.");

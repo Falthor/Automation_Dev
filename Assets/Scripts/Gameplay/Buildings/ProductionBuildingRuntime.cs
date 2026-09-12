@@ -12,12 +12,12 @@ namespace Game.Gameplay.Buildings
 {
     /// <summary>
     /// Generic single-active-recipe production contract (PRODUCTION.md), shared by every
-    /// recipe-based production building (Foundry today; Factory/AdvancedFoundry in
-    /// later phases). A recipe cycle takes ALL its ingredients and its one-shot Compute cost at
-    /// once, the moment it starts (transition into Producing) - switching recipes mid-cycle
-    /// abandons it without refunding what was already taken (PRODUCTION.md). Power demand is
-    /// reported only while actually Producing; Compute is never a continuous draw for these
-    /// buildings, only the recipe's one-shot cost spent from the global reserve.
+    /// recipe-based production building (Foundry, Factory, AdvancedFoundry, Constructor). A
+    /// recipe cycle takes ALL its ingredients and its one-shot Compute cost at once, the moment
+    /// it starts (transition into Producing) - switching recipes mid-cycle abandons it without
+    /// refunding what was already taken (PRODUCTION.md). Power demand is reported only while
+    /// actually Producing; Compute is never a continuous draw for these buildings, only the
+    /// recipe's one-shot cost spent from the global reserve.
     /// </summary>
     public class ProductionBuildingRuntime : BuildingRuntime
     {
@@ -88,9 +88,8 @@ namespace Game.Gameplay.Buildings
         protected virtual string[] GetRecipeIdWhitelist() => System.Array.Empty<string>();
 
         /// <summary>
-        /// Whether the output side also blocks incoming deliveries (true by default, matching
-        /// the source project's Building default - Storage is the one exception, and it doesn't
-        /// go through this contract at all).
+        /// Whether the output side also blocks incoming deliveries (true by default - Storage is
+        /// the one exception, and it doesn't go through this contract at all).
         /// </summary>
         protected virtual bool BlocksInputOnOutputSide => true;
 
@@ -207,8 +206,7 @@ namespace Game.Gameplay.Buildings
         /// tick (the same one-frame settle lag PowerSystem/ComputeSystem already have) - if
         /// unpowered, the effective delta passed to the state machine (and to
         /// OnBeforeProductionTick) is scaled to 0, freezing an in-progress cycle's timer in
-        /// place without losing already-consumed ingredients/compute (matches the source
-        /// project's Building._process -> _process_production(delta * performance) chain).
+        /// place without losing already-consumed ingredients/compute.
         /// </summary>
         public override void Tick(float deltaTime)
         {

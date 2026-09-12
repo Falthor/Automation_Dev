@@ -41,7 +41,7 @@ namespace Game.Tests.EditMode.TestSupport
         /// capacityPerSlotOverride left at 0 fall back to Inventory's own defaults, exactly like a
         /// regular player-built Storage.
         /// </summary>
-        public static StorageDefinition NewStorage(string id = "storage", int slotCountOverride = 0, int capacityPerSlotOverride = 0, bool rejectsConveyorInput = false, float intakeIntervalSeconds = 0f, params (ItemDefinition item, int amount)[] cost)
+        public static StorageDefinition NewStorage(string id = "storage", int slotCountOverride = 0, int capacityPerSlotOverride = 0, bool rejectsConveyorInput = false, params (ItemDefinition item, int amount)[] cost)
         {
             var definition = ScriptableObject.CreateInstance<StorageDefinition>();
             var so = new SerializedObject(definition);
@@ -49,7 +49,6 @@ namespace Game.Tests.EditMode.TestSupport
             so.FindProperty("slotCountOverride").intValue = slotCountOverride;
             so.FindProperty("capacityPerSlotOverride").intValue = capacityPerSlotOverride;
             so.FindProperty("rejectsConveyorInput").boolValue = rejectsConveyorInput;
-            so.FindProperty("intakeIntervalSeconds").floatValue = intakeIntervalSeconds;
 
             SerializedProperty array = so.FindProperty("cost");
             array.arraySize = cost.Length;
