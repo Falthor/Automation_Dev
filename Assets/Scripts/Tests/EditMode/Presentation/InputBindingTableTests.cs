@@ -147,6 +147,37 @@ namespace Game.Tests.EditMode.Presentation
         }
 
         /// <summary>
+        /// The grid overlay is on F1. Pinned separately from the block above, whose subject is the
+        /// keys the code used to read directly - this one was never read anywhere, so it belongs to
+        /// no such history. What it does share is the reason: a default key is what every existing
+        /// player presses, so moving it is a decision rather than an edit.
+        /// </summary>
+        [Test]
+        public void TheGridOverlayIsOnF1()
+        {
+            InputAction action = Table().FindAction(InputActionCatalogue.ShowGrid);
+            Assert.IsNotNull(action, InputActionCatalogue.ShowGrid);
+
+            Assert.AreEqual(1, action.bindings.Count, "the grid shortcut should have exactly one binding");
+            Assert.AreEqual("<Keyboard>/f1", action.bindings[0].path);
+        }
+
+        /// <summary>
+        /// The connection arrows are on F2, next to the grid on F1 - the two overlays that answer
+        /// "what is where" sit together. Pinned for the same reason F1 is: a default key is what
+        /// every existing player presses.
+        /// </summary>
+        [Test]
+        public void TheConnectionArrowsAreOnF2()
+        {
+            InputAction action = Table().FindAction(InputActionCatalogue.ShowConnections);
+            Assert.IsNotNull(action, InputActionCatalogue.ShowConnections);
+
+            Assert.AreEqual(1, action.bindings.Count, "the arrow shortcut should have exactly one binding");
+            Assert.AreEqual("<Keyboard>/f2", action.bindings[0].path);
+        }
+
+        /// <summary>
         /// The toolbar has as many shortcuts as it has slots. Two constants in two assemblies, and a
         /// mismatch would leave a slot no key can reach.
         /// </summary>

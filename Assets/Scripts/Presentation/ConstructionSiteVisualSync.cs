@@ -294,11 +294,14 @@ namespace Game.Presentation
         /// for a detached entry, since it has left every site's pending range and the grid is the
         /// only thing left that knows whether it was demolished or overtaken meanwhile.
         ///
-        /// Asked of its whole footprint rather than of its origin cell. A Splitter/Crossroad's "+"
-        /// deliberately leaves the four corners of its 3x3 box free, its origin among them, so
-        /// asking the origin gets null for a building that is perfectly alive - which discarded
-        /// every splitter the frame it materialised, cutting its dissolve and leaving no view at
-        /// all behind it.
+        /// Asked of its whole footprint rather than of its origin cell, because a footprint is not
+        /// required to include its own origin: a masked one may leave that cell free, and asking the
+        /// origin then gets null for a building that is perfectly alive. That is what discarded every
+        /// splitter the frame it materialised - back when the splitter was a "+" whose 3x3 box left
+        /// its origin corner free - cutting its dissolve and leaving no view behind it. The splitter
+        /// is a single cell now and no shipped footprint is masked, so nothing exercises this today;
+        /// it is kept because the cost is one loop over one cell and the failure it prevents is
+        /// silent.
         /// </summary>
         bool StillOwnsItsGround(BuildingRuntime segment)
         {

@@ -14,21 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.CrossroadDefinition
   id: crossroad
   displayName: Croisement
-  footprintSize: {x: 3, y: 3}
+  footprintSize: {x: 1, y: 1}
   placeholderColor: {r: 0.6, g: 0.6, b: 0.65, a: 1}
-  sprite: {fileID: -6622863259242664493, guid: 84a94982fe2d0724b88ceb9b2454ad71, type: 3}
-  animationFrames:
-  - {fileID: -6622863259242664493, guid: 84a94982fe2d0724b88ceb9b2454ad71, type: 3}
-  - {fileID: 4138848172959368440, guid: 84a94982fe2d0724b88ceb9b2454ad71, type: 3}
-  - {fileID: 5823024787834327110, guid: 84a94982fe2d0724b88ceb9b2454ad71, type: 3}
-  - {fileID: -5429809939435209488, guid: 84a94982fe2d0724b88ceb9b2454ad71, type: 3}
-  - {fileID: -7409573511083393705, guid: 84a94982fe2d0724b88ceb9b2454ad71, type: 3}
-  - {fileID: 2402639969742374697, guid: 84a94982fe2d0724b88ceb9b2454ad71, type: 3}
-  - {fileID: 368041112877095050, guid: 84a94982fe2d0724b88ceb9b2454ad71, type: 3}
-  - {fileID: -3326688003119052452, guid: 84a94982fe2d0724b88ceb9b2454ad71, type: 3}
-  - {fileID: 9209089764030810201, guid: 84a94982fe2d0724b88ceb9b2454ad71, type: 3}
-  - {fileID: 7800090583882032772, guid: 84a94982fe2d0724b88ceb9b2454ad71, type: 3}
-  - {fileID: -7160256121808793437, guid: 84a94982fe2d0724b88ceb9b2454ad71, type: 3}
-  - {fileID: -955268259036638798, guid: 84a94982fe2d0724b88ceb9b2454ad71, type: 3}
+  sprite: {fileID: 21300000, guid: f076cc42cbc698d41bf76011f01081f0, type: 3}
+  animationFrames: []
   animationFps: 12
+  animationIntervalSeconds: 0
   cost: []

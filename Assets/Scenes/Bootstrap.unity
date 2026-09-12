@@ -2439,8 +2439,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Presentation::Game.Presentation.CameraZoomController
   uiDocument: {fileID: 60635889}
   zoomSpeed: 4
-  minOrthographicSize: 10
-  maxOrthographicSize: 30
+  minOrthographicSize: 15
+  maxOrthographicSize: 50
   smoothing: 12
 --- !u!114 &885634529
 MonoBehaviour:
@@ -2669,6 +2669,8 @@ MonoBehaviour:
   overlayShader: {fileID: 4800000, guid: d247c452b21bd9248bd35375141a92b4, type: 3}
   lineColor: {r: 0, g: 0, b: 0, a: 0.35}
   lineThickness: 0.03
+  chunkLineColor: {r: 0.1, g: 0.5, b: 0.9, a: 0.75}
+  chunkLineThickness: 0.12
 --- !u!4 &1063010150
 Transform:
   m_ObjectHideFlags: 0

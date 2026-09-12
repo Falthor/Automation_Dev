@@ -83,15 +83,17 @@ namespace Game.Presentation
         public const int TransportedItem = Conveyor + ConveyorSeamParity + 1;
 
         /// <summary>
-        /// A Splitter/Crossroad's RenderOverscan deliberately makes its arms overlap the neighbouring
-        /// belt's sprite bounds at the seam, to close the visual gap. On an equal order Unity breaks
-        /// the tie by instantiation order - unstable across placements, so the overlapping edge would
-        /// randomly land in front of or behind the belt. A strictly higher order makes the cross
-        /// always win there, which is what the overscan was for.
+        /// A Splitter or a Crossroad draws above the belts it joins and above the items riding them.
         ///
-        /// Above TransportedItem for the same reason: an item riding right up to the shared edge sits
-        /// inside that same overlap, and an equal order made it flicker in and out as the tie-break
-        /// flipped. Cross always winning covers it cleanly instead.
+        /// On an equal order Unity breaks the tie by instantiation order - unstable across
+        /// placements, so a shared edge would randomly land in front of or behind the belt, and an
+        /// item riding right up to it flickered in and out as the tie-break flipped. A strictly
+        /// higher order settles both.
+        ///
+        /// This used to be justified by those pieces' own RenderOverscan, which pushed their arms
+        /// into the neighbouring cell to close a seam. That overscan is gone with the "+" footprint -
+        /// their art is one tile filling one cell now - but the draw order is not: two sprites still
+        /// meet at a shared edge, and which one wins there still has to be decided rather than drawn.
         /// </summary>
         public const int CrossPiece = TransportedItem + 1;
 

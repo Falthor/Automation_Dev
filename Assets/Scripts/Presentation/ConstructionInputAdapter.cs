@@ -64,6 +64,11 @@ namespace Game.Presentation
         readonly ProceduralSpriteFactory _spriteFactory = new ProceduralSpriteFactory();
         BuildingSpawner _spawner;
 
+        // The ghost's arrows, refilled in place rather than reallocated: UpdateGhost runs on every
+        // frame a tool is armed, and these two lists are the only thing in it that would allocate.
+        readonly List<(Vector3 position, Direction side, bool inward)> _ghostArrows = new List<(Vector3, Direction, bool)>();
+        readonly List<(Direction side, bool inward)> _crossPieceSides = new List<(Direction, bool)>();
+
         // Axis-lock drag: the axis (horizontal/vertical) locks automatically from the first
         // mouse movement after the anchor cell, and placement follows the mouse's projection
         // onto that axis, ignoring drift off it - matching the reference Godot behavior.
@@ -382,29 +387,32 @@ namespace Game.Presentation
             Direction previewRotation = gameRuntime.Construction.PreviewRotation;
             (bool rotateSprite, Direction artNativeDirection) = ResolveGhostRotation(selected);
 
-            // Output and entry arrows are independent: a building can take deliveries without
-            // producing anything physical (DataCenter), so each side is previewed on its own.
-            Sprite outputArrowSprite = null;
-            Vector3? outputArrowWorldPos = null;
-            if (selected.HasOutputArrow)
-            {
-                // The building's own rule for which cell of its output edge carries the arrow, not
-                // the first one: they differ on every even-width edge, so a 2x2 Foundry previewed
-                // its arrow one cell away from where it grew it.
-                GridCoord outputCell = BuildingRuntime.ComputeOutputCell(cell, selected.FootprintSize, previewRotation);
-                // Inset the same way the built view does, or the preview would show the arrow a
-                // half-cell further out than where it ends up.
-                outputArrowWorldPos = BuildingSpawner.ArrowPosition(
-                    gameRuntime.Grid.CellCenterToWorld(outputCell), previewRotation, gameRuntime.Grid.CellSize);
-                outputArrowSprite = _spriteFactory.CreateArrowSprite(BuildingSpawner.OutputArrowColor);
-            }
+            _ghostArrows.Clear();
 
-            Sprite inputArrowSprite = null;
-            List<(Vector3 position, Direction direction)> inputArrows = null;
-            if (selected.HasInputArrows)
+            // A Splitter or a Crossroad first, because neither can be described by the two flags
+            // below: one has a single entry and three exits, the other two of each, and the flags
+            // say "one exit" and "every side but the exit". Their sides come from the same functions
+            // the built piece derives its own from, and the cell each arrow marks from the same
+            // footprint rule transport reaches a neighbour by - nothing is restated here.
+            if (CrossPieceConnections.Describe(selected, previewRotation, _crossPieceSides))
             {
-                inputArrowSprite = _spriteFactory.CreateArrowSprite(BuildingSpawner.InputArrowColor);
-                inputArrows = new List<(Vector3, Direction)>();
+                foreach ((Direction side, bool inward) in _crossPieceSides)
+                {
+                    _ghostArrows.Add((GhostArrowPosition(CrossFootprint.NeighborCell(cell, side), side), side, inward));
+                }
+            }
+            else
+            {
+                // Output and entry arrows are independent: a building can take deliveries without
+                // producing anything physical (DataCenter), so each side is previewed on its own.
+                if (selected.HasOutputArrow)
+                {
+                    // The building's own rule for which cell of its output edge carries the arrow,
+                    // not the first one: they differ on every even-width edge, so a 2x2 Foundry
+                    // previewed its arrow one cell away from where it grew it.
+                    GridCoord outputCell = BuildingRuntime.ComputeOutputCell(cell, selected.FootprintSize, previewRotation);
+                    _ghostArrows.Add((GhostArrowPosition(outputCell, previewRotation), previewRotation, false));
+                }
 
                 // One arrow for a single-input building, on the side T has landed on - so the ghost
                 // shows the one face the building will actually take from, rather than three faces
@@ -414,23 +422,33 @@ namespace Game.Presentation
                     (GridCoord inputCell, Direction inputSide) = BuildingRuntime.ComputeSingleInputCell(
                         cell, selected.FootprintSize, gameRuntime.Construction.PreviewInputSide);
 
-                    inputArrows.Add((BuildingSpawner.ArrowPosition(
-                        gameRuntime.Grid.CellCenterToWorld(inputCell), inputSide, gameRuntime.Grid.CellSize), inputSide));
+                    _ghostArrows.Add((GhostArrowPosition(inputCell, inputSide), inputSide, true));
                 }
-                else
+                else if (selected.HasInputArrows)
                 {
                     foreach ((GridCoord edgeCell, Direction fromMySide) in BuildingRuntime.ComputeInputCells(cell, selected.FootprintSize, previewRotation))
                     {
-                        inputArrows.Add((BuildingSpawner.ArrowPosition(
-                            gameRuntime.Grid.CellCenterToWorld(edgeCell), fromMySide, gameRuntime.Grid.CellSize), fromMySide));
+                        _ghostArrows.Add((GhostArrowPosition(edgeCell, fromMySide), fromMySide, true));
                     }
                 }
             }
 
+            // Both sprites every time: they are cached by colour, so this is a dictionary lookup and
+            // the view picks whichever each arrow needs.
             buildingGhostView.Show(sprite, worldSize, worldCenter, previewRotation, valid,
-                outputArrowSprite, outputArrowWorldPos, BuildingSpawner.ArrowWorldSize(gameRuntime.Grid.CellSize),
-                inputArrowSprite, inputArrows, rotateSprite, artNativeDirection);
+                _spriteFactory.CreateArrowSprite(BuildingSpawner.OutputArrowColor),
+                _spriteFactory.CreateArrowSprite(BuildingSpawner.InputArrowColor),
+                _ghostArrows, BuildingSpawner.ArrowWorldSize(gameRuntime.Grid.CellSize),
+                rotateSprite, artNativeDirection);
         }
+
+        /// <summary>
+        /// Where the ghost draws the arrow marking <paramref name="markedCell"/> - the cell outside
+        /// the footprint that items leave to or arrive from. Inset exactly as the built view insets
+        /// it, or the preview would show every arrow a half-cell further out than where it ends up.
+        /// </summary>
+        Vector3 GhostArrowPosition(GridCoord markedCell, Direction side)
+            => BuildingSpawner.ArrowPosition(gameRuntime.Grid.CellCenterToWorld(markedCell), side, gameRuntime.Grid.CellSize);
 
         Sprite ResolveGhostSprite(BuildingDefinition definition)
         {

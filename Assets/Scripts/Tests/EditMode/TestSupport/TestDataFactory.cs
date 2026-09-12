@@ -82,17 +82,13 @@ namespace Game.Tests.EditMode.TestSupport
             return definition;
         }
 
-        /// <summary>
-        /// Splitter definition with a real cost. Its footprint is the "+" shape, whose 3x3 bounding
-        /// box leaves all four corners free - the placement origin among them - so this is the
-        /// fixture for anything that asks the grid whether a building still owns its ground.
-        /// </summary>
+        /// <summary>Splitter definition with a real cost. A single cell, like the belts it sits among.</summary>
         public static SplitterDefinition NewSplitter(string id = "splitter", params (ItemDefinition item, int amount)[] cost)
         {
             var definition = ScriptableObject.CreateInstance<SplitterDefinition>();
             var so = new SerializedObject(definition);
             so.FindProperty("id").stringValue = id;
-            so.FindProperty("footprintSize").vector2IntValue = new Vector2Int(3, 3);
+            so.FindProperty("footprintSize").vector2IntValue = new Vector2Int(1, 1);
 
             SerializedProperty array = so.FindProperty("cost");
             array.arraySize = cost.Length;
@@ -106,13 +102,13 @@ namespace Game.Tests.EditMode.TestSupport
             return definition;
         }
 
-        /// <summary>Crossroad definition - the same "+" footprint as the Splitter, with two straight-through lanes instead of a round-robin split.</summary>
+        /// <summary>Crossroad definition - a single cell like the Splitter, with two straight-through lanes instead of a round-robin split.</summary>
         public static CrossroadDefinition NewCrossroad(string id = "crossroad")
         {
             var definition = ScriptableObject.CreateInstance<CrossroadDefinition>();
             var so = new SerializedObject(definition);
             so.FindProperty("id").stringValue = id;
-            so.FindProperty("footprintSize").vector2IntValue = new Vector2Int(3, 3);
+            so.FindProperty("footprintSize").vector2IntValue = new Vector2Int(1, 1);
             so.ApplyModifiedPropertiesWithoutUndo();
             return definition;
         }

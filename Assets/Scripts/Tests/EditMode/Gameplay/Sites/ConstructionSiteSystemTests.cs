@@ -844,10 +844,10 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Assert.IsTrue(belt.IsComplete, "The belt has to be really built for this to be a demolition at all.");
             Assert.AreEqual(0, fixture.CoreChest.GetInputAmount(PlateId), "Its plates left the chest.");
 
-            // A Splitter's "+" covers (6,5) among its five cells, so the belt loses its ground.
+            // A Splitter stands on one cell, so it takes the belt's ground by standing on it.
             SplitterDefinition splitter = TestDataFactory.NewSplitter("splitter");
             fixture.Construction.SelectBuilding(splitter);
-            Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(5, 5), Direction.North, out _));
+            Assert.IsTrue(fixture.Construction.TryPlace(new GridCoord(6, 5), Direction.North, out _));
 
             fixture.Simulate(30f);
 

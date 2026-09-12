@@ -65,7 +65,7 @@ namespace Game.Tests.EditMode.Presentation
             var so = new SerializedObject(definition);
             so.FindProperty("id").stringValue = "splitter";
             so.FindProperty("displayName").stringValue = "Splitter";
-            so.FindProperty("footprintSize").vector2IntValue = new Vector2Int(3, 3);
+            so.FindProperty("footprintSize").vector2IntValue = new Vector2Int(1, 1);
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return definition;

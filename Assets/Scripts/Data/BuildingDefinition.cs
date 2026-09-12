@@ -84,10 +84,11 @@ namespace Game.Data
 
         /// <summary>
         /// Every cell (relative to the placement origin) this building actually occupies. A full
-        /// FootprintSize rectangle by default - only a non-rectangular building (Splitter's "+"
-        /// shape, whose 3x3 bounding box has 4 free corners) overrides this. Grid occupancy,
-        /// demolition and the action-radius check all go through this rather than FootprintSize
-        /// directly, so they automatically support a masked shape with no per-caller special case.
+        /// FootprintSize rectangle for every building shipped today; the hook stays virtual because
+        /// grid occupancy, demolition and the action-radius check all go through it rather than
+        /// through FootprintSize directly, so a masked shape would work with no per-caller special
+        /// case. The Splitter and the Crossroad were the one masked footprint - a "+" inside a 3x3
+        /// box - until they became single cells.
         /// </summary>
         public virtual Vector2Int[] FootprintCells => RectangleCells(FootprintSize);
 
@@ -104,20 +105,6 @@ namespace Game.Data
             }
             return cells;
         }
-
-        /// <summary>
-        /// Center + one arm per cardinal side inside a 3x3 bounding box, corners free - the
-        /// footprint shared by Splitter and Crossroad. See CrossFootprint (Game.Gameplay) for the
-        /// matching absolute-cell math used by their runtimes.
-        /// </summary>
-        protected static readonly Vector2Int[] CrossShapeCells =
-        {
-            new Vector2Int(1, 0), // south arm
-            new Vector2Int(0, 1), // west arm
-            new Vector2Int(1, 1), // center
-            new Vector2Int(2, 1), // east arm
-            new Vector2Int(1, 2), // north arm
-        };
 
         /// <summary>
         /// Whether one of these takes a slot against the building cap (ConstructionService.BuildingCap).

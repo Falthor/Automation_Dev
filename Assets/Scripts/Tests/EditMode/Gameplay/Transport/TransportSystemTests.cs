@@ -550,16 +550,17 @@ namespace Game.Tests.EditMode.Gameplay.Transport
             Assert.GreaterOrEqual(taken, 1, "And the arm does take: this is a rate, not a refusal.");
         }
 
+        /// <summary>
+        /// The cell against a given side of a splitter or a crossroad.
+        ///
+        /// <b>This used to be a four-case copy of CrossFootprint's "+" offsets</b>, and it is what
+        /// DEVELOPMENT_RULES §7 warns about: the copy stopped following its model the moment the
+        /// piece became a single cell, and these tests then built layouts whose neighbours stood two
+        /// and three cells clear of the splitter - failing on geometry that had nothing to do with
+        /// what they assert. Adjacency is a fact about the grid rather than about either piece's
+        /// shape, so there is nothing left here to fall out of step.
+        /// </summary>
         static GridCoord CrossFootprint_NeighborCellForTest(GridCoord origin, Direction direction)
-        {
-            // Mirrors the internal (non-public) CrossFootprint math used by SplitterRuntime/CrossroadRuntime.
-            switch (direction)
-            {
-                case Direction.North: return new GridCoord(origin.X + 1, origin.Y + 3);
-                case Direction.South: return new GridCoord(origin.X + 1, origin.Y - 1);
-                case Direction.East: return new GridCoord(origin.X + 3, origin.Y + 1);
-                default: return new GridCoord(origin.X - 1, origin.Y + 1); // West
-            }
-        }
+            => origin + direction.ToOffset();
     }
 }

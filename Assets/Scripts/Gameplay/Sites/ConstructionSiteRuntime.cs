@@ -422,8 +422,7 @@ namespace Game.Gameplay.Sites
         {
             if (MaterializedCount >= _segments.Count) return;
 
-            // The footprint's bounding area, matching what the effect was tuned on - a Splitter's "+"
-            // assembles as the 3x3 box it is drawn in, not as its five occupied cells.
+            // The footprint's bounding area, matching what the effect was tuned on.
             UnityEngine.Vector2Int footprint = _segments[MaterializedCount].Definition.FootprintSize;
 
             float rate = SegmentAssembly.RateFor(footprint.x * footprint.y);

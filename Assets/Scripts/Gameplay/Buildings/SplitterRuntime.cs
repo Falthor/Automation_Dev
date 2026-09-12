@@ -26,7 +26,10 @@ namespace Game.Gameplay.Buildings
         public bool HasItem => HeldItemId != null;
 
         /// <summary>Fixed entry side - rotating the splitter directly changes which side accepts input.</summary>
-        public Direction EntrySide => FacingRotation;
+        public Direction EntrySide => EntrySideAt(FacingRotation);
+
+        /// <summary>The entry side of a splitter facing this way, without a splitter to ask - what the placement ghost has, and all it has. See CrossPieceConnections.</summary>
+        public static Direction EntrySideAt(Direction facing) => facing;
 
         public SplitterRuntime(SplitterDefinition definition, GridCoord cell, Direction facingRotation)
             : base(definition, cell, facingRotation)

@@ -89,6 +89,50 @@ namespace Game.Presentation
         readonly Dictionary<GridCoord, GameObject> _views = new Dictionary<GridCoord, GameObject>();
 
         /// <summary>
+        /// Every connection arrow drawn so far, so the player can put them all away at once.
+        ///
+        /// Held as a flat list rather than found by walking the views on demand: an arrow is an
+        /// ordinary child sprite with nothing to tell it apart from the building's own, and a search
+        /// that recognised them by name would break the day one is renamed. Entries whose building
+        /// has since been demolished are dropped on the next toggle - see SetConnectionArrowsVisible -
+        /// which costs nothing on a keypress and spares every demolition a linear scan.
+        /// </summary>
+        readonly List<SpriteRenderer> _arrowRenderers = new List<SpriteRenderer>();
+
+        /// <summary>
+        /// Whether arrows are currently shown. An instance field, never a static: Domain Reload is
+        /// disabled (DEVELOPMENT_RULES §5), so a static would carry one session's choice into the
+        /// next Play. Buildings placed while they are hidden are born hidden, which is why the flag
+        /// is read at spawn rather than only applied on the keypress.
+        /// </summary>
+        bool _arrowsVisible = true;
+
+        /// <summary>
+        /// Shows or hides every connection arrow in the world, placed and yet to be placed.
+        ///
+        /// <b>The placement ghost is deliberately untouched.</b> Its arrows belong to a different
+        /// view entirely (BuildingGhostView), so a player who has put the world's arrows away still
+        /// sees which way the piece they are aiming will face - which is the one moment the
+        /// information cannot be deduced from anything else on screen.
+        /// </summary>
+        public void SetConnectionArrowsVisible(bool visible)
+        {
+            _arrowsVisible = visible;
+
+            int kept = 0;
+            for (int i = 0; i < _arrowRenderers.Count; i++)
+            {
+                SpriteRenderer renderer = _arrowRenderers[i];
+                if (renderer == null) continue;   // its building was demolished
+
+                renderer.enabled = visible;
+                _arrowRenderers[kept++] = renderer;
+            }
+
+            _arrowRenderers.RemoveRange(kept, _arrowRenderers.Count - kept);
+        }
+
+        /// <summary>
         /// straightConveyorArt/cornerConveyorArt are optional canonical art sources used only
         /// when a conveyor's own Definition no longer matches its current Orientation.Shape
         /// (reshaped via a drag turn) - see ResolveConveyorArtDefinition. Null is fine wherever
@@ -343,14 +387,21 @@ namespace Game.Presentation
             var root = new GameObject($"{definition.DisplayName} {runtime.Cell}");
             root.transform.position = _grid.FootprintCenterToWorld(runtime.Cell, definition.FootprintSize);
 
-            var renderer = root.AddComponent<SpriteRenderer>();
+            // <b>The sprite turns, the root does not.</b> The rotation used to sit on the root, which
+            // was harmless while these pieces had no arrows - and is not any more: an arrow is placed
+            // in world space on the cell it marks, and a rotating parent would swing it off that cell.
+            // SpawnStandardView's arrows rely on exactly the same promise.
+            var spriteGo = new GameObject("Sprite");
+            spriteGo.transform.SetParent(root.transform, false);
+
+            var renderer = spriteGo.AddComponent<SpriteRenderer>();
             renderer.sortingOrder = SortingBands.CrossPiece;
             Sprite sprite = definition.Sprite != null
                 ? definition.Sprite
                 : _spriteFactory.CreateSolidSquareSprite(definition.PlaceholderColor);
-            // No lift here, unlike SpawnStandardView: a "+" is square art on a square footprint, so
-            // there is none to apply - and this renderer is the rotating root, which would swing an
-            // offset around with it.
+            // No lift here, unlike SpawnStandardView: square art on a square footprint, so there is
+            // none to apply - and this renderer is the one that turns, which would swing an offset
+            // around with it.
             FitSpriteUniform(renderer, sprite, ArtWorldSize(definition, _grid.CellSize, sprite));
 
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
@@ -361,10 +412,49 @@ namespace Game.Presentation
             AttachShadow(runtime, renderer);
 
             int rotationDegrees = runtime.FacingRotation.ToRotationDegrees() - artNativeDirection.ToRotationDegrees();
-            root.transform.rotation = Quaternion.Euler(0f, 0f, -rotationDegrees);
+            spriteGo.transform.rotation = Quaternion.Euler(0f, 0f, -rotationDegrees);
+
+            SpawnCrossPieceArrows(runtime, root.transform);
 
             return root;
         }
+
+        /// <summary>
+        /// The entry and exit arrows of a Splitter or a Crossroad.
+        ///
+        /// <b>The generic mechanism cannot express either piece</b>, which is why this exists rather
+        /// than a flag on the definition: <see cref="Data.BuildingDefinition.HasOutputArrow"/> names
+        /// one exit derived from <c>ExitDirection</c>, and <see cref="Data.BuildingDefinition.HasInputArrows"/>
+        /// means "one per side except the exit" - the exact inverse of a Splitter's single entry and
+        /// three exits, and unable to name a Crossroad's two of each at all. Both runtimes already
+        /// publish their own sides, and those already turn with the piece, so what is drawn is read
+        /// from the same properties transport routes by.
+        /// </summary>
+        void SpawnCrossPieceArrows(BuildingRuntime runtime, Transform parent)
+        {
+            if (runtime is CrossroadRuntime crossroad)
+            {
+                SpawnCrossPieceArrow(parent, crossroad.NeighborCell(crossroad.EntryA), crossroad.EntryA, inward: true);
+                SpawnCrossPieceArrow(parent, crossroad.NeighborCell(crossroad.EntryB), crossroad.EntryB, inward: true);
+                SpawnCrossPieceArrow(parent, crossroad.NeighborCell(crossroad.ExitA), crossroad.ExitA, inward: false);
+                SpawnCrossPieceArrow(parent, crossroad.NeighborCell(crossroad.ExitB), crossroad.ExitB, inward: false);
+                return;
+            }
+
+            if (runtime is SplitterRuntime splitter)
+            {
+                SpawnCrossPieceArrow(parent, splitter.NeighborCell(splitter.EntrySide), splitter.EntrySide, inward: true);
+
+                foreach (Direction exit in SplitterRuntime.CandidateExits(splitter.EntrySide))
+                {
+                    SpawnCrossPieceArrow(parent, splitter.NeighborCell(exit), exit, inward: false);
+                }
+            }
+        }
+
+        void SpawnCrossPieceArrow(Transform parent, GridCoord cell, Direction side, bool inward)
+            => SpawnDirectionalArrow(parent, _grid.CellCenterToWorld(cell), side,
+                inward ? InputArrowColor : OutputArrowColor, cell, inward);
 
         /// <summary>
         /// One small arrow sprite at a world position, facing outward from the building
@@ -435,6 +525,11 @@ namespace Game.Presentation
             var arrowRenderer = arrowGo.AddComponent<SpriteRenderer>();
             RankArrow(arrowRenderer, rankCell);
             arrowRenderer.sprite = _spriteFactory.CreateArrowSprite(color);
+
+            // Born in whatever state the player last chose, so a building placed while the arrows
+            // are put away does not bring its own back.
+            arrowRenderer.enabled = _arrowsVisible;
+            _arrowRenderers.Add(arrowRenderer);
         }
 
         /// <summary>

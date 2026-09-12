@@ -47,9 +47,11 @@ place that answers the size question; four paths draw a building and all four go
 **`RenderOverscan` is a measurement of the art, not a free number.** For a building whose art is
 meant to fill its footprint, it compensates the transparent margin: `1 / (opaque width ÷ frame
 width)`. It is therefore a property **of the file** and expires the moment the file is replaced. A
-test reads the source PNG and measures the opaque box. The Conveyor, Splitter and Crossroad have an
-overscan of the opposite sense — theirs deliberately pushes their arms into the neighbouring cell to
-close a seam — and the test excludes them explicitly.
+test reads the source PNG and measures the opaque box. The **conveyor corner** is the one exception
+and the test excludes it: its overscan is of the opposite sense, pushing the art into the
+neighbouring cell to close the seam between two belts rather than compensating a margin of its own.
+The straight conveyor, the Splitter and the Crossroad each sit at 1 — their art fills its cell
+exactly, so there is neither a margin to compensate nor a gap to close.
 
 **Height overhang is carried by the sprite's pivot**, never by a transform offset: the pivot sits at
 the centre of the *footprint* inside a taller frame. Any path that positions the art at the centre of

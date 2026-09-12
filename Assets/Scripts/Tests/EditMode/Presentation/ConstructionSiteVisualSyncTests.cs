@@ -263,21 +263,28 @@ namespace Game.Tests.EditMode.Presentation
         }
 
         /// <summary>
-        /// A Splitter/Crossroad's "+" occupies five cells of a 3x3 box and deliberately leaves the
-        /// four corners free - its placement origin among them. A detached segment's liveness was
-        /// read off that origin cell, so the grid answered "nothing there" for a building that was
-        /// perfectly alive: every splitter was discarded the frame it materialised, its dissolve cut
-        /// on the spot and no real view ever spawned behind it. It simply vanished once built.
+        /// A materialised Splitter hands over to a real view instead of vanishing.
+        ///
+        /// <b>The defect this pins was a liveness test read off the origin cell alone.</b> The
+        /// Splitter was then a "+" of five cells inside a 3x3 box whose four corners - its placement
+        /// origin among them - were deliberately free, so the grid answered "nothing there" for a
+        /// building that was perfectly alive: every splitter was discarded the frame it materialised,
+        /// its dissolve cut on the spot and no real view spawned behind it.
+        ///
+        /// The Splitter is a single cell now and stands on its own origin, so it can no longer
+        /// reproduce that shape - the premise it used to open with is false by construction, and
+        /// asserting it would only pin the old footprint. What is still worth holding is the other
+        /// half: a site that completes becomes a real view exactly once. The origin-cell defect
+        /// itself is guarded where it lives, by ConstructionSiteVisualSync asking the whole
+        /// footprint rather than the origin.
         /// </summary>
         [Test]
-        public void AMaterializedSplitter_IsNotDiscarded_ThoughItsOriginCellIsFreeByDesign()
+        public void AMaterializedSplitter_HandsOverToARealView()
         {
             Fixture fixture = NewFixture(coreChestContents: 4);
             SplitterDefinition splitter = TestDataFactory.NewSplitter("splitter", (fixture.Plate, 4));
             ConstructionSiteRuntime site = PlaceSite(fixture, splitter, new GridCoord(5, 5));
             BuildingRuntime segment = site.Segments[0];
-
-            Assert.IsNull(fixture.Grid.GetOccupant(segment.Cell), "The premise: a '+' does not stand on its own origin.");
 
             fixture.Views.Tick();
             fixture.Simulate(12f);

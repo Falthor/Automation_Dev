@@ -363,7 +363,8 @@ namespace Game.Tests.EditMode.Construction
             Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(conveyorCell));
             Assert.IsTrue(service.TryPlace(conveyorCell, Direction.North, out _));
 
-            // Splitter/Crossroad are 3x3 "+" footprints - keep them far apart so they don't overlap each other.
+            // Splitter/Crossroad are single cells now, but keep them apart anyway - the point of the
+            // test is the cap, not adjacency.
             service.SelectBuilding(ScriptableObject.CreateInstance<SplitterDefinition>());
             Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(new GridCoord(-20, -20)));
 

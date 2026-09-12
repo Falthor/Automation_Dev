@@ -20,6 +20,7 @@ using Game.Grid;
 using Game.Save;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Game.Presentation
 {
@@ -40,6 +41,23 @@ namespace Game.Presentation
         [SerializeField] TerrainGenerationSettings terrainSettings;
         [SerializeField] TerrainView terrainView;
         [SerializeField] GridLineView gridLineView;
+
+        /// <summary>
+        /// The grid shortcut, and whether the player has it on. Instance fields rather than statics:
+        /// Domain Reload is disabled (DEVELOPMENT_RULES §5), so a static would carry the last
+        /// session's toggle into the next Play.
+        /// </summary>
+        InputAction _showGrid;
+        bool _showGridOn;
+
+        /// <summary>
+        /// The connection-arrow shortcut, and whether the arrows are currently on. Starts <b>on</b>,
+        /// unlike the grid: the arrows have always been part of how a built base reads, so the key
+        /// puts them away rather than bringing them out. Instance fields for the same reason as
+        /// above.
+        /// </summary>
+        InputAction _showConnections;
+        bool _showConnectionsOn = true;
 
         /// <summary>
         /// Tileable diffuse/normal pair for the concrete pad shown under every placed building
@@ -1278,12 +1296,33 @@ namespace Game.Presentation
             // camera has panned out of the ladder's slack, roughly every 98 world units.
             if (_depthSortCamera != null) DepthSort?.FollowCamera(_depthSortCamera.transform.position.y);
 
-            // The cell grid is a construction aid, not permanent decoration: it shows only while
-            // a building is armed for placement. Driven from here rather than from the
+            // The cell grid is a construction aid before it is anything else: it comes up on its own
+            // while a building is armed for placement. Driven from here rather than from the
             // construction input adapter because this object already owns the view's reference
             // and lifecycle, and the adapter stops updating while a UI panel owns input - which
             // would strand the lines on screen with a tool still armed behind the panel.
-            if (gridLineView != null) gridLineView.SetVisible(Construction.Selected != null);
+            //
+            // The shortcut is a second reason to be visible rather than a replacement for that one,
+            // so arming a building still brings the cells up with the overlay off. The chunk trame
+            // follows the shortcut alone: a chunk boundary answers nothing about where a building
+            // goes, and at its weight it would only compete with the footprint being positioned.
+            if (InputBindings.WasPressedThisFrame(_showGrid)) _showGridOn = !_showGridOn;
+
+            if (gridLineView != null)
+            {
+                gridLineView.SetVisible(_showGridOn || Construction.Selected != null);
+                gridLineView.SetChunkLinesVisible(_showGridOn);
+            }
+
+            // The world's input/output arrows. Told only when the key is pressed rather than every
+            // frame: the spawner gives each new arrow the current state itself, so there is nothing
+            // to re-assert in between. The placement ghost keeps its own arrows whatever this says -
+            // see BuildingSpawner.SetConnectionArrowsVisible.
+            if (InputBindings.WasPressedThisFrame(_showConnections))
+            {
+                _showConnectionsOn = !_showConnectionsOn;
+                BuildingViews?.SetConnectionArrowsVisible(_showConnectionsOn);
+            }
         }
 
         /// <summary>
@@ -1327,9 +1366,16 @@ namespace Game.Presentation
                 ConveyorArt(ConveyorShapeKind.Straight), ConveyorArt(ConveyorShapeKind.Corner),
                 GroundSlabSettings, GroundSlabNeighborLinker, buildingShadowSettings, DepthSort);
 
+            // Resolved once and held, like every other consumer: FindAction walks the maps, and that
+            // has no business happening per frame.
+            _showGrid = InputBindings.Find(InputActionCatalogue.ShowGrid);
+            _showConnections = InputBindings.Find(InputActionCatalogue.ShowConnections);
+
             if (gridLineView != null)
             {
-                gridLineView.Initialize(Grid, Terrain.Size);
+                // The chunk size comes from the one asset that holds it (MAP.md §1). A copy here
+                // could only ever disagree with the division everything else aligns on.
+                gridLineView.Initialize(Grid, Terrain.Size, sectorSettings.ChunkSizeCells);
             }
 
             if (itemVisuals != null)

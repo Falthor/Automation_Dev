@@ -60,6 +60,8 @@ namespace Game.Presentation
         public const string Pause = "Pause";
         public const string Close = "Close";
         public const string ShowRecipes = "ShowRecipes";
+        public const string ShowGrid = "ShowGrid";
+        public const string ShowConnections = "ShowConnections";
 
         /// <summary>Toolbar slots are numbered from 1, matching the digit they sit on and the label the player reads.</summary>
         public static string Slot(int oneBased) => "Slot" + oneBased;
@@ -93,6 +95,8 @@ namespace Game.Presentation
                 new InputActionInfo(Pause, "Pause", InterfaceSection),
                 new InputActionInfo(Close, "Fermer / annuler", InterfaceSection),
                 new InputActionInfo(ShowRecipes, "Afficher les recettes", InterfaceSection),
+                new InputActionInfo(ShowGrid, "Afficher la grille", InterfaceSection),
+                new InputActionInfo(ShowConnections, "Afficher les flèches d'entrée/sortie", InterfaceSection),
             };
 
             for (int slot = 1; slot <= ToolbarSlotCount; slot++)
