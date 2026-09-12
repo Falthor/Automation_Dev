@@ -56,8 +56,6 @@ namespace Game.Grid
 
         public int ObserverCount => _observers.Count;
 
-        public ObserverDisc ObserverAt(int index) => _observers[index];
-
         /// <summary>Starts a rebuild. Everything between this and <see cref="EndRebuild"/> replaces the whole set - there is no incremental add or remove, because the field is not state to maintain.</summary>
         public void BeginRebuild()
         {
@@ -107,8 +105,8 @@ namespace Game.Grid
         /// observation disc and the ground it reveals have the same edge rather than two edges a
         /// half-cell apart.
         ///
-        /// This does not ask whether the cell was ever discovered: see <see cref="StateOf"/>, which
-        /// is where the two facts meet.
+        /// This does not ask whether the cell was ever discovered. The two facts meet where the fog
+        /// packs its texels, which refuses to light observation over ground nobody has seen.
         /// </summary>
         public bool IsObserved(GridCoord cell)
         {
@@ -125,25 +123,6 @@ namespace Game.Grid
             }
 
             return false;
-        }
-
-        /// <summary>
-        /// The three-state answer: what the player should be shown for this cell.
-        ///
-        /// <b>Discovery gates observation, and that order is the rule.</b> A cell nobody has ever
-        /// discovered is <see cref="DiscoveryState.Unknown"/> even with an observer standing on it -
-        /// which cannot happen in the running game, because everything that observes also reveals,
-        /// but it is what makes "never discovered never becomes remembered" true by construction
-        /// rather than by everything happening to call things in the right order.
-        ///
-        /// A null discovery answers Unknown for everything: a world with no discovery state has
-        /// nothing to remember, which is truthful rather than convenient.
-        /// </summary>
-        public DiscoveryState StateOf(GridCoord cell, DiscoveryRuntime discovery)
-        {
-            if (discovery == null || !discovery.IsDiscovered(cell)) return DiscoveryState.Unknown;
-
-            return IsObserved(cell) ? DiscoveryState.Observed : DiscoveryState.Remembered;
         }
     }
 }

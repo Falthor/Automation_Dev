@@ -9,8 +9,8 @@ namespace Game.Grid
     /// observers are at this instant. A stored observation state would be a second source of truth,
     /// free to contradict the actual position of the things doing the observing.
     ///
-    /// So <see cref="DiscoveryRuntime.GetState"/> answers with the two stored values, and
-    /// <see cref="ObservationRuntime.StateOf"/> is what can answer with all three.
+    /// So <see cref="DiscoveryRuntime.GetState"/> answers with the two stored values, and the third
+    /// is only ever produced where the fog packs its texels, from the two fields read together.
     ///
     /// The distinction the third state carries is <b>the static against the living</b>: terrain,
     /// vegetation and deposits stay drawn out of observation because they do not move, so showing

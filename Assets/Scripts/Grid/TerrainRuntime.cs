@@ -8,9 +8,9 @@ namespace Game.Grid
     ///
     /// Nothing is materialised: a cell's type is computed when asked. That is what makes the map's
     /// size cost nothing to hold, and what makes the order cells are asked about irrelevant.
-    /// Takes plain parameters rather than a Game.Data settings asset - Game.Grid must not
-    /// depend on Game.Data (both are peers under Game.Core in the assembly graph); the caller
-    /// (Game.Presentation, which already depends on Data) unpacks the settings asset.
+    /// Takes plain parameters rather than the settings asset they come from, so a world is built
+    /// from the numbers the save carries rather than from whatever the asset holds now - editing it
+    /// between two sessions must not regenerate the ground under a base already placed.
     /// </summary>
     public sealed class TerrainRuntime
     {
@@ -61,21 +61,14 @@ namespace Game.Grid
         /// <summary>
         /// Authoritative terrain type of a cell, computed on demand. Out-of-bounds cells are Base.
         ///
-        /// <b>Nothing is stored.</b> This used to fill a TerrainType[size, size] at construction -
-        /// 90 000 entries on the current map, 100 million on the 10 000-cell one it is heading
-        /// towards, none of which any gameplay rule reads yet (see TERRAIN.md).
+        /// <b>Nothing is stored</b>, which makes "the same region gives the same result whatever
+        /// the order" unbreakable rather than merely respected: there is no order left to vary, and
+        /// the three ways of losing that - consulting neighbours, placing something larger than a
+        /// cell incrementally, advancing a generator's state - have nowhere to live.
         ///
-        /// Removing the array is not only cheaper, it makes the property the large-map directive
-        /// asks for <b>unbreakable rather than merely respected</b>: "the same region generated in
-        /// any order gives the same result" is true because there is no order left to vary. The
-        /// three ways of losing that property - looking at neighbours, placing something larger
-        /// than a cell incrementally, advancing a generator's internal state - are not disciplines
-        /// to keep here, they have nowhere to live.
-        ///
-        /// The cost moved from memory to arithmetic: three Perlin samples per query instead of a
-        /// lookup. Nothing queries this today. If a hot per-frame consumer ever appears, cache it
-        /// per chunk the way DiscoveryRuntime does - and keep this function as the thing the cache
-        /// is filled from, so purity survives the optimisation.
+        /// The cost is three Perlin samples per query instead of a lookup, and nothing queries this
+        /// today. A per-chunk cache added later must be filled <i>from</i> this function, so purity
+        /// survives the optimisation.
         /// </summary>
         public TerrainType GetTerrainType(GridCoord cell)
         {

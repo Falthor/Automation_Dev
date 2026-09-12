@@ -53,15 +53,14 @@ produces.
 
 It follows that **nothing of it enters the save**, and there is deliberately no `Capture`/`Restore`
 pair to forget to call: the first frame after a load rebuilds the field from the observers the load put
-back. `DiscoveryRuntime.GetState` therefore answers with the two stored values only, and
-`ObservationRuntime.StateOf` is what answers with all three.
+back. `DiscoveryRuntime.GetState` therefore answers with the two stored values only, and the third is
+never an answer anything stores or returns — it exists where the two fields are read together.
 
 **Discovery gates observation, in that order.** A cell nobody has discovered stays Unknown with an
 observer standing on it — which cannot arise in the running game, since everything that observes also
 reveals, but it is what makes "never discovered never becomes remembered" true by construction rather
-than by everything happening to be called in the right order. The rule is applied twice on purpose:
-in `StateOf`, and again when the fog's texels are packed, so the shader is never handed the
-contradiction.
+than by everything happening to be called in the right order. **The rule is stated once**, where the
+fog packs its texels, so the shader is never handed the contradiction.
 
 **What the third state is for is the static against the living.** Terrain, vegetation and deposits stay
 drawn out of observation, because they do not move and showing them is still accurate. A nest or a unit
@@ -139,10 +138,11 @@ this order:
 | a **recall** | past `ExplorerRobotSettings.maxRadiusCells` the heading bends inwards, ramped over the next 40 cells. Not a wall and not a stop — it turns |
 
 **A turn rate is a curve radius, read against the speed**: at `v` cells per second and `w` degrees per
-second the robot turns on a circle of radius `v / (w · π/180)`. At the shipped 2 and 6 that is a
-19-cell arc, which reads as a wide meander; at 30°/s it would be 3.8 cells, which reads as a robot
-spinning on the spot. That is why the drift is small, and it is the first thing to know before moving
-any of the three.
+second the robot turns on a circle of radius `v / (w · π/180)`. Read against the shipped speed and
+the three shipped rates (`ExplorerRobotSettings`), the widest arc is a few cells across and the
+boundary turn tighter still; raising a rate tightens it in proportion, and a rate high enough reads
+as a robot spinning on the spot. That is why the drift is small, and it is the first thing to know
+before moving any of the three.
 
 - **The pull reads off-map as discovered.** There is nothing out there to find, so the world's edge
   repels exactly like ground already walked. Read as unknown it would draw every robot at the border.
@@ -262,8 +262,8 @@ out: `System.Random` and `string.GetHashCode` are barred from anything derived, 
 guaranteed stable across runtime versions and a change would move every unmaterialised deposit in
 every existing world. Frozen by tests with hard-coded features, centres and deposit cells.
 
-**One sector in `SectorSettings.oreClusterOneSectorIn` (12) holds an ore cluster. The rest hold
-nothing.** Measured on the shipped seed: 27 of 361 sectors on a 300-cell map, one in 13.4.
+**One sector in `SectorSettings.oreClusterOneSectorIn` holds an ore cluster. The rest hold
+nothing.**
 
 **A cluster is one contiguous patch, not a handful of scattered cells.** It is *grown* rather than
 stamped — a cell already in the patch is picked, a direction is drawn, and the neighbour joins if it
@@ -431,4 +431,4 @@ because that is what decides whether to go and find one.
   holds the design; none of it is implemented, and no figure in the project reserves room for it — the
   only reach the game measures is the robots' own `maxRadiusCells`.
 - **What the datacard prototype still owes**: the threshold is a guess, and
-  `ExplorerHarvestLog` exists to measure it. See the notebook.
+  `ExplorerHarvestLog` exists to measure it.

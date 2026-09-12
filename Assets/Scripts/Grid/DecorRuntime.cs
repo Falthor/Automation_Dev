@@ -73,8 +73,8 @@ namespace Game.Grid
         public int RemovedCount => _removed.Count;
 
         /// <summary>
-        /// Built from plain values rather than from the settings asset: Game.Grid must not depend on
-        /// Game.Data. GameRuntime unpacks DecorSettings, exactly as it unpacks the terrain settings.
+        /// Built from plain values rather than from the settings asset: GameRuntime unpacks
+        /// DecorSettings, exactly as it unpacks the terrain settings.
         ///
         /// <paramref name="clusteringPerKind"/> may be null or short, in which case the kinds it does
         /// not cover grow one at a time.
@@ -417,14 +417,12 @@ namespace Game.Grid
     /// How one kind of decor clumps: bushes grow in thickets, a lone tree does not.
     ///
     /// <b>Why it exists at all.</b> Items placed one per draw give an even scatter, and an even
-    /// scatter reads as regularity just as much as a grid does - it is the same defect the ground
-    /// noise and the sector names were shaped to avoid, in another form. Clumping is what breaks it.
+    /// scatter reads as regularity just as much as a grid does. Clumping is what breaks it.
     ///
-    /// The old whole-map scatter got clumps from a sequential pass: pick an anchor, walk outward,
-    /// place members. That cannot survive a chunked derivation, which has no sequence and no memory.
-    /// The replacement is an anchor that is itself derived - hashed from the chunk and the spot index
-    /// - so a clump is a pure function like everything else, and a chunk can be asked about its own
-    /// clumps without anybody having walked there first.
+    /// The anchor is itself derived - hashed from the chunk and the spot index - so a clump stays a
+    /// pure function and a chunk can be asked about its own clumps without anybody having walked
+    /// there first. A sequential "pick an anchor, walk outward" pass could not: it has no place in a
+    /// derivation with no sequence and no memory.
     /// </summary>
     public readonly struct DecorClustering
     {

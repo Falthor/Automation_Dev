@@ -58,8 +58,8 @@ Game.Core        low-level domain types: coordinates, directions, rotations, sma
 Game.Data        static definitions: items, recipes, buildings, research, and visual definition data
                  that is part of static content. Never mutable runtime state.
 Game.Grid        the runtime grid model: grid/world conversion, occupancy, footprint validation,
-                 rotation, terrain data, per-cell discovery, the sector partition, the deposit
-                 registry.
+                 terrain data, per-cell discovery and observation, the sector partition, wild decor,
+                 the deposit registry.
 Game.Gameplay    the simulation: buildings, transport, production, power, compute, research,
                  inventory, selection, construction sites and builder robots, exploration,
                  notifications.
