@@ -21,10 +21,9 @@ namespace Game.Gameplay.Transport
     /// CanAcceptInput/AddInput accepts one unit. Pull runs every tick, before the belts move: it
     /// scans GetInputCells() (the cells the building's entry arrows mark, regardless of that
     /// neighbor's own facing) and takes one unit from the first neighbor whose
-    /// PeekPullableItem()/CanAcceptInput lines up. This replaces the previous Storage-specific
-    /// pull loop with the same shared code path - Storage no longer requires the neighbor's own
-    /// output to be aimed at it (TRANSPORT.md: this is a deliberate, documented behavior
-    /// change, matching the source project's building.gd exactly, not a Storage-specific redesign).
+    /// PeekPullableItem()/CanAcceptInput lines up. A Storage takes part in that same shared path and
+    /// does not require the neighbour's own output to be aimed at it: what a chest may trade with is
+    /// a rule about the pair, and lives in MayFeedStorage.
     /// </summary>
     public sealed class TransportSystem
     {
@@ -102,7 +101,6 @@ namespace Game.Gameplay.Transport
         /// <summary>Every registered Storage in the world, for UI that needs to aggregate across all of them (e.g. the global Storage panel).</summary>
         public IReadOnlyList<StorageRuntime> Storages => _storages;
 
-        /// <summary>Every registered building across every internal list (SAUVEGARDE.md). Three consumers, all of them needing the whole set at once: the save, the building cap (CONSTRUCTION.md) and the map's drawing of the base (MAP.md). Not a general-purpose accessor - anything that wants one building has a narrower way to it.</summary>
         /// <summary>
         /// Every registered building that is not a belt, a Splitter or a Crossroad - the machines,
         /// the chests, the Core.
@@ -143,6 +141,12 @@ namespace Game.Gameplay.Transport
             }
         }
 
+        /// <summary>
+        /// Every registered building across every internal list (SAUVEGARDE.md). Three consumers, all
+        /// of them needing the whole set at once: the save, the building cap (CONSTRUCTION.md) and the
+        /// map's drawing of the base (MAP.md). Not a general-purpose accessor - anything that wants one
+        /// building has a narrower way to it.
+        /// </summary>
         public IEnumerable<BuildingRuntime> GetAllBuildings()
         {
             foreach (BuildingRuntime building in _conveyors) yield return building;
@@ -360,14 +364,10 @@ namespace Game.Gameplay.Transport
         /// </summary>
         void TryMergeFromSide(ConveyorRuntime conveyor)
         {
-            // <b>Asked here rather than by the caller.</b> It used to be asked once at the top of a
-            // single loop that did the straight-through pull and this, and splitting that loop into
-            // passes left this one calling ReceiveItem with nobody having checked - which is not a
-            // small slip: ReceiveItem trusts its caller, so a belt merged into by another belt took
-            // an item every tick for as long as it stayed jammed. Twenty-nine on a cell that holds
-            // three, drawn trailing eight cells backwards off the belt and over whatever was there,
-            // because AdvanceItem spaces each item a third of a cell behind the one ahead of it and
-            // nothing said where to stop.
+            // <b>Asked here rather than by the caller.</b> ReceiveItem trusts its caller, so a caller
+            // that omits this check feeds a jammed belt one item per tick: measured at twenty-nine on
+            // a cell that holds three, trailing eight cells back off the belt, because AdvanceItem
+            // spaces each item behind the one ahead and nothing else bounds it.
             if (!conveyor.HasRoomForNewItem) return;
 
             Direction entry = conveyor.Orientation.Rotation.Opposite();

@@ -131,9 +131,6 @@ namespace Game.Gameplay.Buildings
         {
         }
 
-        /// <summary>Whether this building participates in directional flow. False by default.</summary>
-        public virtual bool IsFlowReceiver() => false;
-
         /// <summary>
         /// Puts the single input back opposite the output. Called when the facing changes, because
         /// the input side is stored absolutely rather than relative to the exit: rotating a building

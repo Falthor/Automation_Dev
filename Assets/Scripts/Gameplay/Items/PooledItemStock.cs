@@ -4,8 +4,9 @@ namespace Game.Gameplay.Items
 {
     /// <summary>
     /// Pooled per-item stock for production buildings: unlimited distinct item ids, each capped
-    /// independently. Distinct from the slot-based Inventory (StorageRuntime's "8 distinct types
-    /// x100" model) - TRANSPORT.md's Building/Inventory surface has no distinct-type cap, only
+    /// independently. Distinct from the slot-based Inventory a chest uses, whose shape is a fixed
+    /// number of slots each holding one item id - TRANSPORT.md's Building/Inventory surface has no
+    /// distinct-type cap of its own, only
     /// a per-item amount cap, which is exactly what production buildings (input and output side
     /// alike) need.
     ///
