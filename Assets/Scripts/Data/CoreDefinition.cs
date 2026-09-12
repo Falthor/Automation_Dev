@@ -17,7 +17,7 @@ namespace Game.Data
 
         public int ActionRadiusCells => actionRadiusCells;
 
-        /// <summary>CU granted into the global reserve in one go, every CuOutputIntervalSeconds - no cable/network needed.</summary>
+        /// <summary>CU granted into the global reserve in one go, every CuOutputIntervalSeconds - no cable/network needed. Shipped at zero: the Core produces nothing, and the mechanism below has no effect at that value (CALCUL.md).</summary>
         public float CuOutput => cuOutput;
 
         /// <summary>How often the CuOutput grant lands, in seconds.</summary>

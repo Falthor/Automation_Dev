@@ -72,33 +72,6 @@ namespace Game.Data
             }
         }
 
-        /// <summary>
-        /// Turns a flat site index into the ring it belongs to and its rank within that ring - the
-        /// pair everything about a wreck is derived from.
-        /// </summary>
-        public bool Locate(int siteIndex, out int ring, out int rankInRing)
-        {
-            ring = 0;
-            rankInRing = 0;
-            if (siteIndex < 0) return false;
-
-            int remaining = siteIndex;
-            for (int i = 0; i < _rings.Length; i++)
-            {
-                int count = Mathf.Max(0, _rings[i].Count);
-                if (remaining < count)
-                {
-                    ring = i;
-                    rankInRing = remaining;
-                    return true;
-                }
-
-                remaining -= count;
-            }
-
-            return false;
-        }
-
         /// <summary>The share of the circle one rank of this ring gets.</summary>
         public float SpacingDegrees(int ring)
         {
