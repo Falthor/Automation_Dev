@@ -104,6 +104,14 @@ namespace Game.UI
             GridCoord cell = gameRuntime.Grid.WorldToCell(world);
             object occupant = gameRuntime.Grid.GetOccupant(cell);
 
+            // A Pole's range indicator (Toggle, below) is the one case that must not be blindly
+            // hidden here - clicking the same pole twice needs to still see it as shown so Toggle
+            // can turn it off. Every other outcome below dismisses it explicitly.
+            if (!(occupant is PoleRuntime))
+            {
+                gameRuntime.PoleRangeView?.Hide();
+            }
+
             // A construction site's pending segment already occupies the grid - that is what stops
             // anything else being placed on it - but it is not the building it will become: nothing
             // has been delivered, it produces nothing, and a Foundry's production panel over it
@@ -121,6 +129,16 @@ namespace Game.UI
             {
                 storagePanel.Hide();
                 gameRuntime.Selection.SelectSite(site);
+                return;
+            }
+
+            // A Pole has no info panel of its own (TryShowPanelFor's own rule), so it does not go
+            // through SelectionRuntime at all - PoleRangeView owns its own show/hide state instead.
+            if (occupant is PoleRuntime pole)
+            {
+                storagePanel.Hide();
+                gameRuntime.Selection.Clear();
+                gameRuntime.PoleRangeView?.Toggle(pole);
                 return;
             }
 

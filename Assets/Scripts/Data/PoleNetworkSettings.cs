@@ -37,7 +37,7 @@ namespace Game.Data
         /// reach (PoleNetworkSystem's own distance checks are all footprint-to-footprint,
         /// ground-level) - tune it against the shipped sprite's real proportions.
         /// </summary>
-        [SerializeField] float cableAttachmentHeightCells = 1.3f;
+        [SerializeField] float cableAttachmentHeightCells = 2.5f;
 
         public int PowerRangeCells => powerRangeCells;
         public int ConnectionRangeCells => connectionRangeCells;

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Core;
 using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Power;
@@ -26,11 +27,19 @@ namespace Game.Presentation
     public sealed class PoleNetworkVisualSync
     {
         const int SegmentsPerCable = 10;
-        const float SegmentThickness = 0.06f;
+        const float SegmentThickness = 0.02f;
         const float IndicatorSize = 0.28f;
 
-        static readonly Color FedColor = new Color(85f / 255f, 221f / 255f, 245f / 255f, 1f);
-        static readonly Color UnfedColor = new Color(107f / 255f, 114f / 255f, 128f / 255f, 0.85f);
+        /// <summary>The cable itself, a discreet black wire rather than an accent colour - the fed/unfed distinction still reads through UnfedCableColor's grey, just without drawing attention the way cyan did.</summary>
+        static readonly Color CableFedColor = Color.black;
+        static readonly Color CableUnfedColor = new Color(107f / 255f, 114f / 255f, 128f / 255f, 0.85f);
+
+        /// <summary>The per-pole indicator dot keeps the brighter accent colours: it exists specifically to stay legible on its own (an isolated pole has no cable to carry the distinction), which a black dot on dark ground would defeat.</summary>
+        static readonly Color IndicatorFedColor = new Color(85f / 255f, 221f / 255f, 245f / 255f, 1f);
+        static readonly Color IndicatorUnfedColor = new Color(107f / 255f, 114f / 255f, 128f / 255f, 0.85f);
+
+        /// <summary>What a cable that would be built, but is not yet, looks like - a placement preview, not a real connection.</summary>
+        static readonly Color PreviewColor = new Color(1f, 1f, 1f, 0.5f);
 
         readonly GridRuntime _grid;
         readonly PoleNetworkSettings _settings;
@@ -44,6 +53,17 @@ namespace Game.Presentation
         readonly HashSet<PoleRuntime> _seenPoles = new HashSet<PoleRuntime>();
         readonly List<(PoleRuntime, PoleRuntime)> _staleCables = new List<(PoleRuntime, PoleRuntime)>();
         readonly List<PoleRuntime> _stalePoles = new List<PoleRuntime>();
+
+        /// <summary>
+        /// One preview cable per pole a placement candidate would connect to (ConstructionInputAdapter,
+        /// following the ghost every frame) - keyed by the target, since FindConnectionCandidates
+        /// returns at most one nearest pole per network and the candidate itself has no stable identity
+        /// of its own to key on. Segments are pooled and only disabled when a target drops out, never
+        /// destroyed, so hovering back and forth over the same poles costs no allocation.
+        /// </summary>
+        readonly Dictionary<PoleRuntime, SpriteRenderer[]> _previewCables = new Dictionary<PoleRuntime, SpriteRenderer[]>();
+        readonly HashSet<PoleRuntime> _seenPreviewTargets = new HashSet<PoleRuntime>();
+        readonly List<PoleRuntime> _stalePreviewTargets = new List<PoleRuntime>();
 
         public PoleNetworkVisualSync(GridRuntime grid, PoleNetworkSettings settings)
         {
@@ -61,6 +81,60 @@ namespace Game.Presentation
             RefreshIndicators(network);
         }
 
+        /// <summary>
+        /// Shows, every frame while a Pole is the armed construction tool, exactly the cable(s) a
+        /// pole placed at <paramref name="candidateCell"/> would actually connect to
+        /// (PoleNetworkSystem.FindConnectionCandidates - the same rule RegisterPole itself uses,
+        /// asked without committing anything). No cable at all is the signal that the candidate is
+        /// out of ConnectionRangeCells of every network.
+        /// </summary>
+        public void ShowPreview(PoleNetworkSystem network, GridCoord candidateCell)
+        {
+            if (network == null) return;
+
+            List<PoleRuntime> targets = network.FindConnectionCandidates(candidateCell);
+            Vector3 from = AttachmentPoint(candidateCell);
+
+            _seenPreviewTargets.Clear();
+            foreach (PoleRuntime target in targets)
+            {
+                _seenPreviewTargets.Add(target);
+
+                if (!_previewCables.TryGetValue(target, out SpriteRenderer[] segments))
+                {
+                    segments = BuildSegments();
+                    _previewCables[target] = segments;
+                }
+
+                PositionCable(from, AttachmentPoint(target.Cell), segments);
+                for (int i = 0; i < segments.Length; i++)
+                {
+                    segments[i].enabled = true;
+                    segments[i].color = PreviewColor;
+                }
+            }
+
+            _stalePreviewTargets.Clear();
+            foreach (PoleRuntime key in _previewCables.Keys)
+            {
+                if (!_seenPreviewTargets.Contains(key)) _stalePreviewTargets.Add(key);
+            }
+            foreach (PoleRuntime key in _stalePreviewTargets)
+            {
+                SpriteRenderer[] segments = _previewCables[key];
+                for (int i = 0; i < segments.Length; i++) segments[i].enabled = false;
+            }
+        }
+
+        /// <summary>Hides every preview cable - the tool stopped being a Pole, or nothing is being placed at all.</summary>
+        public void HidePreview()
+        {
+            foreach (SpriteRenderer[] segments in _previewCables.Values)
+            {
+                for (int i = 0; i < segments.Length; i++) segments[i].enabled = false;
+            }
+        }
+
         void RefreshCables(PoleNetworkSystem network)
         {
             _seenCables.Clear();
@@ -76,9 +150,9 @@ namespace Game.Presentation
                 }
 
                 bool visible = !edge.A.IsUnderConstruction && !edge.B.IsUnderConstruction;
-                if (visible) PositionCable(edge.A, edge.B, segments);
+                if (visible) PositionCable(AttachmentPoint(edge.A.Cell), AttachmentPoint(edge.B.Cell), segments);
 
-                Color color = network.IsNetworkFed(edge.A.NetworkId) ? FedColor : UnfedColor;
+                Color color = network.IsNetworkFed(edge.A.NetworkId) ? CableFedColor : CableUnfedColor;
                 for (int i = 0; i < segments.Length; i++)
                 {
                     segments[i].enabled = visible;
@@ -116,8 +190,8 @@ namespace Game.Presentation
                 indicator.enabled = visible;
                 if (!visible) continue;
 
-                indicator.transform.position = AttachmentPoint(pole);
-                indicator.color = network.IsNetworkFed(pole.NetworkId) ? FedColor : UnfedColor;
+                indicator.transform.position = AttachmentPoint(pole.Cell);
+                indicator.color = network.IsNetworkFed(pole.NetworkId) ? IndicatorFedColor : IndicatorUnfedColor;
             }
 
             _stalePoles.Clear();
@@ -162,23 +236,20 @@ namespace Game.Presentation
             return renderer;
         }
 
+        /// <summary>Where a cable actually attaches - near the top of the pole's art, not the ground it stands on. See PoleNetworkSettings.CableAttachmentHeightCells. Takes a cell rather than a PoleRuntime so a placement candidate (not built yet) can be previewed the same way.</summary>
+        Vector3 AttachmentPoint(GridCoord cell)
+        {
+            Vector3 groundCentre = _grid.FootprintCenterToWorld(cell, Vector2Int.one);
+            return groundCentre + new Vector3(0f, _settings.CableAttachmentHeightCells * _grid.CellSize, 0f);
+        }
+
         /// <summary>
         /// Lays SegmentsPerCable rotated/scaled bars along a quadratic Bezier from a to b, its
         /// control point offset downward from the midpoint by SagPerCellDistance times the span in
         /// cells - a short cable barely droops, a long one visibly hangs.
         /// </summary>
-        /// <summary>Where a cable actually attaches - near the top of the pole's art, not the ground it stands on. See PoleNetworkSettings.CableAttachmentHeightCells.</summary>
-        Vector3 AttachmentPoint(PoleRuntime pole)
+        void PositionCable(Vector3 from, Vector3 to, SpriteRenderer[] segments)
         {
-            Vector3 groundCentre = _grid.FootprintCenterToWorld(pole.Cell, Vector2Int.one);
-            return groundCentre + new Vector3(0f, _settings.CableAttachmentHeightCells * _grid.CellSize, 0f);
-        }
-
-        void PositionCable(PoleRuntime a, PoleRuntime b, SpriteRenderer[] segments)
-        {
-            Vector3 from = AttachmentPoint(a);
-            Vector3 to = AttachmentPoint(b);
-
             float distanceCells = Vector3.Distance(from, to) / _grid.CellSize;
             float sag = _settings.SagPerCellDistance * distanceCells;
             Vector3 control = (from + to) * 0.5f + new Vector3(0f, -sag, 0f);

@@ -68,14 +68,42 @@ namespace Game.Gameplay.Power
         {
             _poles.Add(pole);
 
+            List<PoleRuntime> nearestPerGroup = FindConnectionCandidates(pole.Cell, exclude: pole);
+
+            if (nearestPerGroup.Count == 0)
+            {
+                pole.NetworkId = _nextNetworkId++;
+                return;
+            }
+
+            // The first group found becomes the surviving id; every other group found merges into
+            // it, one cable per group - a pole bridging three separate networks fuses all three.
+            int survivingId = nearestPerGroup[0].NetworkId;
+
+            foreach (PoleRuntime nearest in nearestPerGroup)
+            {
+                _edges.Add((pole, nearest));
+                if (nearest.NetworkId != survivingId) Relabel(nearest.NetworkId, survivingId);
+            }
+
+            pole.NetworkId = survivingId;
+        }
+
+        /// <summary>
+        /// The nearest pole of each distinct network within ConnectionRangeCells of a cell - exactly
+        /// what a pole placed there would connect to (RegisterPole). Read-only, so a placement
+        /// preview can show the same cables before anything is actually built.
+        /// </summary>
+        public List<PoleRuntime> FindConnectionCandidates(GridCoord cell, PoleRuntime exclude = null)
+        {
             var nearestInGroup = new Dictionary<int, PoleRuntime>();
             var nearestDistance = new Dictionary<int, int>();
 
             foreach (PoleRuntime candidate in _poles)
             {
-                if (ReferenceEquals(candidate, pole)) continue;
+                if (ReferenceEquals(candidate, exclude)) continue;
 
-                int distance = ChebyshevDistance(candidate.Cell, pole.Cell);
+                int distance = ChebyshevDistance(candidate.Cell, cell);
                 if (distance > ConnectionRangeCells) continue;
 
                 if (!nearestDistance.TryGetValue(candidate.NetworkId, out int best) || distance < best)
@@ -85,24 +113,7 @@ namespace Game.Gameplay.Power
                 }
             }
 
-            if (nearestInGroup.Count == 0)
-            {
-                pole.NetworkId = _nextNetworkId++;
-                return;
-            }
-
-            // The first group found becomes the surviving id; every other group found merges into
-            // it, one cable per group - a pole bridging three separate networks fuses all three.
-            var groupIds = new List<int>(nearestInGroup.Keys);
-            int survivingId = groupIds[0];
-
-            foreach (int groupId in groupIds)
-            {
-                _edges.Add((pole, nearestInGroup[groupId]));
-                if (groupId != survivingId) Relabel(groupId, survivingId);
-            }
-
-            pole.NetworkId = survivingId;
+            return new List<PoleRuntime>(nearestInGroup.Values);
         }
 
         void Relabel(int fromId, int toId)

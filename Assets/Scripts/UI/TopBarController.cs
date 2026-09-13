@@ -26,8 +26,6 @@ namespace Game.UI
     /// </summary>
     public sealed class TopBarController : MonoBehaviour
     {
-        const float ReferenceWidth = 1920f;
-
         /// <summary>Occupied slots within this many of the cap turn the counter's alert color on - an arbitrary but reasonable "approaching the limit" band, not a pinned-down value.</summary>
         const int BuildingCapAlertMargin = 5;
 
@@ -77,7 +75,12 @@ namespace Game.UI
         Element _researchElement;
         Element _buildingElement;
 
-        /// <summary>One built element's live widgets, plus the responsive-width bounds it was configured with.</summary>
+        /// <summary>
+        /// One built element's live widgets. No width of its own: the button is left to Yoga's
+        /// ordinary content-based sizing (icon + label, no explicit width set anywhere) so it
+        /// tightens and grows with the text actually in it, rather than sitting in a fixed box
+        /// sized for a worst case that is usually shorter.
+        /// </summary>
         sealed class Element
         {
             public VisualElement Root;
@@ -85,8 +88,6 @@ namespace Game.UI
 
             /// <summary>Only the directive element has this: what it asks for is a list that changes with the directive, so its header is rebuilt rather than filled in.</summary>
             public VisualElement Requirements;
-
-            public float RefWidth, MinWidth, MaxWidth;
         }
 
         InputAction _pause;
@@ -123,16 +124,24 @@ namespace Game.UI
 
             ReleaseFocusAfterAClick();
 
-            _powerElement = BuildElement(_leftRow, powerIcon, PowerPanelController.PanelName, 100f, 80f, 130f);
-            _buildingComputeElement = BuildElement(_leftRow, buildingComputeIcon, ComputePanelController.BuildingPanelName, 130f, 105f, 160f);
-            _researchComputeElement = BuildElement(_leftRow, researchComputeIcon, ComputePanelController.ResearchPanelName, 130f, 105f, 160f);
+            _powerElement = BuildElement(_leftRow, powerIcon, PowerPanelController.PanelName);
+            _buildingComputeElement = BuildElement(_leftRow, buildingComputeIcon, ComputePanelController.BuildingPanelName);
+            _researchComputeElement = BuildElement(_leftRow, researchComputeIcon, ComputePanelController.ResearchPanelName);
             // Built last on the left so the row keeps one order for the whole run: the directive
             // element is what stands there before Research exists, and the two coexist from the
             // second directive on rather than one taking the other's place.
             _directiveElement = BuildDirectiveElement();
 
-            _researchElement = BuildElement(_rightRow, researchIcon, ResearchPanelController.PanelName, 150f, 115f, 190f);
-            _buildingElement = BuildElement(_rightRow, buildingIcon, BuildingMenuController.PanelName, 110f, 85f, 140f);
+            _researchElement = BuildElement(_rightRow, researchIcon, ResearchPanelController.PanelName);
+            _buildingElement = BuildElement(_rightRow, buildingIcon, BuildingMenuController.PanelName);
+
+            // Reparented into the row itself, as its last two children, rather than pinned at their
+            // own independently-tuned `right` offset outside it - Add() moves a VisualElement rather
+            // than duplicating it, so this is the only place either button lives from here on. The
+            // row's own right anchor is what now keeps them flush with the bar's edge; nothing about
+            // either button names a position of its own any more.
+            _rightRow.Add(panelRoot.Q<Button>("TopBarMenuButton"));
+            _rightRow.Add(panelRoot.Q<Button>("TopBarPauseButton"));
 
             if (constructionInputAdapter != null) constructionInputAdapter.PlacementRefused += ShowRefusalMessage;
 
@@ -190,9 +199,9 @@ namespace Game.UI
             _refusalMessageHideAt = Time.unscaledTime + RefusalMessageSeconds;
         }
 
-        Element BuildElement(VisualElement row, Sprite icon, string panelName, float refWidth, float minWidth, float maxWidth)
+        Element BuildElement(VisualElement row, Sprite icon, string panelName)
         {
-            var element = new Element { RefWidth = refWidth, MinWidth = minWidth, MaxWidth = maxWidth };
+            var element = new Element();
 
             var root = new Button(() => gameRuntime.Selection.OpenGlobalPanel(panelName)) { text = string.Empty };
             root.AddToClassList("top-bar-element");
@@ -218,7 +227,7 @@ namespace Game.UI
         /// </summary>
         Element BuildDirectiveElement()
         {
-            var element = new Element { RefWidth = 200f, MinWidth = 150f, MaxWidth = 250f };
+            var element = new Element();
 
             // The element states a bill; the Core panel is where it is read in full and accepted.
             // The player who reads "0/40" is already asking about the directive, and having to go
@@ -361,7 +370,6 @@ namespace Game.UI
             _pauseOverlay.EnableInClassList("hidden", !gameRuntime.IsPaused);
 
             RefreshClock();
-            RefreshWidths();
             RefreshPower();
             RefreshBuildingCompute();
             RefreshResearchCompute();
@@ -386,22 +394,6 @@ namespace Game.UI
         {
             if (_clock == null || gameRuntime.Clock == null) return;
             _clock.text = PlayClock.Format(gameRuntime.Clock.ElapsedSeconds);
-        }
-
-        void RefreshWidths()
-        {
-            float widthScale = Screen.width / ReferenceWidth;
-            _powerElement.Root.style.width = ClampedWidth(_powerElement, widthScale);
-            _buildingComputeElement.Root.style.width = ClampedWidth(_buildingComputeElement, widthScale);
-            _researchComputeElement.Root.style.width = ClampedWidth(_researchComputeElement, widthScale);
-            _directiveElement.Root.style.width = ClampedWidth(_directiveElement, widthScale);
-            _researchElement.Root.style.width = ClampedWidth(_researchElement, widthScale);
-            _buildingElement.Root.style.width = ClampedWidth(_buildingElement, widthScale);
-        }
-
-        static float ClampedWidth(Element element, float widthScale)
-        {
-            return Mathf.Clamp(element.RefWidth * widthScale, element.MinWidth, element.MaxWidth);
         }
 
         /// <summary>

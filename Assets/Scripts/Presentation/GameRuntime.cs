@@ -177,6 +177,9 @@ namespace Game.Presentation
         /// <summary>The electric pole network (ENERGIE.md) - gates every power-consuming building's draw through BuildingRuntime.PoleNetwork. Built once, before ConstructionService, on both the fresh-game and the restored-game path.</summary>
         public PoleNetworkSystem PoleNetwork { get; private set; }
 
+        /// <summary>The square power-field outline shown on a clicked pole or a pole being previewed for placement (ENERGIE.md). Null when poleNetworkSettings is not assigned, same as _poleNetworkVisuals.</summary>
+        public PoleRangeView PoleRangeView { get; private set; }
+
         /// <summary>
         /// Who is looking at what, this frame. Rebuilt by <see cref="RebuildObservers"/> from the
         /// observers' current positions and stored per cell nowhere - see ObservationRuntime.
@@ -218,7 +221,9 @@ namespace Game.Presentation
 
         /// <summary>Draws one ring per Communication Relay. A view over Construction.CommunicationRelays, refreshed from the tick below and authoritative for nothing.</summary>
         CommunicationRelayRadiusFleetView _communicationRelayRadiusFleet;
-        PoleNetworkVisualSync _poleNetworkVisuals;
+
+        /// <summary>Draws every pole cable/indicator and the connection preview while a Pole is the armed tool (ENERGIE.md). Public so ConstructionInputAdapter can drive the preview.</summary>
+        public PoleNetworkVisualSync PoleNetworkVisuals { get; private set; }
 
         /// <summary>
         /// The explorer robot under a cell, or null. What lets a click on one open its panel instead
@@ -562,7 +567,11 @@ namespace Game.Presentation
                 Grid, actionRadiusView != null ? actionRadiusView.OverlayShader : null);
 
             // Same reasoning: a pole can exist whichever branch ran, independent of explorerRobotSettings.
-            if (poleNetworkSettings != null) _poleNetworkVisuals = new PoleNetworkVisualSync(Grid, poleNetworkSettings);
+            if (poleNetworkSettings != null)
+            {
+                PoleNetworkVisuals = new PoleNetworkVisualSync(Grid, poleNetworkSettings);
+                PoleRangeView = new PoleRangeView(Grid, poleNetworkSettings);
+            }
 
             // Holds nothing until it is filled, and is filled from scratch every frame - so it is
             // built here with no argument and restored from nothing. Before the first Update it
@@ -1346,7 +1355,7 @@ namespace Game.Presentation
             // Communication Relays tick as ordinary buildings inside Transport.Tick above; this only
             // reads their IsActive/radius back out to draw or hide each one's ring.
             _communicationRelayRadiusFleet?.Refresh(Construction?.CommunicationRelays);
-            _poleNetworkVisuals?.Refresh(PoleNetwork);
+            PoleNetworkVisuals?.Refresh(PoleNetwork);
 
             // Last of the world's changes, so the observers match the positions this frame actually
             // ended on rather than the ones it started from. The fog reads it in LateUpdate, after

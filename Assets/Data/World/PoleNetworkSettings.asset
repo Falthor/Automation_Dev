@@ -15,4 +15,4 @@ MonoBehaviour:
   powerRangeCells: 2
   connectionRangeCells: 8
   sagPerCellDistance: 0.035
-  cableAttachmentHeightCells: 1.3
+  cableAttachmentHeightCells: 2.5

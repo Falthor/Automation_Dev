@@ -1218,7 +1218,7 @@
 
 .top-bar-elements-right {
     position: absolute;
-    right: 128px;
+    right: 12px;
     top: 0;
     bottom: 0;
     flex-direction: row;
@@ -1231,11 +1231,11 @@
     background-color: transparent;
     border-width: 1px;
     border-color: transparent;
-    margin: 0 5px;
+    margin: 0 2px;
     height: 28px;
     flex-direction: row;
     align-items: center;
-    padding: 0 4px;
+    padding: 0 3px;
 }
 
 .top-bar-element-icon {
@@ -1282,7 +1282,7 @@
     color: rgb(85, 221, 245);
     font-size: 9px;
     -unity-font-style: bold;
-    margin-right: 8px;
+    margin-right: 6px;
 }
 
 .top-bar-directive-requirements {
@@ -1293,7 +1293,7 @@
 .top-bar-directive-chip {
     flex-direction: row;
     align-items: center;
-    margin-right: 9px;
+    margin-right: 6px;
 }
 
 .top-bar-directive-icon {
@@ -1316,12 +1316,13 @@
 
 /* 34px, not 36: UI Toolkit's box model adds the 1px border on top of height (content-box), and the
    Top Bar itself is exactly 36px tall - a 36px button plus its own border overflowed 2px below the
-   bar's bottom edge, past the cyan line that is meant to be the bar's actual edge. */
+   bar's bottom edge, past the cyan line that is meant to be the bar's actual edge. 34+2 border = 36,
+   so centered (align-items: center) in the row's own 36px height it sits flush with no offset of
+   its own to state - the row's anchor is the only position either button names any more. */
 .top-bar-icon-button {
-    position: absolute;
-    top: 0;
     width: 34px;
     height: 34px;
+    margin-left: 6px;
     background-color: rgb(20, 24, 29);
     border-width: 1px;
     border-color: rgb(48, 59, 66);
@@ -1332,14 +1333,6 @@
 
 .top-bar-icon-button:hover {
     border-color: rgb(85, 221, 245);
-}
-
-.top-bar-menu-button {
-    right: 60px;
-}
-
-.top-bar-pause-button {
-    right: 16px;
 }
 
 /* Data Center / Core inspectors */

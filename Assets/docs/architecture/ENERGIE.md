@@ -90,6 +90,7 @@ pole whose network currently reaches a source. Implemented by `PoleNetworkSystem
 ```csharp
 public void RegisterPole(PoleRuntime pole)
 public void UnregisterPole(PoleRuntime pole)
+public List<PoleRuntime> FindConnectionCandidates(GridCoord cell, PoleRuntime exclude = null)
 public void Tick(float deltaTime)
 public bool IsNetworkFed(int networkId)
 public bool IsCovered(GridCoord origin, Vector2Int[] footprintCells)
@@ -138,6 +139,15 @@ placement and restore both already go through), which deterministically reconstr
 groups the session had. The same "what comes from the player is saved, what is derived is recomputed"
 rule `WreckField`'s own seed-derived layout already follows.
 
+**Placing a pole previews exactly the cable(s) it would actually create.** While a Pole is the armed
+construction tool, `ConstructionInputAdapter.UpdateGhost` asks `PoleNetworkSystem.FindConnectionCandidates`
+for the candidate cell every frame - the same nearest-per-network lookup `RegisterPole` itself commits
+with, never a separate approximation - and `PoleNetworkVisualSync.ShowPreview` draws one translucent
+cable to each pole found. No cable at all is therefore the honest signal that the candidate is outside
+every network's `ConnectionRangeCells`, without a second "am I in range" indicator to keep in sync with
+the real rule. `PoleRangeView` (below) follows the same ghost for the power field, so placing a pole
+shows both reaches - who it would connect to, and who it would power - before it costs anything.
+
 **Rendering is a pure function of the network, rebuilt only on a topology change.**
 `PoleNetworkVisualSync` (`Game.Presentation`) draws each cable as a handful of short rotated sprite
 segments sampling a quadratic Bezier between the two poles' attachment points
@@ -150,3 +160,15 @@ small indicator dot at each pole's own attachment point carries the same colour,
 with no cable at all still reads as fed or not. Drawn in `SortingBands.PoleCable`, the Information
 band - above every building regardless of depth, the same "overlay, not a thing standing in the
 world" reasoning a placement preview already gets.
+
+**`PoleRangeView` (`Game.Presentation`) is the square power field itself, `PowerRangeCells` wide -
+a Chebyshev square, not a circle like the Core's own ring (`ActionRadiusView`).** It shows two ways:
+clicking a built pole (`BuildingSelectionInput`, a second click on the same pole dismisses it) and
+following the ghost every frame while a Pole is the armed tool (`ConstructionInputAdapter`) - never
+both at once, since an armed tool already routes every click away from building inspection. A Pole
+has no info panel of its own, so this deliberately does not go through `SelectionRuntime.SelectedBuilding`
+(reserved for a building with a real panel to clear it) - the view owns its own show/hide state and
+never blocks other world input the way an open panel does. Every building the field touches gets its
+own four-bar halo (the same frame `BuildingHoverHighlightView` draws, pooled here since several can
+be touched at once) - one per distinct `BuildingRuntime`, however many of the field's cells it
+occupies.

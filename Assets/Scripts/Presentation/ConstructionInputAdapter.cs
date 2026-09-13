@@ -362,6 +362,21 @@ namespace Game.Presentation
         {
             BuildingDefinition selected = gameRuntime.Construction.Selected;
 
+            // The pole's own range preview follows the ghost every frame while it is the armed
+            // tool - the one placement preview that also needs a second, non-footprint overlay
+            // (ENERGIE.md). Never in conflict with a clicked pole's own Toggle: a tool being armed
+            // already routes every click away from building inspection (BuildingSelectionInput).
+            if (selected is PoleDefinition)
+            {
+                gameRuntime.PoleRangeView?.Show(cell, null);
+                gameRuntime.PoleNetworkVisuals?.ShowPreview(gameRuntime.PoleNetwork, cell);
+            }
+            else
+            {
+                gameRuntime.PoleRangeView?.Hide();
+                gameRuntime.PoleNetworkVisuals?.HidePreview();
+            }
+
             if (selected is ConveyorDefinition conveyorDefinition)
             {
                 if (buildingGhostView != null) buildingGhostView.Hide();
