@@ -11,6 +11,7 @@ using Game.Gameplay.Transport;
 using Game.Grid;
 using Game.Tests.EditMode.TestSupport;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Game.Tests.EditMode.Construction
@@ -553,6 +554,210 @@ namespace Game.Tests.EditMode.Construction
             service.RestoreBuildingCap(null);
 
             Assert.AreEqual(ConstructionService.DefaultBuildingCap, service.BuildingCap);
+        }
+
+        // --- Out-of-radius construction: the Communication Relay, the 40-cell conveyor run, the Belt Relay ---
+
+        static (ConstructionService service, TransportSystem transport, ResearchSystem research, CoreRuntime core, DiscoveryRuntime discovery)
+            NewServiceWithCoreAndDiscovery(int actionRadiusCells, params ResearchDefinition[] known)
+        {
+            var grid = new GridRuntime(1f);
+            var discovery = new DiscoveryRuntime(2000, 64);
+            var research = new ResearchSystem(new ComputeSystem(), new ComputeSystem(), new ResearchCatalog(known));
+            var coreDefinition = TestDataFactory.NewCore(actionRadiusCells, new Vector2Int(4, 4));
+            var core = new CoreRuntime(coreDefinition, new GridCoord(0, 0), Direction.North, new ComputeSystem(), new PowerSystem(), research);
+            grid.SetOccupantFootprint(core.Cell, coreDefinition.FootprintSize, core);
+            var transport = new TransportSystem(grid);
+            transport.Register(core);
+            var sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
+            var service = new ConstructionService(grid, null, null, new ComputeSystem(), new ComputeSystem(), new PowerSystem(), research, transport, core, sites, discovery);
+            return (service, transport, research, core, discovery);
+        }
+
+        static ResearchDefinition OutOfRadiusUnlock() => Raising(ResearchEffectKind.UnlockOutOfRadiusConstruction, 0);
+
+        [Test]
+        public void HasUnlockedOutOfRadiusConstruction_BecomesTrue_OnceResearched()
+        {
+            ResearchDefinition unlock = OutOfRadiusUnlock();
+            var (service, _, research, _, _) = NewServiceWithCoreAndDiscovery(5, unlock);
+            Assert.IsFalse(service.HasUnlockedOutOfRadiusConstruction);
+
+            research.Enqueue(unlock);
+            research.Tick(60f);
+
+            Assert.IsTrue(service.HasUnlockedOutOfRadiusConstruction);
+        }
+
+        [Test]
+        public void OutsideRadius_WithoutTheResearch_RefusesAConveyorEvenOnDiscoveredGround()
+        {
+            var (service, _, _, _, discovery) = NewServiceWithCoreAndDiscovery(1);
+            var farCell = new GridCoord(50, 0);
+            discovery.Reveal(farCell);
+
+            service.SelectBuilding(NewConveyorDefinition());
+            Assert.AreEqual(PlacementRefusalReason.OutOfActionRadius, service.GetPlacementRefusalReason(farCell));
+        }
+
+        [Test]
+        public void OutsideRadius_WithTheResearch_ButUndiscovered_Refuses()
+        {
+            ResearchDefinition unlock = OutOfRadiusUnlock();
+            var (service, _, research, _, _) = NewServiceWithCoreAndDiscovery(1, unlock);
+            research.Enqueue(unlock);
+            research.Tick(60f);
+
+            service.SelectBuilding(NewConveyorDefinition());
+            Assert.AreEqual(PlacementRefusalReason.OutOfActionRadius, service.GetPlacementRefusalReason(new GridCoord(50, 0)),
+                "Never discovered - the one placement gate that reads discovery at all, and only out here.");
+        }
+
+        [Test]
+        public void OutsideRadius_ResearchedAndDiscovered_AllowsAStraightConveyor()
+        {
+            ResearchDefinition unlock = OutOfRadiusUnlock();
+            var (service, _, research, _, discovery) = NewServiceWithCoreAndDiscovery(1, unlock);
+            research.Enqueue(unlock);
+            research.Tick(60f);
+            var farCell = new GridCoord(50, 0);
+            discovery.Reveal(farCell);
+
+            service.SelectBuilding(NewConveyorDefinition());
+            Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(farCell));
+        }
+
+        [Test]
+        public void OutsideRadius_EvenResearchedAndDiscovered_RefusesAnOrdinaryBuilding()
+        {
+            ResearchDefinition unlock = OutOfRadiusUnlock();
+            var (service, _, research, _, discovery) = NewServiceWithCoreAndDiscovery(1, unlock);
+            research.Enqueue(unlock);
+            research.Tick(60f);
+            var farCell = new GridCoord(50, 0);
+            discovery.Reveal(farCell);
+
+            service.SelectBuilding(NewFreeCountingDefinition()); // a FactoryDefinition - not eligible out here
+            Assert.AreEqual(PlacementRefusalReason.OutOfActionRadius, service.GetPlacementRefusalReason(farCell),
+                "Only a straight/corner conveyor or the relay itself may be placed outside every radius.");
+        }
+
+        [Test]
+        public void ActiveCommunicationRelay_LetsAnOrdinaryBuildingBePlacedFarFromTheCore()
+        {
+            var (service, _, _, _, _) = NewServiceWithCoreAndDiscovery(1);
+            CommunicationRelayDefinition relayDefinition = TestDataFactory.NewCommunicationRelay(actionRadiusCells: 12);
+            var relay = (CommunicationRelayRuntime)service.CreateForRestore(relayDefinition, new GridCoord(50, 0), Direction.North);
+            relay.Tick(1f);
+            Assert.IsTrue(relay.IsActive, "Precondition: zero kW/CU upkeep, so one tick is enough.");
+
+            service.SelectBuilding(NewFreeCountingDefinition());
+            var nearRelayCell = new GridCoord(52, 2); // within the relay's radius, nowhere near the Core's
+            Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(nearRelayCell));
+        }
+
+        [Test]
+        public void DemolishingACommunicationRelay_RemovesItFromTheList_AndItsRadiusStopsCovering()
+        {
+            var (service, _, _, _, _) = NewServiceWithCoreAndDiscovery(1);
+            CommunicationRelayDefinition relayDefinition = TestDataFactory.NewCommunicationRelay(actionRadiusCells: 12);
+            var relayCell = new GridCoord(50, 0);
+            var relay = (CommunicationRelayRuntime)service.CreateForRestore(relayDefinition, relayCell, Direction.North);
+            relay.Tick(1f);
+            Assert.AreEqual(1, service.CommunicationRelays.Count);
+
+            Assert.IsTrue(service.TryDemolish(relayCell, out BuildingRuntime removed));
+            Assert.AreSame(relay, removed);
+            Assert.AreEqual(0, service.CommunicationRelays.Count, "A demolished relay must stop counting ground as covered.");
+        }
+
+        [Test]
+        public void BeltRelay_CannotBePlacedWithinOnlyTheCoresRadius()
+        {
+            var (service, _, _, _, _) = NewServiceWithCoreAndDiscovery(20);
+            service.SelectBuilding(TestDataFactory.NewBeltRelay());
+
+            Assert.AreEqual(PlacementRefusalReason.OutOfActionRadius, service.GetPlacementRefusalReason(new GridCoord(5, 0)),
+                "Within the Core's own radius is not enough - a Belt Relay needs a Communication Relay's.");
+        }
+
+        [Test]
+        public void BeltRelay_CanBePlacedWithinACommunicationRelaysRadius()
+        {
+            var (service, _, _, _, _) = NewServiceWithCoreAndDiscovery(1);
+            CommunicationRelayDefinition relayDefinition = TestDataFactory.NewCommunicationRelay(actionRadiusCells: 12);
+            var relay = (CommunicationRelayRuntime)service.CreateForRestore(relayDefinition, new GridCoord(50, 0), Direction.North);
+            relay.Tick(1f);
+
+            service.SelectBuilding(TestDataFactory.NewBeltRelay());
+            Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(new GridCoord(52, 2)));
+        }
+
+        [Test]
+        public void ConveyorRun_AllowsUpTo40CellsOutsideRadius_RefusesThe41st()
+        {
+            ResearchDefinition unlock = OutOfRadiusUnlock();
+            var (service, _, research, _, discovery) = NewServiceWithCoreAndDiscovery(1, unlock);
+            research.Enqueue(unlock);
+            research.Tick(60f);
+
+            const int startX = 20;
+            for (int x = startX; x <= startX + ConstructionService.MaxOutOfRadiusConveyorRun + 1; x++)
+            {
+                discovery.Reveal(new GridCoord(x, 0));
+            }
+
+            service.SelectBuilding(NewConveyorDefinition());
+            for (int i = 0; i < ConstructionService.MaxOutOfRadiusConveyorRun; i++)
+            {
+                var cell = new GridCoord(startX + i, 0);
+                Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(cell), $"cell #{i} should still fit under the cap");
+                Assert.IsTrue(service.TryPlace(cell, Direction.East, out _));
+            }
+
+            var overflow = new GridCoord(startX + ConstructionService.MaxOutOfRadiusConveyorRun, 0);
+            Assert.AreEqual(PlacementRefusalReason.ConveyorRunTooLong, service.GetPlacementRefusalReason(overflow));
+            Assert.IsFalse(service.TryPlace(overflow, Direction.East, out _));
+        }
+
+        [Test]
+        public void BeltRelay_ResetsTheRunLengthCounter_ForWhateverContinuesPastIt()
+        {
+            ResearchDefinition unlock = OutOfRadiusUnlock();
+            var (service, _, research, _, discovery) = NewServiceWithCoreAndDiscovery(1, unlock);
+            research.Enqueue(unlock);
+            research.Tick(60f);
+
+            const int startX = 20;
+            int beltRelayX = startX + ConstructionService.MaxOutOfRadiusConveyorRun; // cell #40, the first refusal without a relay
+            for (int x = startX; x <= beltRelayX + 1; x++) discovery.Reveal(new GridCoord(x, 0));
+
+            service.SelectBuilding(NewConveyorDefinition());
+            for (int i = 0; i < ConstructionService.MaxOutOfRadiusConveyorRun; i++)
+            {
+                Assert.IsTrue(service.TryPlace(new GridCoord(startX + i, 0), Direction.East, out _));
+            }
+
+            var beltRelayCell = new GridCoord(beltRelayX, 0);
+            Assert.AreEqual(PlacementRefusalReason.ConveyorRunTooLong, service.GetPlacementRefusalReason(beltRelayCell),
+                "Precondition: the run is genuinely at its cap here.");
+
+            // A small relay, placed below the line so its footprint never collides with it, whose
+            // radius reaches the Belt Relay's own cell (distance ~1.58 from its footprint centre)
+            // but not the one right after it (~2.12) - deliberately, so the assertion below can only
+            // pass through the reset the flag itself gives, not through simply still being in range.
+            CommunicationRelayDefinition tinyRelay = TestDataFactory.NewCommunicationRelay(actionRadiusCells: 2);
+            var relay = (CommunicationRelayRuntime)service.CreateForRestore(tinyRelay, new GridCoord(beltRelayX - 1, -2), Direction.North);
+            relay.Tick(1f);
+
+            service.SelectBuilding(TestDataFactory.NewBeltRelay());
+            Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(beltRelayCell),
+                "Now placeable - within the tiny relay's radius.");
+            Assert.IsTrue(service.TryPlace(beltRelayCell, Direction.East, out _));
+
+            service.SelectBuilding(NewConveyorDefinition());
+            Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(new GridCoord(beltRelayX + 1, 0)),
+                "Cell 1 of a fresh run, not 41 of the old one - the Belt Relay reset the counter.");
         }
     }
 }

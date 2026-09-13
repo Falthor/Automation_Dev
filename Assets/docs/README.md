@@ -25,7 +25,7 @@ modification du projet et l'emporte sur le reste.
 | L'assemblage nano d'un bâtiment et la conversion du sol sous lui | [`MATERIALISATION.md`](architecture/MATERIALISATION.md) |
 | Le déplacement des objets : surfaces, géométrie, débit, tapis, splitters | [`TRANSPORT.md`](architecture/TRANSPORT.md) |
 | Les bâtiments à recette : cycles, états, tampons | [`PRODUCTION.md`](architecture/PRODUCTION.md) |
-| Poser, déplacer, démolir ; chantiers, robots constructeurs, GlobalStock | [`CONSTRUCTION.md`](architecture/CONSTRUCTION.md) |
+| Poser, déplacer, démolir ; chantiers, robots constructeurs, GlobalStock ; construire hors du rayon d'action (Relais de communication, Relais de convoyeur) | [`CONSTRUCTION.md`](architecture/CONSTRUCTION.md) |
 | L'énergie et sa répartition par priorité | [`ENERGIE.md`](architecture/ENERGIE.md) |
 | Les réserves de CU (Building/Research/Armament Compute) et le choix par recherche | [`CALCUL.md`](architecture/CALCUL.md) |
 | La recherche, ses effets, l'arbre et ses validations | [`RECHERCHE.md`](architecture/RECHERCHE.md) |

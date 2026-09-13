@@ -489,6 +489,10 @@ MonoBehaviour:
     category: 2
   - definition: {fileID: 11400000, guid: bb1085cb5aca67e409acb512f5a23b68, type: 2}
     category: 0
+  - definition: {fileID: 11400000, guid: 6c6ad08e4ac011343b31c80b30f90c54, type: 2}
+    category: 2
+  - definition: {fileID: 11400000, guid: 4edeca2093c30794bac365ddb0c65e32, type: 2}
+    category: 2
   categoryIcons:
   - category: 0
     icon: {fileID: 21300000, guid: ce0b09c61ca41ac4d9bfef2a10af2190, type: 3}
@@ -4926,6 +4930,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: b32fa419afa8927e913cf91edff080bb, type: 2}
   - {fileID: 11400000, guid: 3d9a7ad91b88e70428001397149fed02, type: 2}
   - {fileID: 11400000, guid: bb1085cb5aca67e409acb512f5a23b68, type: 2}
+  - {fileID: 11400000, guid: 6c6ad08e4ac011343b31c80b30f90c54, type: 2}
+  - {fileID: 11400000, guid: 4edeca2093c30794bac365ddb0c65e32, type: 2}
   researchDatabase: {fileID: 11400000, guid: 225538095e214a39811378724843599a, type: 2}
   coreDirectiveDatabase: {fileID: 11400000, guid: 27ab887668cf75646a488831440929fd, type: 2}
   startWithEverythingUnlocked: 0

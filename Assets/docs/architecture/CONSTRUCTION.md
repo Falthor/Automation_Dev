@@ -62,13 +62,13 @@ Presentation.
 
 `CanPlace` is the non-mutating bool used for ghost tinting. `GetPlacementRefusalReason` is the
 explanatory read behind it: the same checks in the same order, returning
-`None`/`NotUnlocked`/`OutOfActionRadius`/`CannotAfford`/`BuildingCapReached`/`CellOccupied`. It is
-meaningful only while something is selected.
+`None`/`NotUnlocked`/`OutOfActionRadius`/`CannotAfford`/`BuildingCapReached`/`CellOccupied`/
+`ConveyorRunTooLong` (§8). It is meaningful only while something is selected.
 
-Only the two refusals a player cannot see for themselves are announced on screen - the cap and the
-missing resources. Out of radius, not unlocked and occupied are already legible from the ghost's tint
-and from where the cursor is; a message on each of those would be noise on gestures the player is
-making deliberately.
+Only the refusals a player cannot see for themselves are announced on screen - the cap, the missing
+resources, and a conveyor run past its 40-cell limit. Out of radius, not unlocked and occupied are
+already legible from the ghost's tint and from where the cursor is; a message on each of those would be
+noise on gestures the player is making deliberately.
 
 `CannotAfford` reads the aggregate **minus what other sites have already reserved**, so placing four
 buildings with stock for three refuses the fourth rather than letting four sites fight over one stock
@@ -155,7 +155,44 @@ The highest target any research carries is the Core's furthest reach,
 `GameRuntime.FurthestActionRadiusCells`, derived from the research effects and never written down a
 second time.
 
-## 8. Chantiers: reservation, segments, order
+## 8. Reaching beyond the Core: Communication Relays, the 40-cell run, the Belt Relay
+
+**"In radius" composes.** Once `ResearchEffectKind.UnlockOutOfRadiusConstruction` is completed
+(`ConstructionService.HasUnlockedOutOfRadiusConstruction`, a flag that never goes back like
+`HasDataCenter`), a cell counts as in range if it is within the Core's radius **or** within any
+currently-active `CommunicationRelayRuntime`'s own radius - each checked whole-footprint-at-once
+against its own single circle, never a per-cell mix of two sources. Outside every one of them, only two
+things may still be placed: a straight/corner conveyor, and the Communication Relay itself - and only
+on ground that is **already discovered**. Discovery is otherwise never consulted by placement anywhere
+else in the game; this is the one exception, and it exists only out here.
+
+**A Communication Relay projects its own radius while active, and only then.** "Active"
+(`CommunicationRelayRuntime.IsActive`) is all-or-nothing like every other power consumer
+(ÉNERGIE.md): unpowered, or powered but starved of its continuous CU upkeep, and the radius simply
+stops existing that tick - `ConstructionService.CommunicationRelays` still lists the relay (demolition
+is the only thing that removes an entry), but the placement gate skips it until it is active again. This
+is the one building in the game whose CU is spent **continuously** rather than in one shot per cycle -
+see CALCUL.md's own exception for why.
+
+**The 40-cell run.** A straight/corner conveyor placed outside every radius may not run more than
+`ConstructionService.MaxOutOfRadiusConveyorRun` (40) cells since the last reset point, counted by
+walking backward through whichever single neighbor feeds the candidate cell
+(`BuildingRuntime.FeedsCell`, the same one-hop lookup `ConstructionInputAdapter.FindEntryDirection`
+uses, generalized into a chain). A reset point is a cell already in radius, or a **Belt Relay** - the
+count restarts at 1 the moment either is crossed, exactly as if the run had never left home. Reaching
+41 refuses with `PlacementRefusalReason.ConveyorRunTooLong`, announced on screen ("Tapis trop long -
+construisez un relais") since, unlike a plain out-of-radius refusal, the player cannot read this one off
+the ghost alone.
+
+**The Belt Relay is a conveyor, not a subclass.** `ConveyorDefinition` is sealed, and every shape this
+project ships is already "one asset, one flag combination" rather than a type hierarchy - the Belt
+Relay is an ordinary straight-shaped `ConveyorDefinition` asset with `IsRunLengthReset` set, priced
+like the infrastructure it is (the one exception to every other conveyor shipping free). Items pass
+through it exactly like a straight belt; nothing about its runtime differs from `ConveyorRuntime`. It
+may only be placed **inside a Communication Relay's own radius specifically** - being within the Core's
+is not enough, since a relay's whole purpose is resetting a run the Core could never reach.
+
+## 9. Chantiers: reservation, segments, order
 
 Placing opens a `ConstructionSiteRuntime` holding one segment - a normal building - or several in
 placement order, a whole conveyor or splitter drag. Segments materialize strictly in order, each the
@@ -196,7 +233,7 @@ shortage is therefore a refused placement, never a stranded site. `GetStillNeede
 as defensive reads for a source destroyed while holding reserved material, not as states ordinary play
 produces.
 
-## 9. GlobalStock is a view, not a container
+## 10. GlobalStock is a view, not a container
 
 **The name deliberately stays the same and the contract is inverted.** It used to hold the starting
 stock and every demolition refund. It now holds **nothing at all**: it is a read-only aggregate,
@@ -208,7 +245,7 @@ Core chest (the core_storage fixture)
       → every production building's OUTPUT
 ```
 
-minus everything already reserved - by a construction site, or by an in-flight Core delivery (§10). Its
+minus everything already reserved - by a construction site, or by an in-flight Core delivery (§11). Its
 invariant: **what GlobalStock reports is exactly what a builder robot could still be sent to fetch.** Items riding a conveyor or already in a
 robot's cargo are never counted - they are no longer claimable. A production building's *input* is not
 part of it either, a deliberate narrowing: the aggregate and the robots' collection order must be the
@@ -217,7 +254,7 @@ same list, and a robot does not raid work-in-progress ingredients out of a machi
 `GameRuntime.GlobalStock` is that aggregate, and the Storage panel's aggregate view is a straight read
 of it rather than a second summation.
 
-## 10. The robots
+## 11. The robots
 
 Two `BuilderRobotRuntime` (`SpeedCellsPerSecond`, free diagonal movement, no pathfinding), driven only
 by this system's tick - never by their own `Update()`. The view reads `Position` and converts it to
@@ -254,7 +291,7 @@ dropped off like a repatriation, and a robot merely on its way to fetch drops it
 standing is unreachable stock for the rest of the game - no reservation pass can see past it, so no
 site is served, so no robot is ever reassigned to clear it.
 
-## 11. Demolition's overflow, and the loss it accepts
+## 12. Demolition's overflow, and the loss it accepts
 
 The building disappears immediately; its construction cost becomes a repatriation job a robot carries
 back - Core chest first, then any Storage with room for the whole cargo. If no container anywhere can
@@ -272,7 +309,7 @@ message, display duration, optional countdown - read by a left-edge banner. A bl
 chantier missing materials are its first two callers, not its purpose; it never blocks interaction and
 no gameplay decision ever reads it.
 
-## 12. What travels in the save
+## 13. What travels in the save
 
 - `Buildings` - every placed building's envelope (definition id, cell, rotation, input side) plus its
   own type-specific blob.

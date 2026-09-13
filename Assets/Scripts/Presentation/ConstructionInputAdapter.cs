@@ -816,6 +816,7 @@ namespace Game.Presentation
         {
             PlacementRefusalReason.BuildingCapReached => "Plafond de batiments atteint",
             PlacementRefusalReason.CannotAfford => "Ressources insuffisantes",
+            PlacementRefusalReason.ConveyorRunTooLong => "Tapis trop long - construisez un relais",
             _ => null
         };
 

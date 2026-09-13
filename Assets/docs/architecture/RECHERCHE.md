@@ -63,6 +63,7 @@ the research that opens it - the research names it**. The list is closed:
 | `BuildingCap` | the construction service - a target, highest completed wins |
 | `DataCenterBayPairs` | the Data Center - a number of pairs, summed |
 | `ExtractorItemsPerMinute` | every Extractor - a target, highest completed wins |
+| `UnlockOutOfRadiusConstruction` | the construction service - a flag, `Value` unused, never goes back once completed (CONSTRUCTION.md §8) |
 
 Radius, cap and extraction rate are **targets, not increments**, so completion order never matters: a
 directive granted late, a save reloaded, a lower research finished after a higher one - none of them

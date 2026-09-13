@@ -19,11 +19,19 @@ public void Tick(float deltaTime)
 ## 1. A currency, not a flow
 
 Each reserve is a pooled amount (`Reserve`, capped at `ReserveCap`, starting full) credited by
-`Grant`. Every spender pays a **single one-shot chunk the instant a cycle starts**, through
+`Grant`. Almost every spender pays a **single one-shot chunk the instant a cycle starts**, through
 `CanSpend`/`Spend`: a recipe-based production building pays its recipe's compute cost, an Extractor
 and a Gas Powerplant their own `CuCostPerCycle`, a Data Center's priming its fixed 1500 CU. There is
 no throttling ratio - a cycle either affords itself in full or waits at zero progress. A powerplant
 that cannot pay does not light its fuel, and supplies no power that tick.
+
+**The Communication Relay is the one deliberate exception**: it has no cycle at all, only existing and
+projecting a radius, so it pays `CuUpkeepPerSecond` **every tick** it is powered, through the same
+`CanSpend`/`Spend` pair rather than a fraction of it - all-or-nothing exactly like the one-shot
+spenders above, just asked for continuously instead of once. Unable to pay, or unpowered, and it is
+simply not active that tick (`CommunicationRelayRuntime.IsActive`) - no radius, no draw, same as a
+powerplant that cannot light (CONSTRUCTION.md §8). Not `SpendUpTo` (§2 below): a relay never takes a
+partial upkeep, since a fraction of an active radius is not a smaller radius.
 
 **Every one-shot spender pays from Building Compute.** Production, extraction, priming - none of it
 is a research, so none of it draws from the other reserve.
@@ -36,10 +44,12 @@ behind its own dependants.
 
 ## 2. Research picks its own reserve
 
-**Research** and **Data Center priming** are the only per-second draws, both through
-`SpendUpTo(maxAmount)`: it withdraws up to `maxAmount`, less if the reserve holds less, and returns how
-much was actually taken - it never goes negative and never throws. Priming always draws from Building
-Compute (§1); which reserve a research's own absorption draws from is that research's own choice.
+**Research** and **Data Center priming** are the only draws that can take a *partial* amount, both
+through `SpendUpTo(maxAmount)`: it withdraws up to `maxAmount`, less if the reserve holds less, and
+returns how much was actually taken - it never goes negative and never throws. Priming always draws
+from Building Compute (§1); which reserve a research's own absorption draws from is that research's
+own choice. The Communication Relay's own per-second upkeep (§1) is a continuous draw too, but never a
+partial one - it is `CanSpend`/`Spend`, not `SpendUpTo`.
 
 **`ResearchDefinition.ComputeSource`** names it: `Research` (the default) or `Building`, for a
 research authored as an engineering effort rather than a research one. `ResearchSystem` holds both

@@ -14,12 +14,25 @@ namespace Game.Data
 
         [SerializeField] ConveyorShapeKind defaultShape = ConveyorShapeKind.Straight;
 
+        /// <summary>
+        /// The Belt Relay: a straight/corner conveyor is still just this same definition with the
+        /// flag set, never a subclass - ConveyorDefinition is sealed and every existing shape
+        /// (straight, corner, the drag-continuation variants) is already "one asset, one flag
+        /// combination" rather than a type hierarchy. Read by ConstructionService's out-of-radius
+        /// run-length check: placing one resets the 40-cell counter for whatever continues past it
+        /// (CONSTRUCTION.md).
+        /// </summary>
+        [SerializeField] bool isRunLengthReset;
+
         [Header("Art override (optional - falls back to a procedural placeholder shape)")]
         [SerializeField] Sprite overrideSprite;
         [SerializeField] Direction artNativeDirection = Direction.North;
 
         /// <summary>Which shape this buildable item represents (straight/corner/crossroad are separate definitions).</summary>
         public ConveyorShapeKind DefaultShape => defaultShape;
+
+        /// <summary>Whether placing this one resets the out-of-radius run-length counter (CONSTRUCTION.md) - the Belt Relay.</summary>
+        public bool IsRunLengthReset => isRunLengthReset;
 
         /// <summary>
         /// Real art asset for this conveyor's default shape, or null to use the procedural

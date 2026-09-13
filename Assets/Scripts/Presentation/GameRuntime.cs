@@ -210,6 +210,9 @@ namespace Game.Presentation
         /// <summary>Draws the explorer robots wherever they are. A view over ExplorerRobots, refreshed from the tick below and authoritative for nothing.</summary>
         ExplorerRobotFleetView _explorerFleet;
 
+        /// <summary>Draws one ring per Communication Relay. A view over Construction.CommunicationRelays, refreshed from the tick below and authoritative for nothing.</summary>
+        CommunicationRelayRadiusFleetView _communicationRelayRadiusFleet;
+
         /// <summary>
         /// The explorer robot under a cell, or null. What lets a click on one open its panel instead
         /// of falling through to empty ground.
@@ -536,12 +539,19 @@ namespace Game.Presentation
 
                 ConstructionSites = new ConstructionSiteSystem(Transport, Grid, Notifications, RobotParkOrigin());
                 CoreDirectives = new CoreDirectiveSystem(coreDirectiveDatabase, ConstructionSites, Research);
-                Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, BuildingCompute, ResearchCompute, Power, Research, Transport, World?.Core, ConstructionSites);
+                Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, BuildingCompute, ResearchCompute, Power, Research, Transport, World?.Core, ConstructionSites, Discovery);
             }
 
             // After both branches: the Core exists whether it was generated or restored, and its
             // radius has a disc to write before the first frame is drawn.
             RevealDiscoveredByCore();
+
+            // Shared like the line above, and for the same reason: a Communication Relay can exist
+            // whichever branch ran, and this view has nothing to do with explorer robots (unlike
+            // _explorerFleet, built only inside explorerRobotSettings != null further down) - it must
+            // not depend on that switch being on.
+            _communicationRelayRadiusFleet = new CommunicationRelayRadiusFleetView(
+                Grid, actionRadiusView != null ? actionRadiusView.OverlayShader : null);
 
             // Holds nothing until it is filled, and is filled from scratch every frame - so it is
             // built here with no argument and restored from nothing. Before the first Update it
@@ -1307,6 +1317,10 @@ namespace Game.Presentation
             // (PROJECT_ARCHITECTURE.md).
             ExplorerRobots?.Tick(Time.deltaTime);
             _explorerFleet?.Refresh(ExplorerRobots, Time.deltaTime);
+
+            // Communication Relays tick as ordinary buildings inside Transport.Tick above; this only
+            // reads their IsActive/radius back out to draw or hide each one's ring.
+            _communicationRelayRadiusFleet?.Refresh(Construction?.CommunicationRelays);
 
             // Last of the world's changes, so the observers match the positions this frame actually
             // ended on rather than the ones it started from. The fog reads it in LateUpdate, after

@@ -83,6 +83,14 @@ namespace Game.Data
         public virtual float CuCostPerCycle => 0f;
 
         /// <summary>
+        /// CU drawn from the reserve every second this building is powered and active - not a
+        /// one-shot cycle cost. 0 by default: CU is spent in one shot when a cycle starts everywhere
+        /// else in the game (CALCUL.md); the Communication Relay is the one deliberate exception,
+        /// paying upkeep for existing rather than for producing anything.
+        /// </summary>
+        public virtual float CuUpkeepPerSecond => 0f;
+
+        /// <summary>
         /// Every cell (relative to the placement origin) this building actually occupies. A full
         /// FootprintSize rectangle for every building shipped today; the hook stays virtual because
         /// grid occupancy, demolition and the action-radius check all go through it rather than

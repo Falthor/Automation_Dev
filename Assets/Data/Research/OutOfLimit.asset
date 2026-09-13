@@ -10,21 +10,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72c3c39fefc96e1488e1fdd7ff1eb525, type: 3}
-  m_Name: belt_relay
+  m_Name: OutOfLimit
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
-  id: belt_relay
-  displayName: Relais convoyeur
+  id: OutOfLimit
+  displayName: "Hors de port\xE9e"
   description: 
   icon: {fileID: 0}
   cuCost: 2000
   computeSource: 0
   prerequisites:
-  - {fileID: 11400000, guid: f2c0d8b1a18f4c84ea2b6c944c80831a, type: 2}
+  - {fileID: 11400000, guid: 6d2f8b3c0e4a4f71b9c5d3e7f1a2b4c6, type: 2}
   effects:
-  - kind: 0
-    building: {fileID: 11400000, guid: 4edeca2093c30794bac365ddb0c65e32, type: 2}
+  - kind: 6
+    building: {fileID: 0}
     recipe: {fileID: 0}
     value: 0
   absorptionRatePerSecond: 40
-  tier: 2
-  angle: 28.9
+  tier: 1.5
+  angle: 20.7

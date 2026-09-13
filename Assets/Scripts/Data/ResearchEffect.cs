@@ -22,7 +22,14 @@ namespace Game.Data
         DataCenterBayPairs = 4,
 
         /// <summary>Every Extractor's rate becomes Value items/min - ExtractorRuntime. A target, not a step.</summary>
-        ExtractorItemsPerMinute = 5
+        ExtractorItemsPerMinute = 5,
+
+        /// <summary>
+        /// Straight/corner conveyors and the Communication Relay itself may be placed outside every
+        /// action radius, on already-discovered ground - ConstructionService. A flag, not a target:
+        /// Value is unused, like UnlockBuilding/UnlockRecipe (CONSTRUCTION.md).
+        /// </summary>
+        UnlockOutOfRadiusConstruction = 6
     }
 
     /// <summary>

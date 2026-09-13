@@ -43,17 +43,41 @@ namespace Game.Tests.EditMode.Data
                 + "the only moment the player ever sees it.");
         }
 
+        /// <summary>The Belt Relay is the one deliberate exception - see EveryShippedBeltRelayCostsControlUnitsRodsAndWire below.</summary>
         [Test]
         public void EveryShippedConveyorIsFree()
         {
             var found = 0;
             foreach (ConveyorDefinition definition in ShippedAssetsOfType<ConveyorDefinition>())
             {
+                if (definition.IsRunLengthReset) continue;
+
                 AssertFree(definition);
                 found++;
             }
 
             Assert.Greater(found, 0, "no conveyor definition was found - this test would pass on an empty project");
+        }
+
+        /// <summary>
+        /// The Belt Relay's exception - it is priced as the infrastructure it is (CONSTRUCTION.md),
+        /// not free like every other conveyor. Only the shape is pinned (three ingredients, not
+        /// zero): the exact amounts are a balance call the designer retunes directly on the asset,
+        /// the same way every other research/building figure in this project already is.
+        /// </summary>
+        [Test]
+        public void EveryShippedBeltRelayCostsSomething()
+        {
+            var found = 0;
+            foreach (ConveyorDefinition definition in ShippedAssetsOfType<ConveyorDefinition>())
+            {
+                if (!definition.IsRunLengthReset) continue;
+
+                Assert.Greater(definition.Cost.Length, 0, $"{definition.name} should cost something - it is the deliberate exception to conveyors being free.");
+                found++;
+            }
+
+            Assert.Greater(found, 0, "no Belt Relay definition was found - this test would pass on an empty project");
         }
 
         /// <summary>

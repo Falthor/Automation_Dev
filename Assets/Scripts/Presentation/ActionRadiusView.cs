@@ -15,6 +15,18 @@ namespace Game.Presentation
         SpriteRenderer _renderer;
         Material _material;
 
+        /// <summary>
+        /// Get/set rather than Inspector-only: a pooled view built purely from code (one per
+        /// Communication Relay, CommunicationRelayRadiusFleetView) has no Inspector of its own to
+        /// assign the shader in - same pattern as DropShadow.Settings. Must be set before the first
+        /// Initialize call.
+        /// </summary>
+        public Shader OverlayShader
+        {
+            get => overlayShader;
+            set => overlayShader = value;
+        }
+
         public void Initialize(Vector3 centerWorld, float radiusWorld)
         {
             if (_renderer == null)

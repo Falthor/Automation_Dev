@@ -212,6 +212,29 @@ namespace Game.Tests.EditMode.TestSupport
             return database;
         }
 
+        /// <summary>Zero kW and zero CU upkeep by default: trivially IsActive after one Tick, with no PowerSystem/ComputeSystem priming needed - pass non-zero to exercise the gated cases.</summary>
+        public static CommunicationRelayDefinition NewCommunicationRelay(int actionRadiusCells, float powerDemandKw = 0f, float cuUpkeepPerSecond = 0f)
+        {
+            var relay = ScriptableObject.CreateInstance<CommunicationRelayDefinition>();
+            var so = new SerializedObject(relay);
+            so.FindProperty("footprintSize").vector2IntValue = new Vector2Int(2, 2);
+            so.FindProperty("actionRadiusCells").intValue = actionRadiusCells;
+            so.FindProperty("powerDemandKw").floatValue = powerDemandKw;
+            so.FindProperty("cuUpkeepPerSecond").floatValue = cuUpkeepPerSecond;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return relay;
+        }
+
+        /// <summary>A straight conveyor flagged as a Belt Relay (ConveyorDefinition.IsRunLengthReset) - never a subclass, see its own doc comment.</summary>
+        public static ConveyorDefinition NewBeltRelay()
+        {
+            var beltRelay = ScriptableObject.CreateInstance<ConveyorDefinition>();
+            var so = new SerializedObject(beltRelay);
+            so.FindProperty("isRunLengthReset").boolValue = true;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return beltRelay;
+        }
+
         public static FoundryDefinition NewFoundry(float powerDemandKw, float intakeIntervalSeconds, params string[] recipeIds)
         {
             var foundry = ScriptableObject.CreateInstance<FoundryDefinition>();
