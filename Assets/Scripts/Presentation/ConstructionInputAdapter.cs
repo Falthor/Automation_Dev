@@ -456,13 +456,15 @@ namespace Game.Presentation
 
         /// <summary>
         /// Whether the ghost's sprite itself must rotate to match the real built view. Only the
-        /// "+"-shaped Splitter/Crossroad rotate their sprite (SpawnRotatingCrossView) - every other
-        /// building's root never rotates (SpawnStandardView), so the ghost mustn't either.
+        /// "+"-shaped Splitter/Crossroad rotate their sprite (SpawnRotatingCrossView), and so does a
+        /// definition opted into BuildingDefinition.RotatesSpriteWithFacing (the Network Cable) -
+        /// every other building's root never rotates (SpawnStandardView), so the ghost mustn't either.
         /// </summary>
         static (bool rotateSprite, Direction artNativeDirection) ResolveGhostRotation(BuildingDefinition definition)
         {
             if (definition is SplitterDefinition splitter) return (true, splitter.ArtNativeEntrySide);
             if (definition is CrossroadDefinition) return (true, Direction.North);
+            if (definition.RotatesSpriteWithFacing) return (true, definition.ArtNativeDirection);
             return (false, Direction.North);
         }
 

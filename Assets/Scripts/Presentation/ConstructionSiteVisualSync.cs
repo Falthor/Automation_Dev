@@ -528,8 +528,12 @@ namespace Game.Presentation
         /// <summary>
         /// A conveyor ghost turns with its own orientation (mirroring included, exactly as
         /// ConveyorView does - a corner's chirality is otherwise wrong half the time); a
-        /// Splitter/Crossroad turns with its facing, measured against its art's native side; every
-        /// other building's view never rotates, so its ghost must not either.
+        /// Splitter/Crossroad turns with its facing, measured against its art's native side; a
+        /// definition opted into BuildingDefinition.RotatesSpriteWithFacing (the Network Cable) turns
+        /// with its own FacingRotation, the same maths BuildingSpawner.SpawnStandardView uses for the
+        /// materialised view - otherwise the segment shown while pending would face one way and snap
+        /// to another the instant it finishes. Every other building's view never rotates, so its
+        /// ghost must not either.
         /// </summary>
         void ApplyRotation(Transform target, BuildingRuntime segment, BuildingDefinition definition)
         {
@@ -555,6 +559,7 @@ namespace Game.Presentation
             Direction artNative;
             if (definition is SplitterDefinition splitter) artNative = splitter.ArtNativeEntrySide;
             else if (definition is CrossroadDefinition) artNative = Direction.North;
+            else if (definition.RotatesSpriteWithFacing) artNative = definition.ArtNativeDirection;
             else
             {
                 target.rotation = Quaternion.identity;
