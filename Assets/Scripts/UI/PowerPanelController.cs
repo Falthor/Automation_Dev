@@ -156,8 +156,8 @@ namespace Game.UI
 
         void Update()
         {
-            // Sampling runs regardless of whether the panel is open, matching the source
-            // project's power_panel.gd - the history keeps accumulating in the background.
+            // Sampling runs regardless of whether the panel is open - the history keeps
+            // accumulating in the background.
             _sampleTimer += Time.deltaTime;
             if (_sampleTimer >= SampleInterval)
             {

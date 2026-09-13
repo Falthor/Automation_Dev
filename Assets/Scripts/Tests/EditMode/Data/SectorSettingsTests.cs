@@ -38,7 +38,6 @@ namespace Game.Tests.EditMode.Data
 
             Assert.IsTrue(settings.SectorsTileChunksExactly,
                 $"a sector of {settings.SectorSizeCells} does not divide a chunk of {settings.ChunkSizeCells}.");
-            Assert.AreEqual(settings.ChunkSizeCells / settings.SectorSizeCells, settings.SectorsPerChunkAxis);
         }
 
         [Test]
@@ -48,7 +47,6 @@ namespace Game.Tests.EditMode.Data
 
             Assert.AreEqual(64, settings.ChunkSizeCells);
             Assert.AreEqual(16, settings.SectorSizeCells);
-            Assert.AreEqual(4, settings.SectorsPerChunkAxis, "4x4 sectors per chunk.");
         }
     }
 }

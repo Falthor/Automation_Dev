@@ -20,7 +20,7 @@ modification du projet et l'emporte sur le reste.
 | Sujet | Document |
 |---|---|
 | Comment le projet est structuré : assemblages, principes, ordre de tri, amorçage | [`PROJECT_ARCHITECTURE.md`](architecture/PROJECT_ARCHITECTURE.md) |
-| La carte : découpage, découverte, brouillard, secteurs, épaves, robots explorateurs | [`MAP.md`](architecture/MAP.md) |
+| La carte : la grille (occupation, conversion), découpage, découverte, brouillard, secteurs, gisements, épaves, robots explorateurs | [`MAP.md`](architecture/MAP.md) |
 | Le terrain, le sol, les biomes, le décor | [`TERRAIN.md`](architecture/TERRAIN.md) |
 | L'assemblage nano d'un bâtiment et la conversion du sol sous lui | [`MATERIALISATION.md`](architecture/MATERIALISATION.md) |
 | Le déplacement des objets : surfaces, géométrie, débit, tapis, splitters | [`TRANSPORT.md`](architecture/TRANSPORT.md) |
@@ -33,6 +33,7 @@ modification du projet et l'emporte sur le reste.
 | L'interface : sélection, Échap, raccourcis, barres et panneaux | [`UI.md`](architecture/UI.md) |
 | La sauvegarde : mécanisme, version, liste des clés | [`SAUVEGARDE.md`](architecture/SAUVEGARDE.md) |
 | Produire un build, et les outils d'éditeur du projet | [`BUILD.md`](BUILD.md) |
+| Ce qu'une revue a trouvé et n'a pas tranché sur le coup | [`PENDING_DECISIONS.md`](PENDING_DECISIONS.md) |
 
 Chaque champ de sauvegarde est décrit par le document du système qui le produit ;
 [`SAUVEGARDE.md`](architecture/SAUVEGARDE.md) ne tient que le mécanisme et la liste des clés.

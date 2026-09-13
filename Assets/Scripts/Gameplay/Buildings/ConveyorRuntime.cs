@@ -154,8 +154,6 @@ namespace Game.Gameplay.Buildings
         /// </summary>
         public override void SetFacingRotation(Direction rotation) => SetRotation(rotation);
 
-        public override bool IsFlowReceiver() => true;
-
         /// <summary>
         /// FacingRotation on a corner is the visual asset rotation, not the geometric exit -
         /// the canonical unmirrored corner (entry=South, exit=East) is itself stored as

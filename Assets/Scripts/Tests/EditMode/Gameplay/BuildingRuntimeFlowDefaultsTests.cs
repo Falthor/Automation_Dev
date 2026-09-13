@@ -18,18 +18,8 @@ namespace Game.Tests.EditMode.Gameplay
             var definition = ScriptableObject.CreateInstance<DummyDefinition>();
             var building = new BuildingRuntime(definition, new GridCoord(0, 0), Direction.North);
 
-            Assert.IsFalse(building.IsFlowReceiver());
             Assert.IsNull(building.PeekPullableItem());
             Assert.DoesNotThrow(() => building.ConsumePulledItem(new object()));
-        }
-
-        [Test]
-        public void ConveyorRuntime_IsFlowReceiver()
-        {
-            var definition = ScriptableObject.CreateInstance<ConveyorDefinition>();
-            var conveyor = new ConveyorRuntime(definition, new GridCoord(0, 0), Direction.North);
-
-            Assert.IsTrue(conveyor.IsFlowReceiver());
         }
     }
 }

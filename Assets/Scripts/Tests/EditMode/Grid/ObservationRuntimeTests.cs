@@ -6,13 +6,13 @@ using UnityEngine;
 namespace Game.Tests.EditMode.Grid
 {
     /// <summary>
-    /// The third state: observed against remembered.
+    /// Who is looking at what, right now.
     ///
     /// <b>What these are really guarding is that observation is never stored.</b> The whole design
     /// rests on it being recomputed from where the observers are, so the failures worth catching are
-    /// the ones a stored field would cause: a cell that stays lit after everything walks away, a cell
-    /// that never lights again, discovery quietly lost when observation drops, and observation
-    /// leaking into the save. None of the four throws - they are all just a wrong picture.
+    /// the ones a stored field would cause: a cell that stays lit after everything walks away, one
+    /// that never lights again, and observation leaking into the save. None of them throws - they
+    /// are all just a wrong picture.
     /// </summary>
     public class ObservationRuntimeTests
     {
@@ -35,110 +35,40 @@ namespace Game.Tests.EditMode.Grid
             observation.EndRebuild();
         }
 
-        // ---- The three states ----
-
-        [Test]
-        public void ACellNobodyHasSeenIsUnknown_EvenWithAnObserverOnIt()
-        {
-            DiscoveryRuntime discovery = NewDiscovery();
-            var observation = new ObservationRuntime();
-            var cell = new GridCoord(10, 10);
-
-            Observe(observation, new Vector2(10.5f, 10.5f));
-
-            Assert.IsTrue(observation.IsObserved(cell), "The disc does cover it.");
-            Assert.AreEqual(DiscoveryState.Unknown, observation.StateOf(cell, discovery),
-                "Never discovered stays unknown: discovery gates observation, not the other way round.");
-        }
-
-        [Test]
-        public void ADiscoveredCellUnderAnObserverIsObserved()
-        {
-            DiscoveryRuntime discovery = NewDiscovery();
-            var observation = new ObservationRuntime();
-            var cell = new GridCoord(10, 10);
-
-            discovery.Reveal(cell);
-            Observe(observation, new Vector2(10.5f, 10.5f));
-
-            Assert.AreEqual(DiscoveryState.Observed, observation.StateOf(cell, discovery));
-        }
-
-        [Test]
-        public void ADiscoveredCellWithNothingWatchingIsRemembered()
-        {
-            DiscoveryRuntime discovery = NewDiscovery();
-            var observation = new ObservationRuntime();
-            var cell = new GridCoord(10, 10);
-
-            discovery.Reveal(cell);
-            ObserveNothing(observation);
-
-            Assert.AreEqual(DiscoveryState.Remembered, observation.StateOf(cell, discovery));
-        }
-
         // ---- Leaving and coming back ----
-
-        /// <summary>The headline behaviour: what the player knew stays known, and stops being live.</summary>
-        [Test]
-        public void ACellLeftByEveryObserver_TurnsFromObservedToRemembered_AndStaysDiscovered()
-        {
-            DiscoveryRuntime discovery = NewDiscovery();
-            var observation = new ObservationRuntime();
-            var cell = new GridCoord(20, 20);
-
-            // A robot walks over it, revealing as it goes.
-            discovery.RevealDisc(new Vector2(20.5f, 20.5f), 3f);
-            Observe(observation, new Vector2(20.5f, 20.5f));
-            Assert.AreEqual(DiscoveryState.Observed, observation.StateOf(cell, discovery));
-
-            // ...and keeps walking, far enough that its disc no longer reaches.
-            Observe(observation, new Vector2(60.5f, 60.5f));
-
-            Assert.AreEqual(DiscoveryState.Remembered, observation.StateOf(cell, discovery),
-                "Out of every radius, it freezes on what was known.");
-            Assert.IsTrue(discovery.IsDiscovered(cell),
-                "And it is still discovered - nothing was erased, the observer simply left.");
-        }
 
         [Test]
         public void ACellBecomesObservedAgain_WhenARobotComesBack()
         {
-            DiscoveryRuntime discovery = NewDiscovery();
             var observation = new ObservationRuntime();
             var cell = new GridCoord(20, 20);
 
-            discovery.Reveal(cell);
-
             Observe(observation, new Vector2(20.5f, 20.5f));
-            Assert.AreEqual(DiscoveryState.Observed, observation.StateOf(cell, discovery));
+            Assert.IsTrue(observation.IsObserved(cell));
 
             Observe(observation, new Vector2(60.5f, 60.5f));
-            Assert.AreEqual(DiscoveryState.Remembered, observation.StateOf(cell, discovery));
+            Assert.IsFalse(observation.IsObserved(cell), "Out of every radius, nothing is watching it.");
 
             Observe(observation, new Vector2(20.5f, 20.5f));
-            Assert.AreEqual(DiscoveryState.Observed, observation.StateOf(cell, discovery),
+            Assert.IsTrue(observation.IsObserved(cell),
                 "Nothing had to be un-erased: the cell is simply covered again.");
         }
 
         [Test]
         public void SeveralObserversOverlap_AndOneLeavingDoesNotUnobserveWhatTheOtherStillCovers()
         {
-            DiscoveryRuntime discovery = NewDiscovery();
             var observation = new ObservationRuntime();
             var cell = new GridCoord(20, 20);
-
-            discovery.Reveal(cell);
 
             observation.BeginRebuild();
             observation.Add(new Vector2(20.5f, 20.5f), 3f);
             observation.Add(new Vector2(22.5f, 20.5f), 3f);
             observation.EndRebuild();
-            Assert.AreEqual(DiscoveryState.Observed, observation.StateOf(cell, discovery));
+            Assert.IsTrue(observation.IsObserved(cell));
 
             // The first one goes; the second still reaches.
             Observe(observation, new Vector2(22.5f, 20.5f));
-            Assert.AreEqual(DiscoveryState.Observed, observation.StateOf(cell, discovery));
+            Assert.IsTrue(observation.IsObserved(cell));
         }
 
         // ---- The disc's edge ----
@@ -234,15 +164,6 @@ namespace Game.Tests.EditMode.Grid
             Assert.IsFalse(observation.IsObserved(new GridCoord(10, 10)));
         }
 
-        [Test]
-        public void ANullDiscovery_AnswersUnknownRatherThanThrowing()
-        {
-            var observation = new ObservationRuntime();
-            Observe(observation, new Vector2(10.5f, 10.5f));
-
-            Assert.AreEqual(DiscoveryState.Unknown, observation.StateOf(new GridCoord(10, 10), null));
-        }
-
         // ---- Nothing of this is saved ----
 
         /// <summary>
@@ -277,15 +198,12 @@ namespace Game.Tests.EditMode.Grid
         /// "there is nothing to restore" is exactly the kind of claim that quietly stops being true.
         /// </summary>
         [Test]
-        public void AFreshFieldObservesNothing_SoARestoredWorldStartsAllRemembered()
+        public void AFreshFieldObservesNothing_SoAReloadedWorldStartsUnwatched()
         {
-            DiscoveryRuntime discovery = NewDiscovery();
-            discovery.RevealDisc(new Vector2(32f, 32f), 6f);
-
             var observation = new ObservationRuntime();
 
             Assert.AreEqual(0, observation.ObserverCount);
-            Assert.AreEqual(DiscoveryState.Remembered, observation.StateOf(new GridCoord(32, 32), discovery));
+            Assert.IsFalse(observation.IsObserved(new GridCoord(32, 32)));
         }
     }
 }

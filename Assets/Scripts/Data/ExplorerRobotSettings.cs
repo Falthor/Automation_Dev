@@ -14,9 +14,12 @@ namespace Game.Data
     ///
     /// <b>A turn rate is a curve radius, read against the speed.</b> Worth knowing before touching
     /// them: at <c>v</c> cells per second and <c>w</c> degrees per second the robot turns on a circle
-    /// of radius <c>v / (w x pi / 180)</c>. At the shipped 2 and 6 that is a 19-cell arc, which reads
-    /// as a wide meander; at 30 degrees per second it would be 3.8 cells, which reads as a robot
-    /// spinning on the spot. That is the whole reason the drift is small.
+    /// of radius <c>v / (w x pi / 180)</c>. Raising a rate tightens that circle in proportion, and a
+    /// rate high enough turns a meander into a robot spinning on the spot - which is why the drift
+    /// especially must stay low: it is the one of the three meant to read as wander rather than a
+    /// turn, unlike the pull and the recall, which are meant to be seen steering the robot. The
+    /// figures themselves are on the asset and not repeated here: quoted in this comment they went
+    /// stale the first time the asset was retuned.
     /// </summary>
     [CreateAssetMenu(fileName = "ExplorerRobotSettings", menuName = "Game/World/Explorer Robot Settings")]
     public sealed class ExplorerRobotSettings : ScriptableObject
@@ -55,7 +58,7 @@ namespace Game.Data
         /// How fast the drift's noise itself evolves, in cycles per second. This is the length of one
         /// meander, and it is the reason the drift is a noise sampled over time rather than a fresh
         /// draw per frame: a new random number every frame averages to nothing and leaves the robot
-        /// shivering in a straight line. At 0.08 one bend lasts about twelve seconds.
+        /// shivering in a straight line. One bend lasts the reciprocal of this, in seconds.
         /// </summary>
         [SerializeField, Min(0.001f)] float driftCyclesPerSecond = 0.08f;
 

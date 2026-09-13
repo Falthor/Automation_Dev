@@ -87,9 +87,6 @@ namespace Game.Data
                 OreClusterFarMinTiles, OreClusterFarMaxTiles,
                 nearRadiusCells, farRadiusCells);
 
-        /// <summary>How many sectors tile a chunk along one axis. 4 at the defaults.</summary>
-        public int SectorsPerChunkAxis => Mathf.Max(1, chunkSizeCells / Mathf.Max(1, sectorSizeCells));
-
         /// <summary>
         /// Whether sectors tile chunks exactly. False means every rule that works per chunk and every
         /// rule that works per sector disagree about where their boundaries are - which is the one

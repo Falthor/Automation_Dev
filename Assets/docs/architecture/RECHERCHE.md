@@ -118,9 +118,16 @@ created by hand is seen at launch rather than when a run quietly stops progressi
 
 ## 5. Core directives
 
-The Core's directives are researches like any other: their unlocks are `ResearchDefinition` assets
-outside the tree, they carry their own effect lists, and the catalogue includes them. Nothing
-distinguishes "unlocked by a directive" from "unlocked by a research".
+**A directive (`CoreDirectiveDefinition`) is a bill of materials the Core asks for, not a research and
+not a recipe.** A research is bought with CU and chosen from a tree; a directive is a delivery the Core
+requests, validated by the player and physically carried by the builder robots. Directives are ordered
+by `CoreDirectiveDatabase` and consumed one at a time — the Core panel shows the current one and
+nothing once they run out, so adding the next one is adding an asset, not writing a panel.
+
+What it grants, though, is an ordinary unlock id: the Core's directives are researches like any other,
+their unlocks are `ResearchDefinition` assets outside the tree, they carry their own effect lists, and
+the catalogue includes them. Nothing distinguishes "unlocked by a directive" from "unlocked by a
+research".
 
 `CoreDirectiveSystem` owns which directive is current, and what it counts is the aggregate **minus the
 Core's own reserve**: a directive asks for material to be brought to the Core, and what already sits in

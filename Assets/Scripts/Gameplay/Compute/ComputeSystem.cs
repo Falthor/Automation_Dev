@@ -56,11 +56,11 @@ namespace Game.Gameplay.Compute
 
         /// <summary>
         /// Withdraws up to maxAmount from the reserve - less if the reserve holds less - and
-        /// returns how much was actually taken. The one continuous per-second draw CALCUL.md
-        /// allows (research absorption); every other spender still uses the one-shot
-        /// CanSpend/Spend pair above. Never drives the reserve below zero and never throws when
-        /// there isn't enough - the caller (ResearchSystem) treats a partial or zero return as
-        /// the research simply progressing slower, or pausing, that tick.
+        /// returns how much was actually taken. The only continuous per-second draw CALCUL.md
+        /// allows, and it has exactly two callers - research absorption and Data Center priming;
+        /// every other spender still uses the one-shot CanSpend/Spend pair above. Never drives the
+        /// reserve below zero and never throws when there isn't enough - a caller treats a partial
+        /// or zero return as its own progress simply slowing, or pausing, that tick.
         /// </summary>
         public float SpendUpTo(float maxAmount)
         {

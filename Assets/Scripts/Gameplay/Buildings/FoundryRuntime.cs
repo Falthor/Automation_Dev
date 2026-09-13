@@ -10,7 +10,7 @@ namespace Game.Gameplay.Buildings
     /// <summary>
     /// Smelts ore into ingots via the shared ProductionBuildingRuntime state machine. One fixed
     /// output side (never accepts input); an intake cooldown between accepted deliveries on the
-    /// other sides. Mirrors the source project's foundry.gd exactly.
+    /// other sides.
     /// </summary>
     public sealed class FoundryRuntime : ProductionBuildingRuntime
     {

@@ -324,11 +324,6 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// The same four actions the world camera pans with - not the same keys by coincidence, the
-        /// same actions. The two used to hold separate literal copies of one cluster, which is the
-        /// duplication the binding table exists to end.
-        /// </summary>
-        /// <summary>
         /// Takes the player where they double-clicked, and closes the map.
         ///
         /// Closing is the point as much as the move: a map left open over the place it just took you
@@ -342,6 +337,11 @@ namespace Game.UI
             Hide();
         }
 
+        /// <summary>
+        /// The same four actions the world camera pans with - not the same keys by coincidence, the
+        /// same actions. The two used to hold separate literal copies of one cluster, which is the
+        /// duplication the binding table exists to end.
+        /// </summary>
         Vector2 PanDirection()
         {
             var move = Vector2.zero;

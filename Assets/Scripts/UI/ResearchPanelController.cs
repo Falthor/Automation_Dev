@@ -139,9 +139,10 @@ namespace Game.UI
         int _dragPointer = -1;
 
         /// <summary>
-        /// Whether the research menu exists yet: once any core is powered. The Datacenter powers the
-        /// Research and Buildings cores when its priming is done (DataCenterRuntime.ResearchCoreId),
-        /// so before that there is no Top Bar card, no Bottom Nav icon and nothing to open.
+        /// Whether the research menu exists yet: once any core is powered. The Datacenter grants its
+        /// definition's PoweredCores once its priming is done (DataCenterRuntime.Tick, through
+        /// ResearchSystem.Grant), so before that there is no Top Bar card, no Bottom Nav icon and
+        /// nothing to open.
         /// </summary>
         public static bool IsAvailable(ResearchDatabase database, ResearchSystem research)
         {

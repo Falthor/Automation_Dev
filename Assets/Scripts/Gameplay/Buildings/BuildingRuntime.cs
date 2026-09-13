@@ -131,9 +131,6 @@ namespace Game.Gameplay.Buildings
         {
         }
 
-        /// <summary>Whether this building participates in directional flow. False by default.</summary>
-        public virtual bool IsFlowReceiver() => false;
-
         /// <summary>
         /// Puts the single input back opposite the output. Called when the facing changes, because
         /// the input side is stored absolutely rather than relative to the exit: rotating a building
@@ -152,7 +149,7 @@ namespace Game.Gameplay.Buildings
         /// <summary>
         /// Interval (seconds) between this building's own generic push/pull attempts
         /// (TransportSystem's generic step, distinct from Extractor/Conveyor's own bespoke
-        /// ticking). 1 second by default, matching the source project's push_interval.
+        /// ticking). 1 second by default.
         /// </summary>
         public virtual float PushIntervalSeconds => 1f;
 

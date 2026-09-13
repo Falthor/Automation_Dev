@@ -44,9 +44,9 @@ namespace Game.Gameplay.Buildings
         /// a production building: it is a container, not a machine with a cycle, and the only thing
         /// that can stop it accepting is being full.
         ///
-        /// It used to carry the same intake cooldown a Foundry has, to cap how fast a box parked
-        /// against an output could drain it. That made a box slower than the belt feeding it, so
-        /// items backed up in front of a container that was visibly empty.
+        /// It must not gain one. A cooldown here makes a box slower than the belt feeding it, and
+        /// items pile up in front of a container that is visibly empty. What paces a chest is
+        /// whatever feeds it.
         /// </summary>
         public override bool CanAcceptInput(string itemId, int amount, Direction fromDirection)
         {

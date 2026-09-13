@@ -10,8 +10,8 @@ namespace Game.Presentation
     /// <b>It reads, it does not decide.</b> This used to be a disc computed from the Core's
     /// position and current radius - which meant the map had no memory: nothing was "discovered",
     /// so nothing could ever be revealed by anything other than the radius itself. The radius now
-    /// writes into <see cref="DiscoveryRuntime"/> and this reads that state, so a mission revealing
-    /// a region needs no change here at all. There is deliberately no Core reference and no radius
+    /// writes into <see cref="DiscoveryRuntime"/> and this reads that state, so a robot revealing
+    /// ground needs no change here at all. There is deliberately no Core reference and no radius
     /// in this file: recomputing a distance here would quietly restore the old behaviour.
     ///
     /// <b>The texture follows the camera; its size has nothing to do with the map's.</b> One texel

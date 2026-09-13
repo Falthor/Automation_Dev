@@ -85,12 +85,9 @@ namespace Game.Gameplay.Sectors
             var featureCell = new GridCoord(origin.X + width / 2, origin.Y + height / 2);
 
             // Most sectors hold nothing, and the setting says exactly how often one does: one in
-            // OreClusterOneSectorIn, with no factor hidden in here to reason around.
-            //
-            // A wreck and a nest are no longer drawn. Neither is built - nothing renders one and
-            // materialisation ignores the feature cell - so their only effect was to divide the ore
-            // rate by three and make the setting mean something other than what it says. The enum
-            // members stay; a wreck will be drawn again when there is a wreck to draw (MAP.md 6).
+            // OreClusterOneSectorIn, with no factor hidden in here to reason around. SectorFeature
+            // has no member for a wreck or a nest any more - a wreck is placed on its own rings
+            // around the Core (Game.Gameplay.Wrecks.WreckField), independent of the sector grid.
             uint featureDraw = Hash(Seed, index, FeatureSalt) % (uint)Clusters.OneSectorIn;
             SectorFeature feature = featureDraw == 0 ? SectorFeature.OreCluster : SectorFeature.None;
 

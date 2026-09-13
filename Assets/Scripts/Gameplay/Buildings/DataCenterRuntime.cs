@@ -180,12 +180,10 @@ namespace Game.Gameplay.Buildings
         /// <summary>
         /// Installed capacity (CU/s) <b>after each component's own stability roll</b> and before the
         /// axis yield - not what actually gets credited; see GetResearchAxisProduction/
-        /// GetBuildingsAxisProduction for that.
-        ///
-        /// It said "raw capacity at 100% concentration", which reads as untouched by wear and is
-        /// not: TotalComputeOutput sums EffectiveCu(), which is BaseCu times the five-second
-        /// performance roll, and zero for a component being replaced. See
-        /// <see cref="GetNominalComputeOutput"/> for the figure that really is untouched.
+        /// GetBuildingsAxisProduction for that. Not untouched by wear either: it sums EffectiveCu(),
+        /// which is BaseCu times the StabilityInterval performance roll, and zero for a component
+        /// being replaced. See <see cref="GetNominalComputeOutput"/> for the figure that really is
+        /// untouched.
         /// </summary>
         public float GetTotalComputeOutput() => TotalComputeOutput();
 
@@ -439,7 +437,7 @@ namespace Game.Gameplay.Buildings
                 }
 
                 string itemId = entry.Value<string>("itemId");
-                float nominalLifetime = entry.Value<float?>("nominalLifetimeSeconds") ?? (_itemDatabase.Get(itemId)?.NominalLifetimeSeconds ?? 60f);
+                float nominalLifetime = entry.Value<float?>("nominalLifetimeSeconds") ?? (_itemDatabase.Get(itemId)?.NominalLifetimeSeconds ?? 120f);
                 float baseLoss = entry.Value<float?>("baseLossPerSecond") ?? ComponentInstance.DeriveBaseLossPerSecond(nominalLifetime);
 
                 var component = new ComponentInstance(itemId, _itemDatabase, nominalLifetime, baseLoss);

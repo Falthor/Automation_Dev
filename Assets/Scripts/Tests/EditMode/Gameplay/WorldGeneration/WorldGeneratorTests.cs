@@ -141,16 +141,6 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
         }
 
         /// <summary>
-        /// The invitation band
-        /// (InvitationMinDistanceCells/MaxDistanceCells) must sit entirely beyond the starting
-        /// 22-cell radius, entirely within the fog's starting reveal (22 + fogRadiusMarginCells,
-        /// mirrored here from GameRuntime), and entirely within the first extension (42, the first
-        /// radius research) - on every seed, not just the one that happened to pass before.
-        /// A cluster drawn past the extended radius would be permanently unreachable regardless of
-        /// how the player plays; a cluster under the starting radius would be constructible before
-        /// the research exists to explain why it wasn't.
-        /// </summary>
-        /// <summary>
         /// The smallest radius any shipped research grants - the first extension a player can reach.
         /// Read from the research assets rather than restated: the invitation clusters promise to be
         /// reachable after that research, whatever figure it carries.
@@ -173,6 +163,16 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
             return lowest;
         }
 
+        /// <summary>
+        /// The invitation band
+        /// (InvitationMinDistanceCells/MaxDistanceCells) must sit entirely beyond the starting
+        /// 22-cell radius, entirely within the fog's starting reveal (22 + fogRadiusMarginCells,
+        /// mirrored here from GameRuntime), and entirely within the first extension (42, the first
+        /// radius research) - on every seed, not just the one that happened to pass before.
+        /// A cluster drawn past the extended radius would be permanently unreachable regardless of
+        /// how the player plays; a cluster under the starting radius would be constructible before
+        /// the research exists to explain why it wasn't.
+        /// </summary>
         [TestCase(1)]
         [TestCase(2)]
         [TestCase(3)]

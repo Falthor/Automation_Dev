@@ -29,8 +29,8 @@ namespace Game.Tests.EditMode.Data
         [Test]
         public void MinerAiCharbon_IsComponent_NotOre()
         {
-            // Regression guard for the source project's deliberate exception: coal must never
-            // satisfy Foundry's ItemType.Ore filter despite being a raw material.
+            // Regression guard for a deliberate exception: coal must never satisfy Foundry's
+            // ItemType.Ore filter despite being a raw material.
             ItemDefinition charbon = TestDataFactory.NewItem("minerai_charbon", ItemType.Component);
             ItemDatabase database = TestDataFactory.NewItemDatabase(charbon);
 

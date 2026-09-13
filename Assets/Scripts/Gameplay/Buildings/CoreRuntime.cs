@@ -19,10 +19,11 @@ namespace Game.Gameplay.Buildings
     /// which is the single chokepoint every transport path (generic pull/push, splitter/crossroad
     /// delivery) already checks before calling AddInput. The starting resources that used to live
     /// in a global, building-less pool now live in a real, dedicated Storage Box world-generated
-    /// just south of the Core instead (WorldGenerator.CoreStorage) - see
-    /// ConstructionService.GetAvailableAmount/PayCost, which still list the Core as a cost source
-    /// for backward compatibility with an older save that had items in it, but it can never gain
-    /// new ones from here on.
+    /// just south of the Core instead (WorldGenerator.CoreStorage, CONSTRUCTION.md) - that
+    /// separate chest, never this building, is what ConstructionSiteSystem.GetAvailableAggregate
+    /// counts as a cost source. This instance's own pooled inventory below is kept only so an
+    /// older save with items still recorded on the Core itself deserializes without throwing; it
+    /// can never gain a new item from here on and nothing reads it as spendable stock.
     ///
     /// Also the sole owner of the action radius as runtime state (CONSTRUCTION.md):
     /// CoreDefinition.ActionRadiusCells is only the starting value. ActionRadiusCells here is what

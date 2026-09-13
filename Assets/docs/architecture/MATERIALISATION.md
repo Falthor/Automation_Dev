@@ -85,8 +85,12 @@ deliberate. Changes show immediately in Play: the component re-reads the asset e
 | `groundTexelsPerCell` | Field resolution. Carries only the smooth threshold, so it no longer limits grain — only the fidelity of the sweep and of the overflow frontier. |
 | `groundRimWidth` | In threshold units, same unit and sense as `rimWidth`. |
 | `coverageFadeSeconds` | How long the front takes to recede once the site is done. |
-| `groundCoverageSortingOrder` | **3**, between terrain (0 and 1) and the concrete slab (5). |
-| `sitePlaceholderAlpha`, `siteSilhouetteSortingOrder` | The blue silhouette during assembly. |
+| `sitePlaceholderAlpha` | The blue silhouette's opacity during assembly. |
+
+Two draw orders often mistaken for settings here are not: the ground layer's order (`SortingBands.
+GroundCoverage`, **2** - between terrain's 0/1 and the concrete slab's 5) and the silhouette's
+sub-layer (`SortingBands.SubSilhouette`) both live in `SortingBands.cs`, fixed at compile time, not
+in this asset.
 
 `dissolveShader` points at `Custom/BuildDissolve`, **as an asset reference, never `Shader.Find`** —
 a shader reached only by name is stripped from a player build.

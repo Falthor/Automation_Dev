@@ -7,9 +7,9 @@ namespace Game.Gameplay.Buildings
 {
     /// <summary>
     /// Splits a single conveyor-fed item across up to 3 outputs (every cardinal side except its
-    /// one fixed entry side), matching the source project's splitter.gd: round-robin assignment
-    /// per item, only conveyor/splitter/storage neighbors count as valid destinations, and a
-    /// jammed assigned exit doesn't block the others. Holds at most one item at a time - no
+    /// one fixed entry side): round-robin assignment per item, any building occupying a
+    /// neighbour cell counting as a candidate exit, and a jammed assigned exit not blocking the
+    /// others. Holds at most one item at a time - no
     /// internal buffer, same capacity as a single belt tile. Entirely driven by
     /// TransportSystem's dedicated splitter step (see TransportSystem.TickSplitters), not the
     /// generic push/pull path, because its input/output cells are arm tips of a "+" footprint,

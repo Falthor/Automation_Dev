@@ -8,8 +8,7 @@ namespace Game.Gameplay.Selection
     /// <summary>
     /// Owns what is currently inspected and the global UI-panel selection state (UI.md).
     /// Three slots, and at most one of them is ever set: a building, a construction site, or a named
-    /// global panel. Opening any of them closes the other two, matching the source project's
-    /// behavior.
+    /// global panel. Opening any of them closes the other two.
     ///
     /// A site has its own slot rather than riding on <see cref="SelectedBuilding"/>, even though its
     /// segments are BuildingRuntimes and are what the grid returns. Selecting a segment would open

@@ -53,7 +53,7 @@ namespace Game.Grid
         /// </summary>
         readonly Dictionary<int, DiscoveryState[]> _chunks = new Dictionary<int, DiscoveryState[]>();
 
-        /// <summary>Cells along one side of a chunk. Comes from SectorSettings, passed as a plain int - Game.Grid must not depend on Game.Data (see TerrainRuntime for the same reason).</summary>
+        /// <summary>Cells along one side of a chunk. Passed as a plain int rather than read from SectorSettings, for the same reason TerrainRuntime takes its four numbers.</summary>
         public int ChunkSizeCells { get; }
 
         /// <summary>Chunks along one axis, rounded up so a map that is not a whole number of chunks keeps its edge.</summary>
@@ -146,8 +146,7 @@ namespace Game.Grid
         /// The <b>stored</b> state of one cell: <see cref="DiscoveryState.Unknown"/> or
         /// <see cref="DiscoveryState.Remembered"/>, and never
         /// <see cref="DiscoveryState.Observed"/> - whether something is looking at this cell right
-        /// now is not a fact about storage. <see cref="ObservationRuntime.StateOf"/> is what answers
-        /// with all three.
+        /// now is not a fact about storage, and is asked of <see cref="ObservationRuntime"/>.
         ///
         /// Out of bounds reads as Unknown - there is nothing out there to have discovered.
         /// </summary>
@@ -167,12 +166,8 @@ namespace Game.Grid
 
         /// <summary>
         /// The one place a cell is ever written, and therefore the one place a chunk can be recorded
-        /// as having changed.
-        ///
-        /// <b>Single, because it was not.</b> Four paths wrote cells and each bumped
-        /// <see cref="Version"/> on its own; when per-chunk stamps were added, three of them silently
-        /// did not stamp - so the zoomed-out map bumped its version, found no chunk changed, and drew
-        /// nothing at all. A reader cannot tell that apart from "nothing happened".
+        /// as having changed. Writing and stamping must not be separable: a version bumped without
+        /// its chunk stamped reads to every consumer as "nothing happened".
         ///
         /// Returns whether this changed anything, and remembers the chunk for <see cref="CommitWrites"/>.
         /// </summary>

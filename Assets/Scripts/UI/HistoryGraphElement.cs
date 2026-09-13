@@ -9,8 +9,7 @@ namespace Game.UI
     /// available/requested) - a pure view, samples pushed in from outside on a timer (see
     /// PowerPanelController/ComputePanelController). Not persisted: history lives only in memory
     /// for as long as this element exists, cleared on scene reload - no save system involved.
-    /// Direct translation of the source project's history_graph.gd, using UI Toolkit's
-    /// Painter2D (generateVisualContent) instead of Godot's Control._draw().
+    /// Drawn with UI Toolkit's Painter2D (generateVisualContent).
     /// </summary>
     public sealed class HistoryGraphElement : VisualElement
     {

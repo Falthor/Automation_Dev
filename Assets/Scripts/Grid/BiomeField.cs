@@ -28,7 +28,7 @@ namespace Game.Grid
     /// unusable, which flipped the classification of the ground itself.
     ///
     /// Do not "clean this up" into double, and do not reorder the arithmetic. Both would silently
-    /// unmoor it from the shader. DecorBiomeAgreementTests measures the rate against the real
+    /// unmoor it from the shader. BiomeFieldAgreementTests measures the rate against the real
     /// material rather than assuming it.
     /// </summary>
     public sealed class BiomeField
@@ -40,9 +40,8 @@ namespace Game.Grid
         readonly int _bandCount;
 
         /// <summary>
-        /// Takes the shader's own parameters as plain values - Game.Grid must not depend on
-        /// Game.Data or on Presentation. GameRuntime unpacks them from the ground material, the same
-        /// way it unpacks TerrainGenerationSettings for TerrainRuntime.
+        /// Takes the shader's own parameters as plain values: GameRuntime unpacks them from the
+        /// ground material, the same way it unpacks TerrainGenerationSettings for TerrainRuntime.
         /// </summary>
         public BiomeField(Vector2 variationOrigin, float biomeCellSize, float biomeSeed, float[] weights, int bandCount)
         {
@@ -71,7 +70,7 @@ namespace Game.Grid
         }
 
         /// <summary>How far this position sits from the nearest band boundary, in field units. Near zero means the shader and this port are one rounding apart from disagreeing.</summary>
-        public float DistanceToBandEdge(Vector2 worldPos)
+        internal float DistanceToBandEdge(Vector2 worldPos)
         {
             float field = FieldAt(worldPos);
 

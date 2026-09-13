@@ -14,13 +14,16 @@ Declared on `BuildingRuntime` with neutral defaults; only flow-participating bui
 ```csharp
 public virtual object PeekPullableItem()
 public virtual void ConsumePulledItem(object item)
-public virtual bool IsFlowReceiver()
 ```
 
 `PeekPullableItem()` returns the item currently available for transfer, or `null`. The return type is
 `object` until a dedicated transport item type exists - a documented placeholder, not the final
-shape. `ConsumePulledItem(item)` consumes what the peek exposed. `IsFlowReceiver()` says whether the
-building participates in directional flow; `false` by default, `true` on `ConveyorRuntime`.
+shape. `ConsumePulledItem(item)` consumes what the peek exposed.
+
+**Whether a building is part of the belt network is asked of its definition**, never of the runtime's
+type: `TransportSystem.IsBeltGated` reads `BuildingDefinition.IsTransportPiece`, which the ground slab
+and the map read too. A runtime-side answer to the same question existed, was overridden and tested,
+and was never once consulted.
 
 A caller querying a neighbour uses these rather than depending on a concrete class.
 
@@ -110,9 +113,9 @@ itself belt-driven (Storage, and every `ProductionBuildingRuntime`):
   building's touching cell and exposes a `PeekPullableItem()` this building's own `CanAcceptInput`
   accepts, transfers it via `ConsumePulledItem`/`AddInput`.
 
-How fast a building may actually absorb what it reads is otherwise its own concern (a Foundry's or a
-Storage's own intake cooldown), not a side effect of the polling rate - except for the structural rule
-below.
+How fast a building may actually absorb what it reads is otherwise its own concern - the Foundry's
+intake cooldown is the only one, and a chest has none at all - not a side effect of the polling rate,
+except for the structural rule below.
 
 **When two buildings share one physical source cell** - two Factories on adjacent sides of one
 conveyor cell, both facing it - only one can take that source's single pullable item on a tick. Rather
@@ -131,8 +134,9 @@ by omitting one.
 
 Three separate things, and conflating them once made a belt line carry four times its rating:
 
-- **The entry rate** (`RawOutputPullIntervalSeconds` = `ConveyorItemsPerMinute`, the figure the
-  Building menu quotes) is how often something *not already a belt* may put an item onto the network -
+- **The entry rate** (`RawOutputPullIntervalSeconds`, which `ConveyorItemsPerMinute` — the figure the
+  Building menu quotes — is derived from) is how often something *not already a belt* may put an item
+  onto the network -
   through the generic pull, a belt's straight-through pull, a side merge, or a Splitter's or
   Crossroad's entry arm, all four checked by `MayEnterBeltNetwork`. The arms were the one way in that
   did not check it, and drained a non-belt source one item per *tick*.

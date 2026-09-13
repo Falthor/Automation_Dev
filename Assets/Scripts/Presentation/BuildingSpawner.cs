@@ -466,11 +466,6 @@ namespace Game.Presentation
                 inward ? InputArrowColor : OutputArrowColor, cell, inward);
 
         /// <summary>
-        /// One small arrow sprite at a world position, facing outward from the building
-        /// (output) or inward toward it (entry). Facing is entirely determined by `direction`
-        /// and `inward`, never by the parent's rotation - the parent (root) never rotates.
-        /// </summary>
-        /// <summary>
         /// Gives a building's own renderer the same drop shadow the Core already casts: a child
         /// showing that renderer's current sprite in flat black, offset toward the sun. No new art
         /// is involved, so an animated building's shadow follows its flipbook for free, and the
@@ -520,6 +515,11 @@ namespace Game.Presentation
             badgeGo.AddComponent<PausedBadgeView>().Bind(production);
         }
 
+        /// <summary>
+        /// One small arrow sprite at a world position, facing outward from the building
+        /// (output) or inward toward it (entry). Facing is entirely determined by `direction`
+        /// and `inward`, never by the parent's rotation - the parent (root) never rotates.
+        /// </summary>
         void SpawnDirectionalArrow(Transform parent, Vector3 worldPosition, Direction direction, Color color, GridCoord rankCell, bool inward)
         {
             var arrowGo = new GameObject(inward ? "InputArrow" : "OutputArrow");
@@ -546,8 +546,7 @@ namespace Game.Presentation
         /// follow the footprint - they express which cells a building holds, not how far its art
         /// reaches. Every view that has to line up with the built building - the placement ghost,
         /// the construction silhouette, the assembling dissolve - sizes itself from here instead.
-        /// </summary>
-        /// <summary>
+        ///
         /// How big to draw a building's art, in world units, <b>derived from the art itself</b>: as
         /// wide as the footprint and as tall as that width times the frame's own proportion.
         ///
@@ -616,8 +615,7 @@ namespace Game.Presentation
         ///
         /// Preserves the sign of the existing scale on neither axis: callers that mirror (a
         /// corner's chirality) re-apply the flip after fitting.
-        /// </summary>
-        /// <summary>
+        ///
         /// The one entry point for sizing a building's art: four production paths call it, and the
         /// test that pins its arithmetic has to reach it.
         /// </summary>

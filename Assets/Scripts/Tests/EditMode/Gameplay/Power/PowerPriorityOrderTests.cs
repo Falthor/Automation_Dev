@@ -70,12 +70,12 @@ namespace Game.Tests.EditMode.Gameplay.Power
         }
 
         [Test]
-        public void MoveTo_SlidesTheRestAlong_AndACaptureRoundTripReproducesIt()
+        public void ACaptureRoundTripReproducesTheOrderAfterAMove()
         {
             var order = new PowerPriorityOrder();
             order.EnsureKnows(new[] { "extractor", "foundry", "factory", "datacenter" });
 
-            order.MoveTo("datacenter", 0);
+            order.MoveBefore("datacenter", "extractor");
 
             CollectionAssert.AreEqual(new[] { "datacenter", "extractor", "foundry", "factory" }, order.Order);
 

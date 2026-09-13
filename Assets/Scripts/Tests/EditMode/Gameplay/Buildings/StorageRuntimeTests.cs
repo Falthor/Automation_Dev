@@ -9,28 +9,16 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 {
     public class StorageRuntimeTests
     {
-        static StorageDefinition NewStorageDefinition(float intakeIntervalSeconds)
-        {
-            var definition = ScriptableObject.CreateInstance<StorageDefinition>();
-            var so = new SerializedObject(definition);
-            so.FindProperty("intakeIntervalSeconds").floatValue = intakeIntervalSeconds;
-            so.ApplyModifiedPropertiesWithoutUndo();
-            return definition;
-        }
+        static StorageDefinition NewStorageDefinition() => ScriptableObject.CreateInstance<StorageDefinition>();
 
         /// <summary>
-        /// A Storage has no absorption rate. It used to carry the same intake cooldown a Foundry
-        /// has, so a box parked against an output could not drain it faster than a belt would - but
-        /// that also made the box slower than the belt feeding it, and items queued in front of a
-        /// container that was visibly empty. A container's only limit is being full.
-        ///
-        /// The definition still carries an interval and it is deliberately non-zero here: the point
-        /// is that nothing reads it any more, which a zero would not prove.
+        /// A Storage has no absorption rate: it takes whatever arrives, the instant it arrives.
+        /// A container's only limit is being full.
         /// </summary>
         [Test]
-        public void DeliveriesAreAcceptedBackToBack_WhateverTheDefinitionsInterval()
+        public void DeliveriesAreAcceptedBackToBack()
         {
-            var storage = new StorageRuntime(NewStorageDefinition(1f), new GridCoord(0, 0), Direction.North);
+            var storage = new StorageRuntime(NewStorageDefinition(), new GridCoord(0, 0), Direction.North);
 
             Assert.IsTrue(storage.CanAcceptInput("iron_ore", 1, Direction.South));
             storage.AddInput("iron_ore", 1, Direction.South);
@@ -45,7 +33,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         [Test]
         public void AFullStorageIsTheOnlyThingThatRefuses()
         {
-            StorageDefinition definition = NewStorageDefinition(0f);
+            StorageDefinition definition = NewStorageDefinition();
             var so = new SerializedObject(definition);
             so.FindProperty("slotCountOverride").intValue = 1;
             so.FindProperty("capacityPerSlotOverride").intValue = 2;
@@ -60,7 +48,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         [Test]
         public void AConveyorRejectingStorageStillRefusesTheBelt()
         {
-            StorageDefinition definition = NewStorageDefinition(0f);
+            StorageDefinition definition = NewStorageDefinition();
             var so = new SerializedObject(definition);
             so.FindProperty("rejectsConveyorInput").boolValue = true;
             so.ApplyModifiedPropertiesWithoutUndo();

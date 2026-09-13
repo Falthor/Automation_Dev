@@ -145,18 +145,6 @@ namespace Game.Presentation
         [Header("Débogage")]
 
         /// <summary>
-        /// Hands over everything the introduction normally hands over slowly: the explorer robots,
-        /// and with them the map and the Research menu. On while the expedition brick is being built
-        /// - reaching the map today means draining 70 000 CU down to 25 000 first, which is minutes
-        /// of waiting before any test of the map can even begin.
-        ///
-        /// One switch rather than one per unlock, because they are one thing: the state a run is in
-        /// once its opening is over. Uncheck it to play the opening as a player meets it.
-        ///
-        /// It only ever opens. A run that has already earned these keeps them either way, and no
-        /// directive is marked done - the Core still asks for its first delivery.
-        /// </summary>
-        /// <summary>
         /// Development bypass: brings the explorer robots out at once and powers the Datacenter's
         /// Research and Buildings cores - which is what opens the research menu - skipping what
         /// normally grants them.
@@ -180,7 +168,7 @@ namespace Game.Presentation
         public GridRuntime Grid { get; private set; }
         public TerrainRuntime Terrain { get; private set; }
 
-        /// <summary>What the player has discovered, one state per cell. Written by the Core's radius (RevealDiscoveredByCore) and later by missions; read by the fog renderer, which must never recompute a distance to the Core instead.</summary>
+        /// <summary>What the player has discovered, one state per cell. Written by the Core's radius (RevealDiscoveredByCore) and by every explorer robot's own reveal as it wanders; read by the fog renderer, which must never recompute a distance to the Core instead.</summary>
         public DiscoveryRuntime Discovery { get; private set; }
 
         /// <summary>
@@ -195,13 +183,12 @@ namespace Game.Presentation
         /// <summary>What grows on the ground, derived per chunk, minus what the player has cleared. Null when no decor settings are configured.</summary>
         public DecorRuntime Decor { get; private set; }
 
-        /// <summary>The map cut into sectors - pure geometry, the unit a mission is aimed at.</summary>
+        /// <summary>The map cut into sectors - pure geometry, the unit SectorMaterialisation writes in (MAP.md).</summary>
         public SectorGrid Sectors { get; private set; }
 
         /// <summary>A sector's name, risk and contents, derived from the world seed on demand. Nothing is materialised for a sector nobody has reached.</summary>
         public SectorCatalog SectorCatalog { get; private set; }
 
-        /// <summary>Which sectors are currently within mission reach. Reads the Core's radius at call time, so extending it moves the ring on its own.</summary>
         /// <summary>
         /// How far a robot will wander from the Core, in cells. What the map draws as its outer ring,
         /// and the only reach figure left in the game now the mission bands are gone.
@@ -326,6 +313,24 @@ namespace Game.Presentation
 
         /// <summary>Called wherever a player command changes the run - placing, demolishing, moving, research, recipes, settings. See HasUnsavedPlayerActions.</summary>
         public void NotePlayerAction() => HasUnsavedPlayerActions = true;
+
+        /// <summary>
+        /// Whether the session is paused via Time.timeScale. The single flag both the Top Bar's
+        /// pause button and the fleet-arrival threshold message read and write through
+        /// (TopBarController, ThresholdController) - before this existed, each wrote
+        /// Time.timeScale directly, and dismissing whichever one showed second silently discarded
+        /// the other's pause: the threshold screen restored its own captured value on top of
+        /// whatever the pause button had done meanwhile, and the button's own "paused" badge had
+        /// no way to notice.
+        /// </summary>
+        public bool IsPaused { get; private set; }
+
+        /// <summary>The one place Time.timeScale is ever written. Binary by construction - 1 (running) or 0 (paused) - which is the only distinction anything in the project reads.</summary>
+        public void SetPaused(bool paused)
+        {
+            IsPaused = paused;
+            Time.timeScale = paused ? 0f : 1f;
+        }
         public ItemVisualSync ItemVisuals => itemVisuals;
         public ConstructionSiteVisualSync ConstructionSiteVisuals => constructionSiteVisuals;
         public ItemDatabase Items => itemDatabase;
@@ -820,14 +825,6 @@ namespace Game.Presentation
         }
 
         /// <summary>
-        /// The catalogue's own conveyor definition for a shape, or null if it carries none.
-        ///
-        /// Derived rather than wired: the two definitions are already in <c>buildingCatalog</c>, and
-        /// a second serialized field for the same two assets is a second thing to keep in agreement.
-        /// Only a definition that actually carries art qualifies - one without an override sprite
-        /// would send the spawner back to the placeholder it is trying to avoid.
-        /// </summary>
-        /// <summary>
         /// Every building type the power order covers, in catalogue order - which is the default
         /// arbitration for a fresh run and the tie-break for anything a save does not mention.
         ///
@@ -846,6 +843,14 @@ namespace Game.Presentation
             }
         }
 
+        /// <summary>
+        /// The catalogue's own conveyor definition for a shape, or null if it carries none.
+        ///
+        /// Derived rather than wired: the two definitions are already in <c>buildingCatalog</c>, and
+        /// a second serialized field for the same two assets is a second thing to keep in agreement.
+        /// Only a definition that actually carries art qualifies - one without an override sprite
+        /// would send the spawner back to the placeholder it is trying to avoid.
+        /// </summary>
         ConveyorDefinition ConveyorArt(ConveyorShapeKind shape)
         {
             foreach (BuildingDefinition definition in buildingCatalog)
@@ -1138,17 +1143,6 @@ namespace Game.Presentation
         }
 
         /// <summary>
-        /// The Core's action radius writes into the discovery state - today the only source of
-        /// revelation there is, with missions to come.
-        ///
-        /// It <b>writes</b>, it does not define: nothing ever reads the radius back to decide what is
-        /// visible. A cell the radius once covered stays discovered whatever the radius does
-        /// afterwards, which is the whole difference between this and the disc the fog used to be.
-        ///
-        /// Called from the tick and idempotent: the disc is only walked when the radius has actually
-        /// moved since the last pass, so repeating it every frame allocates nothing and walks nothing.
-        /// </summary>
-        /// <summary>
         /// A robot has filled up. Posted from here rather than from the robot system because the
         /// notification <b>leads to the action</b>: clicking it takes the camera to that robot and
         /// opens its panel, ready for the recall - and only this side of the project knows what a
@@ -1237,6 +1231,17 @@ namespace Game.Presentation
             Observation.EndRebuild();
         }
 
+        /// <summary>
+        /// The Core's action radius writes into the discovery state - one of two sources of
+        /// revelation there, the other being every explorer robot's own reveal as it wanders (§2.1).
+        ///
+        /// It <b>writes</b>, it does not define: nothing ever reads the radius back to decide what is
+        /// visible. A cell the radius once covered stays discovered whatever the radius does
+        /// afterwards, which is the whole difference between this and the disc the fog used to be.
+        ///
+        /// Called from the tick and idempotent: the disc is only walked when the radius has actually
+        /// moved since the last pass, so repeating it every frame allocates nothing and walks nothing.
+        /// </summary>
         void RevealDiscoveredByCore()
         {
             if (Discovery == null || World?.Core == null) return;
@@ -1273,8 +1278,8 @@ namespace Game.Presentation
             // frame it is granted rather than one frame later.
             RevealDiscoveredByCore();
 
-            // Free exploration, after the Core's disc for the same reason a mission is: a robot
-            // uncovering ground this frame writes on top of an up-to-date map rather than under it.
+            // Free exploration, after the Core's disc for the same reason: a robot uncovering
+            // ground this frame writes on top of an up-to-date map rather than under it.
             // Driven from here and only from here - no robot has an Update of its own
             // (PROJECT_ARCHITECTURE.md).
             ExplorerRobots?.Tick(Time.deltaTime);

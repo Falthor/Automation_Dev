@@ -40,8 +40,20 @@ it must not: `UnityEditor` code compiled into the player breaks the build.
 
 **From the Editor** — menu `Build` ▸ `Windows 64 (Development)` or `Windows 64 (Release)`.
 
-**From the command line** — Unity must not be open on the project (the `Library` folder is locked
-by a running Editor):
+**From the command line** — Unity must not be open on the project: a running Editor locks the
+`Library` folder, and the build dies on it.
+
+**Check it before launching, and never resolve it by closing the Editor yourself** — it may hold
+unsaved scene or asset changes, and killing it loses them. Ask for it to be closed, or build from
+the Editor menu instead, which works precisely because the Editor is the one holding the project.
+
+```text
+Test-Path <project>\Temp\UnityLockfile     # true  -> an Editor holds the project
+Get-Process Unity -ErrorAction SilentlyContinue
+```
+
+Both are worth asking: the lockfile is the authority, and the process answers the case where a
+crash left a lockfile behind with no Editor running. If either says an Editor is up, stop there.
 
 ```text
 Unity.exe -quit -batchmode -projectPath <project> \

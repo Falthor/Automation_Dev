@@ -212,6 +212,10 @@ namespace Game.Presentation
             HandleDemolition(cellUnderMouse);
         }
 
+        /// <summary>The next segment a site will materialize - the one its panel's bill is being spent on. Null once every segment is built.</summary>
+        static BuildingRuntime FrontSegmentOf(ConstructionSiteRuntime site)
+            => site.MaterializedCount < site.Segments.Count ? site.Segments[site.MaterializedCount] : null;
+
         /// <summary>
         /// Outlines a building's footprint, active both with and without a construction tool armed.
         ///
@@ -224,10 +228,6 @@ namespace Game.Presentation
         /// A global panel (Research, the Building menu, Storage) has no building to point at, so
         /// the outline steps aside entirely rather than tracking a cursor that is busy elsewhere.
         /// </summary>
-        /// <summary>The next segment a site will materialize - the one its panel's bill is being spent on. Null once every segment is built.</summary>
-        static BuildingRuntime FrontSegmentOf(ConstructionSiteRuntime site)
-            => site.MaterializedCount < site.Segments.Count ? site.Segments[site.MaterializedCount] : null;
-
         void HandleHoverHighlight(GridCoord cell)
         {
             BuildingRuntime inspected = gameRuntime.Selection.SelectedBuilding;

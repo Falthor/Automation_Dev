@@ -25,8 +25,8 @@ namespace Game.Presentation
     ///
     /// <b>Unknown is not a colour.</b> A cell nobody has seen is transparent, so nothing is drawn there
     /// and the black behind is the absence of a map rather than a shape painted on one. An earlier
-    /// version tinted it, because a sector had to be visible to be aimed at; missions are aimed at sites
-    /// now, and sites are drawn on top - see the carnet.
+    /// version tinted it, because a sector had to be visible to be aimed at. Nothing is aimed at a
+    /// sector any more (MAP.md SS4) - see the carnet.
     ///
     /// Rebuilding is guarded on <see cref="DiscoveryRuntime.Version"/> and then per chunk on its own
     /// stamp, so a frame that discovered nothing costs one integer comparison and a revelation costs the

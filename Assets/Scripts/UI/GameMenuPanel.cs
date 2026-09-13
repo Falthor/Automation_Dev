@@ -154,7 +154,7 @@ namespace Game.UI
             }
 
             // Leaving the menu paused would carry a zero time scale into the scene that replaces it.
-            Time.timeScale = 1f;
+            _runtime?.SetPaused(false);
 
             PendingGameStart.RequestLoadGame(data, name);
             SceneManager.LoadScene(BootstrapSceneName);

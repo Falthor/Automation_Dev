@@ -15,9 +15,9 @@ namespace Game.Data
     }
 
     /// <summary>
-    /// Static crafting recipe. Id is always the produced item's id (same convention as the
-    /// source project's Items.RECIPES) - callers never need a separate "what item does this
-    /// recipe make" lookup. ComputeCost is a one-time deduction at cycle start (CALCUL.md:
+    /// Static crafting recipe. Id is always the produced item's id - callers never need a
+    /// separate "what item does this recipe make" lookup. ComputeCost is a one-time deduction
+    /// at cycle start (CALCUL.md:
     /// "continuous demand and one-time cycle costs remain distinct concepts"), never a
     /// per-second draw.
     /// </summary>

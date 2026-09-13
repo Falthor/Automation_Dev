@@ -10,19 +10,6 @@ namespace Game.Data
         public override bool CountsAgainstBuildingCap => false;
 
         /// <summary>
-        /// Minimum delay (seconds) between two accepted deliveries, on every side alike (pushed
-        /// into, or pulled off a neighbor's raw pooled output). Without this, a Storage sitting
-        /// directly against a production building's output (no conveyor in between) could drain
-        /// its entire stack in one tick, since a production building's own pooled output has no
-        /// belt-speed gating of its own - only a conveyor's progress meter throttles delivery
-        /// naturally. 1 second matches our fastest conveyor today (60 items/min); retune this
-        /// when a faster conveyor tier ships.
-        /// </summary>
-        [SerializeField, Min(0f)] float intakeIntervalSeconds = 1f;
-
-        public float IntakeIntervalSeconds => intakeIntervalSeconds;
-
-        /// <summary>
         /// 0 means "use Game.Gameplay.Items.Inventory's own default" (Data must not reference
         /// Gameplay - StorageRuntime resolves the fallback). Only the Core chest fixture overrides
         /// these today (6 slots instead of the standard 2, 200 per slot - the real constraint is

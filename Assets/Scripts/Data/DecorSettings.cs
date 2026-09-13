@@ -120,8 +120,8 @@ namespace Game.Data
 
         /// <summary>
         /// The band weights of every kind, as a plain array - what DecorRuntime is built from.
-        /// Game.Grid must not depend on Game.Data, so the derivation is handed numbers rather than
-        /// this asset, exactly as TerrainRuntime is.
+        /// The derivation is handed numbers rather than this asset, exactly as TerrainRuntime is:
+        /// what a world grew from must not move when the asset is edited afterwards.
         /// </summary>
         public float[][] BandWeightsPerKind()
         {
