@@ -403,13 +403,12 @@ namespace Game.Presentation
         }
 
         /// <summary>
+        /// Creates a site renderer and puts it on the depth ladder at its segment's row.
+        ///
         /// A site sits in the sorted band at the row it is being built on, exactly where the finished
         /// building will sit - so the handover changes nothing on screen, and a chantier is occluded
         /// by what stands in front of it just as the building will be. The silhouette takes the
         /// sub-layer below the sprite assembling over it.
-        /// </summary>
-        /// <summary>
-        /// Creates a site renderer and puts it on the depth ladder at its segment's row.
         ///
         /// The ladder, not a stored number: a sorted-band rank is only true for the depth window it
         /// was measured against, and that window follows the camera. Registering also means these
