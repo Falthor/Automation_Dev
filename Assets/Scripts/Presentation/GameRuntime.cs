@@ -313,6 +313,24 @@ namespace Game.Presentation
 
         /// <summary>Called wherever a player command changes the run - placing, demolishing, moving, research, recipes, settings. See HasUnsavedPlayerActions.</summary>
         public void NotePlayerAction() => HasUnsavedPlayerActions = true;
+
+        /// <summary>
+        /// Whether the session is paused via Time.timeScale. The single flag both the Top Bar's
+        /// pause button and the fleet-arrival threshold message read and write through
+        /// (TopBarController, ThresholdController) - before this existed, each wrote
+        /// Time.timeScale directly, and dismissing whichever one showed second silently discarded
+        /// the other's pause: the threshold screen restored its own captured value on top of
+        /// whatever the pause button had done meanwhile, and the button's own "paused" badge had
+        /// no way to notice.
+        /// </summary>
+        public bool IsPaused { get; private set; }
+
+        /// <summary>The one place Time.timeScale is ever written. Binary by construction - 1 (running) or 0 (paused) - which is the only distinction anything in the project reads.</summary>
+        public void SetPaused(bool paused)
+        {
+            IsPaused = paused;
+            Time.timeScale = paused ? 0f : 1f;
+        }
         public ItemVisualSync ItemVisuals => itemVisuals;
         public ConstructionSiteVisualSync ConstructionSiteVisuals => constructionSiteVisuals;
         public ItemDatabase Items => itemDatabase;

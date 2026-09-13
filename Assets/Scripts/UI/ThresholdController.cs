@@ -60,8 +60,8 @@ namespace Game.UI
         bool _appearedAtStart;
         bool _shown;
 
-        /// <summary>The time scale as it stood when the screen went up, restored on dismissal rather than assuming 1.</summary>
-        float _timeScaleBeforePause = 1f;
+        /// <summary>Whether the session was already paused when the screen went up, restored on dismissal rather than assuming it was not.</summary>
+        bool _wasPausedBefore;
 
         void Start()
         {
@@ -109,8 +109,8 @@ namespace Game.UI
                 _seeButton.clicked += Dismiss;
             }
 
-            _timeScaleBeforePause = Time.timeScale;
-            Time.timeScale = 0f;
+            _wasPausedBefore = gameRuntime.IsPaused;
+            gameRuntime.SetPaused(true);
 
             StartCoroutine(Play());
         }
@@ -166,7 +166,7 @@ namespace Game.UI
         /// </summary>
         void Dismiss()
         {
-            Time.timeScale = _timeScaleBeforePause;
+            gameRuntime.SetPaused(_wasPausedBefore);
 
             _overlay?.RemoveFromHierarchy();
             _overlay = null;

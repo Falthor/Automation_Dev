@@ -64,7 +64,6 @@ namespace Game.UI
         Label _pauseOverlay;
         Label _refusalMessage;
         float _refusalMessageHideAt = -1f;
-        bool _paused;
 
         /// <summary>False until the player has opened the Research panel once - what ends the "this is new" pulse on the card the Core just handed them.</summary>
         bool _researchMenuSeen;
@@ -322,12 +321,7 @@ namespace Game.UI
             card.Detail.style.paddingBottom = expanded ? 6f : 0f;
         }
 
-        void TogglePause()
-        {
-            _paused = !_paused;
-            Time.timeScale = _paused ? 0f : 1f;
-            _pauseOverlay.EnableInClassList("hidden", !_paused);
-        }
+        void TogglePause() => gameRuntime.SetPaused(!gameRuntime.IsPaused);
 
         /// <summary>
         /// Drops the focus a click just handed to a button.
@@ -418,6 +412,12 @@ namespace Game.UI
             {
                 ToggleMenuOverlay();
             }
+
+            // Read fresh every frame rather than only where this button toggles it: the fleet-
+            // arrival threshold message pauses and resumes the session too (ThresholdController),
+            // through the same GameRuntime.IsPaused flag, and this badge has to agree with it
+            // whichever of the two last touched it.
+            _pauseOverlay.EnableInClassList("hidden", !gameRuntime.IsPaused);
 
             RefreshClock();
             RefreshWidths();
