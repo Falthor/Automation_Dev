@@ -15,11 +15,13 @@ MonoBehaviour:
   id: ammo
   displayName: Munition
   description: 
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: adb21e516534d50448411f8e787e67e0, type: 3}
   cuCost: 2000
+  computeSource: 0
   prerequisites:
   - {fileID: 11400000, guid: 54914a95b5be4aa4882a3a83142345e0, type: 2}
   effects: []
   absorptionRatePerSecond: 40
   tier: 2
   angle: 294.8
+  enlargedDisplay: 0

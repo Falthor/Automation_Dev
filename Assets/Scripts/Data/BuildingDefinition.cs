@@ -1,3 +1,4 @@
+using Game.Core;
 using UnityEngine;
 
 namespace Game.Data
@@ -83,6 +84,21 @@ namespace Game.Data
         /// exactly as a pole with no supply anywhere on its network still exists and still connects.
         /// </summary>
         public virtual bool SuppliesPower => false;
+
+        /// <summary>Whether BuildingSpawner drops a ground shadow under this building's art - true for everything standing on the ground, false for what lies flat on it (a Storage crate, a Network cable). A type with no shadow to skip overrides this.</summary>
+        public virtual bool DrawsShadow => true;
+
+        /// <summary>
+        /// Whether BuildingSpawner turns this building's sprite to match FacingRotation - false for
+        /// everything by default (SpawnStandardView's own invariant: "every other building's root
+        /// never rotates"), true only for art with a facing worth showing, like a straight Network
+        /// cable segment laid along a drag's axis. The "+"-shaped Splitter/Crossroad already rotate
+        /// through their own SpawnRotatingCrossView path and do not read this.
+        /// </summary>
+        public virtual bool RotatesSpriteWithFacing => false;
+
+        /// <summary>Which way the art itself faces at rest - the direction RotatesSpriteWithFacing measures FacingRotation against. Meaningless when RotatesSpriteWithFacing is false.</summary>
+        public virtual Direction ArtNativeDirection => Direction.North;
 
         /// <summary>
         /// One-shot CU taken from the reserve each time this building starts a cycle (an

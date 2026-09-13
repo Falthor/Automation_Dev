@@ -303,6 +303,15 @@ namespace Game.Presentation
             // slab, the arrows and the depth rank keep working off the cells occupied.
             spriteGo.transform.localPosition = Vector3.up * ArtLift(definition, _grid.CellSize, sprite);
 
+            // Opt-in only (BuildingDefinition.RotatesSpriteWithFacing) - "every other building's
+            // root never rotates" stays true for the rest. Same maths as SpawnRotatingCrossView,
+            // on the sprite alone so a lifted/offset root never swings with it.
+            if (definition.RotatesSpriteWithFacing)
+            {
+                int rotationDegrees = runtime.FacingRotation.ToRotationDegrees() - definition.ArtNativeDirection.ToRotationDegrees();
+                spriteGo.transform.rotation = Quaternion.Euler(0f, 0f, -rotationDegrees);
+            }
+
             if (definition.AnimationFrames != null && definition.AnimationFrames.Length >= 2)
             {
                 renderer.gameObject.AddComponent<SpriteFlipbook>().Initialize(definition.AnimationFrames, definition.AnimationFps, definition.AnimationIntervalSeconds);
@@ -497,9 +506,11 @@ namespace Game.Presentation
         /// <summary>
         /// Storage boxes are excluded by request: their art is low and flat-topped, so the offset
         /// silhouette reads as a second box beside the first rather than as the box's own shadow -
-        /// and they are placed in rows, which multiplies the effect.
+        /// and they are placed in rows, which multiplies the effect. BuildingDefinition.DrawsShadow
+        /// excludes the rest, same reasoning as conveyors: a Network cable lies flat on the ground,
+        /// so it has nothing to cast either.
         /// </summary>
-        static bool CastsShadow(BuildingRuntime runtime) => !(runtime is StorageRuntime);
+        static bool CastsShadow(BuildingRuntime runtime) => !(runtime is StorageRuntime) && runtime.Definition.DrawsShadow;
 
         /// <summary>
         /// Gives a building that can be switched off a badge saying so, sat on its centre. Only

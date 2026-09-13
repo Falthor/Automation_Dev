@@ -20,7 +20,5 @@ MonoBehaviour:
   animationFrames: []
   animationFps: 8
   animationIntervalSeconds: 0
-  cost:
-  - item: {fileID: 11400000, guid: 5f8b2da4c6e309571b2d4f6180c3e507, type: 2}
-    amount: 4
+  cost: []
   powerDemandKw: 0

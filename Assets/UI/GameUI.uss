@@ -888,6 +888,19 @@
     top: 50%;
 }
 
+/* Behind the network content, never intercepting input - a faint reference image so the real nodes
+   and synapses still read clearly on top of it. */
+.research-network-background {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url("../Art/Menu/research_menu_background.png");
+    -unity-background-scale-mode: scale-and-crop;
+    opacity: 0.3;
+}
+
 .research-network-hint {
     position: absolute;
     right: 10px;
@@ -926,7 +939,7 @@
     position: absolute;
     align-items: center;
     justify-content: center;
-    border-width: 1.5px;
+    border-width: 1px;
     background-color: rgb(22, 25, 32);
     border-color: rgb(61, 67, 79);
 }
@@ -967,36 +980,26 @@
     border-color: rgb(61, 67, 79);
 }
 
-.research-node-name,
 .research-node-caption {
     position: absolute;
     font-size: 7px;
     white-space: normal;
     -unity-text-align: upper-center;
-    color: rgb(107, 114, 128);
+    color: rgb(78, 85, 99);
     margin: 0;
     padding: 0;
 }
 
-/* Named on hover only - a name under every one of thirty balls at once is mostly noise. */
-.research-node-name {
-    display: none;
-}
-
-.research-node-caption {
-    color: rgb(78, 85, 99);
-}
-
 .research-node-name-inside {
     width: 100%;
-    font-size: 6px;
+    font-size: 5px;
     white-space: normal;
     -unity-text-align: middle-center;
     padding: 0 3px;
     margin: 0;
 }
 
-.research-node-centre { background-color: rgb(18, 53, 44); border-color: rgb(93, 202, 165); border-width: 2px; }
+.research-node-centre { background-color: rgb(18, 53, 44); border-color: rgb(93, 202, 165); border-width: 1.5px; }
 .research-node-centre .research-node-name-inside { color: rgb(159, 225, 203); }
 
 .research-node-core-on { background-color: rgb(29, 37, 49); border-color: rgb(237, 147, 177); }
@@ -1006,21 +1009,17 @@
 
 .research-node-completed { background-color: rgb(18, 53, 44); border-color: rgb(93, 202, 165); }
 .research-node-completed .research-node-glyph { color: rgb(93, 202, 165); }
-.research-node-completed .research-node-name { color: rgb(159, 225, 203); }
 
 .research-node-in-progress { background-color: rgb(46, 36, 9); border-color: rgb(239, 159, 39); }
-.research-node-in-progress .research-node-glyph,
-.research-node-in-progress .research-node-name { color: rgb(250, 199, 117); }
+.research-node-in-progress .research-node-glyph { color: rgb(250, 199, 117); }
 
 /* What can be paid for now is the one thing the player opens this menu to find (GDD §5.4): a thicker
    frame, never colour alone - the diamond glyph says it too. */
-.research-node-payable { background-color: rgb(51, 23, 42); border-color: rgb(237, 147, 177); border-width: 3px; }
-.research-node-payable .research-node-glyph,
-.research-node-payable .research-node-name { color: rgb(244, 192, 209); }
+.research-node-payable { background-color: rgb(51, 23, 42); border-color: rgb(237, 147, 177); border-width: 2px; }
+.research-node-payable .research-node-glyph { color: rgb(244, 192, 209); }
 
 .research-node-unaffordable { background-color: rgb(26, 30, 38); border-color: rgb(107, 114, 128); }
-.research-node-unaffordable .research-node-glyph,
-.research-node-unaffordable .research-node-name { color: rgb(154, 162, 177); }
+.research-node-unaffordable .research-node-glyph { color: rgb(154, 162, 177); }
 
 .research-node-locked { background-color: rgb(22, 25, 32); border-color: rgb(61, 67, 79); }
 .research-node-locked .research-node-glyph { color: rgb(92, 99, 113); }
@@ -1033,17 +1032,13 @@
 }
 
 .research-node-inspected {
-    border-width: 3px;
+    border-width: 2px;
     border-color: rgb(100, 210, 130);
 }
 
 /* Last, and the only rule here carrying a pseudo-class, so it wins over both. */
 .research-node:hover {
     border-color: rgb(85, 221, 245);
-}
-
-.research-node-research:hover .research-node-name {
-    display: flex;
 }
 
 .research-pulse {

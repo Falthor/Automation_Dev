@@ -190,6 +190,18 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             Assert.IsTrue(system.RobotsHaveAppeared);
         }
 
+        /// <summary>A freshly-arrived fleet waits for the player rather than setting off unannounced (MAP.md) - distinct from a save from before manual control existed, which restores in Auto instead (ASaveMissingAutoAndTarget_RestoresInAuto_WithNoManualTarget).</summary>
+        [Test]
+        public void ANewlyAppearedFleetStartsWithAutoOff()
+        {
+            ExplorerRobotSystem system = NewSystem(out _, NewSettings(robotCount: 2));
+
+            foreach (ExplorerRobotRuntime robot in system.Robots)
+            {
+                Assert.IsFalse(robot.Auto);
+            }
+        }
+
         [Test]
         public void TwoRobotsNeverShareACellAtRest()
         {
@@ -587,6 +599,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             robot.Position = CoreCentre + new Vector2(360f, 0f);
             robot.HeadingDegrees = 0f;   // straight out
             robot.State = ExplorerRobotState.Exploring;
+            robot.Auto = true; // wandering under Steer, not a manual trip - Tick only calls it in Auto
 
             float furthest = 0f;
             float previous = (robot.Position - CoreCentre).magnitude;

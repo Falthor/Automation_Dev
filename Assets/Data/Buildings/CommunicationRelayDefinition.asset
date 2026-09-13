@@ -20,13 +20,7 @@ MonoBehaviour:
   animationFrames: []
   animationFps: 8
   animationIntervalSeconds: 0
-  cost:
-  - item: {fileID: 11400000, guid: 71bd4fc6e8052b793d4f6183ae205729, type: 2}
-    amount: 5
-  - item: {fileID: 11400000, guid: d5be11fa9d151e345a38f4254d3f1430, type: 2}
-    amount: 20
-  - item: {fileID: 11400000, guid: 5f8b2da4c6e309571b2d4f6180c3e507, type: 2}
-    amount: 15
+  cost: []
   actionRadiusCells: 12
   powerDemandKw: 3
   cuUpkeepPerSecond: 1

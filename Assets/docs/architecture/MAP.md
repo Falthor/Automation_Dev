@@ -201,16 +201,18 @@ before moving any of the three.
   defect.
 
 **Manual control is the deliberate exception to "no destination".** `ExplorerRobotRuntime.Auto` (default
-true) is layered orthogonally on the three states rather than adding a fourth: `Exploring` still means
+false - a freshly-arrived fleet waits for the player rather than setting off unannounced; a save from
+before manual control existed still restores as Auto, a distinct compatibility case -
+`ExplorerRobotSystem.RestoreState`) is layered orthogonally on the three states rather than adding a
+fourth: `Exploring` still means
 "out in the field", whether that is wandering under `Steer` or converging on a right-clicked
 `ManualTarget`. It does not reproduce the star problem above — a destination is what the player is
 asking for on that one click, not the default behaviour of a whole fleet left running unattended.
 
 - **The Auto button.** Turning it on sends an idle robot out exactly as the old single toggle did, or
   resumes wandering from wherever a robot already out happens to be. Turning it off freezes the robot
-  exactly where it stands, holding position until the next command. A halo lights up around a robot
-  in Auto, in the world and on the button alike (the same blue, `.recipe-action-button-on`) — nothing is
-  drawn for one that is not.
+  exactly where it stands, holding position until the next command. The button itself is the only
+  place Auto shows - nothing is drawn on the robot in the world for it.
 - **A right-click on the map**, while the robot's panel is open, sends it straight there —
   `ExplorerRobotRuntime.StepTowards`, the same primitive `Returning` already used to converge on the
   base — **even over undiscovered ground**: picking a cell never consults what has been revealed, so a

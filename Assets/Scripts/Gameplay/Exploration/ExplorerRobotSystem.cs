@@ -688,7 +688,7 @@ namespace Game.Gameplay.Exploration
                 robot.State = ExplorerRobotState.Idle;
                 robot.DriftPhase = 0f;
                 robot.SortieCount = 0;
-                robot.Auto = true;
+                robot.Auto = false;
                 robot.ManualTarget = null;
                 robot.Cards = 0;
                 robot.NewCellsSinceLastCard = 0f;

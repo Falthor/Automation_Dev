@@ -15,7 +15,7 @@ MonoBehaviour:
   id: memory_allocation
   displayName: Allocation memoire
   description: Porte le plafond de batiments a 75.
-  icon: {fileID: 0}
+  icon: {fileID: 597411320055623791, guid: 010eeacec31baf84887f268a78c928dd, type: 3}
   cuCost: 3300
   computeSource: 0
   prerequisites:
@@ -26,5 +26,6 @@ MonoBehaviour:
     recipe: {fileID: 0}
     value: 75
   absorptionRatePerSecond: 40
-  tier: 1.3
-  angle: 129.1
+  tier: 1.6
+  angle: 130.7
+  enlargedDisplay: 0

@@ -20,7 +20,8 @@ MonoBehaviour:
   animationFrames: []
   animationFps: 8
   animationIntervalSeconds: 0
-  cost:
-  - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
-    amount: 2
+  cost: []
   powerDemandKw: 0
+  drawsShadow: 0
+  rotatesSpriteWithFacing: 1
+  artNativeDirection: 1

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Network
   description: "Debloque la fonctionnalit\xE9 R\xE9seau ainsi que les batiments suivants
     :\n- C\xE2ble r\xE9seau\n- Jonction r\xE9seau\n- Hub r\xE9seau"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 657a7153a1c246740b623f9bf653aa3a, type: 3}
   cuCost: 2000
   computeSource: 0
   prerequisites:
@@ -35,6 +35,6 @@ MonoBehaviour:
     recipe: {fileID: 0}
     value: 0
   absorptionRatePerSecond: 40
-  tier: 2
-  angle: 132.5
+  tier: 2.7
+  angle: 145.7
   enlargedDisplay: 1

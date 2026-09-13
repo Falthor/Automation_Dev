@@ -15,7 +15,7 @@ MonoBehaviour:
   id: com_relay
   displayName: Relais communication
   description: "D\xE9bloque le batiment relais de communication"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 03c8c72c52fe0f1419485c635e0ec0a6, type: 3}
   cuCost: 10000
   computeSource: 0
   prerequisites:
@@ -26,6 +26,6 @@ MonoBehaviour:
     recipe: {fileID: 0}
     value: 0
   absorptionRatePerSecond: 40
-  tier: 1.4
-  angle: 40.2
+  tier: 1.8
+  angle: 39.6
   enlargedDisplay: 0

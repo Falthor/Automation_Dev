@@ -894,6 +894,8 @@ MonoBehaviour:
   depositHoverGlowView: {fileID: 753154656}
   straightConveyorForDragContinuation: {fileID: 11400000, guid: 19683784cfd38ce41924c33986e91b77, type: 2}
   cornerConveyorForReshape: {fileID: 11400000, guid: e9cd37ecbc57c35419a77ff9115d78ad, type: 2}
+  networkCableDefinition: {fileID: 11400000, guid: 69e12704173410b4c9c9b4389bed2654, type: 2}
+  networkJunctionDefinition: {fileID: 11400000, guid: 98ff54328ab38654bacc3fdb0079fe30, type: 2}
 --- !u!4 &134080688
 Transform:
   m_ObjectHideFlags: 0

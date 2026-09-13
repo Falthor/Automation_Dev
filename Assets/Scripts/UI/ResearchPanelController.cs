@@ -44,7 +44,7 @@ namespace Game.UI
         const float PulseSize = 8f;
         const float PulseSeconds = 1.6f;
         const float MinZoom = 0.4f;
-        const float MaxZoom = 2f;
+        const float MaxZoom = 5f;
         const float WheelStep = 1.12f;
         const int CurveSamples = 20;
 
@@ -368,7 +368,6 @@ namespace Game.UI
                 glyph.AddToClassList("research-node-glyph");
                 glyph.pickingMode = PickingMode.Ignore;
                 element.Add(glyph);
-                if (!string.IsNullOrEmpty(name)) element.Add(Caption(name, size, "research-node-name"));
             }
 
             _content.Add(element);
@@ -548,8 +547,8 @@ namespace Game.UI
 
                 if (node.IsCore)
                 {
-                    if (node.State == NodeState.CoreOn) Curve(painter, origin, to, LitColor, 2f, dashed: false);
-                    else Curve(painter, origin, to, DarkColor, 1.5f, dashed: true);
+                    if (node.State == NodeState.CoreOn) Curve(painter, origin, to, LitColor, 1f, dashed: false);
+                    else Curve(painter, origin, to, DarkColor, 1f, dashed: true);
                     continue;
                 }
 
@@ -562,7 +561,7 @@ namespace Game.UI
                     Vector2 from = origin + _nodes[parentIndex].Position;
                     if (research.IsUnlocked(prerequisite.Id))
                     {
-                        Curve(painter, from, to, node.State == NodeState.Completed ? AcquiredColor : LitColor, 2f, dashed: false);
+                        Curve(painter, from, to, node.State == NodeState.Completed ? AcquiredColor : LitColor, 1f, dashed: false);
                     }
                     else if (!_nodes[parentIndex].IsCore && research.ArePrerequisitesMet(prerequisite))
                     {
@@ -601,7 +600,7 @@ namespace Game.UI
         {
             Vector2 direction = (towards - node).normalized;
             painter.strokeColor = StubColor;
-            painter.lineWidth = 1.5f;
+            painter.lineWidth = 1f;
             painter.BeginPath();
             painter.MoveTo(node + direction * (size * 0.5f));
             painter.LineTo(node + direction * (size * 0.5f + StubLength));

@@ -34,11 +34,14 @@ namespace Game.Gameplay.Exploration
 
         /// <summary>
         /// Whether this robot wanders on its own (<see cref="ExplorerRobotSystem.Steer"/>) or waits
-        /// for the player to place it with a right-click. True by default - a save from before manual
-        /// control existed restores exactly as it always behaved. The single write path is
-        /// <see cref="ExplorerRobotSystem.SetAuto"/>; nothing else may set it (MAP.md, DEVELOPMENT_RULES §1).
+        /// for the player to place it with a right-click. False by default - a freshly-arrived fleet
+        /// waits for the player's own Auto/right-click rather than setting off unannounced. A save
+        /// from before manual control existed still restores as Auto (ExplorerRobotSystem.RestoreState's
+        /// own per-robot fallback), which is a distinct, deliberate compatibility case from this
+        /// default. The single write path is <see cref="ExplorerRobotSystem.SetAuto"/>; nothing else
+        /// may set it (MAP.md, DEVELOPMENT_RULES §1).
         /// </summary>
-        public bool Auto { get; set; } = true;
+        public bool Auto { get; set; } = false;
 
         /// <summary>
         /// Where a right-click sent this robot while Auto was off, or null. The one destination this

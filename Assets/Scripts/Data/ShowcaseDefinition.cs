@@ -1,3 +1,4 @@
+using Game.Core;
 using UnityEngine;
 
 namespace Game.Data
@@ -19,6 +20,15 @@ namespace Game.Data
     {
         [SerializeField, Min(0f)] float powerDemandKw;
 
+        /// <summary>False for art that lies flat on the ground rather than standing on it (a cable) - see BuildingDefinition.DrawsShadow.</summary>
+        [SerializeField] bool drawsShadow = true;
+
+        /// <summary>True for art with a facing to show (a straight run laid in a direction) - see BuildingDefinition.RotatesSpriteWithFacing. False for omnidirectional art (a junction, a hub).</summary>
+        [SerializeField] bool rotatesSpriteWithFacing;
+
+        /// <summary>Which way this art was drawn facing at rest - see BuildingDefinition.ArtNativeDirection.</summary>
+        [SerializeField] Direction artNativeDirection = Direction.North;
+
         /// <summary>Only there to be looked at - it takes no slot against the building cap.</summary>
         public override bool CountsAgainstBuildingCap => false;
 
@@ -26,5 +36,11 @@ namespace Game.Data
 
         /// <summary>False regardless of PowerDemandKw: it never actually draws, so it earns no row on the Énergie panel's Priorité tab - that would show a group forever stuck at "alimenté" for a demand nothing ever asks the network for.</summary>
         public override bool DrawsPower => false;
+
+        public override bool DrawsShadow => drawsShadow;
+
+        public override bool RotatesSpriteWithFacing => rotatesSpriteWithFacing;
+
+        public override Direction ArtNativeDirection => artNativeDirection;
     }
 }

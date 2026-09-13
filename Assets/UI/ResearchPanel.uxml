@@ -14,6 +14,7 @@
 
             <ui:VisualElement class="research-body">
                 <ui:VisualElement name="ResearchNetwork" class="research-network">
+                    <ui:VisualElement name="ResearchNetworkBackground" class="research-network-background" picking-mode="Ignore" />
                     <ui:VisualElement name="ResearchNetworkContent" class="research-network-content" />
                     <ui:Button name="ResearchRecenterButton" text="RECENTRER" class="research-recenter-button" />
                     <ui:Label text="molette : zoom  -  glisser : deplacer" class="research-network-hint" picking-mode="Ignore" />
