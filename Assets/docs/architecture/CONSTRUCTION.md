@@ -62,13 +62,13 @@ Presentation.
 
 `CanPlace` is the non-mutating bool used for ghost tinting. `GetPlacementRefusalReason` is the
 explanatory read behind it: the same checks in the same order, returning
-`None`/`NotUnlocked`/`OutOfActionRadius`/`CannotAfford`/`BuildingCapReached`/`CellOccupied`/
-`ConveyorRunTooLong` (§8). It is meaningful only while something is selected.
+`None`/`NotUnlocked`/`OutOfActionRadius`/`CannotAfford`/`BuildingCapReached`/`CellOccupied`. It is
+meaningful only while something is selected.
 
-Only the refusals a player cannot see for themselves are announced on screen - the cap, the missing
-resources, and a conveyor run past its 40-cell limit. Out of radius, not unlocked and occupied are
-already legible from the ghost's tint and from where the cursor is; a message on each of those would be
-noise on gestures the player is making deliberately.
+Only the refusals a player cannot see for themselves are announced on screen - the cap and the missing
+resources. Out of radius, not unlocked and occupied are already legible from the ghost's tint and from
+where the cursor is; a message on each of those would be noise on gestures the player is making
+deliberately.
 
 `CannotAfford` reads the aggregate **minus what other sites have already reserved**, so placing four
 buildings with stock for three refuses the fourth rather than letting four sites fight over one stock
@@ -155,7 +155,7 @@ The highest target any research carries is the Core's furthest reach,
 `GameRuntime.FurthestActionRadiusCells`, derived from the research effects and never written down a
 second time.
 
-## 8. Reaching beyond the Core: Communication Relays, the 40-cell run, the Belt Relay
+## 8. Reaching beyond the Core: Communication Relays
 
 **"In radius" composes.** Once `ResearchEffectKind.UnlockOutOfRadiusConstruction` is completed
 (`ConstructionService.HasUnlockedOutOfRadiusConstruction`, a flag that never goes back like
@@ -174,23 +174,9 @@ is the only thing that removes an entry), but the placement gate skips it until 
 is the one building in the game whose CU is spent **continuously** rather than in one shot per cycle -
 see CALCUL.md's own exception for why.
 
-**The 40-cell run.** A straight/corner conveyor placed outside every radius may not run more than
-`ConstructionService.MaxOutOfRadiusConveyorRun` (40) cells since the last reset point, counted by
-walking backward through whichever single neighbor feeds the candidate cell
-(`BuildingRuntime.FeedsCell`, the same one-hop lookup `ConstructionInputAdapter.FindEntryDirection`
-uses, generalized into a chain). A reset point is a cell already in radius, or a **Belt Relay** - the
-count restarts at 1 the moment either is crossed, exactly as if the run had never left home. Reaching
-41 refuses with `PlacementRefusalReason.ConveyorRunTooLong`, announced on screen ("Tapis trop long -
-construisez un relais") since, unlike a plain out-of-radius refusal, the player cannot read this one off
-the ghost alone.
-
-**The Belt Relay is a conveyor, not a subclass.** `ConveyorDefinition` is sealed, and every shape this
-project ships is already "one asset, one flag combination" rather than a type hierarchy - the Belt
-Relay is an ordinary straight-shaped `ConveyorDefinition` asset with `IsRunLengthReset` set, priced
-like the infrastructure it is (the one exception to every other conveyor shipping free). Items pass
-through it exactly like a straight belt; nothing about its runtime differs from `ConveyorRuntime`. It
-may only be placed **inside a Communication Relay's own radius specifically** - being within the Core's
-is not enough, since a relay's whole purpose is resetting a run the Core could never reach.
+A conveyor run outside every radius has no length limit of its own: what pulls a base outward and
+forces the player to reach for a relay is ore placement itself, not a limit on the belt carrying it
+there - MAP.md.
 
 ## 9. Chantiers: reservation, segments, order
 

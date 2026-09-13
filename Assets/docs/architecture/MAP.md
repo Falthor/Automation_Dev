@@ -330,13 +330,28 @@ Measured on the shipped map: 8.0 tiles on average inside 100 cells, 12.3 past 26
 
 **Nothing derived lands inside the Core's furthest reach** (`GameRuntime.FurthestActionRadiusCells`)
 - the highest radius any research grants, derived from the research effects rather than written
-down, here included. The ore in it is placed by hand, at chosen distances, because the introduction depends
-on it (`WorldGenerator`): one cluster of each resource inside the starting radius, then two rings of
-invitation clusters the radius researches open - centres 26 to 29 cells out, 4 deposits of each, and
-centres 40 to 60 cells out, 8 iron, 8 copper and 4 coal. The second ring is required: a world that
-cannot place it is refused, like one missing a starting cluster. A sector is skipped when *any
-part of it* falls inside the radius rather than having its cells clipped — a clipped cluster would be
-two tiles against a wall, which is worse than none.
+down, here included. The ore in it is placed by hand, at chosen distances, because the introduction
+depends on it (`WorldGenerator`): one cluster of each resource inside the starting radius (radius 22,
+4 deposits each), then one or more further **guaranteed bands** beyond it, each a distance ring from
+the Core plus a per-resource deposit-count range (`OreBand`, on `WorldGenerationSettings.OreBands`).
+Shipped with a single band at 130-170 cells: 8-12 iron, 8-12 copper, 3-7 coal, each count drawn once
+per world within its own range. A band is required, like the starting cluster: a world that cannot
+place one is refused rather than handed over amputated. A list rather than named fields, so a further
+tier is one more entry - the same reason `WreckRing` is a list on `WreckRingProfile`.
+
+Reaching a guaranteed band means leaving every action radius: nothing narrower than a Communication
+Relay's own radius reaches 130 cells out, so placing one there is the only way to exploit it
+(CONSTRUCTION.md §8). A sector is skipped when *any part of it* falls inside the Core's own radius
+rather than having its cells clipped — a clipped cluster would be two tiles against a wall, which is
+worse than none.
+
+**The procedural layer above does not currently generate past the guaranteed bands either.**
+`SectorMaterialisation` also holds an outer limit — `WorldGenerationSettings.FurthestOreBandCells`,
+the furthest edge any guaranteed band reaches — and skips a sector once *every* part of it clears that
+distance, the mirror of the inner exclusion at the far end. Nothing has designed content for what lies
+beyond a guaranteed band yet, so nothing derives there either; the limit moves outward with the bands
+themselves rather than being a second figure to retune by hand. `ExplorerRobotSettings.maxRadiusCells`
+(below) still bounds how far a robot itself will wander, unrelated to this and unchanged.
 
 `SectorMaterialisation` (§3.1) is what reads all of it.
 

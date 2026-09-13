@@ -18,13 +18,35 @@ MonoBehaviour:
   coalOreDefinition: {fileID: 11400000, guid: 24f3c4c440f22c14cb72e74f072b099c, type: 2}
   randomizeResourceSeed: 1
   resourceSeed: 12345
+  oreBands:
+  - MinDistanceCells: 130
+    MaxDistanceCells: 170
+    IronDepositsMin: 8
+    IronDepositsMax: 12
+    CopperDepositsMin: 8
+    CopperDepositsMax: 12
+    CoalDepositsMin: 3
+    CoalDepositsMax: 7
   startingStock:
   - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
     amount: 60
   - item: {fileID: 11400000, guid: a1c4e07b3f5d42a1b8e6c9d0f2a4b6c8, type: 2}
+    amount: 20
+  - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
     amount: 20
   coreStorageDefinition: {fileID: 11400000, guid: b32fa419afa8927e913cf91edff080bb, type: 2}
   wreckSprites:
   - {fileID: 21300000, guid: e0c60db7741333145a38256e64644a8c, type: 3}
   - {fileID: 21300000, guid: 56947a2a3be5b024d8474fa6cd0e6aad, type: 3}
   - {fileID: 21300000, guid: 0682adf13be6d0549904b01e6205b77a, type: 3}
+  wreckRings:
+  - InnerRadiusCells: 40
+    OuterRadiusCells: 75
+    Count: 2
+  - InnerRadiusCells: 75
+    OuterRadiusCells: 160
+    Count: 2
+  - InnerRadiusCells: 160
+    OuterRadiusCells: 330
+    Count: 4
+  discoverEveryWreckAtStart: 0

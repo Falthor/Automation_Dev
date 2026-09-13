@@ -77,6 +77,9 @@ namespace Game.UI
             public Label Glyph;
             public Label OffCaption;
             public NodeState State;
+
+            /// <summary>Its own drawn diameter - CoreSize for a core or a research with EnlargedDisplay, NodeSize otherwise. Carried per-node so a stub leaving it starts at its real edge.</summary>
+            public float Size;
         }
 
         [SerializeField] UIDocument uiDocument;
@@ -294,13 +297,16 @@ namespace Game.UI
             {
                 if (node.IsCore)
                 {
+                    node.Size = CoreSize;
                     node.Element = AddElement(node.Position, CoreSize, "research-node-core", node.Definition.DisplayName, nameInside: true, clickable: true, out _);
                     node.OffCaption = Caption("non alimente", CoreSize, "research-node-caption");
                     node.Element.Add(node.OffCaption);
                 }
                 else
                 {
-                    node.Element = AddElement(node.Position, NodeSize, "research-node-research", node.Definition.DisplayName, nameInside: false, clickable: true, out node.Glyph);
+                    node.Size = node.Definition.EnlargedDisplay ? CoreSize : NodeSize;
+                    node.Element = AddElement(node.Position, node.Size, "research-node-research", node.Definition.DisplayName, nameInside: false, clickable: true, out node.Glyph);
+                    node.Element.EnableInClassList("research-node-enlarged", node.Definition.EnlargedDisplay);
                 }
 
                 ResearchDefinition captured = node.Definition;
@@ -550,7 +556,7 @@ namespace Game.UI
                     }
                     else if (!_nodes[parentIndex].IsCore && research.ArePrerequisitesMet(prerequisite))
                     {
-                        Stub(painter, to, from);
+                        Stub(painter, to, from, node.Size);
                     }
                     // A parent locked further back, or an unpowered core: no path, so nothing drawn.
                 }
@@ -580,15 +586,15 @@ namespace Game.UI
             painter.Stroke();
         }
 
-        /// <summary>A short floating stub leaving the node toward a parent that is available but not acquired yet.</summary>
-        static void Stub(Painter2D painter, Vector2 node, Vector2 towards)
+        /// <summary>A short floating stub leaving the node toward a parent that is available but not acquired yet, starting at the node's own edge (its drawn size, not always NodeSize - see Node.Size).</summary>
+        static void Stub(Painter2D painter, Vector2 node, Vector2 towards, float size)
         {
             Vector2 direction = (towards - node).normalized;
             painter.strokeColor = StubColor;
             painter.lineWidth = 1.5f;
             painter.BeginPath();
-            painter.MoveTo(node + direction * (NodeSize * 0.5f));
-            painter.LineTo(node + direction * (NodeSize * 0.5f + StubLength));
+            painter.MoveTo(node + direction * (size * 0.5f));
+            painter.LineTo(node + direction * (size * 0.5f + StubLength));
             painter.Stroke();
         }
 

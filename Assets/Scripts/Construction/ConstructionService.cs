@@ -29,14 +29,7 @@ namespace Game.Construction
         OutOfActionRadius,
         CannotAfford,
         BuildingCapReached,
-        CellOccupied,
-
-        /// <summary>
-        /// A straight/corner conveyor outside every action radius would run past
-        /// ConstructionService.MaxOutOfRadiusConveyorRun cells since the last radius edge or Belt
-        /// Relay - CONSTRUCTION.md.
-        /// </summary>
-        ConveyorRunTooLong
+        CellOccupied
     }
 
     /// <summary>
@@ -62,6 +55,7 @@ namespace Game.Construction
         readonly CoreRuntime _core;
         readonly ConstructionSiteSystem _constructionSites;
         readonly DiscoveryRuntime _discovery;
+        readonly PoleNetworkSystem _poleNetwork;
 
         /// <summary>
         /// Whether a Data Center exists - set the moment one is created, whether freshly placed or
@@ -87,9 +81,6 @@ namespace Game.Construction
         /// action radius (CONSTRUCTION.md). Never goes back to false, like HasDataCenter.
         /// </summary>
         public bool HasUnlockedOutOfRadiusConstruction { get; private set; }
-
-        /// <summary>How many consecutive out-of-radius cells one straight/corner conveyor run may cross before a Belt Relay is required (CONSTRUCTION.md).</summary>
-        public const int MaxOutOfRadiusConveyorRun = 40;
 
         public BuildingDefinition Selected { get; private set; }
         public Direction PreviewRotation { get; private set; } = Direction.North;
@@ -147,7 +138,7 @@ namespace Game.Construction
             }
         }
 
-        public ConstructionService(GridRuntime grid, ItemDatabase itemDatabase, RecipeDatabase recipeDatabase, ComputeSystem buildingCompute, ComputeSystem researchCompute, PowerSystem powerSystem, ResearchSystem researchSystem, TransportSystem transport = null, CoreRuntime core = null, ConstructionSiteSystem constructionSites = null, DiscoveryRuntime discovery = null)
+        public ConstructionService(GridRuntime grid, ItemDatabase itemDatabase, RecipeDatabase recipeDatabase, ComputeSystem buildingCompute, ComputeSystem researchCompute, PowerSystem powerSystem, ResearchSystem researchSystem, TransportSystem transport = null, CoreRuntime core = null, ConstructionSiteSystem constructionSites = null, DiscoveryRuntime discovery = null, PoleNetworkSystem poleNetwork = null)
         {
             _constructionSites = constructionSites;
             _grid = grid;
@@ -160,6 +151,7 @@ namespace Game.Construction
             _transport = transport;
             _core = core;
             _discovery = discovery;
+            _poleNetwork = poleNetwork;
 
             researchSystem.ResearchCompleted += OnResearchCompleted;
         }
@@ -542,7 +534,20 @@ namespace Game.Construction
         /// to its BuildingRuntime subclass - shared by TryPlace (after cost/placement checks) and
         /// CreateForRestore (after the save/load layer already knows placement was once valid).
         /// </summary>
+        /// <summary>
+        /// Instantiates the concrete runtime type and, on the way out, wires the pole network gate
+        /// every type carries (BuildingRuntime.PoleNetwork) - one line here rather than one per
+        /// branch below, since only a power-consuming type ever reads it and the rest simply carry
+        /// an unused reference.
+        /// </summary>
         BuildingRuntime CreateAndRegisterOccupant(BuildingDefinition definition, GridCoord cell, Direction rotation)
+        {
+            BuildingRuntime occupant = CreateOccupant(definition, cell, rotation);
+            if (occupant != null) occupant.PoleNetwork = _poleNetwork;
+            return occupant;
+        }
+
+        BuildingRuntime CreateOccupant(BuildingDefinition definition, GridCoord cell, Direction rotation)
         {
             if (definition is ConveyorDefinition conveyorDefinition)
             {
@@ -645,6 +650,14 @@ namespace Game.Construction
                 return relay;
             }
 
+            if (definition is PoleDefinition poleDefinition)
+            {
+                var pole = new PoleRuntime(poleDefinition, cell, rotation);
+                _grid.SetOccupantFootprint(cell, poleDefinition.FootprintSize, pole);
+                _poleNetwork?.RegisterPole(pole);
+                return pole;
+            }
+
             if (definition is ShowcaseDefinition)
             {
                 // Nothing to run: the plain runtime is the whole building.
@@ -693,6 +706,10 @@ namespace Game.Construction
             // want to move their network.
             if (removed is CommunicationRelayRuntime relay) _communicationRelays.Remove(relay);
 
+            // A demolished pole takes its cables with it and may split its network in two - the one
+            // real recomputation PoleNetworkSystem does (ENERGIE.md).
+            if (removed is PoleRuntime pole) _poleNetwork?.UnregisterPole(pole);
+
             BuildingRuntime.ReleaseFootprint(_grid, removed);
 
             return true;
@@ -727,11 +744,8 @@ namespace Game.Construction
                 return PlacementRefusalReason.NotUnlocked;
             }
 
-            // Both computed unconditionally, never short-circuited: the Belt Relay check below needs
-            // to know about a covering relay even when the Core's own radius also reaches this cell.
-            bool withinCoreRadius = IsWithinCoreRadius(cell, Selected.FootprintCells);
-            CommunicationRelayRuntime coveringRelay = FindCoveringCommunicationRelay(cell, Selected.FootprintCells);
-            bool withinAnyRadius = withinCoreRadius || coveringRelay != null;
+            bool withinAnyRadius = IsWithinCoreRadius(cell, Selected.FootprintCells)
+                || FindCoveringCommunicationRelay(cell, Selected.FootprintCells) != null;
 
             if (!withinAnyRadius)
             {
@@ -740,20 +754,6 @@ namespace Game.Construction
                 // restriction exists anywhere else in placement (CONSTRUCTION.md).
                 if (!IsEligibleOutsideRadius(Selected)) return PlacementRefusalReason.OutOfActionRadius;
                 if (!IsFullyDiscovered(cell, Selected.FootprintCells)) return PlacementRefusalReason.OutOfActionRadius;
-            }
-
-            // A Belt Relay resets a run the Core's own radius could never reach, so it must sit
-            // inside a Communication Relay's radius specifically - being within the Core's is not
-            // enough for this one type.
-            if (Selected is ConveyorDefinition beltRelayCandidate && beltRelayCandidate.IsRunLengthReset && coveringRelay == null)
-            {
-                return PlacementRefusalReason.OutOfActionRadius;
-            }
-
-            if (!withinAnyRadius && Selected is ConveyorDefinition plainConveyor && !plainConveyor.IsRunLengthReset
-                && ConveyorRunLengthEndingAt(cell) > MaxOutOfRadiusConveyorRun)
-            {
-                return PlacementRefusalReason.ConveyorRunTooLong;
             }
 
             // Read against the aggregate MINUS what other sites have already reserved, so placing
@@ -923,12 +923,11 @@ namespace Game.Construction
             return true;
         }
 
-        /// <summary>Whether this definition may be placed outside every action radius at all - unlocked, and a straight/corner conveyor or the relay itself (CONSTRUCTION.md). A Belt Relay is deliberately excluded: it has its own, stricter rule right after this one.</summary>
+        /// <summary>Whether this definition may be placed outside every action radius at all - unlocked, and a straight/corner conveyor or the relay itself (CONSTRUCTION.md).</summary>
         bool IsEligibleOutsideRadius(BuildingDefinition definition)
         {
             if (!HasUnlockedOutOfRadiusConstruction) return false;
-            if (definition is CommunicationRelayDefinition) return true;
-            return definition is ConveyorDefinition conveyor && !conveyor.IsRunLengthReset;
+            return definition is CommunicationRelayDefinition || definition is ConveyorDefinition;
         }
 
         /// <summary>Whether every cell of the footprint has already been revealed - the one placement gate that reads discovery at all, and only for ground outside every radius (CONSTRUCTION.md). No restriction without a DiscoveryRuntime, same convention as a missing Core.</summary>
@@ -942,53 +941,6 @@ namespace Game.Construction
             }
 
             return true;
-        }
-
-        static readonly Vector2Int[] SingleCellFootprint = { Vector2Int.zero };
-
-        /// <summary>
-        /// How many consecutive out-of-radius conveyor cells would end at <paramref name="cell"/> if
-        /// a straight/corner conveyor were placed there now - <paramref name="cell"/> itself counted,
-        /// walking back through whichever single neighbor feeds it (BuildingRuntime.FeedsCell, the
-        /// same lookup ConstructionInputAdapter.FindEntryDirection uses for one hop) until a radius
-        /// edge, a Belt Relay, or a dead end resets the count to 1 there.
-        ///
-        /// Only ever walks through plain conveyors: nothing else can exist out of radius at all
-        /// (IsEligibleOutsideRadius), so there is no branch to resolve - a Splitter/Crossroad, which
-        /// does have more than one feeding neighbor, is simply never found out here.
-        /// </summary>
-        int ConveyorRunLengthEndingAt(GridCoord cell)
-        {
-            int length = 1;
-            GridCoord current = cell;
-
-            // One iteration per cell already on the run; MaxOutOfRadiusConveyorRun + 1 is already
-            // enough to prove an overflow, so the guard never has to be larger than the cap itself.
-            for (int steps = 0; steps < MaxOutOfRadiusConveyorRun; steps++)
-            {
-                if (!(FindFeedingNeighbor(current) is ConveyorRuntime feeder)) return length;
-                if (feeder.Definition is ConveyorDefinition feederDefinition && feederDefinition.IsRunLengthReset) return length;
-                if (IsWithinCoreRadius(feeder.Cell, SingleCellFootprint) || FindCoveringCommunicationRelay(feeder.Cell, SingleCellFootprint) != null) return length;
-
-                length++;
-                current = feeder.Cell;
-            }
-
-            return length;
-        }
-
-        static readonly Direction[] AllDirections = { Direction.North, Direction.East, Direction.South, Direction.West };
-
-        /// <summary>The one building (if any) whose output lands exactly on this cell - a single-hop lookup, same as ConstructionInputAdapter.FindEntryDirection but construction-side, since the placement gate must not depend on the input adapter.</summary>
-        BuildingRuntime FindFeedingNeighbor(GridCoord cell)
-        {
-            foreach (Direction dir in AllDirections)
-            {
-                GridCoord neighborCell = cell + dir;
-                if (_grid.GetOccupant(neighborCell) is BuildingRuntime candidate && candidate.FeedsCell(cell)) return candidate;
-            }
-
-            return null;
         }
 
         /// <summary>

@@ -22,6 +22,8 @@ namespace Game.Data
         public override float CuCostPerCycle => cuCostPerCycle;
         public float FuelCycleTimeSeconds => fuelCycleTimeSeconds;
 
+        public override bool SuppliesPower => true;
+
         // No PowerDemandKw override: a plant draws nothing from the network it feeds, so the base's
         // 0 is the truth and the Building menu's consumption preview stays silent about it. It used
         // to declare 2 kW of self-consumption, which was a load nobody could switch off and which

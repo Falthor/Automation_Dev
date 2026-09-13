@@ -99,6 +99,11 @@ hand. `ResearchNetworkPlacement` (`Game.Data`) is the one conversion between tho
 position: a ring every step from the centre, the angle counter-clockwise from the right. What draws the
 network and what places it read it the same way, so nothing computes, spreads or corrects a position.
 
+`EnlargedDisplay` is a sibling flag, also asset data and also read only by the panel: a research so
+marked is drawn at a core's own size instead of an ordinary node's. Cosmetic emphasis only - it does not
+make the research a core, does not skip `Prerequisites` or `CuCost`, and `ResearchDatabase.GetCores()`
+is unaffected.
+
 `ResearchDatabase` is the id-keyed registry, on the same model as the item and recipe databases - one
 asset assigned on `GameRuntime`, `Get(id)` for a lookup, `GetAll()` to enumerate.
 

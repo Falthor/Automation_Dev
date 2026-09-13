@@ -14,9 +14,10 @@ namespace Game.Gameplay.WorldGeneration
     /// <summary>
     /// World-content placement run once at game start: the Core building at the map center, its
     /// starting-resources Storage Box fixture one cell south of it, and its resource deposits:
-    /// one cluster of each resource within its action radius, and two rings of invitation clusters
-    /// beyond it that the radius researches open. Not part of Game.Construction - this is world
-    /// generation (like TerrainRuntime), not a player action.
+    /// one cluster of each resource within its action radius, and one or more further guaranteed
+    /// bands beyond it (WorldGenerationSettings.OreBands, MAP.md) that a Communication Relay is
+    /// needed to reach. Not part of Game.Construction - this is world generation (like
+    /// TerrainRuntime), not a player action.
     ///
     /// Seeded per run by default (WorldGenerationSettings.RandomizeResourceSeed), so two new games
     /// are two different worlds. Placement was always random in shape and fixed in fact, drawn from
@@ -34,28 +35,6 @@ namespace Game.Gameplay.WorldGeneration
         /// with a flat value that leaves room to build around the Core.
         /// </summary>
         const float InRadiusMinDistanceCells = 10f;
-
-        /// <summary>
-        /// Distance band (cells) for the single "invitation" cluster placed just outside the
-        /// action radius - visible, deliberately not yet exploitable. Must stay entirely beyond
-        /// the starting action radius (22) and entirely within the lowest radius a research grants
-        /// (42 today), so the first radius research is the one that opens it.
-        /// </summary>
-        const float InvitationMinDistanceCells = 26f;
-        const float InvitationMaxDistanceCells = 29f;
-
-        /// <summary>
-        /// The second ring of invitation clusters: further out than the first, and richer - 8 iron,
-        /// 8 copper, 4 coal. Only the centre is drawn in the band (cells, Core center to cluster
-        /// center), so a cluster can overhang it by half its diagonal; the second radius research (60)
-        /// is what opens most of it. Required, unlike the first ring: a world missing one is refused,
-        /// the same way as a world missing a starting cluster.
-        /// </summary>
-        const float SecondRingMinDistanceCells = 40f;
-        const float SecondRingMaxDistanceCells = 60f;
-        const int SecondRingIronDeposits = 8;
-        const int SecondRingCopperDeposits = 8;
-        const int SecondRingCoalDeposits = 4;
 
         /// <summary>
         /// Clear cells kept between a cluster's outer edge and the action-radius ring, so a cluster
@@ -196,21 +175,27 @@ namespace Game.Gameplay.WorldGeneration
             PlaceGuaranteedCluster(grid, random, coreCenter, settings.CopperOreDefinition, "cuivre");
             PlaceGuaranteedCluster(grid, random, coreCenter, settings.CoalOreDefinition, "charbon");
 
-            // One "invitation" cluster per resource, placed just outside the action radius:
-            // visible (once fog of war reveals that far) but not yet exploitable - a standing
-            // invitation to expand the radius later. Best-effort, not part of the guarantee above.
-            TryPlaceCluster(grid, random, coreCenter, settings.IronOreDefinition, InvitationMinDistanceCells, InvitationMaxDistanceCells);
-            TryPlaceCluster(grid, random, coreCenter, settings.CopperOreDefinition, InvitationMinDistanceCells, InvitationMaxDistanceCells);
-            TryPlaceCluster(grid, random, coreCenter, settings.CoalOreDefinition, InvitationMinDistanceCells, InvitationMaxDistanceCells);
+            // Further guaranteed bands, placed last and in order: every draw above happens exactly
+            // as it did before a band was added or changed, so a pinned seed keeps its starting
+            // cluster where it was. Each band's own per-resource count is drawn once per world
+            // within that resource's min-max spread - see OreBand.
+            foreach (OreBand band in settings.OreBands)
+            {
+                PlaceBandCluster(grid, random, coreCenter, settings.IronOreDefinition, "fer", band, band.IronDepositsMin, band.IronDepositsMax);
+                PlaceBandCluster(grid, random, coreCenter, settings.CopperOreDefinition, "cuivre", band, band.CopperDepositsMin, band.CopperDepositsMax);
+                PlaceBandCluster(grid, random, coreCenter, settings.CoalOreDefinition, "charbon", band, band.CoalDepositsMin, band.CoalDepositsMax);
+            }
+        }
 
-            // The second ring, placed last: every draw above happens exactly as it did before it
-            // existed, so a pinned seed keeps its first two rings where they were.
-            PlaceRequiredCluster(grid, random, coreCenter, settings.IronOreDefinition, "fer",
-                SecondRingMinDistanceCells, SecondRingMaxDistanceCells, SecondRingIronDeposits);
-            PlaceRequiredCluster(grid, random, coreCenter, settings.CopperOreDefinition, "cuivre",
-                SecondRingMinDistanceCells, SecondRingMaxDistanceCells, SecondRingCopperDeposits);
-            PlaceRequiredCluster(grid, random, coreCenter, settings.CoalOreDefinition, "charbon",
-                SecondRingMinDistanceCells, SecondRingMaxDistanceCells, SecondRingCoalDeposits);
+        /// <summary>Places one resource's cluster for one OreBand, its count drawn once from [depositsMin, depositsMax]. A resource a band does not guarantee (min == max == 0) is simply skipped.</summary>
+        void PlaceBandCluster(GridRuntime grid, System.Random random, Vector2 coreCenter, OreDepositDefinition definition, string resourceLabel, OreBand band, int depositsMin, int depositsMax)
+        {
+            if (depositsMax <= 0) return;
+
+            int deposits = depositsMin >= depositsMax ? depositsMin : random.Next(depositsMin, depositsMax + 1);
+            if (deposits <= 0) return;
+
+            PlaceRequiredCluster(grid, random, coreCenter, definition, resourceLabel, band.MinDistanceCells, band.MaxDistanceCells, deposits);
         }
 
         float InRadiusMaxDistance(OreDepositDefinition definition)

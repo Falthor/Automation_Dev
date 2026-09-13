@@ -124,6 +124,9 @@ namespace Game.Presentation
         [SerializeField] ActionRadiusView actionRadiusView;
         [SerializeField] FogOfWarView fogOfWarView;
 
+        [Header("Electric pole network (ENERGIE.md)")]
+        [SerializeField] PoleNetworkSettings poleNetworkSettings;
+
         [SerializeField] ItemVisualSync itemVisuals;
 
         /// <summary>
@@ -171,6 +174,9 @@ namespace Game.Presentation
         /// <summary>What the player has discovered, one state per cell. Written by the Core's radius (RevealDiscoveredByCore) and by every explorer robot's own reveal as it wanders; read by the fog renderer, which must never recompute a distance to the Core instead.</summary>
         public DiscoveryRuntime Discovery { get; private set; }
 
+        /// <summary>The electric pole network (ENERGIE.md) - gates every power-consuming building's draw through BuildingRuntime.PoleNetwork. Built once, before ConstructionService, on both the fresh-game and the restored-game path.</summary>
+        public PoleNetworkSystem PoleNetwork { get; private set; }
+
         /// <summary>
         /// Who is looking at what, this frame. Rebuilt by <see cref="RebuildObservers"/> from the
         /// observers' current positions and stored per cell nowhere - see ObservationRuntime.
@@ -212,6 +218,7 @@ namespace Game.Presentation
 
         /// <summary>Draws one ring per Communication Relay. A view over Construction.CommunicationRelays, refreshed from the tick below and authoritative for nothing.</summary>
         CommunicationRelayRadiusFleetView _communicationRelayRadiusFleet;
+        PoleNetworkVisualSync _poleNetworkVisuals;
 
         /// <summary>
         /// The explorer robot under a cell, or null. What lets a click on one open its panel instead
@@ -539,7 +546,8 @@ namespace Game.Presentation
 
                 ConstructionSites = new ConstructionSiteSystem(Transport, Grid, Notifications, RobotParkOrigin());
                 CoreDirectives = new CoreDirectiveSystem(coreDirectiveDatabase, ConstructionSites, Research);
-                Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, BuildingCompute, ResearchCompute, Power, Research, Transport, World?.Core, ConstructionSites, Discovery);
+                if (poleNetworkSettings != null) PoleNetwork = new PoleNetworkSystem(Grid, poleNetworkSettings);
+                Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, BuildingCompute, ResearchCompute, Power, Research, Transport, World?.Core, ConstructionSites, Discovery, PoleNetwork);
             }
 
             // After both branches: the Core exists whether it was generated or restored, and its
@@ -552,6 +560,9 @@ namespace Game.Presentation
             // not depend on that switch being on.
             _communicationRelayRadiusFleet = new CommunicationRelayRadiusFleetView(
                 Grid, actionRadiusView != null ? actionRadiusView.OverlayShader : null);
+
+            // Same reasoning: a pole can exist whichever branch ran, independent of explorerRobotSettings.
+            if (poleNetworkSettings != null) _poleNetworkVisuals = new PoleNetworkVisualSync(Grid, poleNetworkSettings);
 
             // Holds nothing until it is filled, and is filled from scratch every frame - so it is
             // built here with no argument and restored from nothing. Before the first Update it
@@ -633,7 +644,11 @@ namespace Game.Presentation
                     // The Core's furthest reach, not its current one: derived ore must not appear in
                     // ground the Core will eventually cover, or extending the radius would swallow a
                     // cluster the player had already built around.
-                    FurthestActionRadiusCells);
+                    FurthestActionRadiusCells,
+                    // The furthest guaranteed band's own edge (MAP.md) - the procedural layer stops
+                    // generating there too, for now, rather than past ground nothing has designed
+                    // content for yet.
+                    worldGenerationSettings.FurthestOreBandCells);
                 }
 
                 ExplorerRobots.RestoreState(loadedSave?.ExplorerRobots);
@@ -718,7 +733,13 @@ namespace Game.Presentation
             ConstructionSites = new ConstructionSiteSystem(Transport, Grid, Notifications, RobotParkOrigin());
             CoreDirectives = new CoreDirectiveSystem(coreDirectiveDatabase, ConstructionSites, Research);
             CoreDirectives.RestoreState(save.CoreDirectives);
-            Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, BuildingCompute, ResearchCompute, Power, Research, Transport, World?.Core, ConstructionSites);
+            if (poleNetworkSettings != null) PoleNetwork = new PoleNetworkSystem(Grid, poleNetworkSettings);
+            // Discovery and PoleNetwork were both missing from this call - a restored game placed
+            // out-of-radius conveyors/relays with no discovery gate at all (IsFullyDiscovered's "no
+            // restriction without data" convention silently covered for it) and, before this task,
+            // had nothing to thread through anyway. Noticed while wiring the pole network through
+            // here; fixed alongside it rather than left for later, since both are one-line.
+            Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, BuildingCompute, ResearchCompute, Power, Research, Transport, World?.Core, ConstructionSites, Discovery, PoleNetwork);
             Construction.RestoreBuildingCap(save.BuildingCap);
             PowerPriority.RestoreState(save.PowerPriority, PowerGroupIds());
             Clock.Restore(save.PlayTimeSeconds);
@@ -1295,6 +1316,10 @@ namespace Game.Presentation
             ResearchCompute.Tick(Time.deltaTime);
             ArmamentCompute.Tick(Time.deltaTime);
 
+            // Before Transport: every consumer's ComputeEffectivePerformance call inside it reads
+            // PoleNetwork.IsCovered against this frame's fed state, not last frame's (ENERGIE.md).
+            PoleNetwork?.Tick(Time.deltaTime);
+
             Transport.Tick(Time.deltaTime);
 
             // After Transport so reservations and robot pickups see this frame's settled container
@@ -1321,6 +1346,7 @@ namespace Game.Presentation
             // Communication Relays tick as ordinary buildings inside Transport.Tick above; this only
             // reads their IsActive/radius back out to draw or hide each one's ring.
             _communicationRelayRadiusFleet?.Refresh(Construction?.CommunicationRelays);
+            _poleNetworkVisuals?.Refresh(PoleNetwork);
 
             // Last of the world's changes, so the observers match the positions this frame actually
             // ended on rather than the ones it started from. The fog reads it in LateUpdate, after

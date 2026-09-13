@@ -78,3 +78,75 @@ Three restore rules, and they are the whole claim:
 
 It travels as `SaveData.PowerPriority`, a list of ids; absent restores as the catalogue's own order,
 which is the default arbitration anyway.
+
+## 4. The pole network
+
+A power-consuming building draws only while `BuildingRuntime.PoleNetwork` (null means unrestricted -
+the same convention `IsWithinCoreRadius` uses for a missing Core) says it stands within reach of a
+pole whose network currently reaches a source. Implemented by `PoleNetworkSystem`
+(`Game.Gameplay.Power`), owned by `GameRuntime.PoleNetwork`, ticked once per frame before
+`Transport.Tick()` so every consumer's draw that frame reads this frame's fed state, not last frame's.
+
+```csharp
+public void RegisterPole(PoleRuntime pole)
+public void UnregisterPole(PoleRuntime pole)
+public void Tick(float deltaTime)
+public bool IsNetworkFed(int networkId)
+public bool IsCovered(GridCoord origin, Vector2Int[] footprintCells)
+public IReadOnlyList<PoleRuntime> Poles { get; }
+public IReadOnlyList<(PoleRuntime A, PoleRuntime B)> Edges { get; }
+```
+
+**The connection rule, and it is the whole rule.** A pole placed within `ConnectionRangeCells` of one
+or more existing poles connects to the *nearest pole of each distinct network* in range - never just
+the single nearest neighbour, which would leave a pole at the edge of one group unconnected to a
+third one also in range. One cable per distinct network found; zero cables (a fresh, isolated
+network of one) when none are. Two poles of a network already connected another way never connect a
+second time - only the nearest representative of each network is ever a candidate.
+
+**Two ranges, not one.** `PowerRangeCells` (2, a 5x5 square - Chebyshev distance, not a circle) is how
+far a pole reaches a building to power it and how far it reaches a Core/Powerplant to be fed by it -
+the same "who is next to me" test either way. `ConnectionRangeCells` (8) is how far apart two poles
+may stand and still connect - deliberately larger, since a pole's wire reaches further than its own
+power field. Both live on `PoleNetworkSettings`, one asset like the rest of this project's tunables.
+
+**A network is fed when any one of its poles is within `PowerRangeCells` of a source.** A source is
+`BuildingDefinition.SuppliesPower` - true for the Core and the Gas Powerplant today, the only two
+types that ever call `PowerSystem.ReportSupply` - read purely by position, never by whether the
+source is actually producing right now (a Powerplant out of fuel still counts as "a source nearby"
+for wiring purposes). Being fed is a property of the whole network, not of the one pole next to the
+source: `Tick()` computes it once per network and every pole in it shares the answer.
+
+**A pole still under construction connects nothing and conducts nothing.** It occupies its cell
+immediately like any chantier, but every fed/coverage query skips it until it is actually built - a
+half-built pole has no wire in it yet.
+
+**Removing a pole splits its network exactly when the graph says it should, and nothing decides that
+by looking at the removed pole's position.** Every cable touching the removed pole is dropped, then
+every remaining pole's network is recomputed fresh by walking what is left of the graph - the one
+real computation this system does, and simple rather than clever because the pole counts this game
+ever reaches make a full recompute just as cheap as detecting a split specially. The graph is a tree
+by construction (one cable per network found, never a second between two poles already in one), so
+removing a pole from its middle genuinely splits it.
+
+**Nothing about the graph is saved.** A pole is an ordinary building - its position is captured and
+restored exactly like any other (SAUVEGARDE.md) - but which pole is in which network and which
+cables exist are never written to the save at all. `PoleRuntime.NetworkId` is entirely a function of
+every pole's position and the order they were placed in; restoring calls `RegisterPole` for each
+restored pole in save order (`ConstructionService.CreateAndRegisterOccupant`, the same chokepoint
+placement and restore both already go through), which deterministically reconstructs the exact
+groups the session had. The same "what comes from the player is saved, what is derived is recomputed"
+rule `WreckField`'s own seed-derived layout already follows.
+
+**Rendering is a pure function of the network, rebuilt only on a topology change.**
+`PoleNetworkVisualSync` (`Game.Presentation`) draws each cable as a handful of short rotated sprite
+segments sampling a quadratic Bezier between the two poles' attachment points
+(`PoleNetworkSettings.CableAttachmentHeightCells` above the footprint, near the top of the pole's
+art rather than the ground it stands on), its control point offset downward by
+`SagPerCellDistance` times the span in cells - a short cable is nearly straight, a long one visibly
+sags. Segment positions are only recomputed when a cable is added or removed; a fed/unfed colour
+change is a plain tint applied every frame, never a rebuild - no per-frame allocation either way. A
+small indicator dot at each pole's own attachment point carries the same colour, so an isolated pole
+with no cable at all still reads as fed or not. Drawn in `SortingBands.PoleCable`, the Information
+band - above every building regardless of depth, the same "overlay, not a thing standing in the
+world" reasoning a placement preview already gets.

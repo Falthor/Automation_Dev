@@ -466,6 +466,16 @@ namespace Game.Gameplay.Buildings
         public bool IsUnderpowered { get; private set; }
 
         /// <summary>
+        /// The pole network gating this building's power draw (ENERGIE.md) - null means no
+        /// restriction, the same convention every optional dependency in this project already uses
+        /// for "not wired, so unrestricted" (IsWithinCoreRadius for a missing Core,
+        /// IsFullyDiscovered for a missing DiscoveryRuntime). Set by ConstructionService right after
+        /// a building is created, on every type uniformly, since only ComputeEffectivePerformance
+        /// below ever reads it - a type that never draws power simply carries an unused reference.
+        /// </summary>
+        public PoleNetworkSystem PoleNetwork { get; set; }
+
+        /// <summary>
         /// Shared Power gating pipeline (ENERGIE.md), used by every building whose own tick
         /// progress must freeze while unpowered: draws its demand only while "active", and returns
         /// 0 if the network could not serve it. The caller multiplies its own deltaTime by the
@@ -488,11 +498,18 @@ namespace Game.Gameplay.Buildings
         {
             if (powerDemand > 0f && powerActive)
             {
-                if (!power.TryDraw(Definition.Id, powerDemand))
+                // Uncovered ground draws nothing at all - not even a refused draw - so a building
+                // with no pole reaching it never shows up in the network's demand figures either
+                // (ENERGIE.md): there is nothing there for supply to be arbitrated over.
+                bool covered = PoleNetwork == null || PoleNetwork.IsCovered(Cell, Definition.FootprintCells);
+                if (covered && power.TryDraw(Definition.Id, powerDemand))
                 {
-                    IsUnderpowered = true;
-                    return 0f;
+                    IsUnderpowered = false;
+                    return 1f;
                 }
+
+                IsUnderpowered = true;
+                return 0f;
             }
 
             IsUnderpowered = false;

@@ -25,5 +25,7 @@ namespace Game.Data
 
         /// <summary>Permanent Power supply, reported unconditionally every tick.</summary>
         public float PowerOutputKw => powerOutputKw;
+
+        public override bool SuppliesPower => true;
     }
 }

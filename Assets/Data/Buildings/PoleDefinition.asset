@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43954b86529a97d4284d69e81619e6b4, type: 3}
+  m_Name: PoleDefinition
+  m_EditorClassIdentifier: Game.Data::Game.Data.PoleDefinition
+  id: electric_pole
+  displayName: Poteau electrique
+  footprintSize: {x: 1, y: 1}
+  placeholderColor: {r: 1, g: 1, b: 1, a: 1}
+  sprite: {fileID: 21300000, guid: bf6a1a1c9e16f624d912160b92734877, type: 3}
+  animationFrames: []
+  animationFps: 8
+  animationIntervalSeconds: 0
+  cost:
+  - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
+    amount: 2
+  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+    amount: 2

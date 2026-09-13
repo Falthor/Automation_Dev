@@ -419,5 +419,81 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
             Assert.IsFalse(guarded.ReachesIntoTheCoresGround(far));
             Assert.Greater(guarded.Materialise(far), 0);
         }
+
+        // ---- The current outer limit ----
+
+        static int FindSectorWithDepositsWithinLimit(SectorCatalog catalog, SectorGrid sectors, Vector2 centre, float maxDistanceCells)
+        {
+            int coreSector = sectors.IndexAt(new GridCoord((int)centre.x, (int)centre.y));
+            int column = sectors.ColumnOf(coreSector);
+            int row = sectors.RowOf(coreSector);
+            int reach = Mathf.CeilToInt(maxDistanceCells / SectorSize) - 1;
+
+            for (int dx = -reach; dx <= reach; dx++)
+            {
+                for (int dy = -reach; dy <= reach; dy++)
+                {
+                    int index = sectors.IndexAt(column + dx, row + dy);
+                    if (index < 0) continue;
+                    if (catalog.ContentsOf(index).DepositCells.Length > 0) return index;
+                }
+            }
+
+            throw new System.InvalidOperationException("no sector with deposits within the limit");
+        }
+
+        [Test]
+        public void ZeroOuterLimit_MeansNoLimit()
+        {
+            Fixture fixture = NewFixture();
+            int sector = SectorWithDeposits(fixture);
+
+            Assert.IsFalse(fixture.Materialisation.IsBeyondTheOuterLimit(sector), "the fixture's materialisation was built with no outer limit (0)");
+        }
+
+        /// <summary>
+        /// Symmetric to the Core's own ground, at the far end: while nothing beyond the guaranteed
+        /// bands has content designed for it yet (WorldGenerationSettings.FurthestOreBandCells,
+        /// MAP.md), the procedural layer does not generate past the same edge either.
+        /// </summary>
+        [Test]
+        public void BeyondTheOuterLimit_NothingIsWritten()
+        {
+            var sectors = new SectorGrid(MapSize, SectorSize);
+            var cells = new GridRuntime(1f);
+            var ores = new[] { NewOre("iron"), NewOre("copper"), NewOre("coal") };
+            var world = new WorldGenerator();
+            var centre = new Vector2(MapSize / 2f, MapSize / 2f);
+            var catalog = new SectorCatalog(sectors, Seed, centre, Profile);
+
+            const float outerLimit = 60f;
+            var materialisation = new SectorMaterialisation(sectors, cells, catalog, ores, world, centre, 0f, outerLimit);
+
+            // Ninety cells past the limit along a row through the Core: every cell of that sector is
+            // further out than the limit.
+            int farSector = sectors.IndexAt(new GridCoord((int)(centre.x + outerLimit + 90), (int)centre.y));
+            Assert.IsTrue(materialisation.IsBeyondTheOuterLimit(farSector));
+            Assert.AreEqual(0, materialisation.Materialise(farSector));
+            Assert.AreEqual(0, world.OreDeposits.Count);
+        }
+
+        /// <summary>And it does clear, same as the inner exclusion: a sector inside the limit is materialised normally, or the rule would have quietly turned the derivation off everywhere.</summary>
+        [Test]
+        public void WithinTheOuterLimit_MaterialisesNormally()
+        {
+            var sectors = new SectorGrid(MapSize, SectorSize);
+            var cells = new GridRuntime(1f);
+            var ores = new[] { NewOre("iron"), NewOre("copper"), NewOre("coal") };
+            var world = new WorldGenerator();
+            var centre = new Vector2(MapSize / 2f, MapSize / 2f);
+            var catalog = new SectorCatalog(sectors, Seed, centre, Profile);
+
+            const float outerLimit = 300f;
+            var materialisation = new SectorMaterialisation(sectors, cells, catalog, ores, world, centre, 0f, outerLimit);
+
+            int sector = FindSectorWithDepositsWithinLimit(catalog, sectors, centre, outerLimit);
+            Assert.IsFalse(materialisation.IsBeyondTheOuterLimit(sector));
+            Assert.Greater(materialisation.Materialise(sector), 0);
+        }
     }
 }

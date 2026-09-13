@@ -31,6 +31,18 @@ namespace Game.Data
         /// <summary>The pinned seed, used only while RandomizeResourceSeed is off.</summary>
         [SerializeField] int resourceSeed;
 
+        /// <summary>
+        /// Guaranteed ore beyond the starting cluster, as a list of bands (MAP.md) - a data-driven
+        /// replacement for the earlier two hard-placed invitation rings, kept a list rather than two
+        /// named fields so a further tier is one more entry, not a rewrite.
+        ///
+        /// Shipped with a single band at 130-170 cells: 8-12 iron, 8-12 copper, 3-7 coal (10±2/10±2/5±2).
+        /// </summary>
+        [SerializeField] OreBand[] oreBands =
+        {
+            new OreBand(130f, 170f, 8, 12, 8, 12, 3, 7)
+        };
+
         [Header("Player starting stock - held physically in the Core Storage fixture below, not a building-less pool")]
         [SerializeField] RecipeIngredient[] startingStock = System.Array.Empty<RecipeIngredient>();
 
@@ -78,6 +90,25 @@ namespace Game.Data
 
         /// <summary>The pinned seed. Read by WorldGenerator only when RandomizeResourceSeed is off - ask WorldGenerator.ResourceSeed for the one a given world was actually built from.</summary>
         public int ResourceSeed => resourceSeed;
+
+        public OreBand[] OreBands => oreBands;
+
+        /// <summary>
+        /// The furthest edge any guaranteed band reaches - 0 if there are none. Handed to
+        /// SectorMaterialisation as its current upper bound on derived ore (MAP.md): while nothing
+        /// beyond the guaranteed bands has content designed for it yet, the procedural layer does not
+        /// generate past their own reach either, so the two move together without a second figure to
+        /// keep in sync by hand.
+        /// </summary>
+        public float FurthestOreBandCells
+        {
+            get
+            {
+                float furthest = 0f;
+                for (int i = 0; i < oreBands.Length; i++) furthest = Mathf.Max(furthest, oreBands[i].MaxDistanceCells);
+                return furthest;
+            }
+        }
 
         /// <summary>Items the player owns at game start, seeded into the Core Storage fixture (CoreStorageDefinition), not into a building-less pool - the Core itself never accepts anything.</summary>
         public RecipeIngredient[] StartingStock => startingStock;

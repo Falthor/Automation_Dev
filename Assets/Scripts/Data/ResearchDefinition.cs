@@ -46,6 +46,14 @@ namespace Game.Data
         /// <summary>Where on its ring, in degrees counter-clockwise from the right. Placed by hand in the research tree editor; nothing computes or corrects it.</summary>
         [SerializeField] float angle;
 
+        /// <summary>
+        /// Drawn at the Core's own size on the research network (ResearchPanelController) instead of
+        /// an ordinary research node's - a presentation-only emphasis for a research the design wants
+        /// visually singled out. Does not make it a core: it still costs CU, has prerequisites and is
+        /// queued normally, and IsCore (whether it is one of ResearchDatabase.GetCores()) is unaffected.
+        /// </summary>
+        [SerializeField] bool enlargedDisplay;
+
         public string Id => id;
         public string DisplayName => displayName;
         public string Description => description;
@@ -62,5 +70,6 @@ namespace Game.Data
         public float AbsorptionRatePerSecond => absorptionRatePerSecond;
         public float Tier => tier;
         public float Angle => angle;
+        public bool EnlargedDisplay => enlargedDisplay;
     }
 }

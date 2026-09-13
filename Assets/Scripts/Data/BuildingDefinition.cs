@@ -75,6 +75,16 @@ namespace Game.Data
         public virtual bool DrawsPower => PowerDemandKw > 0f;
 
         /// <summary>
+        /// Whether this type is a source a pole network can be fed from (ENERGIE.md) - the Core and
+        /// the Gas Powerplant today, the only two types that ever call PowerSystem.ReportSupply.
+        /// False by default; a source overrides it. Read purely by position (PoleNetworkSystem scans
+        /// the grid around a pole), never by asking the runtime whether it is actually producing
+        /// right now - a plant out of fuel still counts as "a source nearby" for wiring purposes,
+        /// exactly as a pole with no supply anywhere on its network still exists and still connects.
+        /// </summary>
+        public virtual bool SuppliesPower => false;
+
+        /// <summary>
         /// One-shot CU taken from the reserve each time this building starts a cycle (an
         /// extraction, an RP conversion, burning one unit of fuel), for the Building menu's
         /// consumption preview. 0 by default - a recipe-based production building pays its

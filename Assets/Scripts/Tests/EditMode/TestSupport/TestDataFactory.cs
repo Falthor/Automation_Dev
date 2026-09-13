@@ -225,14 +225,18 @@ namespace Game.Tests.EditMode.TestSupport
             return relay;
         }
 
-        /// <summary>A straight conveyor flagged as a Belt Relay (ConveyorDefinition.IsRunLengthReset) - never a subclass, see its own doc comment.</summary>
-        public static ConveyorDefinition NewBeltRelay()
+        public static PoleDefinition NewPoleDefinition() => ScriptableObject.CreateInstance<PoleDefinition>();
+
+        public static PoleNetworkSettings NewPoleNetworkSettings(int powerRangeCells = 2, int connectionRangeCells = 8, float sagPerCellDistance = 0.035f, float cableAttachmentHeightCells = 1.3f)
         {
-            var beltRelay = ScriptableObject.CreateInstance<ConveyorDefinition>();
-            var so = new SerializedObject(beltRelay);
-            so.FindProperty("isRunLengthReset").boolValue = true;
+            var settings = ScriptableObject.CreateInstance<PoleNetworkSettings>();
+            var so = new SerializedObject(settings);
+            so.FindProperty("powerRangeCells").intValue = powerRangeCells;
+            so.FindProperty("connectionRangeCells").intValue = connectionRangeCells;
+            so.FindProperty("sagPerCellDistance").floatValue = sagPerCellDistance;
+            so.FindProperty("cableAttachmentHeightCells").floatValue = cableAttachmentHeightCells;
             so.ApplyModifiedPropertiesWithoutUndo();
-            return beltRelay;
+            return settings;
         }
 
         public static FoundryDefinition NewFoundry(float powerDemandKw, float intakeIntervalSeconds, params string[] recipeIds)

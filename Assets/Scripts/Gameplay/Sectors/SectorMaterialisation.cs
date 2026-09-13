@@ -30,6 +30,12 @@ namespace Game.Gameplay.Sectors
     /// falls within that radius, rather than clipping the cells that do. A clipped cluster would be a
     /// patch of two cells against a wall, which is worse than none.
     ///
+    /// <b>Nor does anything derive past the current outer limit.</b> Symmetric to the inner
+    /// exclusion, and for a matching reason: the guaranteed bands (WorldGenerationSettings.OreBands,
+    /// MAP.md) are the furthest ground the game has designed content for right now, so the
+    /// procedural layer stops at the same edge instead of scattering ore past it that nothing yet
+    /// gives a reason to reach for. Zero means no limit, the same convention the inner exclusion uses.
+    ///
     /// <b>A deposit is registered, not merely written.</b> It goes in through
     /// <see cref="WorldGenerator.AddDeposit"/>, which is what puts it in the list the view and the
     /// save both read. Writing straight to <see cref="GridRuntime.PlaceDeposit"/> - which this used
@@ -63,6 +69,16 @@ namespace Game.Gameplay.Sectors
         readonly float _exclusionRadiusCells;
 
         /// <summary>
+        /// How far from the Core derived ore may currently appear at all, in cells - 0 means no
+        /// limit. While nothing beyond the guaranteed bands (WorldGenerationSettings.OreBands,
+        /// MAP.md) has content designed for it yet, the procedural layer does not generate past
+        /// their own reach either - <see cref="WorldGenerationSettings.FurthestOreBandCells"/> is
+        /// what GameRuntime hands in, so the two move together without a second figure to keep in
+        /// sync by hand.
+        /// </summary>
+        readonly float _outerLimitCells;
+
+        /// <summary>
         /// What the exclusion is measured from. Taken as a value rather than read back off the world
         /// each time, for a reason worth stating: <c>WorldGenerator.CoreCenterCells</c> answers
         /// <c>Vector2.zero</c> when there is no Core, so a class deriving it would guard the map's
@@ -82,7 +98,7 @@ namespace Game.Gameplay.Sectors
         /// </summary>
         public SectorMaterialisation(SectorGrid grid, GridRuntime cells, SectorCatalog catalog,
             OreDepositDefinition[] resources, WorldGenerator world,
-            Vector2 coreCentreCells, float exclusionRadiusCells)
+            Vector2 coreCentreCells, float exclusionRadiusCells, float outerLimitCells = 0f)
         {
             _grid = grid;
             _cells = cells;
@@ -91,6 +107,7 @@ namespace Game.Gameplay.Sectors
             _world = world;
             _coreCentreCells = coreCentreCells;
             _exclusionRadiusCells = Mathf.Max(0f, exclusionRadiusCells);
+            _outerLimitCells = Mathf.Max(0f, outerLimitCells);
         }
 
         /// <summary>
@@ -112,6 +129,26 @@ namespace Game.Gameplay.Sectors
         }
 
         /// <summary>
+        /// Whether every part of the sector is further from the Core than the current outer limit -
+        /// the mirror of <see cref="ReachesIntoTheCoresGround"/> at the far end. The nearest point of
+        /// the sector, not its centre or its farthest point: a sector straddling the limit still
+        /// derives ore on its near side rather than losing the whole sector, the same reasoning the
+        /// inner exclusion uses.
+        /// </summary>
+        public bool IsBeyondTheOuterLimit(int sectorIndex)
+        {
+            if (_outerLimitCells <= 0f) return false;
+            if (!_grid.ContainsIndex(sectorIndex)) return false;
+
+            GridCoord origin = _grid.OriginOf(sectorIndex);
+
+            float nearestX = Mathf.Clamp(_coreCentreCells.x, origin.X, origin.X + _grid.SectorSizeCells);
+            float nearestY = Mathf.Clamp(_coreCentreCells.y, origin.Y, origin.Y + _grid.SectorSizeCells);
+
+            return Vector2.Distance(_coreCentreCells, new Vector2(nearestX, nearestY)) > _outerLimitCells;
+        }
+
+        /// <summary>
         /// Writes a sector's derived deposits into the grid, and answers how many it placed.
         ///
         /// Returns 0 for a sector that was already occupied, that derives nothing, or that has been
@@ -127,6 +164,7 @@ namespace Game.Gameplay.Sectors
             if (contents.DepositCells.Length == 0) return 0;
 
             if (ReachesIntoTheCoresGround(sectorIndex)) return 0;
+            if (IsBeyondTheOuterLimit(sectorIndex)) return 0;
 
             OreDepositDefinition definition = ResourceFor(contents.ResourceIndex);
             if (definition == null) return 0;

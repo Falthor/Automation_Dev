@@ -9,6 +9,7 @@ namespace Game.UI
         Production,
         Power,
         Logistic,
-        Organisation
+        Organisation,
+        Reseau
     }
 }

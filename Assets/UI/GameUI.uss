@@ -939,6 +939,11 @@
     padding: 0;
 }
 
+/* A research singled out for CoreSize display (ResearchDefinition.EnlargedDisplay) - same states, bigger glyph so it doesn't get lost in the larger circle. */
+.research-node-enlarged .research-node-glyph {
+    font-size: 18px;
+}
+
 .research-node-name,
 .research-node-caption {
     position: absolute;

@@ -15,15 +15,8 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
 {
     public class WorldGeneratorTests
     {
-        const int MapSizeCells = 200;
+        const int MapSizeCells = 400;
         const int ResourceSeed = 12345;
-
-        /// <summary>
-        /// Between the two rings of invitation clusters, measured on a deposit's origin: the first
-        /// ring's centres stop at 29 cells and its far deposits at about 32.5, the second's start at
-        /// 40 and its nearest deposits at about 34.8 - rounding of the centre included.
-        /// </summary>
-        const float RingsSplitCells = 33.5f;
 
         static WorldGenerationSettings NewSettings(int actionRadiusCells, int resourceSeed = ResourceSeed, bool randomizeResourceSeed = false)
         {
@@ -46,19 +39,22 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
             return generator;
         }
 
+        /// <summary>The three resources and the band's own configured min/max for each - read from the settings rather than restated, so retuning OreBand's shipped defaults never desyncs this file from what it actually asserts.</summary>
+        static IEnumerable<(string ItemId, int Min, int Max)> BandRanges(OreBand band)
+        {
+            yield return ("iron_ore", band.IronDepositsMin, band.IronDepositsMax);
+            yield return ("copper_ore", band.CopperDepositsMin, band.CopperDepositsMax);
+            yield return ("Coal_ore", band.CoalDepositsMin, band.CoalDepositsMax);
+        }
+
         [Test]
-        public void Generate_WithRoomyRadius_PlacesEveryClusterOfEveryRing()
+        public void Generate_WithRoomyRadius_PlacesTheStartingClusterAndTheGuaranteedBand()
         {
             var settings = NewSettings(actionRadiusCells: 22);
             var grid = new GridRuntime(1f);
             var generator = new Game.Gameplay.WorldGeneration.WorldGenerator();
 
             generator.Generate(grid, MapSizeCells, settings, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem(), new ComputeSystem()));
-
-            // In the radius 4 of each; first ring 4 of each; second ring 8 iron, 8 copper, 4 coal.
-            Assert.AreEqual(16, generator.OreDeposits.Count(d => d.ItemId == "iron_ore"));
-            Assert.AreEqual(16, generator.OreDeposits.Count(d => d.ItemId == "copper_ore"));
-            Assert.AreEqual(12, generator.OreDeposits.Count(d => d.ItemId == "Coal_ore"));
 
             Vector2 coreCenter = new Vector2(generator.CoreOrigin.X + 2f, generator.CoreOrigin.Y + 2f);
             float Distance(DepositRuntime deposit)
@@ -68,12 +64,15 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
                 return Mathf.Sqrt(dx * dx + dy * dy);
             }
 
-            foreach (var (itemId, secondRing) in new[] { ("iron_ore", 8), ("copper_ore", 8), ("Coal_ore", 4) })
+            OreBand band = settings.OreBands[0];
+            foreach (var (itemId, bandMin, bandMax) in BandRanges(band))
             {
                 var deposits = generator.OreDeposits.Where(d => d.ItemId == itemId).ToList();
-                Assert.AreEqual(4, deposits.Count(d => Distance(d) <= generator.ActionRadiusCells), $"{itemId}: one in-radius cluster x 4 deposits");
-                Assert.AreEqual(4, deposits.Count(d => Distance(d) > generator.ActionRadiusCells && Distance(d) < RingsSplitCells), $"{itemId}: one first-ring cluster x 4 deposits");
-                Assert.AreEqual(secondRing, deposits.Count(d => Distance(d) > RingsSplitCells), $"{itemId}: one second-ring cluster");
+                Assert.AreEqual(4, deposits.Count(d => Distance(d) <= generator.ActionRadiusCells), $"{itemId}: starting cluster x 4 deposits, within the starting radius");
+
+                int bandCount = deposits.Count(d => Distance(d) > generator.ActionRadiusCells);
+                Assert.GreaterOrEqual(bandCount, bandMin, $"{itemId}: band deposit count below its minimum");
+                Assert.LessOrEqual(bandCount, bandMax, $"{itemId}: band deposit count above its maximum");
             }
         }
 
@@ -123,55 +122,34 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
         }
 
         /// <summary>
-        /// A random seed changes where the ore lands, never whether the world is playable. The
-        /// guarantee is the same one Generate() throws to protect, checked over many draws rather
-        /// than over the one seed that happened to be stored in the asset.
+        /// A random seed changes where the ore lands, and how many deposits its band draws within its
+        /// own min-max, never whether the world is playable. The guarantee is the same one Generate()
+        /// throws to protect, checked over many draws rather than over the one seed that happened to
+        /// be stored in the asset.
         /// </summary>
         [Test]
         public void Generate_WithARandomSeed_StillPlacesEveryGuaranteedCluster()
         {
             for (int i = 0; i < 25; i++)
             {
-                var generator = Generate(NewSettings(actionRadiusCells: 22, randomizeResourceSeed: true));
+                var settings = NewSettings(actionRadiusCells: 22, randomizeResourceSeed: true);
+                var generator = Generate(settings);
+                OreBand band = settings.OreBands[0];
 
-                Assert.AreEqual(16, generator.OreDeposits.Count(d => d.ItemId == "iron_ore"), $"draw {i}, seed {generator.ResourceSeed}");
-                Assert.AreEqual(16, generator.OreDeposits.Count(d => d.ItemId == "copper_ore"), $"draw {i}, seed {generator.ResourceSeed}");
-                Assert.AreEqual(12, generator.OreDeposits.Count(d => d.ItemId == "Coal_ore"), $"draw {i}, seed {generator.ResourceSeed}");
-            }
-        }
-
-        /// <summary>
-        /// The smallest radius any shipped research grants - the first extension a player can reach.
-        /// Read from the research assets rather than restated: the invitation clusters promise to be
-        /// reachable after that research, whatever figure it carries.
-        /// </summary>
-        static int FirstResearchedRadius()
-        {
-            var database = UnityEditor.AssetDatabase.LoadAssetAtPath<ResearchDatabase>("Assets/Data/Research/ResearchDatabase.asset");
-            Assert.IsNotNull(database, "the shipped research database");
-
-            int lowest = int.MaxValue;
-            foreach (ResearchDefinition research in database.GetAll())
-            {
-                foreach (ResearchEffect effect in research.Effects)
+                foreach (var (itemId, bandMin, bandMax) in BandRanges(band))
                 {
-                    if (effect.Kind == ResearchEffectKind.ActionRadius) lowest = Mathf.Min(lowest, effect.Value);
+                    int count = generator.OreDeposits.Count(d => d.ItemId == itemId);
+                    Assert.GreaterOrEqual(count, 4 + bandMin, $"draw {i}, seed {generator.ResourceSeed}, {itemId}");
+                    Assert.LessOrEqual(count, 4 + bandMax, $"draw {i}, seed {generator.ResourceSeed}, {itemId}");
                 }
             }
-
-            Assert.AreNotEqual(int.MaxValue, lowest, "no shipped research extends the radius");
-            return lowest;
         }
 
         /// <summary>
-        /// The invitation band
-        /// (InvitationMinDistanceCells/MaxDistanceCells) must sit entirely beyond the starting
-        /// 22-cell radius, entirely within the fog's starting reveal (22 + fogRadiusMarginCells,
-        /// mirrored here from GameRuntime), and entirely within the first extension (42, the first
-        /// radius research) - on every seed, not just the one that happened to pass before.
-        /// A cluster drawn past the extended radius would be permanently unreachable regardless of
-        /// how the player plays; a cluster under the starting radius would be constructible before
-        /// the research exists to explain why it wasn't.
+        /// The guaranteed band, on every seed: each resource's deposit count falls within the band's
+        /// own configured min-max, and the cluster's centre falls within the band's own distance
+        /// range. Only the centre is held to the band; the deposits may overhang it by half the
+        /// cluster's diagonal.
         /// </summary>
         [TestCase(1)]
         [TestCase(2)]
@@ -183,72 +161,27 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
         [TestCase(8)]
         [TestCase(9)]
         [TestCase(10)]
-        public void InvitationClusters_AreFullyUnderStartingFog_OutOfStartingRadius_AndFullyConstructibleAfterExtension(int seed)
+        public void GuaranteedBand_HoldsItsConfiguredCount_CentredWithinItsDistanceRange(int seed)
         {
-            const int startingRadius = 22;
-            const int fogRadiusMarginCells = 10; // mirrors GameRuntime.fogRadiusMarginCells
-            int extendedRadius = FirstResearchedRadius();
-
-            var settings = NewSettings(startingRadius, seed);
-            var grid = new GridRuntime(1f);
-            var generator = new Game.Gameplay.WorldGeneration.WorldGenerator();
-            generator.Generate(grid, MapSizeCells, settings, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem(), new ComputeSystem()));
-
+            var settings = NewSettings(22, seed);
+            Game.Gameplay.WorldGeneration.WorldGenerator generator = Generate(settings);
             Vector2 coreCenter = new Vector2(generator.CoreOrigin.X + 2f, generator.CoreOrigin.Y + 2f);
-            float Distance(DepositRuntime d)
+            OreBand band = settings.OreBands[0];
+
+            foreach (var (itemId, bandMin, bandMax) in BandRanges(band))
             {
-                float dx = d.Origin.X - coreCenter.x;
-                float dy = d.Origin.Y - coreCenter.y;
-                return Mathf.Sqrt(dx * dx + dy * dy);
-            }
-
-            foreach (string itemId in new[] { "iron_ore", "copper_ore", "Coal_ore" })
-            {
-                var invitationDeposits = generator.OreDeposits.Where(d => d.ItemId == itemId && Distance(d) > startingRadius && Distance(d) < RingsSplitCells).ToList();
-                Assert.AreEqual(4, invitationDeposits.Count, $"seed {seed}, {itemId}: expected exactly one first-ring invitation cluster (4 deposits) beyond the starting radius.");
-
-                foreach (DepositRuntime deposit in invitationDeposits)
-                {
-                    float distance = Distance(deposit);
-                    Assert.Greater(distance, startingRadius, $"seed {seed}, {itemId}: an invitation deposit must not be constructible before the first radius research.");
-                    Assert.LessOrEqual(distance, startingRadius + fogRadiusMarginCells, $"seed {seed}, {itemId}: an invitation deposit must be visible under the starting fog.");
-                    Assert.LessOrEqual(distance, extendedRadius, $"seed {seed}, {itemId}: an invitation deposit must be constructible after the first radius research.");
-                }
-            }
-        }
-
-        /// <summary>
-        /// The second ring, on every seed: one cluster per resource - 8 iron, 8 copper, 4 coal - whose
-        /// centre lies 40 to 60 cells from the Core. Only the centre is held to the band; the
-        /// deposits may overhang it by half the cluster's diagonal.
-        /// </summary>
-        [TestCase(1)]
-        [TestCase(2)]
-        [TestCase(3)]
-        [TestCase(4)]
-        [TestCase(5)]
-        [TestCase(6)]
-        [TestCase(7)]
-        [TestCase(8)]
-        [TestCase(9)]
-        [TestCase(10)]
-        public void SecondRing_HoldsEightIronEightCopperFourCoal_CentredBetween40And60(int seed)
-        {
-            Game.Gameplay.WorldGeneration.WorldGenerator generator = Generate(NewSettings(22, seed));
-            Vector2 coreCenter = new Vector2(generator.CoreOrigin.X + 2f, generator.CoreOrigin.Y + 2f);
-
-            foreach (var (itemId, expected) in new[] { ("iron_ore", 8), ("copper_ore", 8), ("Coal_ore", 4) })
-            {
-                var ring = generator.OreDeposits
-                    .Where(d => d.ItemId == itemId && Vector2.Distance(new Vector2(d.Origin.X, d.Origin.Y), coreCenter) > RingsSplitCells)
+                var beyondStart = generator.OreDeposits
+                    .Where(d => d.ItemId == itemId && Vector2.Distance(new Vector2(d.Origin.X, d.Origin.Y), coreCenter) > 22f)
                     .ToList();
-                Assert.AreEqual(expected, ring.Count, $"seed {seed}, {itemId}: deposits in the second ring");
+
+                Assert.GreaterOrEqual(beyondStart.Count, bandMin, $"seed {seed}, {itemId}: band deposit count");
+                Assert.LessOrEqual(beyondStart.Count, bandMax, $"seed {seed}, {itemId}: band deposit count");
 
                 // The cluster's centre is the middle of its deposits' own centres (2x2 each here).
-                var centre = new Vector2(ring.Average(d => d.Origin.X + 1f), ring.Average(d => d.Origin.Y + 1f));
+                var centre = new Vector2(beyondStart.Average(d => d.Origin.X + 1f), beyondStart.Average(d => d.Origin.Y + 1f));
                 float distance = Vector2.Distance(centre, coreCenter);
-                Assert.GreaterOrEqual(distance, 40f - 1f, $"seed {seed}, {itemId}: centre {distance:F1} cells out");
-                Assert.LessOrEqual(distance, 60f + 1f, $"seed {seed}, {itemId}: centre {distance:F1} cells out");
+                Assert.GreaterOrEqual(distance, band.MinDistanceCells - 1f, $"seed {seed}, {itemId}: centre {distance:F1} cells out");
+                Assert.LessOrEqual(distance, band.MaxDistanceCells + 1f, $"seed {seed}, {itemId}: centre {distance:F1} cells out");
             }
         }
 

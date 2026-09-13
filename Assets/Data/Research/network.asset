@@ -10,21 +10,30 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72c3c39fefc96e1488e1fdd7ff1eb525, type: 3}
-  m_Name: belt_relay
+  m_Name: network
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
-  id: belt_relay
-  displayName: Relais convoyeur
+  id: network
+  displayName: Network
   description: 
   icon: {fileID: 0}
   cuCost: 2000
   computeSource: 0
   prerequisites:
-  - {fileID: 11400000, guid: f2c0d8b1a18f4c84ea2b6c944c80831a, type: 2}
+  - {fileID: 11400000, guid: dd8c0be5fde9f2156a424539f2b6a635, type: 2}
   effects:
   - kind: 0
-    building: {fileID: 11400000, guid: 4edeca2093c30794bac365ddb0c65e32, type: 2}
+    building: {fileID: 11400000, guid: 69e12704173410b4c9c9b4389bed2654, type: 2}
+    recipe: {fileID: 0}
+    value: 0
+  - kind: 0
+    building: {fileID: 11400000, guid: 98ff54328ab38654bacc3fdb0079fe30, type: 2}
+    recipe: {fileID: 0}
+    value: 0
+  - kind: 0
+    building: {fileID: 11400000, guid: 5aaf2da93053dc546923e44609ef7d20, type: 2}
     recipe: {fileID: 0}
     value: 0
   absorptionRatePerSecond: 40
   tier: 2
-  angle: 28.9
+  angle: 132.5
+  enlargedDisplay: 1

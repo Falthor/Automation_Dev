@@ -162,7 +162,10 @@ namespace Game.Presentation
         public const int PlacementPreviewArrow = PlacementPreview + 1;
         public const int HoverOutline = PlacementPreviewArrow + 1;
 
-        public const int InformationLast = HoverOutline;
+        /// <summary>An electric pole cable (ENERGIE.md): above every building regardless of depth, exactly like a placement preview - it is an overlay annotating the world, not a thing standing in it.</summary>
+        public const int PoleCable = HoverOutline + 1;
+
+        public const int InformationLast = PoleCable;
 
         /// <summary>
         /// The fog, over everything - the information band included. A placement preview showing
