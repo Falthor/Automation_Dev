@@ -1223,7 +1223,7 @@
 
 .top-bar-element-value {
     color: rgb(239, 242, 244);
-    font-size: 10px;
+    font-size: 9px;
     -unity-font-style: bold;
 }
 
@@ -1256,7 +1256,7 @@
    being asked for at a glance, which one icon and one figure cannot do. */
 .top-bar-directive-number {
     color: rgb(85, 221, 245);
-    font-size: 10px;
+    font-size: 9px;
     -unity-font-style: bold;
     margin-right: 8px;
 }
@@ -1281,7 +1281,7 @@
 
 .top-bar-directive-amount {
     color: rgb(239, 242, 244);
-    font-size: 10px;
+    font-size: 9px;
     -unity-font-style: bold;
 }
 
