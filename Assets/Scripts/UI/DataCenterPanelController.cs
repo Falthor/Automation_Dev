@@ -505,14 +505,15 @@ namespace Game.UI
             // nothing at all.
             float performance = slot.IsReplacing ? 0f : slot.EffectivePerformance;
             float floor = slot.FluctuationFloor;
+            float ceiling = slot.PerformanceCeiling;
 
             view.Performance.text = Two(performance);
-            view.Range.text = $"{Two(floor)} – 1,00";
+            view.Range.text = $"{Two(floor)} – {Two(ceiling)}";
             view.Stability.text = $"stable {Mathf.RoundToInt(slot.Stability)} %";
             view.WearValue.text = $"{Mathf.RoundToInt(slot.Wear)} %";
 
             view.RangeBand.style.left = new StyleLength(Length.Percent(floor * 100f));
-            view.RangeBand.style.width = new StyleLength(Length.Percent((1f - floor) * 100f));
+            view.RangeBand.style.width = new StyleLength(Length.Percent((ceiling - floor) * 100f));
             view.RangeTick.style.left = new StyleLength(Length.Percent(performance * 100f));
             view.WearFill.style.width = new StyleLength(Length.Percent(Mathf.Clamp01(slot.Wear / 100f) * 100f));
 
