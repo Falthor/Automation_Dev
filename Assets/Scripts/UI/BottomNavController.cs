@@ -264,9 +264,9 @@ namespace Game.UI
                 {
                     Sprite icon = buildingMenu.ResolveIcon(definition);
                     _slotIcons[i].style.backgroundImage = icon != null ? new StyleBackground(icon) : default;
-                    // No cap/remaining-count system exists in this project yet (buildings are
-                    // placed freely once valid) - every occupied slot shows the "unlimited" badge
-                    // until such a system exists to report a real remaining count.
+                    // The building cap (CONSTRUCTION.md §6) is global, never per type - there is no
+                    // "you may build N more of this one" count to show, so every occupied slot
+                    // carries the "unlimited" badge regardless of how close the base is to the cap.
                     _slotBadges[i].text = "∞";
                 }
                 else

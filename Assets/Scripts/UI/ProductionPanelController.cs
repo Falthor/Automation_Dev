@@ -9,11 +9,10 @@ namespace Game.UI
 {
     /// <summary>
     /// Generic two-tab panel (RECETTES / PRODUCTION) for every ProductionBuildingRuntime
-    /// (Foundry/Factory/AdvancedFoundry today) - talks only through the
-    /// ProductionBuildingRuntime contract, no per-concrete-type code. Mirrors the source
-    /// project's production_panel.gd/recipe_card.gd: recipe cards only stage a pending choice
-    /// (_pendingRecipeId); only the bottom action button ("COMMENCER"/"CHANGER DE RECETTE")
-    /// actually calls SetSelectedRecipe. Reacts to SelectionRuntime.SelectionChanged
+    /// (Foundry, Factory, AdvancedFoundry, Constructor) - talks only through the
+    /// ProductionBuildingRuntime contract, no per-concrete-type code. Recipe cards only stage a
+    /// pending choice (_pendingRecipeId); only the bottom action button ("COMMENCER"/"CHANGER DE
+    /// RECETTE") actually calls SetSelectedRecipe. Reacts to SelectionRuntime.SelectionChanged
     /// (UI.md), same pattern as ExtractorPanelController.
     /// </summary>
     public sealed class ProductionPanelController : MonoBehaviour
@@ -119,8 +118,7 @@ namespace Game.UI
             _title.text = _selected.Definition.DisplayName;
             _pendingRecipeId = _selected.GetSelectedRecipe();
             RebuildRecipeCards();
-            // A building already producing opens on PRODUCTION; a fresh/idle one opens on
-            // RECETTES - matches the source project exactly.
+            // A building already producing opens on PRODUCTION; a fresh/idle one opens on RECETTES.
             SetActiveTab(_selected.GetSelectedRecipe() != string.Empty);
             RefreshActionButton();
             RefreshPauseButton();
@@ -141,8 +139,8 @@ namespace Game.UI
 
             // Recipe identity rarely changes while open (only on selection change), but
             // afford/pending state does - so cards are only rebuilt above, re-styled every frame
-            // here. Production tab refreshes unconditionally too (matches the source), so it's
-            // already current the instant the player switches to it.
+            // here. Production tab refreshes unconditionally too, so it's already current the
+            // instant the player switches to it.
             RefreshRecipeCardStates();
             RefreshActionButton();
             RefreshProductionTab();

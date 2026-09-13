@@ -325,8 +325,7 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
         /// A sector is skipped when <b>any part of it</b> falls inside the radius, not when its
         /// centre does: a 16-cell sector whose centre clears the radius still has a near edge well
         /// inside it, and a clipped cluster would be two cells against a wall.
-        /// </summary>
-        /// <summary>
+        ///
         /// <b>The furthest reach is derived, and world generation follows it.</b> Add a research with a
         /// bigger radius and the ground kept clear of derived ore grows with it - through the same
         /// ResearchCatalog.HighestActionRadius that GameRuntime hands to this class, with no other

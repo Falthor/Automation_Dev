@@ -27,11 +27,10 @@ namespace Game.UI
     }
 
     /// <summary>
-    /// Building selection menu, toggled with B. Reproduces the source project's BuildingPanel
-    /// layout intent (dark panel, cyan title, close button, a left category rail filtering a
-    /// grid of icon+label cards) with UI Toolkit. Selecting a card hands off to the existing
-    /// ConstructionService immediately and closes the menu, matching the source behavior
-    /// (single click arms the tool, no separate confirm step).
+    /// Building selection menu, toggled with B: a dark panel with a cyan title, a left category
+    /// rail filtering a grid of icon+label cards. Selecting a card hands off to the existing
+    /// ConstructionService immediately and closes the menu - a single click arms the tool, with
+    /// no separate confirm step.
     ///
     /// Also owns the 8 Bottom Nav toolbar slot assignments (UI.md: this panel
     /// is the source of truth, the Bottom Nav is just a reflecting view) and which card is
@@ -129,10 +128,9 @@ namespace Game.UI
         bool HasVisibleBuilding(BuildingCategory category) => HasVisibleBuilding(entries, category, gameRuntime.Research);
 
         /// <summary>
-        /// Whether this building is listed at all. A locked one does not appear (matching the source
-        /// project's building_panel.gd) - "unaffordable" is a different, visible-but-not-buildable
-        /// state. Asked in one place so the cards and the category rail can never disagree about
-        /// what exists.
+        /// Whether this building is listed at all. A locked one does not appear -
+        /// "unaffordable" is a different, visible-but-not-buildable state. Asked in one place so
+        /// the cards and the category rail can never disagree about what exists.
         /// </summary>
         public static bool IsUnlocked(BuildingDefinition definition, ResearchSystem research)
             => research.IsBuildingUnlocked(definition);
@@ -266,10 +264,9 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// Tints every visible card by availability (matches the source project's
-        /// building_panel.gd _refresh_states(): grey = locked, amber = unaffordable, normal =
-        /// available), refreshed every frame the panel is open so paying/unlocking updates cards
-        /// live without needing to hover them.
+        /// Tints every visible card by availability - grey for locked, amber for unaffordable,
+        /// normal for available - refreshed every frame the panel is open so paying/unlocking
+        /// updates cards live without needing to hover them.
         /// </summary>
         void RefreshCardStates()
         {
@@ -331,10 +328,10 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// Hover-only details (matches the source project's building_panel.gd): icon, name, its
-        /// construction cost (item icon + name + ×amount + how much is currently available) and
-        /// an affordability status line - all read through ConstructionService's public
-        /// CanAfford/GetAvailableAmount (UI.md), never a second cost-aggregation path.
+        /// Hover-only details: icon, name, its construction cost (item icon + name + ×amount +
+        /// how much is currently available) and an affordability status line - all read through
+        /// ConstructionService's public CanAfford/GetAvailableAmount (UI.md), never a second
+        /// cost-aggregation path.
         /// </summary>
         void PopulateDetails(BuildingDefinition definition)
         {

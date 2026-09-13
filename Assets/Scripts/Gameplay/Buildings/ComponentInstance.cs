@@ -99,8 +99,10 @@ namespace Game.Gameplay.Buildings
         /// curve at whatever threshold is set). Closed form from integrating the linear ODE: with
         /// w = Wear/100, dw/dt = -k*(3-2w) (k = baseLoss/100) gives 3-2w = e^(2kt), so
         /// k = ln(3 - 2*floorFraction) / (2*lifetimeSeconds).
+        ///
+        /// Exposed (not just used internally) so DataCenterRuntime's Restore fallback can rederive
+        /// a plausible BaseLossPerSecond for a blob missing that key, without duplicating the formula.
         /// </summary>
-        /// <summary>Exposed (not just used internally) so DataCenterRuntime's Restore fallback can rederive a plausible BaseLossPerSecond for a blob missing that key, without duplicating the formula.</summary>
         public static float DeriveBaseLossPerSecond(float lifetimeSeconds)
         {
             if (lifetimeSeconds <= 0f) return 0f;

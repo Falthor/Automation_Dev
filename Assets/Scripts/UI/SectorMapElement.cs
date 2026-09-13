@@ -302,6 +302,12 @@ namespace Game.UI
         }
 
         /// <summary>
+        /// Where a double click asked to be taken, in cells. The panel listens, closes itself and
+        /// moves the camera - the element knows where the player pointed and nothing about cameras.
+        /// </summary>
+        public event System.Action<Vector2> TravelRequested;
+
+        /// <summary>
         /// Left button only, like the world screen - it used to pan on any button, middle and right
         /// included, which no other drag in the game does.
         ///
@@ -310,12 +316,6 @@ namespace Game.UI
         /// It is also deliberately not reassignable, so there is no binding to keep in step - the
         /// constant below is the whole declaration.
         /// </summary>
-        /// <summary>
-        /// Where a double click asked to be taken, in cells. The panel listens, closes itself and
-        /// moves the camera - the element knows where the player pointed and nothing about cameras.
-        /// </summary>
-        public event System.Action<Vector2> TravelRequested;
-
         void OnPointerDown(PointerDownEvent evt)
         {
             if (evt.button != LeftMouseButton) return;
@@ -403,11 +403,6 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// Where the robots are. Safe to call every frame: it repaints only when one has actually moved
-        /// a tenth of a cell, which is what keeps a walking robot from repainting the overlay sixty
-        /// times a second for movement nobody can see.
-        /// </summary>
-        /// <summary>
         /// The deposits on the map. Safe to call every frame: it repaints only when the set has
         /// actually changed, which for deposits means a robot opened new ground.
         /// </summary>
@@ -467,6 +462,11 @@ namespace Game.UI
             return true;
         }
 
+        /// <summary>
+        /// Where the robots are. Safe to call every frame: it repaints only when one has actually moved
+        /// a tenth of a cell, which is what keeps a walking robot from repainting the overlay sixty
+        /// times a second for movement nobody can see.
+        /// </summary>
         public void SetRobots(IReadOnlyList<MapRobotMark> robots)
         {
             if (SameRobots(robots)) return;
@@ -717,14 +717,6 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// The robots. <b>The one thing on this map that moves</b>, and now the main reason to open it:
-        /// a wandering robot is somewhere the player did not choose, so the map is the only way to find
-        /// out where.
-        ///
-        /// A parked robot is muted rather than hidden - "the fleet is home" is an answer too, and
-        /// hiding it would leave the player wondering whether the map had simply lost them.
-        /// </summary>
-        /// <summary>
         /// The deposits, one filled cell each, in the ore's own colour.
         ///
         /// <b>Grouped by colour rather than drawn cell by cell.</b> Painter2D carries one fill colour
@@ -801,6 +793,14 @@ namespace Game.UI
             }
         }
 
+        /// <summary>
+        /// The robots. <b>The one thing on this map that moves</b>, and now the main reason to open it:
+        /// a wandering robot is somewhere the player did not choose, so the map is the only way to find
+        /// out where.
+        ///
+        /// A parked robot is muted rather than hidden - "the fleet is home" is an answer too, and
+        /// hiding it would leave the player wondering whether the map had simply lost them.
+        /// </summary>
         void DrawRobots(Painter2D painter)
         {
             for (int i = 0; i < _robots.Count; i++)
