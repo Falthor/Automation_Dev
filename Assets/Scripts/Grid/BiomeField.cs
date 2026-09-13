@@ -70,7 +70,7 @@ namespace Game.Grid
         }
 
         /// <summary>How far this position sits from the nearest band boundary, in field units. Near zero means the shader and this port are one rounding apart from disagreeing.</summary>
-        public float DistanceToBandEdge(Vector2 worldPos)
+        internal float DistanceToBandEdge(Vector2 worldPos)
         {
             float field = FieldAt(worldPos);
 

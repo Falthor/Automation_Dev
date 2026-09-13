@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Game.Grid
 {
     /// <summary>One thing that can see, and how far. A disc in cell space - not a building, not a robot, so anything that will ever see can be one without this knowing what it is.</summary>
-    public readonly struct ObserverDisc
+    readonly struct ObserverDisc
     {
         public readonly Vector2 CentreCells;
         public readonly float RadiusCells;

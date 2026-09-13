@@ -61,13 +61,13 @@ namespace Game.Grid
         /// <summary>Which cells each derived chunk lands on, by chunk index. Seed-only, so it never needs invalidating.</summary>
         readonly Dictionary<int, HashSet<int>> _derivedCells = new Dictionary<int, HashSet<int>>();
 
-        public int MapSizeCells { get; }
+        internal int MapSizeCells { get; }
         public int ChunkSizeCells { get; }
 
         /// <summary>Chunks along one axis, rounded up so a map that is not a whole number of chunks keeps its edge.</summary>
         public int ChunksPerAxis { get; }
 
-        public int KindCount => _bandWeightsPerKind.Length;
+        internal int KindCount => _bandWeightsPerKind.Length;
 
         /// <summary>How many cells the player has cleared. For tests and reporting.</summary>
         public int RemovedCount => _removed.Count;
@@ -427,13 +427,13 @@ namespace Game.Grid
     public readonly struct DecorClustering
     {
         /// <summary>How often an anchor grows a whole clump rather than a single item, 0 to 1.</summary>
-        public readonly float Chance;
+        internal readonly float Chance;
 
-        public readonly int MinMembers;
-        public readonly int MaxMembers;
+        internal readonly int MinMembers;
+        internal readonly int MaxMembers;
 
         /// <summary>How far members scatter from the anchor, in cells. Zero means this kind never clumps, whatever the chance says.</summary>
-        public readonly float Radius;
+        internal readonly float Radius;
 
         public DecorClustering(float chance, int minMembers, int maxMembers, float radius)
         {
@@ -447,7 +447,7 @@ namespace Game.Grid
         public static DecorClustering Solitary => new DecorClustering(0f, 1, 1, 0f);
 
         /// <summary>Narrows a clump that would reach past one chunk, so a single ring of neighbouring anchors stays sufficient.</summary>
-        public DecorClustering WithRadiusAtMost(float maxRadius)
+        internal DecorClustering WithRadiusAtMost(float maxRadius)
             => Radius <= maxRadius ? this : new DecorClustering(Chance, MinMembers, MaxMembers, maxRadius);
     }
 
@@ -469,7 +469,7 @@ namespace Game.Grid
         /// <summary>The raw draw it came from - a caller wanting one more independent-looking choice (which sprite of the kind, a mirror, a rotation) can take more bits from it rather than hashing again.</summary>
         public readonly uint Draw;
 
-        public DecorItem(GridCoord cell, int kind, int band, float scale01, uint draw)
+        internal DecorItem(GridCoord cell, int kind, int band, float scale01, uint draw)
         {
             Cell = cell;
             Kind = kind;

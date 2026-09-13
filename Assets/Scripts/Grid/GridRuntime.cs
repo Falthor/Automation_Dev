@@ -67,19 +67,6 @@ namespace Game.Grid
             }
         }
 
-        /// <summary>True when every relative cell of a masked footprint (origin + offset) is unoccupied.</summary>
-        public bool IsAreaFree(GridCoord origin, Vector2Int[] cells)
-        {
-            foreach (Vector2Int offset in cells)
-            {
-                if (IsOccupied(new GridCoord(origin.X + offset.x, origin.Y + offset.y)))
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
-
         /// <summary>
         /// True when every relative cell is unoccupied <b>or</b> already held by
         /// <paramref name="ignoring"/> - what moving a building has to ask.
