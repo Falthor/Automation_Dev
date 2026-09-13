@@ -15,8 +15,9 @@ MonoBehaviour:
   id: datacenter_bay_1
   displayName: Extension de baies I
   description: Une baie CPU et une baie memoire supplementaires.
-  icon: {fileID: 0}
-  cuCost: 2000
+  icon: {fileID: 21300000, guid: 8b0e5b5c2374dd943a3f5c750841d4e3, type: 3}
+  cuCost: 10000
+  computeSource: 0
   prerequisites:
   - {fileID: 11400000, guid: 5c1e7a2b9d3f4e60a8b4c2d6e0f1a3b5, type: 2}
   effects:
@@ -24,6 +25,6 @@ MonoBehaviour:
     building: {fileID: 0}
     recipe: {fileID: 0}
     value: 1
-  absorptionRatePerSecond: 40
+  absorptionRatePerSecond: 80
   tier: 1.5
   angle: 185.7

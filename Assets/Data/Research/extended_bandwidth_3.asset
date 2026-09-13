@@ -17,6 +17,7 @@ MonoBehaviour:
   description: Porte le rayon d'action du Noyau a 80 cellules.
   icon: {fileID: 0}
   cuCost: 30000
+  computeSource: 0
   prerequisites:
   - {fileID: 11400000, guid: b2c3d4e5f6a70819203b4c5d6e7f8091, type: 2}
   effects:
@@ -24,6 +25,6 @@ MonoBehaviour:
     building: {fileID: 0}
     recipe: {fileID: 0}
     value: 80
-  absorptionRatePerSecond: 40
+  absorptionRatePerSecond: 200
   tier: 2.7
   angle: 120.3

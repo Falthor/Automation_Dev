@@ -16,7 +16,8 @@ MonoBehaviour:
   displayName: Allocation memoire 2
   description: Porte le plafond de batiments a 100.
   icon: {fileID: 0}
-  cuCost: 15000
+  cuCost: 19500
+  computeSource: 0
   prerequisites:
   - {fileID: 11400000, guid: a1b2c3d4e5f60718293a4b5c6d7e8f90, type: 2}
   effects:
@@ -24,6 +25,6 @@ MonoBehaviour:
     building: {fileID: 0}
     recipe: {fileID: 0}
     value: 100
-  absorptionRatePerSecond: 40
+  absorptionRatePerSecond: 110
   tier: 2.7
   angle: 100.3

@@ -15,8 +15,9 @@ MonoBehaviour:
   id: datacenter_bay_2
   displayName: Extension de baies II
   description: Une deuxieme baie CPU et une deuxieme baie memoire supplementaires.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 8b0e5b5c2374dd943a3f5c750841d4e3, type: 3}
   cuCost: 15000
+  computeSource: 0
   prerequisites:
   - {fileID: 11400000, guid: b4504efb95934dc9b042f00ca6cff1f8, type: 2}
   effects:
@@ -24,6 +25,6 @@ MonoBehaviour:
     building: {fileID: 0}
     recipe: {fileID: 0}
     value: 1
-  absorptionRatePerSecond: 40
+  absorptionRatePerSecond: 85
   tier: 1.8
   angle: 157.7
