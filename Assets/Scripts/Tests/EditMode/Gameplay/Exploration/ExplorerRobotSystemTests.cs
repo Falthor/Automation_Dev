@@ -157,9 +157,9 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
 
         /// <summary>
         /// Before the CU reserve has fallen far enough the fleet does not exist yet, and a robot that
-        /// does not exist cannot be sent anywhere. Worth pinning because the two halves are in
-        /// different places - Toggle refuses, and Tick ignores - and either alone would leave a robot
-        /// marked as exploring while standing still.
+        /// does not exist cannot be sent anywhere. Worth pinning because the halves are in different
+        /// places - each command method refuses, and Tick ignores - and any one alone would leave a
+        /// robot marked as exploring while standing still.
         /// </summary>
         [Test]
         public void BeforeTheFleetArrives_NothingCanBeSentAnywhere()
@@ -171,8 +171,15 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             Assert.IsFalse(system.RobotsHaveAppeared, "The reserve starts at its cap, well above the threshold.");
 
             ExplorerRobotRuntime robot = system.Robots[0];
-            system.Toggle(robot);
-            Assert.AreEqual(ExplorerRobotState.Idle, robot.State, "Toggle refuses.");
+            system.SetAuto(robot, true);
+            Assert.AreEqual(ExplorerRobotState.Idle, robot.State, "SetAuto refuses.");
+
+            system.SetManualTarget(robot, CoreCentre + new Vector2(50f, 0f));
+            Assert.AreEqual(ExplorerRobotState.Idle, robot.State, "SetManualTarget refuses too.");
+            Assert.IsNull(robot.ManualTarget);
+
+            system.Recall(robot);
+            Assert.AreEqual(ExplorerRobotState.Idle, robot.State, "And Recall.");
 
             WalkSortie(system, robot, 30f);
             Assert.AreEqual(robot.HomePosition, robot.Position, "And nothing moves.");
@@ -193,23 +200,128 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
         }
 
         [Test]
-        public void OneClickSendsItOut_ASecondTurnsItRound_AThirdSendsItOutAgain()
+        public void SetAutoTrue_SendsAnIdleRobotOut()
         {
             ExplorerRobotSystem system = NewSystem(out _);
             ExplorerRobotRuntime robot = system.Robots[0];
 
-            system.Toggle(robot);
-            Assert.AreEqual(ExplorerRobotState.Exploring, robot.State);
-            Assert.AreEqual("Rentrer", ExplorerRobotSystem.ActionLabel(robot.State));
+            system.SetAuto(robot, true);
 
-            system.Toggle(robot);
+            Assert.AreEqual(ExplorerRobotState.Exploring, robot.State);
+            Assert.IsTrue(robot.Auto);
+        }
+
+        [Test]
+        public void SetAutoFalse_FreezesAWanderingRobotExactlyWhereItStands()
+        {
+            ExplorerRobotSystem system = NewSystem(out _);
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            system.SetAuto(robot, true);
+            WalkSortie(system, robot, 30f);
+            Vector2 frozenAt = robot.Position;
+
+            system.SetAuto(robot, false);
+            WalkSortie(system, robot, 30f);
+
+            Assert.IsFalse(robot.Auto);
+            Assert.AreEqual(ExplorerRobotState.Exploring, robot.State, "Still out in the field - just not wandering.");
+            Assert.AreEqual(frozenAt.x, robot.Position.x, 0.0001f);
+            Assert.AreEqual(frozenAt.y, robot.Position.y, 0.0001f);
+        }
+
+        [Test]
+        public void SetAutoTrue_ResumesWanderingFromWhereverTheRobotStoppedManually()
+        {
+            ExplorerRobotSystem system = NewSystem(out _);
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            Vector2 target = CoreCentre + new Vector2(80f, 0f);
+            system.SetManualTarget(robot, target);
+            for (int i = 0; i < Mathf.RoundToInt(60f / Frame) && robot.ManualTarget.HasValue; i++) system.Tick(Frame);
+            Assert.IsNull(robot.ManualTarget, "It must have arrived for this test to mean anything.");
+
+            system.SetAuto(robot, true);
+            WalkSortie(system, robot, 30f);
+
+            Assert.IsTrue(robot.Auto);
+            Assert.AreEqual(ExplorerRobotState.Exploring, robot.State);
+            Assert.AreNotEqual(target, robot.Position, "It has to have moved on from where the manual trip left it.");
+        }
+
+        [Test]
+        public void SetManualTarget_SendsAnIdleRobotStraightThere_AndTurnsAutoOff()
+        {
+            ExplorerRobotSystem system = NewSystem(out DiscoveryRuntime discovery);
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            // Far enough out to be on ground nobody has discovered - exactly the case this command
+            // exists for.
+            Vector2 target = CoreCentre + new Vector2(50f, 0f);
+            Assert.IsFalse(discovery.IsDiscovered(new GridCoord((int)target.x, (int)target.y)));
+
+            system.SetManualTarget(robot, target);
+
+            Assert.IsFalse(robot.Auto);
+            Assert.AreEqual(ExplorerRobotState.Exploring, robot.State);
+            Assert.AreEqual(target, robot.ManualTarget);
+
+            for (int i = 0; i < Mathf.RoundToInt(60f / Frame) && robot.ManualTarget.HasValue; i++) system.Tick(Frame);
+
+            Assert.AreEqual(target.x, robot.Position.x, 0.01f);
+            Assert.AreEqual(target.y, robot.Position.y, 0.01f);
+            Assert.IsNull(robot.ManualTarget, "Arriving clears it rather than leaving the robot converged on its own position forever.");
+            Assert.AreEqual(ExplorerRobotState.Exploring, robot.State, "Holding position, not snapped back to Idle.");
+        }
+
+        /// <summary>The one click that both takes a wandering robot out of Auto and gives it its first manual destination.</summary>
+        [Test]
+        public void SetManualTarget_RedirectsAWanderingRobot_AndTurnsAutoOff()
+        {
+            ExplorerRobotSystem system = NewSystem(out _);
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            system.SetAuto(robot, true);
+            WalkSortie(system, robot, 20f);
+            Assert.IsTrue(robot.Auto);
+
+            Vector2 target = robot.Position + new Vector2(30f, 0f);
+            system.SetManualTarget(robot, target);
+
+            Assert.IsFalse(robot.Auto, "The redirect itself takes it out of Auto.");
+            Assert.AreEqual(target, robot.ManualTarget);
+        }
+
+        [Test]
+        public void SetManualTarget_RedirectsAReturningRobot_AwayFromHome()
+        {
+            ExplorerRobotSystem system = NewSystem(out _);
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            robot.Position = CoreCentre + new Vector2(60f, 0f);
+            robot.State = ExplorerRobotState.Returning;
+
+            Vector2 target = CoreCentre + new Vector2(60f, 60f);
+            system.SetManualTarget(robot, target);
+
+            Assert.AreEqual(ExplorerRobotState.Exploring, robot.State, "No longer heading home.");
+            Assert.AreEqual(target, robot.ManualTarget);
+        }
+
+        [Test]
+        public void Recall_SendsAWanderingRobotHome_AndTurnsAutoOff()
+        {
+            ExplorerRobotSystem system = NewSystem(out _);
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            system.SetAuto(robot, true);
+            WalkSortie(system, robot, 30f);
+
+            system.Recall(robot);
+
             Assert.AreEqual(ExplorerRobotState.Returning, robot.State);
-            Assert.AreEqual("Exploration", ExplorerRobotSystem.ActionLabel(robot.State));
-
-            // A robot already on its way home sets out again - the action is a toggle, not a
-            // one-way trip.
-            system.Toggle(robot);
-            Assert.AreEqual(ExplorerRobotState.Exploring, robot.State);
+            Assert.IsFalse(robot.Auto);
+            Assert.IsNull(robot.ManualTarget);
         }
 
         [Test]
@@ -249,7 +361,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             ExplorerRobotSystem system = NewSystem(out DiscoveryRuntime discovery);
             ExplorerRobotRuntime robot = system.Robots[0];
 
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
             int atDeparture = discovery.DiscoveredCount();
             Assert.Greater(atDeparture, 0, "The departure itself is marked, so a trace starts at the base.");
 
@@ -326,7 +438,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             ExplorerRobotSystem system = NewSystem(out _);
             ExplorerRobotRuntime robot = system.Robots[0];
 
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
             Vector2[] path = WalkSortie(system, robot, 240f);
 
             float length = PathLength(path);
@@ -346,7 +458,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             ExplorerRobotSystem system = NewSystem(out _);
             ExplorerRobotRuntime robot = system.Robots[0];
 
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
             Vector2[] path = WalkSortie(system, robot, 120f);
 
             float length = PathLength(path);
@@ -413,8 +525,8 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
         {
             ExplorerRobotSystem system = NewSystem(out _, NewSettings(robotCount: 2));
 
-            system.Toggle(system.Robots[0]);
-            system.Toggle(system.Robots[1]);
+            system.SetAuto(system.Robots[0], true);
+            system.SetAuto(system.Robots[1], true);
             for (int i = 0; i < Mathf.RoundToInt(120f / Frame); i++) system.Tick(Frame);
 
             float apart = Vector2.Distance(system.Robots[0].Position, system.Robots[1].Position);
@@ -559,7 +671,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
                 var system = new ExplorerRobotSystem(NewSettings(), NewDiscovery(), new ComputeSystem(), CoreCentre, CoreCentre, seed);
                 system.MakeRobotsAppear();
                 ExplorerRobotRuntime robot = system.Robots[0];
-                system.Toggle(robot);
+                system.SetAuto(robot, true);
                 WalkSortie(system, robot, 120f);
                 return robot.Position;
             }
@@ -597,7 +709,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             ExplorerRobotSystem system = NewSystem(out _);
             ExplorerRobotRuntime robot = system.Robots[0];
 
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
             WalkSortie(system, robot, 60f);
 
             Assert.AreSame(robot, system.At(robot.Position), "It has to stay catchable once it is out.");
@@ -623,7 +735,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             // and that ground is credited like any other. Measured after the Toggle, the count misses
             // those hundred-odd cells and the card looks as though it arrived early.
             int atDeparture = discovery.DiscoveredCount();
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
 
             // Enough travel to be sure of one card at any jitter, and it stops the moment one lands.
             for (int i = 0; i < Mathf.RoundToInt(900f / Frame) && robot.Cards == 0; i++) system.Tick(Frame);
@@ -648,7 +760,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             RevealWholeMap(discovery);
             int discovered = discovery.DiscoveredCount();
 
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
             WalkSortie(system, robot, 600f);
 
             Assert.AreEqual(0, robot.Cards, "Nothing new was opened, so nothing was earned.");
@@ -664,7 +776,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             ExplorerRobotSystem system = NewSystem(out _, NewSettings(cellsPerCard: 60f, maxCards: 10));
             ExplorerRobotRuntime robot = system.Robots[0];
 
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
             Vector2[] path = WalkSortie(system, robot, 600f);
 
             Assert.AreEqual(10, robot.Cards, "Ten and no more.");
@@ -680,7 +792,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             ExplorerRobotSystem system = NewSystem(out _, NewSettings(cellsPerCard: 60f, maxCards: 2));
             ExplorerRobotRuntime robot = system.Robots[0];
 
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
             WalkSortie(system, robot, 150f);
             Assert.AreEqual(2, robot.Cards);
 
@@ -698,7 +810,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
                 NewSettings(cellsPerCard: 60f, cardValueCu: 250f, maxCards: 10));
             ExplorerRobotRuntime robot = system.Robots[0];
 
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
             WalkSortie(system, robot, 200f);
 
             int cards = robot.Cards;
@@ -708,7 +820,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             compute.Spend(10000f);
             float before = compute.Reserve;
 
-            system.Toggle(robot);   // recall
+            system.Recall(robot);
             for (int i = 0; i < Mathf.RoundToInt(900f / Frame) && robot.State != ExplorerRobotState.Idle; i++)
             {
                 system.Tick(Frame);
@@ -747,7 +859,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             int alerts = 0;
             system.StockFilled += _ => alerts++;
 
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
             WalkSortie(system, robot, 200f);
             Assert.AreEqual(3, robot.Cards);
             Assert.AreEqual(1, alerts, "Once when it filled.");
@@ -757,14 +869,14 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             Assert.AreEqual(1, alerts, "Repeating it would be nagging about a decision already made.");
 
             // Home, unloaded, and out again: the next load may announce itself in turn.
-            system.Toggle(robot);
+            system.Recall(robot);
             for (int i = 0; i < Mathf.RoundToInt(1200f / Frame) && robot.State != ExplorerRobotState.Idle; i++)
             {
                 system.Tick(Frame);
             }
             Assert.AreEqual(0, robot.Cards, "It got home and unloaded.");
 
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
             WalkSortie(system, robot, 400f);
 
             Assert.AreEqual(3, robot.Cards);
@@ -779,7 +891,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             ExplorerRobotRuntime announced = null;
             system.StockFilled += robot => announced = robot;
 
-            system.Toggle(system.Robots[1]);
+            system.SetAuto(system.Robots[1], true);
             WalkSortie(system, system.Robots[1], 300f);
 
             Assert.AreSame(system.Robots[1], announced, "There are two of them, so the alert has to say which.");
@@ -841,12 +953,12 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
 
             Assert.AreEqual(ExplorerHarvestState.AtBase, system.HarvestStateOf(robot));
 
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
             WalkSortie(system, robot, 10f);
             Assert.AreEqual(ExplorerHarvestState.Harvesting, system.HarvestStateOf(robot),
                 "Fresh out over virgin ground.");
 
-            system.Toggle(robot);
+            system.Recall(robot);
             Assert.AreEqual(ExplorerHarvestState.Returning, system.HarvestStateOf(robot));
 
             Assert.AreEqual(ExplorerHarvestState.AtBase, system.HarvestStateOf(null),
@@ -856,12 +968,67 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
         // ---- Save / Restore ----
 
         [Test]
+        public void AReloadedRobotKeepsAutoOff_AndItsManualDestination()
+        {
+            ExplorerRobotSystem system = NewSystem(out _);
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            Vector2 target = CoreCentre + new Vector2(90f, 40f);
+            system.SetManualTarget(robot, target);
+            system.Tick(Frame); // one step short of arriving, so ManualTarget is still set
+
+            JObject saved = system.CaptureState();
+
+            ExplorerRobotSystem reloaded = NewSystem(out _);
+            reloaded.RestoreState(saved);
+            ExplorerRobotRuntime restored = reloaded.Robots[0];
+
+            Assert.IsFalse(restored.Auto);
+            Assert.IsTrue(restored.ManualTarget.HasValue);
+            Assert.AreEqual(target.x, restored.ManualTarget.Value.x, 0.001f);
+            Assert.AreEqual(target.y, restored.ManualTarget.Value.y, 0.001f);
+        }
+
+        [Test]
+        public void AReloadedWanderingRobotKeepsAutoOn_AndHasNoManualTarget()
+        {
+            ExplorerRobotSystem system = NewSystem(out _);
+            ExplorerRobotRuntime robot = system.Robots[0];
+
+            system.SetAuto(robot, true);
+            WalkSortie(system, robot, 30f);
+
+            ExplorerRobotSystem reloaded = NewSystem(out _);
+            reloaded.RestoreState(system.CaptureState());
+
+            Assert.IsTrue(reloaded.Robots[0].Auto);
+            Assert.IsNull(reloaded.Robots[0].ManualTarget);
+        }
+
+        /// <summary>A save written before manual control existed has neither key, and must restore in Auto - exactly how it always behaved.</summary>
+        [Test]
+        public void ASaveMissingAutoAndTarget_RestoresInAuto_WithNoManualTarget()
+        {
+            ExplorerRobotSystem system = NewSystem(out _);
+
+            var blob = new JObject
+            {
+                ["appeared"] = true,
+                ["robots"] = new JArray { new JObject { ["x"] = CoreCentre.x, ["y"] = CoreCentre.y, ["state"] = 1 } }
+            };
+            system.RestoreState(blob);
+
+            Assert.IsTrue(system.Robots[0].Auto);
+            Assert.IsNull(system.Robots[0].ManualTarget);
+        }
+
+        [Test]
         public void ARobotOnItsWayResumesWhereItWasWithTheSameHeading()
         {
             ExplorerRobotSystem system = NewSystem(out _);
             ExplorerRobotRuntime robot = system.Robots[0];
 
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
             WalkSortie(system, robot, 90f);
 
             Vector2 position = robot.Position;
@@ -891,7 +1058,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             ExplorerRobotSystem system = NewSystem(out _, NewSettings(cellsPerCard: 60f, maxCards: 10));
             ExplorerRobotRuntime robot = system.Robots[0];
 
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
             WalkSortie(system, robot, 150f);
 
             int cards = robot.Cards;
@@ -916,7 +1083,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             ExplorerRobotSystem system = NewSystem(out _, NewSettings(cellsPerCard: 60f, maxCards: 2));
             ExplorerRobotRuntime robot = system.Robots[0];
 
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
             WalkSortie(system, robot, 300f);
             Assert.AreEqual(2, robot.Cards);
 
@@ -937,7 +1104,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
             ExplorerRobotSystem system = NewSystem(out _);
             ExplorerRobotRuntime robot = system.Robots[0];
 
-            system.Toggle(robot);
+            system.SetAuto(robot, true);
             WalkSortie(system, robot, 60f);
 
             JObject saved = system.CaptureState();
@@ -960,7 +1127,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
         {
             ExplorerRobotSystem system = NewSystem(out _, NewSettings(robotCount: 2));
 
-            system.Toggle(system.Robots[0]);
+            system.SetAuto(system.Robots[0], true);
             WalkSortie(system, system.Robots[0], 30f);
 
             system.RestoreState(null);
@@ -978,7 +1145,7 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
         public void ABlobWithFewerRobotsThanTheFleetRestoresTheRestAtHome()
         {
             ExplorerRobotSystem one = NewSystem(out _, NewSettings(robotCount: 1));
-            one.Toggle(one.Robots[0]);
+            one.SetAuto(one.Robots[0], true);
             WalkSortie(one, one.Robots[0], 30f);
 
             ExplorerRobotSystem two = NewSystem(out _, NewSettings(robotCount: 2));
@@ -996,7 +1163,9 @@ namespace Game.Tests.EditMode.Gameplay.Exploration
 
             Assert.AreEqual(0, system.Robots.Count);
             Assert.DoesNotThrow(() => system.Tick(Frame));
-            Assert.DoesNotThrow(() => system.Toggle(null));
+            Assert.DoesNotThrow(() => system.SetAuto(null, true));
+            Assert.DoesNotThrow(() => system.SetManualTarget(null, CoreCentre));
+            Assert.DoesNotThrow(() => system.Recall(null));
             Assert.IsNull(system.At(CoreCentre));
         }
     }

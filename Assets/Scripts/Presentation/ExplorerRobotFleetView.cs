@@ -22,12 +22,21 @@ namespace Game.Presentation
         /// <summary>Which way the art already points when unrotated - the same idea as ConveyorDefinition.ArtNativeDirection, so the rotation is measured against the pose the artist drew.</summary>
         const float ArtNativeBearingDegrees = 90f;
 
+        /// <summary>The Auto halo's colour (MAP.md) - the same blue the Auto button itself lights up with (.recipe-action-button-on), so the panel and the world read as one signal.</summary>
+        static readonly Color AutoHaloColor = new Color(0.33f, 0.87f, 0.96f, 0.55f);
+
+        /// <summary>How much wider than the robot's own sprite the halo sits - the same idea as DepositHoverGlowView's paddingFactor, so it reads as a ring around the robot rather than a second copy of it.</summary>
+        const float AutoHaloSizeFactor = 1.8f;
+
         readonly GridRuntime _grid;
         readonly ExplorerRobotSettings _settings;
         readonly BuildingShadowSettings _shadowSettings;
 
         readonly ProceduralSpriteFactory _spriteFactory = new ProceduralSpriteFactory();
         readonly List<GameObject> _views = new List<GameObject>();
+
+        /// <summary>One per robot, parallel to _views - a child of the same GameObject, so it moves and is destroyed with it for free.</summary>
+        readonly List<SpriteRenderer> _autoHalos = new List<SpriteRenderer>();
 
         public ExplorerRobotFleetView(GridRuntime grid, ExplorerRobotSettings settings,
             BuildingShadowSettings shadowSettings)
@@ -63,6 +72,10 @@ namespace Game.Presentation
                 view.position = new Vector3(position.x * cellSize, position.y * cellSize, 0f);
 
                 FaceHeading(view, robots[i].HeadingDegrees, deltaSeconds);
+
+                // A halo is drawn for every robot currently in Auto, selected or not - distinct
+                // from BuildingHoverHighlightView's single, selection-only outline (MAP.md).
+                _autoHalos[i].enabled = robots[i].Auto;
             }
         }
 
@@ -107,7 +120,34 @@ namespace Game.Presentation
                 shadow.Settings = _shadowSettings;
             }
 
+            _autoHalos.Add(CreateAutoHalo(view.transform, cellSize, scale));
+
             return view;
+        }
+
+        /// <summary>
+        /// A child of the robot's own transform, so it tracks position and (harmlessly, being
+        /// radially symmetric) rotation for free. Its local scale corrects for the parent's own
+        /// <paramref name="parentScale"/> so the halo's world size is <see cref="AutoHaloSizeFactor"/>
+        /// times the robot's, regardless of what the parent's scale happens to be.
+        /// </summary>
+        SpriteRenderer CreateAutoHalo(Transform parent, float cellSize, float parentScale)
+        {
+            var halo = new GameObject("AutoHalo");
+            halo.transform.SetParent(parent, worldPositionStays: false);
+            halo.transform.localPosition = Vector3.zero;
+
+            var renderer = halo.AddComponent<SpriteRenderer>();
+            renderer.sprite = _spriteFactory.CreateRadialGlowSprite(AutoHaloColor);
+            renderer.sortingOrder = SortingBands.FlyingGlow;
+            renderer.enabled = false;
+
+            Vector2 haloNativeSize = renderer.sprite.bounds.size;
+            float desiredWorldSize = cellSize * AutoHaloSizeFactor;
+            float localScale = desiredWorldSize / Mathf.Max(haloNativeSize.x, haloNativeSize.y) / Mathf.Max(parentScale, 0.0001f);
+            halo.transform.localScale = new Vector3(localScale, localScale, 1f);
+
+            return renderer;
         }
     }
 }

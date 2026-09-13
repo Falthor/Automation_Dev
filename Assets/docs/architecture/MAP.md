@@ -138,8 +138,9 @@ report — and a robot is **visible the whole time it is working**.
 
 Three states, and no more: `Idle` at the base, `Exploring`, `Returning`. Clicking a robot in the world
 opens its panel — with the same halo a selected building gets, asked for by centre rather than by cell
-because a robot stands between cells and keeps moving. The one button there sends an idle one out and
-turns a wandering one round.
+because a robot stands between cells and keeps moving. The panel offers two buttons, **Auto** and
+**Retour** — see "Manual control" below for what each does and how they interact with a right-click on
+the map.
 
 **The fleet arrives when the CU reserve has fallen to `ComputeSystem.ExplorerFleetArrivalReserve`**, which is also what
 opens the map screen. That threshold is a **fraction of the reserve cap**, and lives beside it: written
@@ -147,10 +148,10 @@ as an absolute on the robots' own settings it was left behind twice while the ca
 turning up as the player runs dry is what makes it a way out rather than a reward.
 `GameRuntime.startWithEverythingUnlocked` bypasses it for development.
 
-**There is no destination, and that is the design rather than a gap.** A destination plus straight-line
-travel uncovers a radius: three sorties would draw three spokes out of the Core and the map would fill
-in as a star. So a robot carries a *heading* that changes continuously, and three things bend it, in
-this order:
+**Autonomous wandering has no destination, and that is the design rather than a gap.** A destination
+plus straight-line travel uncovers a radius: three sorties would draw three spokes out of the Core and
+the map would fill in as a star. So while `ExplorerRobotRuntime.Auto` is true, a robot carries a
+*heading* that changes continuously, and three things bend it, in this order:
 
 | | |
 |---|---|
@@ -199,10 +200,34 @@ before moving any of the three.
   returns the runtime it creates for exactly this reason, and dropping that return value is the whole
   defect.
 
+**Manual control is the deliberate exception to "no destination".** `ExplorerRobotRuntime.Auto` (default
+true) is layered orthogonally on the three states rather than adding a fourth: `Exploring` still means
+"out in the field", whether that is wandering under `Steer` or converging on a right-clicked
+`ManualTarget`. It does not reproduce the star problem above — a destination is what the player is
+asking for on that one click, not the default behaviour of a whole fleet left running unattended.
+
+- **The Auto button.** Turning it on sends an idle robot out exactly as the old single toggle did, or
+  resumes wandering from wherever a robot already out happens to be. Turning it off freezes the robot
+  exactly where it stands, holding position until the next command. A halo lights up around a robot
+  in Auto, in the world and on the button alike (the same blue, `.recipe-action-button-on`) — nothing is
+  drawn for one that is not.
+- **A right-click on the map**, while the robot's panel is open, sends it straight there —
+  `ExplorerRobotRuntime.StepTowards`, the same primitive `Returning` already used to converge on the
+  base — **even over undiscovered ground**: picking a cell never consults what has been revealed, so a
+  destination past the fog is exactly as reachable as one already opened. The click always turns Auto
+  off, whatever it read before: right-clicking a wandering robot is the one gesture that both takes it
+  out of Auto and hands it its first manual destination. Arriving clears the destination and the robot
+  holds position, awaiting the next command.
+- **Retour** always heads straight home (`Returning`), whatever Auto currently reads, and takes the
+  robot out of Auto on the way — leaving it on would invite it to wander off again the moment it
+  reappears at the base with nothing else telling it otherwise.
+
 **Persistence: `SaveData.ExplorerRobots`** — an opaque blob owned by `ExplorerRobotSystem`'s own
 `Capture`/`Restore` pair: per robot its position, heading, state, the datacards it carries, where the
 drift had got to and how many sorties have been made, so a reloaded robot carries on the bend it was
-in the middle of rather than snapping onto a fresh one. No destination, because there is none to have.
+in the middle of rather than snapping onto a fresh one. Also whether it is in Auto, and, if a manual
+trip was in flight, exactly where it was headed — additive keys, no `Version` bump: a save from before
+manual control existed has neither and restores as Auto, which is exactly how it always behaved.
 
 An absent key restores as a fleet that has not arrived, standing at the base with nothing - the
 truthful default rather than a convenient one. A blob listing fewer robots than the configured fleet

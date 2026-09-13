@@ -200,6 +200,9 @@ namespace Game.Presentation
             // The second exception, and it is about a chantier rather than a building.
             if (TryCancelTheChantierUnderTheCursor(cellUnderMouse)) return;
 
+            // The third exception: a right-click commands the explorer robot under inspection.
+            if (TryCommandTheInspectedRobot(cellUnderMouse)) return;
+
             // A UI panel (Building menu, Storage panel, ...) owns mouse/keyboard input while
             // open, and for one extra frame after it closes - otherwise the same click that
             // selected a menu item or closed a panel also lands on the world underneath it.
@@ -885,6 +888,37 @@ namespace Game.Presentation
 
             if (!gameRuntime.Construction.TryCancelPendingAt(cell)) return false;
 
+            gameRuntime.NotePlayerAction();
+            return true;
+        }
+
+        /// <summary>
+        /// A right-click on the map while an explorer robot's panel is open sends it there manually,
+        /// even over undiscovered ground - picking a cell never consults what has been revealed
+        /// (MAP.md). The third narrow exception before the <c>IsUIBlockingInput</c> gate, same shape
+        /// as its two neighbours above: selecting a robot sets
+        /// <c>Selection.SelectedExplorerRobot</c>, which already makes <c>IsUIBlockingInput</c> true,
+        /// so without this the adapter would never see the click at all.
+        ///
+        /// Always calls <c>SetManualTarget</c>, whatever the robot's current Auto reads - which is
+        /// exactly what turns Auto off on the very click that gives the order, and simply redirects
+        /// an already-manual robot on the next one.
+        ///
+        /// Steps aside if a ghost is armed, same as <see cref="TryDemolishTheInspectedBuilding"/>:
+        /// right-click then means "stop placing" first, whatever else happens to be selected.
+        /// </summary>
+        bool TryCommandTheInspectedRobot(GridCoord cell)
+        {
+            ExplorerRobotRuntime inspected = gameRuntime.Selection.SelectedExplorerRobot;
+            if (inspected == null) return false;
+            if (gameRuntime.Construction.Selected != null) return false; // a ghost is armed: right-click cancels it
+
+            Mouse mouse = Mouse.current;
+            if (mouse == null || !mouse.rightButton.wasPressedThisFrame) return false;
+            if (PointerOverUI.At(_uiDocument, mouse.position.ReadValue())) return false;
+
+            Vector2 target = new Vector2(cell.X + 0.5f, cell.Y + 0.5f);
+            gameRuntime.ExplorerRobots?.SetManualTarget(inspected, target);
             gameRuntime.NotePlayerAction();
             return true;
         }

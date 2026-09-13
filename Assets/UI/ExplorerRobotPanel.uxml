@@ -31,9 +31,13 @@
                     <ui:Label name="ExplorerRobotCards" text="0/10" class="storage-card-count" />
                 </ui:VisualElement>
 
-                <!-- One button, whose label is the state read back: a robot at rest is offered the
-                     way out, one that is out is offered the way home. -->
-                <ui:Button name="ExplorerRobotActionButton" text="Exploration" class="recipe-action-button" />
+                <!-- Auto lights up while the robot wanders on its own; Retour always sends it
+                     straight home. A right-click on the map (ConstructionInputAdapter) is the third
+                     control - it is not a button, so it has no element here. -->
+                <ui:VisualElement class="explorer-robot-action-row">
+                    <ui:Button name="ExplorerRobotAutoButton" text="Auto" class="recipe-action-button" />
+                    <ui:Button name="ExplorerRobotReturnButton" text="Retour" class="recipe-action-button" />
+                </ui:VisualElement>
                 <ui:Label name="ExplorerRobotHint" text="" class="production-time-label" />
             </ui:VisualElement>
         </ui:VisualElement>

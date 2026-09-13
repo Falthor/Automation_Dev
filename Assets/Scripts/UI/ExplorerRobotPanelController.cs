@@ -6,8 +6,8 @@ using UnityEngine.UIElements;
 namespace Game.UI
 {
     /// <summary>
-    /// The panel a clicked explorer robot opens: what it is doing, how far out it is, and the one
-    /// action there is - send it wandering, or call it home.
+    /// The panel a clicked explorer robot opens: what it is doing, how far out it is, and its two
+    /// controls - Auto, and Retour.
     ///
     /// Same shell and routing as every other contextual inspector (see
     /// PowerplantGazPanelController), keyed off its own selection slot rather than
@@ -15,9 +15,15 @@ namespace Game.UI
     /// per-building panel keys off SelectionChanged with an <c>as</c> cast - so riding that slot
     /// would have needed every one of them to learn to ignore it.
     ///
-    /// <b>The action button is rebuilt never, only relabelled.</b> A UI Toolkit Button whose
+    /// <b>Both buttons are rebuilt never, only relabelled/restyled.</b> A UI Toolkit Button whose
     /// element is replaced between the press and the release can never complete a click, which this
     /// project has already been bitten by once on the map screen.
+    ///
+    /// <b>Neither button owns the robot's state.</b> Both call into
+    /// <c>ExplorerRobotSystem</c> (<c>SetAuto</c>/<c>Recall</c>) rather than writing
+    /// <c>ExplorerRobotRuntime</c> fields directly - the same rule <c>ConstructionInputAdapter</c>'s
+    /// right-click command follows, so the two can never disagree about what a robot is doing
+    /// (DEVELOPMENT_RULES §1/§6).
     /// </summary>
     public sealed class ExplorerRobotPanelController : MonoBehaviour
     {
@@ -35,7 +41,8 @@ namespace Game.UI
         Label _cards;
         VisualElement _cardIcon;
         Label _hint;
-        Button _action;
+        Button _autoButton;
+        Button _returnButton;
 
         ExplorerRobotRuntime _selected;
 
@@ -54,8 +61,10 @@ namespace Game.UI
             _cardIcon = panelRoot.Q<VisualElement>("ExplorerRobotCardIcon");
             _hint = panelRoot.Q<Label>("ExplorerRobotHint");
 
-            _action = panelRoot.Q<Button>("ExplorerRobotActionButton");
-            _action.clicked += Toggle;
+            _autoButton = panelRoot.Q<Button>("ExplorerRobotAutoButton");
+            _autoButton.clicked += ToggleAuto;
+            _returnButton = panelRoot.Q<Button>("ExplorerRobotReturnButton");
+            _returnButton.clicked += Recall;
 
             panelRoot.Q<Button>("ExplorerRobotCloseButton").clicked += Close;
 
@@ -83,12 +92,22 @@ namespace Game.UI
 
         void Close() => gameRuntime.Selection.Clear();
 
-        /// <summary>The whole interaction. Sends an idle robot out, turns a wandering one round - the system owns which, so the panel does not restate the rule.</summary>
-        void Toggle()
+        /// <summary>Flips Auto - the system decides what that does to the robot's movement, the panel only asks for the flip.</summary>
+        void ToggleAuto()
         {
             if (_selected == null) return;
 
-            gameRuntime.ExplorerRobots?.Toggle(_selected);
+            gameRuntime.ExplorerRobots?.SetAuto(_selected, !_selected.Auto);
+            gameRuntime.NotePlayerAction();
+            Render();
+        }
+
+        /// <summary>Always heads home, whatever Auto currently reads.</summary>
+        void Recall()
+        {
+            if (_selected == null) return;
+
+            gameRuntime.ExplorerRobots?.Recall(_selected);
             gameRuntime.NotePlayerAction();
             Render();
         }
@@ -108,16 +127,16 @@ namespace Game.UI
 
         void Render()
         {
-            _state.text = StateText(_selected.State);
+            _state.text = StateText(_selected);
             _distance.text = $"{DistanceFromCore():0} cases";
 
             ExplorerRobotSystem robots = gameRuntime.ExplorerRobots;
             _harvest.text = HarvestText(robots != null ? robots.HarvestStateOf(_selected) : ExplorerHarvestState.AtBase);
             _cards.text = robots != null ? $"{_selected.Cards}/{robots.MaxCards}" : _selected.Cards.ToString();
 
-            // Relabelled, never rebuilt - see the class summary.
-            _action.text = ExplorerRobotSystem.ActionLabel(_selected.State);
-            _hint.text = HintText(_selected.State);
+            // Restyled, never rebuilt - see the class summary.
+            _autoButton.EnableInClassList("recipe-action-button-on", _selected.Auto);
+            _hint.text = HintText(_selected);
         }
 
         float DistanceFromCore()
@@ -126,12 +145,13 @@ namespace Game.UI
             return Vector2.Distance(_selected.Position, core);
         }
 
-        static string StateText(ExplorerRobotState state) => state switch
+        static string StateText(ExplorerRobotRuntime robot)
         {
-            ExplorerRobotState.Exploring => "En exploration",
-            ExplorerRobotState.Returning => "En retour",
-            _ => "Au repos"
-        };
+            if (robot.State == ExplorerRobotState.Returning) return "En retour";
+            if (robot.State != ExplorerRobotState.Exploring) return "Au repos";
+            if (robot.Auto) return "En exploration";
+            return robot.ManualTarget.HasValue ? "En route (manuel)" : "À l'arrêt (manuel)";
+        }
 
         /// <summary>
         /// Whether the robot is still earning, in words.
@@ -150,12 +170,23 @@ namespace Game.UI
             _ => "À la base"
         };
 
-        /// <summary>What the button will do, said once under it. A label alone reads as a state on a panel that is already showing one.</summary>
-        static string HintText(ExplorerRobotState state) => state switch
+        /// <summary>What the buttons will do, said once under them. A label alone reads as a state on a panel that is already showing one.</summary>
+        static string HintText(ExplorerRobotRuntime robot)
         {
-            ExplorerRobotState.Exploring => "Découvre la carte en avançant. Un clic le rappelle.",
-            ExplorerRobotState.Returning => "Rentre au Noyau. Un clic le renvoie explorer.",
-            _ => "Part errer et découvrir, sans destination."
-        };
+            if (robot.State == ExplorerRobotState.Returning) return "Rentre au Noyau.";
+
+            const string manual = "Clic droit sur la carte pour le diriger manuellement.";
+
+            if (robot.State != ExplorerRobotState.Exploring) // Idle
+            {
+                return robot.Auto ? $"Part errer et découvrir, sans destination. {manual}" : manual;
+            }
+
+            if (robot.Auto) return $"Découvre la carte en avançant. {manual}";
+
+            return robot.ManualTarget.HasValue
+                ? "En route vers sa destination. Un nouveau clic droit la change."
+                : manual;
+        }
     }
 }

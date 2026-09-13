@@ -145,6 +145,9 @@ namespace Game.Presentation
         /// <summary>The builder drones, and later anything else genuinely airborne. Fixed, above every depth-sorted thing: a drone flies over the base rather than queueing for a place in it.</summary>
         public const int FlyingFirst = FlyingShadow + 1;
 
+        /// <summary>An explorer robot's Auto halo (MAP.md): a soft ring over the robot's own sprite, using one of the reserved flying-band slots rather than opening a new band.</summary>
+        public const int FlyingGlow = FlyingFirst + 1;
+
         /// <summary>
         /// How many orders the flying band holds, its first included: room for seven more kinds of
         /// airborne thing, and the one number to raise when an eighth appears.

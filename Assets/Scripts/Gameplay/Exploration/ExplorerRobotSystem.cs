@@ -20,10 +20,16 @@ namespace Game.Gameplay.Exploration
     /// player starts and interrupts rather than a trip that is aimed and resolves - so there is no
     /// launch, no duration and no report - and a robot is visible the whole time it is working.
     ///
-    /// <b>There is no destination, and that is the design rather than a gap.</b> A destination plus
-    /// straight-line travel would uncover a radius: three sorties would draw three spokes out of the
-    /// Core and the map would fill in as a star. So a robot carries a <i>heading</i> that changes
+    /// <b>Autonomous wandering has no destination, and that is the design rather than a gap.</b> A
+    /// destination plus straight-line travel would uncover a radius: three sorties would draw three
+    /// spokes out of the Core and the map would fill in as a star. So while
+    /// <see cref="ExplorerRobotRuntime.Auto"/> is true, a robot carries a <i>heading</i> that changes
     /// continuously, and three things bend it - see <see cref="Steer"/>.
+    ///
+    /// <b>Manual control is the deliberate exception.</b> Turning Auto off lets the player place a
+    /// robot exactly with a right-click, even on undiscovered ground - <see cref="SetManualTarget"/>.
+    /// It does not reproduce the star problem above, because it is the player asking for a straight
+    /// line to one point rather than the default behaviour of a whole fleet.
     /// </summary>
     public sealed class ExplorerRobotSystem
     {
@@ -173,29 +179,66 @@ namespace Game.Gameplay.Exploration
         // ---- The action ----
 
         /// <summary>
-        /// The one gesture there is: a click sends an idle robot out, and a second click on one that
-        /// is out turns it round. A robot already on its way home sets out again, which is what makes
-        /// this a toggle rather than a one-way trip.
+        /// The Auto button. Turning it on sends an idle robot out exactly as the old single toggle
+        /// did, or resumes wandering from wherever a robot already out happens to be, abandoning
+        /// any <see cref="ExplorerRobotRuntime.ManualTarget"/> it was converging on. Turning it off
+        /// freezes the robot in place - <see cref="Tick"/> stops calling <see cref="Wander"/> for it
+        /// the moment Auto reads false - and leaves where it is exactly where the next right-click or
+        /// <see cref="Recall"/> finds it.
+        ///
+        /// The single write path for <see cref="ExplorerRobotRuntime.Auto"/> (DEVELOPMENT_RULES §1):
+        /// the panel and the input adapter both call this rather than setting the field themselves.
         /// </summary>
-        public void Toggle(ExplorerRobotRuntime robot)
+        public void SetAuto(ExplorerRobotRuntime robot, bool auto)
         {
             // Before the fleet has arrived there is nothing to send: Tick ignores a robot that has
             // not appeared, so accepting the gesture here would leave one marked Exploring and
             // standing still.
             if (robot == null || !RobotsHaveAppeared) return;
 
-            if (robot.State == ExplorerRobotState.Exploring)
-            {
-                robot.State = ExplorerRobotState.Returning;
-                return;
-            }
+            robot.Auto = auto;
+            if (!auto) return;
 
-            Depart(robot);
+            robot.ManualTarget = null;
+            if (robot.State == ExplorerRobotState.Idle) Depart(robot);
         }
 
-        /// <summary>What the button on the robot panel should say. Here rather than in the panel: the label is a fact about the state, and two screens must not be able to disagree about it.</summary>
-        public static string ActionLabel(ExplorerRobotState state)
-            => state == ExplorerRobotState.Exploring ? "Rentrer" : "Exploration";
+        /// <summary>
+        /// A right-click while Auto is off. Turns Auto off unconditionally - so right-clicking a
+        /// robot that is still wandering is exactly the gesture that takes it out of Auto and hands
+        /// it its first manual destination in one click - and sends it straight at
+        /// <paramref name="target"/>, even over undiscovered ground: picking a cell never consults
+        /// what has been revealed (MAP.md).
+        ///
+        /// An idle robot at the base departs the same way <see cref="SetAuto"/> would; one already
+        /// out (wandering or heading home) is simply redirected, since a manual command answers to
+        /// the player immediately rather than waiting for whatever it was doing to finish.
+        /// </summary>
+        public void SetManualTarget(ExplorerRobotRuntime robot, Vector2 target)
+        {
+            if (robot == null || !RobotsHaveAppeared) return;
+
+            robot.Auto = false;
+            robot.ManualTarget = target;
+
+            if (robot.State == ExplorerRobotState.Idle) Depart(robot);
+            else robot.State = ExplorerRobotState.Exploring;
+        }
+
+        /// <summary>
+        /// The Retour button: heads straight home regardless of Auto, and takes the robot out of Auto
+        /// on the way - a recall is as explicit a manual command as a right-click, and leaving Auto on
+        /// would invite it to wander off again the instant it reappears at the base with nothing else
+        /// telling it otherwise.
+        /// </summary>
+        public void Recall(ExplorerRobotRuntime robot)
+        {
+            if (robot == null || !RobotsHaveAppeared) return;
+
+            robot.Auto = false;
+            robot.ManualTarget = null;
+            robot.State = ExplorerRobotState.Returning;
+        }
 
         void Depart(ExplorerRobotRuntime robot)
         {
@@ -239,8 +282,22 @@ namespace Game.Gameplay.Exploration
                 switch (robot.State)
                 {
                     case ExplorerRobotState.Exploring:
-                        Wander(robot, step, deltaSeconds);
-                        _log?.RecordDistance(step);
+                        if (robot.Auto)
+                        {
+                            Wander(robot, step, deltaSeconds);
+                            _log?.RecordDistance(step);
+                        }
+                        else if (robot.ManualTarget.HasValue)
+                        {
+                            // Same reveal-as-you-go rule as both autonomous legs (MAP.md): a manual
+                            // trip earns exactly like a wandering one, it just does not meander.
+                            bool reachedTarget = robot.StepTowards(robot.ManualTarget.Value, step);
+                            RevealIfMoved(robot);
+                            _log?.RecordDistance(step);
+                            if (reachedTarget) robot.ManualTarget = null;
+                        }
+                        // Auto off and no target: holding position, exactly where SetAuto(false) or
+                        // an arrival left it, until the next right-click or Recall.
                         break;
 
                     case ExplorerRobotState.Returning:
@@ -568,15 +625,17 @@ namespace Game.Gameplay.Exploration
 
         /// <summary>
         /// Position, heading and state, plus the two things that make a restored robot carry on
-        /// rather than restart: where its drift had got to, and how many times it has been out.
-        /// There is no destination to save, because there is none to have.
+        /// rather than restart: where its drift had got to, and how many times it has been out. Also
+        /// whether it is in Auto and, if a manual trip was in flight, exactly where it was headed -
+        /// additive fields, no <c>Version</c> bump (SAUVEGARDE.md): a save from before manual control
+        /// existed has neither key and restores as Auto, which is exactly how it always behaved.
         /// </summary>
         public JObject CaptureState()
         {
             var robots = new JArray();
             foreach (ExplorerRobotRuntime robot in _robots)
             {
-                robots.Add(new JObject
+                var entry = new JObject
                 {
                     ["x"] = robot.Position.x,
                     ["y"] = robot.Position.y,
@@ -584,6 +643,7 @@ namespace Game.Gameplay.Exploration
                     ["state"] = (int)robot.State,
                     ["phase"] = robot.DriftPhase,
                     ["sorties"] = robot.SortieCount,
+                    ["auto"] = robot.Auto,
 
                     // The load and the progress towards the next card. CardsDrawnEver is what the
                     // next threshold is drawn from, so without it a reload re-rolls the threshold the
@@ -593,7 +653,15 @@ namespace Game.Gameplay.Exploration
                     ["cardCells"] = robot.NewCellsSinceLastCard,
                     ["cardsEver"] = robot.CardsDrawnEver,
                     ["alerted"] = robot.StockAlertRaised
-                });
+                };
+
+                if (robot.ManualTarget.HasValue)
+                {
+                    entry["targetX"] = robot.ManualTarget.Value.x;
+                    entry["targetY"] = robot.ManualTarget.Value.y;
+                }
+
+                robots.Add(entry);
             }
 
             return new JObject
@@ -620,6 +688,8 @@ namespace Game.Gameplay.Exploration
                 robot.State = ExplorerRobotState.Idle;
                 robot.DriftPhase = 0f;
                 robot.SortieCount = 0;
+                robot.Auto = true;
+                robot.ManualTarget = null;
                 robot.Cards = 0;
                 robot.NewCellsSinceLastCard = 0f;
                 robot.CardsDrawnEver = 0;
@@ -647,6 +717,13 @@ namespace Game.Gameplay.Exploration
                 robot.State = (ExplorerRobotState)(json.Value<int?>("state") ?? 0);
                 robot.DriftPhase = json.Value<float?>("phase") ?? 0f;
                 robot.SortieCount = json.Value<int?>("sorties") ?? 0;
+
+                // Absent means a save from before manual control existed, which restores as Auto -
+                // exactly how every robot behaved before this key could exist at all.
+                robot.Auto = json.Value<bool?>("auto") ?? true;
+                robot.ManualTarget = json.ContainsKey("targetX") && json.ContainsKey("targetY")
+                    ? new Vector2(json.Value<float>("targetX"), json.Value<float>("targetY"))
+                    : (Vector2?)null;
 
                 // Absent keys restore as an empty robot that has never earned - the truthful default
                 // for a save written before cards existed.

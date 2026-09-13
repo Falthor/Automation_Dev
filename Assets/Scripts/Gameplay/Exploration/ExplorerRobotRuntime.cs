@@ -12,9 +12,10 @@ namespace Game.Gameplay.Exploration
     /// along its own heading and nothing else.
     ///
     /// <b>The heading is simulation, not presentation</b> - unlike the builder drone, whose facing
-    /// the view derives from its move target. Here it is the only thing that says where the robot
-    /// will be next: there is no destination to point at, so the heading is the state, and it is
-    /// saved.
+    /// the view derives from its move target. While wandering there is no destination to point at,
+    /// so the heading is the state, and it is saved. A manually-commanded robot is the one
+    /// exception - see <see cref="ManualTarget"/> - and even there the heading is still read off
+    /// <see cref="StepTowards"/> every tick rather than stored as a separate "facing".
     /// </summary>
     public sealed class ExplorerRobotRuntime
     {
@@ -30,6 +31,22 @@ namespace Game.Gameplay.Exploration
         public float HeadingDegrees { get; set; }
 
         public ExplorerRobotState State { get; set; } = ExplorerRobotState.Idle;
+
+        /// <summary>
+        /// Whether this robot wanders on its own (<see cref="ExplorerRobotSystem.Steer"/>) or waits
+        /// for the player to place it with a right-click. True by default - a save from before manual
+        /// control existed restores exactly as it always behaved. The single write path is
+        /// <see cref="ExplorerRobotSystem.SetAuto"/>; nothing else may set it (MAP.md, DEVELOPMENT_RULES §1).
+        /// </summary>
+        public bool Auto { get; set; } = true;
+
+        /// <summary>
+        /// Where a right-click sent this robot while Auto was off, or null. The one destination this
+        /// type ever carries - <see cref="StepTowards"/> converges on it every tick until it arrives,
+        /// then it is cleared and the robot holds position awaiting the next command. Saved, so a
+        /// manual trip survives a reload instead of silently reverting to wandering.
+        /// </summary>
+        public Vector2? ManualTarget { get; set; }
 
         /// <summary>
         /// Where the drift's noise has got to, in cycles. Saved with everything else: it is what
