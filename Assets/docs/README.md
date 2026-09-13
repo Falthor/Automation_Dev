@@ -33,6 +33,7 @@ modification du projet et l'emporte sur le reste.
 | L'interface : sélection, Échap, raccourcis, barres et panneaux | [`UI.md`](architecture/UI.md) |
 | La sauvegarde : mécanisme, version, liste des clés | [`SAUVEGARDE.md`](architecture/SAUVEGARDE.md) |
 | Produire un build, et les outils d'éditeur du projet | [`BUILD.md`](BUILD.md) |
+| Ce qu'une revue a trouvé et n'a pas tranché sur le coup | [`PENDING_DECISIONS.md`](PENDING_DECISIONS.md) |
 
 Chaque champ de sauvegarde est décrit par le document du système qui le produit ;
 [`SAUVEGARDE.md`](architecture/SAUVEGARDE.md) ne tient que le mécanisme et la liste des clés.

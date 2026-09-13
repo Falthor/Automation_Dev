@@ -16,6 +16,7 @@ Rules applicable to every modification of the Unity project, by human developers
 - Grid runtime is authoritative; Tilemap is not.
 - Logical footprint is independent from visual bounds.
 - MonoBehaviour is not the default location for simulation logic.
+- **A global binary toggle (pause, cursor lock, and anything shaped like them) has exactly one point of write**, on the model `EscapeArbiter` already sets for the Escape key. `Time.timeScale` had three direct writers before this was named as a rule - the pause button, the fleet-arrival message, the menu's load flow - none aware of the others, so dismissing whichever showed second could silently discard the other's pause. Route reads and writes through one owner (`GameRuntime.SetPaused`, for pause) instead of letting a second system reach for the same global state directly.
 
 ## 2. Migration behavior
 
@@ -111,6 +112,37 @@ into permanent architecture documents.
 
 **A document names the source, it does not copy the value.** "The Core's furthest reach, derived from the research effects" rather than "80 today"; `ComputeSystem.ReserveCap` rather than 70 000. Code can derive a figure from where it lives; a document has nothing to derive with, so the only defence is not to quote the number at all. A value written in two places is a value that will eventually disagree with itself — measured four times here: the CU reserve cap, the building cap (36 in the code and 40 six sections further down the same document), the builder robots' speed, and the robots' own range quoted four times in a document that opens by calling it "one figure".
 
+**A comment or cross-reference names the document, never its section number.** A section is the part
+that moves first at the next reorganisation, and a numbered reference goes stale silently - found
+dangling more than once: a "§7" cited for a deposit registry that section never discussed, after the
+document it pointed at had already been renumbered under it.
+
+**A comment enumerating a closed list of implementers or callers has an expiry date: the next one
+added.** Found stale twice, in two different files: a "Foundry/Factory/AdvancedFoundry" list missing a
+`ConstructorRuntime` added later. Adding an instance does not by nature touch the comments that
+enumerate its siblings. Name the mechanism or the contract instead of the list, wherever the choice is
+free.
+
+**A comment claiming a consumer relationship is a factual claim, checked against the real caller, not
+against the design intent at the time of writing.** Found stale twice: a method "exposed so Presentation
+can rebuild..." that Presentation never called, and a method documented as "the drag gesture's one
+effect on the model" after the real drag handler had moved to two other methods entirely.
+
+**An orphaned duplicate `<summary>` tag is worth its own sweep, not just a careful read.** A refactor
+that moves or deletes a commented member can strand its comment above the next one, which already has
+its own. Found across the whole codebase, including files well outside the batch being read at the
+time - a bare `///` line immediately followed by a second `<summary>` opening is the pattern, searched
+in multiline mode across the whole tree rather than trusted to a visual pass or an earlier "clean"
+sub-sweep.
+
+**A finding reported during a review but not resolved on the spot goes into `PENDING_DECISIONS.md`, in
+the same commit that reports it - never only into the commit message.** A commit message is not
+searched before closing a chantier: four such findings sat unresolved across separate batches of one
+review and were only recovered by reading the commit history by hand afterwards. The file holds only
+what is currently open; an entry leaves the moment it is decided, in either direction. Before declaring
+a review or chantier closed, the file must be empty or every remaining line must carry a stated reason
+for being carried forward rather than decided now.
+
 Architecturally significant decisions should have an ADR when the decision is important enough to constrain future implementation.
 
 **A carnet is working memory, not an archive.** An entry earns its place for exactly as long as its conclusion is nowhere else; once absorbed into a permanent document it becomes a duplicate, and the duplicate ages worse than the original because nobody rereads it when the original changes. **Rereading a carnet at the end of a chantier is part of the chantier.** What survives that reread is what no permanent document can hold:
@@ -144,7 +176,8 @@ After implementation:
 4. update permanent documentation if the architecture/contracts changed;
 5. report modified/created/deleted files;
 6. report tests and results;
-7. report out-of-scope observations.
+7. report out-of-scope observations;
+8. add anything left undecided to `PENDING_DECISIONS.md`, in this same change - not only in the report.
 
 Every non-trivial report should carry:
 
