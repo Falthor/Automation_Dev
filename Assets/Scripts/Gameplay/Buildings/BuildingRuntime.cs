@@ -149,7 +149,7 @@ namespace Game.Gameplay.Buildings
         /// <summary>
         /// Interval (seconds) between this building's own generic push/pull attempts
         /// (TransportSystem's generic step, distinct from Extractor/Conveyor's own bespoke
-        /// ticking). 1 second by default, matching the source project's push_interval.
+        /// ticking). 1 second by default.
         /// </summary>
         public virtual float PushIntervalSeconds => 1f;
 

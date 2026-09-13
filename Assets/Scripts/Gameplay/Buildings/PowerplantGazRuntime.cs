@@ -11,7 +11,7 @@ namespace Game.Gameplay.Buildings
     /// actually supplies Power while it holds Coal_ore, consumed 1 unit every
     /// FuelCycleTimeSeconds. No fuel -> 0 Power supplied and the burn timer holds at 0, but the
     /// building stays built/selectable. Its own self-power draw is unconditional regardless of
-    /// fuel state - matching the source project's powerplant_gaz.gd exactly.
+    /// fuel state.
     /// </summary>
     public sealed class PowerplantGazRuntime : BuildingRuntime
     {

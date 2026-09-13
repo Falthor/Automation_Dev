@@ -70,8 +70,7 @@ namespace Game.Gameplay.Buildings
             bool bufferFull = _bufferedAmount >= InternalStorageCapacity;
 
             // Power is drawn only while it can actually output - a full buffer (e.g. no conveyor
-            // attached) stops drawing power for work it isn't doing, matching the source
-            // project's extractor.gd exactly.
+            // attached) stops drawing power for work it isn't doing.
             float performance = ComputeEffectivePerformance(_definition.PowerDemandKw, powerActive: !bufferFull, _powerSystem);
 
             if (bufferFull) return; // full: output blocked (e.g. no conveyor attached) - stop producing entirely.

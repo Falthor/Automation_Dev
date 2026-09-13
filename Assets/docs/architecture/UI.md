@@ -38,6 +38,12 @@ all, and every per-building panel keys off the building slot with an `as` cast, 
 would have needed each of them to learn to ignore it. It is also not a grid occupant, so unlike the
 other two there is no cell to mark - a robot is found by distance from the click.
 
+**A global panel may also name one building, without taking the building slot.**
+`SetGlobalPanelSubject`/`GlobalPanelSubject` let a global panel that is about one specific place -
+the Storage panel inspecting one box among the aggregate - give the world something to mark,
+without competing with the building slot's own exclusivity. Cleared with the panel: a freshly
+opened one names no subject until it says otherwise.
+
 `GameRuntime.IsUIBlockingInput` is true while any of the four is set. **Routing a world click to a
 panel is one map**, owned by whichever component resolves clicks and reused rather than copied. Only
 building types that actually have a panel may become the selection: selecting one that has none would

@@ -7,10 +7,10 @@ namespace Game.Gameplay.Notifications
     /// Generic notification queue: a bandeau on the left edge
     /// of the screen informs the player of an event they did not directly cause. Deliberately
     /// generic from the start - a robot unable to unload its cargo is the first caller, not the
-    /// reason this exists; the building cap, a construction site missing materials, and later an
-    /// expedition return or a nest discovery all post through the same Post(...) call. A
-    /// notification never blocks interaction - it is display-only state, never consulted by any
-    /// gameplay decision.
+    /// reason this exists; a construction site stuck on a missing material and an explorer
+    /// robot's full cargo hold post through the same Post(...) call today, and nothing about it
+    /// is specific to any one of the three. A notification never blocks interaction - it is
+    /// display-only state, never consulted by any gameplay decision.
     /// </summary>
     public sealed class NotificationSystem
     {
