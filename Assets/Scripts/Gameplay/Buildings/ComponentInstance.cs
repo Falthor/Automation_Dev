@@ -7,9 +7,10 @@ namespace Game.Gameplay.Buildings
     /// component needs independent state, so this is a plain mutable instance, never a shared
     /// ScriptableObject (DATACENTER.md).
     ///
-    /// Wear (100 = new, 0 = dead) now drives both Stability and the fluctuation floor instead of
-    /// living beside a fixed 80% constant, and decays continuously at a rate that itself
-    /// accelerates as Wear drops - a component gets visibly shaky before it dies, instead of
+    /// Wear (100 = new, 0 = dead) now drives Stability, the fluctuation floor and the performance
+    /// ceiling instead of living beside a fixed 80% constant, and decays continuously at a rate
+    /// that itself accelerates as Wear drops - a component gets visibly shaky before it dies, and
+    /// a worn one can no longer reach what a fresh one does even on a good roll, instead of
     /// staying silently perfect until it suddenly isn't. The nominal lifetime a fresh component
     /// draws is dispersed ±25% via a seeded generator (DataCenterRuntime owns the System.Random,
     /// for the project's own determinism rule - same seed and parameters, same result) so
@@ -48,6 +49,9 @@ namespace Game.Gameplay.Buildings
         /// is always 1.0.
         /// </summary>
         public float FluctuationFloor => 0.70f - 0.40f * (1f - Wear / 100f);
+
+        /// <summary>Full potential until 60% wear, then declining: a worn part can no longer reach what a fresh one does, even on a good roll. Ceiling for both branches of RecalculatePerformance's roll.</summary>
+        public float PerformanceCeiling => Wear >= 60f ? 1f : 1f - 0.20f * ((60f - Wear) / 55f);
 
         /// <summary>0..1 multiplier actually applied to BaseCu. Starts at 1 until the first recalculation, DataCenterRuntime.StabilityInterval after installation.</summary>
         public float EffectivePerformance { get; private set; } = 1f;
@@ -112,10 +116,10 @@ namespace Game.Gameplay.Buildings
             return 100f * k;
         }
 
-        /// <summary>One stability roll: Stability% chance of 100% performance, otherwise a fluctuation uniformly between FluctuationFloor and 100%. Never touches BaseCu.</summary>
+        /// <summary>One stability roll: Stability% chance of PerformanceCeiling, otherwise a fluctuation uniformly between FluctuationFloor and PerformanceCeiling. Never touches BaseCu.</summary>
         public void RecalculatePerformance()
         {
-            EffectivePerformance = UnityEngine.Random.value < Stability / 100f ? 1f : UnityEngine.Random.Range(FluctuationFloor, 1.0f);
+            EffectivePerformance = UnityEngine.Random.value < Stability / 100f ? PerformanceCeiling : UnityEngine.Random.Range(FluctuationFloor, PerformanceCeiling);
         }
 
         /// <summary>

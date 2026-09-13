@@ -17,14 +17,17 @@ the code, the code is right and this document is wrong.
 | **Stability** | a **probability**, never a multiplier | `95% − 65%·(1 − wear/100)` |
 | **A part's yield** | the multiplier actually applied to its base CU | drawn every `StabilityInterval` |
 
-The draw, every `StabilityInterval`: **Stability %** chance of exactly `1.00`, otherwise a uniform draw
-between the **fluctuation floor** and `1.00`, that floor being `0.70 − 0.40·(1 − wear/100)`.
+The draw, every `StabilityInterval`: **Stability %** chance of the **performance ceiling**, otherwise a
+uniform draw between the **fluctuation floor** and that same ceiling. The floor is
+`0.70 − 0.40·(1 − wear/100)`. The ceiling is **1.00 down to 60 % wear**, then declines:
+`1.00 − 0.20·((60 − wear)/55)` below that - a worn part can no longer reach what a fresh one does, even
+on a good roll. Below 60 % wear both branches of the draw are therefore capped under 1.00.
 
-| Wear | Stability | Floor | Mean yield |
-|---|---|---|---|
-| 100 (new) | 95 % | 0.70 | **0.993** |
-| 25 (default threshold) | 46 % | 0.40 | **0.839** |
-| 5 (calibration floor) | 33 % | 0.32 | **0.773** |
+| Wear | Stability | Floor | Ceiling | Mean yield |
+|---|---|---|---|---|
+| 100 (new) | 95 % | 0.70 | 1.00 | **0.993** |
+| 25 (default threshold) | 46 % | 0.40 | 0.873 | **0.746** |
+| 5 (calibration floor) | 33 % | 0.32 | 0.80 | **0.640** |
 
 It is the **width of that range** the panel draws, not the stability as a number: a worn part visibly
 jumps from one draw to the next, which reads before any percentage does. The interval came down from

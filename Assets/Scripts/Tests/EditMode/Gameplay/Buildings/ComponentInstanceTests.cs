@@ -233,6 +233,40 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         }
 
         [Test]
+        public void PerformanceCeiling_StaysAt1_DownTo60PercentWear_ThenDeclinesTo0Point80AtWear5()
+        {
+            ItemDatabase db = NewCpuDatabase(1000f, 2f);
+            var component = NewComponent(db);
+
+            Assert.AreEqual(1f, component.PerformanceCeiling, "Wear=100 (neuf): plafond intact.");
+
+            while (component.Wear > 60f) component.DecayWear(0.01f);
+            Assert.AreEqual(1f, component.PerformanceCeiling, 0.01f, "Wear=60: encore le plein potentiel.");
+
+            while (component.Wear > 5f) component.DecayWear(0.01f);
+            Assert.AreEqual(0.80f, component.PerformanceCeiling, 0.01f, "Wear=5: 1 - 0.20*((60-5)/55) = 0.80.");
+        }
+
+        /// <summary>A worn part must never roll above its own declining ceiling, on EITHER branch of the draw - not just the fluctuation branch.</summary>
+        [Test]
+        public void RecalculatePerformance_NeverExceedsTheDecliningCeiling_OnceWornPastSixtyPercent()
+        {
+            ItemDatabase db = NewCpuDatabase(1000f, 2f);
+            var component = NewComponent(db);
+            while (component.Wear > 30f) component.DecayWear(0.01f);
+
+            float ceiling = component.PerformanceCeiling;
+            Assert.Less(ceiling, 1f, "Sanity check: this test is meaningless if the ceiling hasn't actually dropped.");
+
+            for (int i = 0; i < 50; i++)
+            {
+                component.RecalculatePerformance();
+                Assert.LessOrEqual(component.EffectivePerformance, ceiling);
+                Assert.GreaterOrEqual(component.EffectivePerformance, component.FluctuationFloor);
+            }
+        }
+
+        [Test]
         public void RestoreConstructor_SetsLifetimeAndBaseLossVerbatim_WithoutDrawing()
         {
             ItemDatabase db = NewCpuDatabase(1000f, 2f);
