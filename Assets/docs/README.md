@@ -20,7 +20,7 @@ modification du projet et l'emporte sur le reste.
 | Sujet | Document |
 |---|---|
 | Comment le projet est structuré : assemblages, principes, ordre de tri, amorçage | [`PROJECT_ARCHITECTURE.md`](architecture/PROJECT_ARCHITECTURE.md) |
-| La carte : découpage, découverte, brouillard, secteurs, épaves, robots explorateurs | [`MAP.md`](architecture/MAP.md) |
+| La carte : la grille (occupation, conversion), découpage, découverte, brouillard, secteurs, gisements, épaves, robots explorateurs | [`MAP.md`](architecture/MAP.md) |
 | Le terrain, le sol, les biomes, le décor | [`TERRAIN.md`](architecture/TERRAIN.md) |
 | L'assemblage nano d'un bâtiment et la conversion du sol sous lui | [`MATERIALISATION.md`](architecture/MATERIALISATION.md) |
 | Le déplacement des objets : surfaces, géométrie, débit, tapis, splitters | [`TRANSPORT.md`](architecture/TRANSPORT.md) |

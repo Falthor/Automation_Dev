@@ -1,14 +1,35 @@
 # Map
 
 Authoritative subsystem document for the map as a whole: how it is divided, how it is discovered, how
-the undiscovered part is drawn, and how sectors — the internal unit content and identity hang off —
-derive theirs.
+the undiscovered part is drawn, how sectors — the internal unit content and identity hang off —
+derive theirs, and the grid substrate all of that sits on: cell occupancy and what a deposit is
+(`Game.Grid`'s `GridRuntime`/`DepositRuntime`).
 
 It does **not** cover what a cell's terrain *is* or how the ground *looks*: that is
 [`TERRAIN.md`](TERRAIN.md). The boundary is simple — `TERRAIN.md` owns `TerrainRuntime` and the ground
-shader, this document owns everything that divides, reveals or hides the map.
+shader, this document owns everything that divides, reveals or hides the map, plus the grid it is
+drawn on.
 
-## 1. Size and division
+## 1. The grid
+
+`GridRuntime` (`Game.Grid`) is the authoritative occupancy registry and the only place cell and world
+coordinates convert into each other. It stores an opaque `object` handle per cell rather than a
+Gameplay type, because `Game.Grid` must not depend on `Game.Gameplay` — a building, a deposit or a
+construction site are all just "the occupant" to it.
+
+**Two footprint shapes.** A rectangular footprint (`SetOccupantFootprint(origin, sizeInCells, ...)`)
+covers every cell of a size from its bottom-left corner; a masked footprint
+(`SetOccupantFootprint(origin, cells, ...)`) covers an explicit list of relative offsets — a
+splitter's cross-shaped footprint is the reason the masked form exists at all.
+`IsAreaFree(origin, cells, ignoring)` is the one a building being relocated calls: without it, moving
+a building one cell to the left would see its own current footprint as an obstacle and refuse every
+destination that overlaps where it already stands.
+
+**Conversion is corner by default.** `CellToWorld` returns a cell's bottom-left corner; the grid-line
+overlay wants that, so `CellCenterToWorld` and `FootprintCenterToWorld` exist separately for callers
+that want the middle instead. `WorldToCell` floors, matching `CellToWorld` exactly at the corner.
+
+## 2. Size and division
 
 The map is square and its size lives on `TerrainGenerationSettings.size`
 (`Assets/Data/Terrain/DefaultTerrain.asset`, currently **10 000**; the C# default of 60 is never what
@@ -32,7 +53,7 @@ guard, because Unity does not run `OnValidate` while a value is being typed.
 size and the sector size separately. Neither `SectorGrid` nor `SectorCatalog` has a default for its
 sizes: a default would be a second copy of a setting, so a caller that forgets one fails to compile.
 
-## 2. Discovery
+## 3. Discovery
 
 `DiscoveryRuntime` (`Game.Grid`) holds one `DiscoveryState` per cell and is authoritative.
 
@@ -69,14 +90,14 @@ nothing of that kind exists yet, so today the distinction is carried entirely by
 
 **Who observes** is `GameRuntime.RebuildObservers`, and adding a third kind is one line there and
 nothing anywhere else: the Core at its live action radius, and every explorer robot that is out at the
-radius it uncovers with (§2.1). A robot's observation radius is *derived* from its reveal radius — what
+radius it uncovers with (§3.1). A robot's observation radius is *derived* from its reveal radius — what
 it sees is what it uncovers, and two numbers would drift apart.
 
 **Per cell, not per region.** A revelation of any shape writes the cells it covers. The reverse would
 not hold: a per-region state would forbid every free-form revelation.
 
 **The radius writes, it does not define.** The Core's action radius is one writer among others — a
-wandering explorer robot is the other (§2.1) — and a discovered cell stays discovered whatever the
+wandering explorer robot is the other (§3.1) — and a discovered cell stays discovered whatever the
 radius later does.
 `DiscoveryRuntime` knows nothing about the Core: it takes a centre and a radius, not a building, so no
 read path can recompute a distance and collapse the fog back into a disc. `GameRuntime` is the writer,
@@ -104,7 +125,7 @@ Restore is tolerant: a null, an empty string or a malformed run leaves the rest 
 rather than throwing, and a run past the end of the map is ignored. A save predating the field loads
 as an undiscovered map, and the Core's radius writes its own disc back on the first tick.
 
-### 2.1 Free exploration
+### 3.1 Free exploration
 
 `ExplorerRobotSystem` (`Game.Gameplay.Exploration`), owned by `GameRuntime` and ticked from its one
 central `Update`. **A prototype**, and the values on `ExplorerRobotSettings`
@@ -156,9 +177,14 @@ before moving any of the three.
   wrong, and visibly so: **the outward leg meanders while the return is a straight line**, so the
   return cuts across the gaps between the meanders and the robot was seen travelling through pure
   black. Ground under a robot is ground it can see, and both legs now go through one call site.
-- **It also *observes* as it goes** (§2), at the same radius, so a moving robot drags a disc of live
+- **It also *observes* as it goes** (§3), at the same radius, so a moving robot drags a disc of live
   ground behind the veil and leaves it veiled again as it passes. An idle robot at the base is skipped,
   its disc being inside the Core's anyway.
+- **A deposit is a world entity, not a building** (`DepositRuntime`, `Game.Grid`) — it does not extend
+  `BuildingRuntime`, and it never runs out: it holds no quantity and has nothing to save, immutable
+  from the moment it is placed. What pushes the player to expand is throughput, not scarcity — a
+  cluster offers four extractor slots, and producing more means reaching other clusters. The engine of
+  expansion is the production ceiling, never depletion.
 - **It is what makes derived deposits real.** A sector's contents only become deposits when something
   reports on it, and the robots are the only caller: when the robot crosses into a new sector it
   materialises the 3×3 block around it — the block, because a 12-cell reveal disc straddles up to four
@@ -186,7 +212,7 @@ Measured on the shipped values: over a 240 s sortie the path strays well off the
 two ends (so it is not a ruler), and over 120 s it ends more than half its path length from the base
 (so it is not circling). `ExplorerRobotSystemTests` holds both, and prints the figures.
 
-## 3. Drawing the fog
+## 4. Drawing the fog
 
 `FogOfWarView` + `Custom/FogOfWar` draw one quad over a **window that follows the camera**, sampling a
 one-texel-per-cell **RG16** texture in `FilterMode.Bilinear`: **R is what has ever been discovered, G
@@ -240,7 +266,7 @@ compared against a threshold.
 
 The fog sits above every band in the draw-order ladder.
 
-## 4. Sectors
+## 5. Sectors
 
 A sector is the internal unit a derived set of contents hangs off, and the unit
 `SectorMaterialisation` writes in. **Nothing is aimed at one, no screen names one, and the player
@@ -287,7 +313,7 @@ cannot place it is refused, like one missing a starting cluster. A sector is ski
 part of it* falls inside the radius rather than having its cells clipped — a clipped cluster would be
 two tiles against a wall, which is worse than none.
 
-`SectorMaterialisation` (§2.1) is what reads all of it.
+`SectorMaterialisation` (§3.1) is what reads all of it.
 
 **A sector's only other property is its geometry**, and that is arithmetic: `SectorGrid` answers
 which square a cell falls in, where that square starts, where its middle is, and which cells it
@@ -296,9 +322,9 @@ partition has no part in it.
 
 **How far the world extends is one figure**, and it belongs to the robots:
 `ExplorerRobotSettings.maxRadiusCells`, which is where a wandering robot is turned back
-(§2.1) and what the map draws as its outer ring (§5). It is named here and never quoted.
+(§3.1) and what the map draws as its outer ring (§6). It is named here and never quoted.
 
-## 4a. Wrecks
+## 5a. Wrecks
 
 **Eight places in the disc around the Core, derived and never stored.** `WreckField`
 (`Game.Gameplay.Wrecks`) computes them once at construction from `TerrainRuntime.Seed` — the seed a
@@ -334,7 +360,7 @@ could otherwise let a robot walk over an undiscovered wreck or spot one through 
 distance checks, no allocation, and nothing at all once they are all found.
 
 **A found wreck stays drawn outside observation**, like a deposit and for the same reason: it is its
-own object rather than a cell, and it does not change. It also appears on the zoomed-out map (§5), as
+own object rather than a cell, and it does not change. It also appears on the zoomed-out map (§6), as
 a fixed-size square — never a disc, which is a robot.
 
 **Only the discovered set is stored** (`SaveData.WrecksDiscovered`, comma-separated indices).
@@ -342,13 +368,13 @@ Position and type are pure functions of the seed. Restore is tolerant: an absent
 nobody has found anything in, and an index the current rings no longer produce is ignored rather than
 throwing.
 
-## 5. The zoomed-out map's terrain
+## 6. The zoomed-out map's terrain
 
 `SectorMapImage` (`Game.Presentation`) draws the revealed ground the map screen is built on: **one tile
 per discovered chunk, one texel per cell, and nothing anywhere else.**
 
 **The chunk is the unit because it is the unit everywhere else.** Discovery storage already creates a
-chunk on first write and reads an absent one as unknown (§2); this does the same with pixels. A tile is
+chunk on first write and reads an absent one as unknown (§3); this does the same with pixels. A tile is
 64×64 cells — 16 KB — so the introduction's four chunks around the Core cost 64 KB, and fifty chunks of
 a well-explored run cost 800 KB.
 
@@ -384,7 +410,7 @@ what a base looks like from above is its shape and its transport network, not it
   and nothing can be built or demolished while the map covers the screen.
 
 **The ore is drawn per discovered cell, and discovery is the question - not materialisation.** A
-deposit exists from the moment its sector materialises, and §2.1 materialises the whole 3x3 block of
+deposit exists from the moment its sector materialises, and §3.1 materialises the whole 3x3 block of
 sectors around a robot on purpose: a 12-cell reveal disc straddles four 16-cell sectors, and
 materialising only the one underneath would leave ore missing from ground the robot plainly uncovered.
 So a materialised deposit is routinely 30 cells from anything anybody has seen. `RenderDeposits`
@@ -414,16 +440,16 @@ so there is no slop and no click/drag arbitration either. The side pane and the 
 the designation they served; one line under the map says how many robots are out and what they carry,
 because that is what decides whether to go and find one.
 
-## 6. What is not built yet
+## 7. What is not built yet
 
 - ~~Lazy terrain generation.~~ **Done, and differently than planned.** Terrain is no longer
   materialised at all: `GetTerrainType` computes its answer from the seed and the coordinate, so there
   is nothing to generate lazily.
 - ~~The map screen.~~ **Built, then cut back to what it is for** — `SectorMapElement` and
   `SectorMapPanelController` (`Game.UI`): revealed terrain, the base, the Core and its radius, the outer
-  ring and the robots. It designates nothing (§5).
-- ~~Sector content materialisation.~~ **Done**, and driven by the robots (§2.1).
-- **Nests and units.** Nothing exists yet, which is why the third discovery state (§2) is carried
+  ring and the robots. It designates nothing (§6).
+- ~~Sector content materialisation.~~ **Done**, and driven by the robots (§3.1).
+- **Nests and units.** Nothing exists yet, which is why the third discovery state (§3) is carried
   entirely by the veil today: terrain, vegetation and deposits are the only things drawn out of
   observation, and all three are static.
 - **A secondary Core.** [`../design/expansion-territoriale.md`](../design/expansion-territoriale.md)
