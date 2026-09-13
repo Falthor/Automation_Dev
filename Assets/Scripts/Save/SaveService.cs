@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 namespace Game.Save
@@ -103,12 +104,67 @@ namespace Game.Save
         }
 
         /// <summary>
-        /// Returns null if that save does not exist, fails to read/parse, or carries a Version that
-        /// is not <see cref="SaveData.CurrentVersion"/> - callers must handle null rather than
-        /// assume a save is always present and valid. A Version mismatch is refused outright rather
-        /// than tolerated with defaults filled in (SAUVEGARDE.md): silently
-        /// loading a structurally different save just postpones the incompatibility to wherever it
-        /// happens to surface next, in a form far harder to diagnose than a clear refusal here.
+        /// One in-place JObject rewrite per historical Version bump, keyed by the Version it
+        /// migrates FROM. <see cref="Load"/> applies them in sequence until the blob reaches
+        /// <see cref="SaveData.CurrentVersion"/>, each step touching only the keys that version's
+        /// format change actually altered - everything else in the blob (every unlock, every
+        /// building, every list) passes through untouched. A Version with no entry here still
+        /// cannot be loaded (SAUVEGARDE.md).
+        /// </summary>
+        static readonly Dictionary<int, Action<JObject>> Migrations = new Dictionary<int, Action<JObject>>
+        {
+            // Version 3 -> 4: the single Compute reserve split into Building Compute and Research
+            // Compute. Building Compute inherits the old reserve's value verbatim (it inherits every
+            // role the single reserve had); Research Compute starts at 0, which is exactly what a
+            // save written before it existed means - nothing had produced any yet.
+            [3] = raw =>
+            {
+                raw["BuildingComputeReserve"] = raw["ComputeReserve"] ?? 0f;
+                raw["ResearchComputeReserve"] = 0f;
+                raw.Remove("ComputeReserve");
+            },
+        };
+
+        /// <summary>
+        /// Migrates a raw save blob up to <see cref="SaveData.CurrentVersion"/> in place, applying
+        /// each bridging step from <see cref="Migrations"/> in sequence starting at whatever
+        /// <c>Version</c> the blob currently carries. Returns false, leaving <c>raw</c> only
+        /// partially migrated, the moment a <c>Version</c> along the way (including the starting one)
+        /// has no entry in <see cref="Migrations"/> - <see cref="Load"/> treats that as a refusal. A
+        /// <c>Version</c> newer than <c>CurrentVersion</c> also returns false without touching
+        /// anything: there is no such thing as downgrading a save.
+        ///
+        /// Pulled out of <see cref="Load"/> so it can be exercised directly on a hand-built
+        /// <see cref="JObject"/> - SaveServiceTests must never touch the real save path (SAUVEGARDE.md),
+        /// and this is the part actually worth pinning: that every untouched key (every unlock, every
+        /// building, every list already earned) survives a migration byte for byte.
+        /// </summary>
+        public static bool TryMigrateToCurrentVersion(JObject raw)
+        {
+            int version = raw.Value<int?>("Version") ?? 0;
+            if (version > SaveData.CurrentVersion) return false;
+
+            while (version < SaveData.CurrentVersion)
+            {
+                if (!Migrations.TryGetValue(version, out Action<JObject> migrate)) return false;
+
+                migrate(raw);
+                version++;
+                raw["Version"] = version;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Returns null if that save does not exist, fails to read/parse, carries a Version newer
+        /// than <see cref="SaveData.CurrentVersion"/>, or carries an older Version with no migration
+        /// path to it in <see cref="Migrations"/> - callers must handle null rather than assume a
+        /// save is always present and valid. An unbridgeable Version is refused outright rather than
+        /// tolerated with defaults filled in (SAUVEGARDE.md): silently loading a structurally
+        /// different save just postpones the incompatibility to wherever it happens to surface next,
+        /// in a form far harder to diagnose than a clear refusal here. A bridgeable one is migrated
+        /// in memory only - the file on disk stays at its old Version until the player saves again.
         /// </summary>
         public static SaveData Load(string name)
         {
@@ -117,13 +173,19 @@ namespace Game.Save
 
             try
             {
-                SaveData data = JsonConvert.DeserializeObject<SaveData>(File.ReadAllText(path));
-                if (data != null && data.Version != SaveData.CurrentVersion)
+                JObject raw = JObject.Parse(File.ReadAllText(path));
+                int originalVersion = raw.Value<int?>("Version") ?? 0;
+
+                if (!TryMigrateToCurrentVersion(raw))
                 {
-                    Debug.LogError($"SaveService.Load refused '{name}': save Version {data.Version} does not match the current format (expected {SaveData.CurrentVersion}). This save predates an incompatible change and cannot be loaded.");
+                    if (originalVersion > SaveData.CurrentVersion)
+                        Debug.LogError($"SaveService.Load refused '{name}': save Version {originalVersion} is newer than the current format (expected {SaveData.CurrentVersion}). This save was written by a newer build and cannot be loaded.");
+                    else
+                        Debug.LogError($"SaveService.Load refused '{name}': save Version {originalVersion} does not match the current format (expected {SaveData.CurrentVersion}) and there is no migration path to it. This save predates an incompatible change and cannot be loaded.");
                     return null;
                 }
-                return data;
+
+                return raw.ToObject<SaveData>();
             }
             catch (Exception e)
             {

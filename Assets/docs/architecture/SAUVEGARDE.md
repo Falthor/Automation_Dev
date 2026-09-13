@@ -29,15 +29,28 @@ neither read nor deleted - left where it is rather than migrated under a guessed
 
 ## 2. The version gate
 
-`SaveService.Load` refuses a save whose `Version` does not equal `SaveData.CurrentVersion`, returning
-`null` exactly like a read/parse failure - it does not attempt to load an old-format save with
-defaults filled in.
+`SaveService.Load` reads the file as a raw `JObject` first, not straight into `SaveData`, so it can
+inspect `Version` before committing to a shape. A `Version` newer than `SaveData.CurrentVersion` (a
+save written by a newer build) is refused outright, returning `null` exactly like a read/parse
+failure - there is no such thing as downgrading a save.
+
+An older `Version` is **migrated, not refused, when a bridge exists.** `SaveService.Migrations` holds
+one in-place `JObject` rewrite per historical bump, keyed by the `Version` it migrates *from*. `Load`
+applies them in sequence - each step touching only the keys that version's format change actually
+altered, so every unlock, every building, every list the player earned before the change survives
+untouched - until the blob reaches `CurrentVersion`, then deserialises it. A `Version` with no entry
+in `Migrations` is refused exactly as before: silently loading a structurally different save with
+defaults filled in just postpones the incompatibility to wherever it happens to surface next, in a
+form far harder to diagnose than a clear refusal here. The migration is applied **in memory only** -
+the file on disk stays at its old `Version` until the player saves again, which naturally rewrites it
+at `CurrentVersion`.
 
 **A missing key is not a version change.** A per-building blob missing an individual key falls back
 gracefully, and a new top-level field that restores sensibly from absent is **additive**: it gets a
 per-field fallback and does *not* bump `CurrentVersion`. Bumping would refuse every existing save in
 order to add a field that reads perfectly well as null. `Version` is the coarser, all-or-nothing gate,
-for a change too structural for a fallback.
+for a change too structural for a fallback - and even then, a migration is preferred over a refusal
+whenever the old data can be mapped forward without guessing.
 
 ## 3. The file is written by the JSON library alone
 
@@ -102,7 +115,7 @@ The exhaustive list, which is what `SaveFormatTests` holds:
 | `DecorRemoved` | `TERRAIN.md` |
 | `WrecksDiscovered` | `MAP.md` |
 | `ExplorerRobots` | `MAP.md` |
-| `ComputeReserve` | `CALCUL.md` |
+| `BuildingComputeReserve`, `ResearchComputeReserve` | `CALCUL.md` |
 | `ResearchActiveId`, `ResearchProgress`, `ResearchQueue`, `ResearchUnlocked` | `RECHERCHE.md` |
 | `ConstructionSites` | `CONSTRUCTION.md` |
 | `CoreDirectives` | `RECHERCHE.md` |

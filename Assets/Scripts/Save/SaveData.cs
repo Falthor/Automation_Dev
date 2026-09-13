@@ -23,11 +23,12 @@ namespace Game.Save
         /// <summary>
         /// Bumped whenever a change to this format (or to what a per-building CaptureState blob
         /// is expected to contain) would make an older save meaningfully different to interpret -
-        /// SAUVEGARDE.md: SaveService.Load refuses a save whose Version
-        /// doesn't match this exactly, rather than attempting to load it with defaults filled in.
-        /// A per-building blob missing an individual key still falls back gracefully
-        /// (SAUVEGARDE.md) - Version is a coarser, all-or-nothing gate for changes too structural for that,
-        /// like this task's Data Center Capture/Restore reshaping and Research's RP-to-CU switch.
+        /// SAUVEGARDE.md: SaveService.Load refuses a save whose Version doesn't match this exactly,
+        /// unless SaveService.Migrations names an explicit step to bridge it - either way, it never
+        /// attempts to load a mismatched save with defaults filled in. A per-building blob missing
+        /// an individual key still falls back gracefully (SAUVEGARDE.md) - Version is a coarser,
+        /// all-or-nothing gate for changes too structural for that, like this task's Data Center
+        /// Capture/Restore reshaping and Research's RP-to-CU switch.
         /// </summary>
         public const int CurrentVersion = 4;
 
