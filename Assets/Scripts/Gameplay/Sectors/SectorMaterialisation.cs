@@ -111,9 +111,6 @@ namespace Game.Gameplay.Sectors
             return Vector2.Distance(_coreCentreCells, new Vector2(nearestX, nearestY)) < _exclusionRadiusCells;
         }
 
-        /// <summary>How many sectors were left alone for sitting inside the Core's reach. For tests and reporting.</summary>
-        public int SkippedForCoreGroundCount { get; private set; }
-
         /// <summary>
         /// Writes a sector's derived deposits into the grid, and answers how many it placed.
         ///
@@ -129,11 +126,7 @@ namespace Game.Gameplay.Sectors
             SectorContents contents = _catalog.ContentsOf(sectorIndex);
             if (contents.DepositCells.Length == 0) return 0;
 
-            if (ReachesIntoTheCoresGround(sectorIndex))
-            {
-                SkippedForCoreGroundCount++;
-                return 0;
-            }
+            if (ReachesIntoTheCoresGround(sectorIndex)) return 0;
 
             OreDepositDefinition definition = ResourceFor(contents.ResourceIndex);
             if (definition == null) return 0;

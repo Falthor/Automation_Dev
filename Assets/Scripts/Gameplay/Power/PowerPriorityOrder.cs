@@ -58,21 +58,6 @@ namespace Game.Gameplay.Power
         }
 
         /// <summary>
-        /// Moves one type to an index, sliding the rest along - the drag gesture's one effect on
-        /// the model. An unknown type is added rather than refused: the caller is a pointer, and it
-        /// has nowhere to report to.
-        /// </summary>
-        public void MoveTo(string typeId, int index)
-        {
-            if (string.IsNullOrEmpty(typeId)) return;
-
-            _order.Remove(typeId);
-            if (index < 0) index = 0;
-            if (index > _order.Count) index = _order.Count;
-            _order.Insert(index, typeId);
-        }
-
-        /// <summary>
         /// Places a type immediately before another - what a drag means when the screen does not
         /// show every type.
         ///
