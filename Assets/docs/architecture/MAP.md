@@ -319,10 +319,15 @@ nothing.**
 
 **A cluster is one contiguous patch, not a handful of scattered cells.** It is *grown* rather than
 stamped — a cell already in the patch is picked, a direction is drawn, and the neighbour joins if it
-is free and still inside the sector — so no two look alike and every cell touches another. The seed
-cell can be anywhere in the square, corners included, which is what makes coming back over the same
-neighbourhood at a different angle worth something. The growth respects the sector's real extent, so
-edge sectors are clipped where the map does not divide evenly.
+is free and still inside the sector — so no two look alike and every cell touches another. Each step
+moves a whole `SectorCatalog.DepositFootprintCells` (a deposit's own footprint — every shipped
+`OreDepositDefinition` is 2x2), not one cell, so two deposits' real footprints never overlap; ten
+touching tiles therefore reads as ten side-by-side 2x2 plots, not ten deposits jammed into a space
+meant for two or three. The seed cell can be anywhere in the square, corners included, which is what
+makes coming back over the same neighbourhood at a different angle worth something. The growth
+respects the sector's real extent, so edge sectors are clipped where the map does not divide evenly,
+and a cluster near a sector's edge can end smaller than its band promises rather than being pushed
+back inside it.
 
 **Its size grows with distance from the Core** (`OreClusterProfile`): six to ten tiles just outside
 the Core's furthest reach, ten to fifteen at the limit a robot wanders to, interpolated

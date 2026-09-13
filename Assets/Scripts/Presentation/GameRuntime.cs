@@ -585,14 +585,19 @@ namespace Game.Presentation
             // function of Terrain.Seed. Nothing here is restored from the save, and nothing here needs
             // to be - the seed is, and everything else follows from it.
             Sectors = new SectorGrid(Terrain.Size, sectorSettings.SectorSizeCells);
-            // Assembled here because this is the one place that holds all three: the sector
-            // settings' cluster figures, the Core's furthest reach, and how far a robot wanders.
+            // Assembled here because this is the one place that holds all four: the sector
+            // settings' cluster figures, the Core's furthest reach, how far a robot wanders, and a
+            // deposit's own footprint (every OreDepositDefinition ships 2x2 - read off Iron's rather
+            // than duplicated as a setting, since the catalog only needs the spacing, not the type).
             // Each figure stays owned by its own system - nothing is copied.
             SectorCatalog = new SectorCatalog(Sectors, Terrain.Seed,
                 World?.CoreCenterCells ?? Vector2.zero,
                 sectorSettings.ClusterProfile(
                     FurthestActionRadiusCells,
-                    explorerRobotSettings != null ? explorerRobotSettings.MaxRadiusCells : FurthestActionRadiusCells * 10f));
+                    explorerRobotSettings != null ? explorerRobotSettings.MaxRadiusCells : FurthestActionRadiusCells * 10f),
+                worldGenerationSettings != null && worldGenerationSettings.IronOreDefinition != null
+                    ? worldGenerationSettings.IronOreDefinition.FootprintSize
+                    : Vector2Int.one);
 
             SectorMap = new SectorMapImage(Sectors, Discovery);
 

@@ -82,7 +82,10 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
                 World = new WorldGenerator()
             };
 
-            fixture.Catalog = new SectorCatalog(fixture.Sectors, Seed, CoreCentre, Profile);
+            // Vector2Int.one matches NewOre's own footprint default (BuildingDefinition's 1x1) - this
+            // class exercises the materialise/registration mechanism, not cluster geometry, which is
+            // SectorCatalogTests' job and where the shipped 2x2 spacing is pinned.
+            fixture.Catalog = new SectorCatalog(fixture.Sectors, Seed, CoreCentre, Profile, Vector2Int.one);
             // No exclusion in the fixture: its sectors sit at index 1000+ on a 10 000 map and its
             // WorldGenerator has no Core, so a radius here would carve a hole at the origin and
             // measure nothing. The exclusion has its own tests below.
@@ -229,7 +232,7 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
             Fixture a = NewFixture();
 
             var otherGrid = new SectorGrid(MapSize, SectorSize);
-            var other = new SectorCatalog(otherGrid, Seed + 1, CoreCentre, Profile);
+            var other = new SectorCatalog(otherGrid, Seed + 1, CoreCentre, Profile, Vector2Int.one);
 
             int same = 0;
             for (int index = 1000; index < 1100; index++)
@@ -464,7 +467,7 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
             var ores = new[] { NewOre("iron"), NewOre("copper"), NewOre("coal") };
             var world = new WorldGenerator();
             var centre = new Vector2(MapSize / 2f, MapSize / 2f);
-            var catalog = new SectorCatalog(sectors, Seed, centre, Profile);
+            var catalog = new SectorCatalog(sectors, Seed, centre, Profile, Vector2Int.one);
 
             const float outerLimit = 60f;
             var materialisation = new SectorMaterialisation(sectors, cells, catalog, ores, world, centre, 0f, outerLimit);
@@ -486,7 +489,7 @@ namespace Game.Tests.EditMode.Gameplay.Sectors
             var ores = new[] { NewOre("iron"), NewOre("copper"), NewOre("coal") };
             var world = new WorldGenerator();
             var centre = new Vector2(MapSize / 2f, MapSize / 2f);
-            var catalog = new SectorCatalog(sectors, Seed, centre, Profile);
+            var catalog = new SectorCatalog(sectors, Seed, centre, Profile, Vector2Int.one);
 
             const float outerLimit = 300f;
             var materialisation = new SectorMaterialisation(sectors, cells, catalog, ores, world, centre, 0f, outerLimit);

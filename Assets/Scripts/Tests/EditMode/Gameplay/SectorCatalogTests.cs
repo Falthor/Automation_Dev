@@ -36,11 +36,14 @@ namespace Game.Tests.EditMode.Gameplay
         /// <summary>The middle of the fixture map, where a generated world puts its Core.</summary>
         static readonly Vector2 CoreCentre = new Vector2(MapSize / 2f, MapSize / 2f);
 
+        /// <summary>Every shipped OreDepositDefinition's own footprint - restated rather than read from an asset, same reasoning as the cluster figures above.</summary>
+        static readonly Vector2Int DepositFootprint = new Vector2Int(2, 2);
+
         static OreClusterProfile Profile => new OreClusterProfile(
             OneSectorIn, NearMinTiles, NearMaxTiles, FarMinTiles, FarMaxTiles, NearRadius, FarRadius);
 
         static SectorCatalog NewCatalog(int seed = Seed)
-            => new SectorCatalog(new SectorGrid(MapSize, SectorSize), seed, CoreCentre, Profile);
+            => new SectorCatalog(new SectorGrid(MapSize, SectorSize), seed, CoreCentre, Profile, DepositFootprint);
 
         /// <summary>
         /// Reveals the disc inscribed in a sector. A fixture convenience for asking "would a robot
@@ -174,11 +177,13 @@ namespace Game.Tests.EditMode.Gameplay
 
                 foreach (GridCoord cell in cells)
                 {
+                    // Adjacent at the deposit's own footprint, not at one cell - GrowCluster steps a
+                    // whole DepositFootprintCells so no two deposits' real footprints overlap.
                     bool touches =
-                        patch.Contains(new GridCoord(cell.X + 1, cell.Y)) ||
-                        patch.Contains(new GridCoord(cell.X - 1, cell.Y)) ||
-                        patch.Contains(new GridCoord(cell.X, cell.Y + 1)) ||
-                        patch.Contains(new GridCoord(cell.X, cell.Y - 1));
+                        patch.Contains(new GridCoord(cell.X + DepositFootprint.x, cell.Y)) ||
+                        patch.Contains(new GridCoord(cell.X - DepositFootprint.x, cell.Y)) ||
+                        patch.Contains(new GridCoord(cell.X, cell.Y + DepositFootprint.y)) ||
+                        patch.Contains(new GridCoord(cell.X, cell.Y - DepositFootprint.y));
 
                     Assert.IsTrue(touches, $"sector {index} has a deposit at {cell} with no neighbour - that is litter, not a cluster");
                 }
@@ -240,7 +245,7 @@ namespace Game.Tests.EditMode.Gameplay
 
             var grid = new SectorGrid(ShippedMapSize, SectorSize);
             var centre = new Vector2(ShippedMapSize / 2f, ShippedMapSize / 2f);
-            var catalog = new SectorCatalog(grid, Seed, centre, Profile);
+            var catalog = new SectorCatalog(grid, Seed, centre, Profile, DepositFootprint);
 
             int nearCount = 0, nearTiles = 0;
             int farCount = 0, farTiles = 0;
@@ -376,6 +381,12 @@ namespace Game.Tests.EditMode.Gameplay
         /// <summary>
         /// One sector's deposits, cell by cell. The counts above would survive a change to the
         /// scatter that moved every deposit; this would not.
+        ///
+        /// <b>Rewritten a third time, deliberately</b>: GrowCluster's walk now steps a whole
+        /// DepositFootprintCells instead of one cell, so two deposits' real 2x2 footprints never
+        /// overlap - the actual bug report was a "ten-tile" cluster on screen reading as a handful of
+        /// deposits jammed into each other. Same nine cells, same growth order, every offset now 2
+        /// apart instead of 1 (SectorCatalog.DepositFootprintCells's own doc).
         /// </summary>
         [Test]
         public void OneSectorsDepositCells_AreFrozenExactly()
@@ -387,15 +398,15 @@ namespace Game.Tests.EditMode.Gameplay
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    new GridCoord(101, 4),
-                    new GridCoord(101, 5),
-                    new GridCoord(102, 5),
-                    new GridCoord(100, 4),
-                    new GridCoord(101, 6),
-                    new GridCoord(102, 4),
-                    new GridCoord(100, 5),
-                    new GridCoord(99, 4),
-                    new GridCoord(102, 3)
+                    new GridCoord(100, 6),
+                    new GridCoord(100, 8),
+                    new GridCoord(102, 8),
+                    new GridCoord(98, 6),
+                    new GridCoord(100, 10),
+                    new GridCoord(102, 6),
+                    new GridCoord(98, 8),
+                    new GridCoord(96, 6),
+                    new GridCoord(102, 4)
                 },
                 deposits);
         }

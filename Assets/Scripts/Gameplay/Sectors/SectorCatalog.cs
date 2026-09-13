@@ -52,16 +52,32 @@ namespace Game.Gameplay.Sectors
         public Vector2 CoreCentreCells { get; }
 
         /// <summary>
-        /// The seed, the Core's centre and the cluster profile are required and have no defaults, for
-        /// the reason SectorGrid has none for its sector size: a default here would be a second copy
-        /// of a setting, free to disagree with the asset.
+        /// How many cells apart two grown deposits must stand - an ore deposit's own footprint (every
+        /// OreDepositDefinition ships 2x2 today), never 1x1. <see cref="GrowCluster"/> used to step
+        /// its random walk one cell at a time, which packed deposit origins edge to edge: each one's
+        /// real footprint then overlapped its neighbour's, and SectorMaterialisation silently dropped
+        /// every cell that landed on ground an earlier deposit's footprint had already claimed - a
+        /// "ten-tile" cluster read as a handful of deposits jammed into each other. Handed in rather
+        /// than read off an OreDepositDefinition here, for the same reason the cluster profile is: the
+        /// catalog names no resource (SectorContents.ResourceIndex's own doc), and every shipped
+        /// definition agreeing on 2x2 is a fact about the assets, not a reason for this type to know
+        /// what one looks like.
         /// </summary>
-        public SectorCatalog(SectorGrid grid, int seed, Vector2 coreCentreCells, OreClusterProfile clusters)
+        public Vector2Int DepositFootprintCells { get; }
+
+        /// <summary>
+        /// The seed, the Core's centre, the cluster profile and the deposit footprint are required and
+        /// have no defaults, for the reason SectorGrid has none for its sector size: a default here
+        /// would be a second copy of a setting, free to disagree with the asset.
+        /// </summary>
+        public SectorCatalog(SectorGrid grid, int seed, Vector2 coreCentreCells, OreClusterProfile clusters,
+            Vector2Int depositFootprintCells)
         {
             Grid = grid;
             Seed = seed;
             CoreCentreCells = coreCentreCells;
             Clusters = clusters;
+            DepositFootprintCells = new Vector2Int(Mathf.Max(1, depositFootprintCells.x), Mathf.Max(1, depositFootprintCells.y));
         }
 
         /// <summary>
@@ -115,10 +131,14 @@ namespace Game.Gameplay.Sectors
         /// is a find.
         ///
         /// Grown rather than stamped, so no two look alike: a cell already in the patch is picked, a
-        /// direction is drawn, and the neighbour joins if it is free and still inside the sector. The
-        /// attempt budget bounds it - a seed in a corner runs out of room in two directions and the
-        /// patch simply ends smaller, which is truthful about the sector's edge rather than pushed
-        /// back inside it.
+        /// direction is drawn, and the neighbour joins if it is free and still inside the sector. Each
+        /// step moves a whole <see cref="DepositFootprintCells"/>, not one cell - two deposit origins
+        /// packed any closer would have their real footprints overlap, which is exactly the bug this
+        /// spacing exists to avoid (see the field's own doc). "Touching" therefore means adjacent at
+        /// that spacing: a ten-deposit patch reads as a field of ten side-by-side 2x2 plots, not ten
+        /// deposits stacked on ~three. The attempt budget bounds it - a seed in a corner runs out of
+        /// room in two directions and the patch simply ends smaller, which is truthful about the
+        /// sector's edge rather than pushed back inside it.
         ///
         /// Deterministic throughout: every draw is a <see cref="DeterministicHash"/> of the seed, the
         /// sector and the step, so the same sector grows the same patch in every session and after
@@ -135,17 +155,24 @@ namespace Game.Gameplay.Sectors
 
             int wanted = floor + (int)(Hash(Seed, index, ClusterSizeSalt) % (uint)(ceiling - floor + 1));
 
+            int stepX = DepositFootprintCells.x;
+            int stepY = DepositFootprintCells.y;
+
             // The whole square, corners included - a patch that straddles the inscribed disc is what
-            // makes coming back over the same ground at another angle worth something.
+            // makes coming back over the same ground at another angle worth something. Confined so a
+            // full footprint from the seed itself still lands inside the sector, the same margin the
+            // walk below keeps for every cell it adds.
+            int seedRangeX = Mathf.Max(1, width - stepX + 1);
+            int seedRangeY = Mathf.Max(1, height - stepY + 1);
             uint seedDraw = Hash(Seed, index, DepositSalt);
             var cells = new GridCoord[wanted];
             cells[0] = new GridCoord(
-                origin.X + (int)(seedDraw % (uint)width),
-                origin.Y + (int)(seedDraw / 65536u % (uint)height));
+                origin.X + (int)(seedDraw % (uint)seedRangeX),
+                origin.Y + (int)(seedDraw / 65536u % (uint)seedRangeY));
 
             int count = 1;
-            int maxX = origin.X + width;
-            int maxY = origin.Y + height;
+            int maxX = origin.X + width - stepX + 1;
+            int maxY = origin.Y + height - stepY + 1;
 
             for (int attempt = 0; count < wanted && attempt < wanted * 8; attempt++)
             {
@@ -155,8 +182,8 @@ namespace Game.Gameplay.Sectors
                 int direction = (int)(draw / 4096u % 4u);
 
                 var candidate = new GridCoord(
-                    from.X + (direction == 0 ? 1 : direction == 1 ? -1 : 0),
-                    from.Y + (direction == 2 ? 1 : direction == 3 ? -1 : 0));
+                    from.X + (direction == 0 ? stepX : direction == 1 ? -stepX : 0),
+                    from.Y + (direction == 2 ? stepY : direction == 3 ? -stepY : 0));
 
                 if (candidate.X < origin.X || candidate.X >= maxX) continue;
                 if (candidate.Y < origin.Y || candidate.Y >= maxY) continue;
