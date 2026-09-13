@@ -169,10 +169,12 @@ second time.
 (`ConstructionService.HasUnlockedOutOfRadiusConstruction`, a flag that never goes back like
 `HasDataCenter`), a cell counts as in range if it is within the Core's radius **or** within any
 currently-active `CommunicationRelayRuntime`'s own radius - each checked whole-footprint-at-once
-against its own single circle, never a per-cell mix of two sources. Outside every one of them, only two
-things may still be placed: a straight/corner conveyor, and the Communication Relay itself - and only
-on ground that is **already discovered**. Discovery is otherwise never consulted by placement anywhere
-else in the game; this is the one exception, and it exists only out here.
+against its own single circle, never a per-cell mix of two sources. Outside every one of them, only
+what a relay needs to reach and be reached may still be placed: a straight/corner conveyor, a pole, the
+network cable and its junction, and the Communication Relay itself (`ConstructionService.
+IsEligibleOutsideRadius`) - and only on ground that is **already discovered**. Discovery is otherwise
+never consulted by placement anywhere else in the game; this is the one exception, and it exists only
+out here.
 
 **A Communication Relay projects its own radius while active, and only then.** "Active"
 (`CommunicationRelayRuntime.IsActive`) is all-or-nothing like every other power consumer
@@ -185,6 +187,16 @@ see CALCUL.md's own exception for why.
 A conveyor run outside every radius has no length limit of its own: what pulls a base outward and
 forces the player to reach for a relay is ore placement itself, not a limit on the belt carrying it
 there - MAP.md.
+
+**A relay reveals its own disc the moment it comes into being, whatever its power state.** Discovery
+is a one-way fact about ground the player just committed to, not a thing that comes and goes with
+`IsActive` the way the buildable zone does - `ConstructionService.CreateOccupant` calls
+`DiscoveryRuntime.RevealDisc` right where the `CommunicationRelayRuntime` is created, the same single
+factory a live placement and a restored save both go through, so a reload never has to redo it
+(`Reveal` is a no-op past the first call, and `SaveData.Discovered` already carries it). The same
+mechanism the Core's own radius uses to write into discovery (`GameRuntime.RevealDiscoveredByCore`),
+just triggered once at creation instead of re-checked every tick, since a relay's own radius never
+grows the way the Core's does with research.
 
 ## 9. Chantiers: reservation, segments, order
 

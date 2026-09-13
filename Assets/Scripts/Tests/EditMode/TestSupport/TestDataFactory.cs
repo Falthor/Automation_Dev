@@ -227,6 +227,16 @@ namespace Game.Tests.EditMode.TestSupport
 
         public static PoleDefinition NewPoleDefinition() => ScriptableObject.CreateInstance<PoleDefinition>();
 
+        /// <summary>A showcase building carrying a specific Id - the network cable and junction are both plain ShowcaseDefinition instances told apart only by it (ConstructionService.IsEligibleOutsideRadius).</summary>
+        public static ShowcaseDefinition NewShowcaseDefinition(string id)
+        {
+            var showcase = ScriptableObject.CreateInstance<ShowcaseDefinition>();
+            var so = new SerializedObject(showcase);
+            so.FindProperty("id").stringValue = id;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return showcase;
+        }
+
         public static PoleNetworkSettings NewPoleNetworkSettings(int powerRangeCells = 2, int connectionRangeCells = 8, float sagPerCellDistance = 0.035f, float cableAttachmentHeightCells = 1.3f)
         {
             var settings = ScriptableObject.CreateInstance<PoleNetworkSettings>();

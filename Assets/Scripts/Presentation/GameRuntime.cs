@@ -755,6 +755,7 @@ namespace Game.Presentation
             // here; fixed alongside it rather than left for later, since both are one-line.
             Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, BuildingCompute, ResearchCompute, Power, Research, Transport, World?.Core, ConstructionSites, Discovery, PoleNetwork);
             Construction.RestoreBuildingCap(save.BuildingCap);
+            Construction.RestoreHasUnlockedOutOfRadiusConstruction(save.ResearchUnlocked);
             PowerPriority.RestoreState(save.PowerPriority, PowerGroupIds());
             Clock.Restore(save.PlayTimeSeconds);
 

@@ -97,6 +97,17 @@ namespace Game.Presentation
         Direction? _pendingCornerEntry;
 
         /// <summary>
+        /// A pole's own drag: free-direction rather than axis-locked (a pole has no facing to
+        /// preview differently on the diagonal), and a new pole appears only once the cursor has
+        /// pulled ConnectionRangeCells away from the last one placed - see AdvancePoleDrag. Kept
+        /// apart from _isDragPlacing/_dragAxis, which are the conveyor/cable axis-lock's own state
+        /// and stay unused here: each pole placed this way is still its own chantier, not a run
+        /// (IsDraggableRun deliberately excludes PoleDefinition).
+        /// </summary>
+        bool _isPoleDragPlacing;
+        GridCoord _lastPlacedPoleCell;
+
+        /// <summary>
         /// The single construction site every cell of the current conveyor/splitter drag is
         /// appended to - a whole gesture is one chantier, not one per segment
         /// (CONSTRUCTION.md), so a fifty-belt line is seven robot waves rather
@@ -514,20 +525,70 @@ namespace Game.Presentation
                 _lastPlacedCell = cell;
                 _dragAxis = null;
                 _pendingCornerEntry = entryDirection;
+
+                _isPoleDragPlacing = gameRuntime.Construction.Selected is PoleDefinition;
+                _lastPlacedPoleCell = cell;
             }
             else if (_isDragPlacing && mouse.leftButton.isPressed)
             {
                 HandleAxisDropRequest(cell);
                 AdvanceLockedAxisDrag(cell);
             }
+            else if (_isPoleDragPlacing && mouse.leftButton.isPressed)
+            {
+                AdvancePoleDrag(cell);
+            }
 
             if (mouse.leftButton.wasReleasedThisFrame)
             {
+                // Always closes the chain at the release point, even short of a full range - see
+                // AdvancePoleDrag's own doc for why a fresh click already covers the "no drag at
+                // all" case (cell == _lastPlacedPoleCell there, so nothing doubles up).
+                if (_isPoleDragPlacing && cell != _lastPlacedPoleCell)
+                {
+                    PlaceAt(cell, ResolveAutoRotation(gameRuntime.Construction.Selected, cell));
+                }
+
                 _isDragPlacing = false;
+                _isPoleDragPlacing = false;
                 _dragAxis = null;
                 _pendingCornerEntry = null;
                 _activeConveyorSite = null;
             }
+        }
+
+        /// <summary>
+        /// Places a pole every time the cursor pulls ConnectionRangeCells (Chebyshev, matching
+        /// PoleNetworkSystem's own connection test) away from the last one placed, walking the
+        /// straight line toward the cursor rather than a locked axis - a pole has nothing that
+        /// would look wrong on a diagonal, unlike a conveyor's belt art. Steps more than once in a
+        /// single frame for a fast/long drag, each new pole becoming the anchor the next step
+        /// measures from - the free-direction equivalent of AdvanceLockedAxisDrag's own guard loop.
+        /// </summary>
+        void AdvancePoleDrag(GridCoord cell)
+        {
+            int range = gameRuntime.PoleNetwork != null ? gameRuntime.PoleNetwork.ConnectionRangeCells : 0;
+            if (range <= 0) return;
+
+            int guard = 0;
+            while (ChebyshevDistance(_lastPlacedPoleCell, cell) >= range && guard++ < 4096)
+            {
+                GridCoord next = StepTowards(_lastPlacedPoleCell, cell, range);
+                PlaceAt(next, ResolveAutoRotation(gameRuntime.Construction.Selected, next));
+                _lastPlacedPoleCell = next;
+            }
+        }
+
+        static int ChebyshevDistance(GridCoord a, GridCoord b) => Mathf.Max(Mathf.Abs(a.X - b.X), Mathf.Abs(a.Y - b.Y));
+
+        /// <summary>The cell exactly `range` cells (Chebyshev) from `from`, along the straight line toward `to`.</summary>
+        static GridCoord StepTowards(GridCoord from, GridCoord to, int range)
+        {
+            int dx = to.X - from.X;
+            int dy = to.Y - from.Y;
+            int chebyshev = Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy));
+            float t = (float)range / chebyshev;
+            return new GridCoord(from.X + Mathf.RoundToInt(dx * t), from.Y + Mathf.RoundToInt(dy * t));
         }
 
         /// <summary>

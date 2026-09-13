@@ -148,6 +148,20 @@ every network's `ConnectionRangeCells`, without a second "am I in range" indicat
 the real rule. `PoleRangeView` (below) follows the same ghost for the power field, so placing a pole
 shows both reaches - who it would connect to, and who it would power - before it costs anything.
 
+**Dragging a Pole lays a chain spaced exactly `ConnectionRangeCells` apart, in whatever direction the
+cursor takes.** `ConstructionInputAdapter.AdvancePoleDrag` is deliberately not the conveyor/cable's
+axis-locked drag: a pole has no facing to preview differently on the diagonal, so the next one is
+placed the moment the cursor's straight-line (Chebyshev) distance from the last one reaches the
+network's own connection range, at the point exactly that far along the line toward the cursor - free
+to run in any of the eight directions or anywhere between, not snapped to one. A drag that covers
+several range-lengths in one frame steps through all of them, each new pole becoming the anchor the
+next step measures from. Releasing always drops one final pole at the cursor's cell if it has not
+already landed exactly on one, closing the chain even short of a full range rather than leaving a gap
+the player has to click separately. Each pole placed this way is still its own chantier, never merged
+into one the way a dragged conveyor run is (`CONSTRUCTION.md` §9) - `IsDraggableRun` deliberately
+excludes `PoleDefinition`, since a pole is a discrete piece placed repeatedly by the gesture, not a
+line of segments belonging to each other.
+
 **Rendering is a pure function of the network, rebuilt only on a topology change.**
 `PoleNetworkVisualSync` (`Game.Presentation`) draws each cable as a handful of short rotated sprite
 segments sampling a quadratic Bezier between the two poles' attachment points

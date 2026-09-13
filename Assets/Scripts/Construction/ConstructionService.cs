@@ -179,6 +179,38 @@ namespace Game.Construction
         public void RestoreBuildingCap(int? cap) => BuildingCap = cap ?? DefaultBuildingCap;
 
         /// <summary>
+        /// Re-derives HasUnlockedOutOfRadiusConstruction from a restored save's unlocked research.
+        ///
+        /// <b>Unlike BuildingCap, there is nothing to restore it from directly.</b>
+        /// ResearchSystem.RestoreState drops every completed id straight into its unlocked set
+        /// without raising ResearchCompleted - only a completion reached during the current session
+        /// does that - so this flag stayed false forever after any reload: the tech tree correctly
+        /// showed "Hors de portée" finished, yet nothing outside the Core's radius (or a relay's)
+        /// could ever be placed again once the game had been saved and loaded once. Re-derived
+        /// rather than persisted alongside it for the same reason BuildingCap is not: it has no
+        /// other source, so recomputing it from the research that grants it can never disagree with
+        /// the save.
+        /// </summary>
+        public void RestoreHasUnlockedOutOfRadiusConstruction(IEnumerable<string> unlockedResearchIds)
+        {
+            if (unlockedResearchIds == null) return;
+
+            foreach (string id in unlockedResearchIds)
+            {
+                ResearchDefinition research = _researchSystem.Definition(id);
+                if (research == null) continue;
+
+                var effects = research.Effects;
+                for (int i = 0; i < effects.Count; i++)
+                {
+                    if (effects[i].Kind != ResearchEffectKind.UnlockOutOfRadiusConstruction) continue;
+                    HasUnlockedOutOfRadiusConstruction = true;
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
         /// The building currently being moved, or null. While this is set, the ghost and every
         /// placement gate run exactly as they do for a new building - the difference is only what
         /// the click does at the end (TryRelocate rather than TryPlace) and that this building's own
@@ -647,6 +679,17 @@ namespace Game.Construction
                 var relay = new CommunicationRelayRuntime(communicationRelayDefinition, cell, rotation, _buildingCompute, _powerSystem);
                 _grid.SetOccupantFootprint(cell, communicationRelayDefinition.FootprintSize, relay);
                 _communicationRelays.Add(relay);
+
+                // Discovered the moment it stands, not only once it is powered: what the relay lets
+                // the player build on is gated by IsActive (CommunicationRelayRuntime's own doc), but
+                // what it reveals is a one-way fact about ground the player just committed to, same
+                // as the Core's own reveal (GameRuntime.RevealDiscoveredByCore) - and this factory
+                // runs for both a live placement and a restored save, so a reload never has to redo
+                // it (Reveal is a no-op past the first call; SaveData.Discovered already carries it).
+                Vector2Int relaySize = communicationRelayDefinition.FootprintSize;
+                var relayCentre = new Vector2(cell.X + relaySize.x * 0.5f, cell.Y + relaySize.y * 0.5f);
+                _discovery?.RevealDisc(relayCentre, communicationRelayDefinition.ActionRadiusCells);
+
                 return relay;
             }
 
@@ -923,12 +966,24 @@ namespace Game.Construction
             return true;
         }
 
-        /// <summary>Whether this definition may be placed outside every action radius at all - unlocked, and a straight/corner conveyor or the relay itself (CONSTRUCTION.md).</summary>
+        /// <summary>
+        /// Whether this definition may be placed outside every action radius at all - unlocked, and
+        /// one of the buildings that carries power or items to a relay's own patch rather than
+        /// something that needs a relay already covering it: the relay itself, a conveyor, a pole,
+        /// or the network cable/junction (CONSTRUCTION.md). The last two are ShowcaseDefinition
+        /// instances - there is no NetworkCableDefinition/NetworkJunctionDefinition type to match on,
+        /// so they are named by Definition.Id instead, the same way CoreStorageDefinitionId already
+        /// picks one showcase-shaped asset out of the rest.
+        /// </summary>
         bool IsEligibleOutsideRadius(BuildingDefinition definition)
         {
             if (!HasUnlockedOutOfRadiusConstruction) return false;
-            return definition is CommunicationRelayDefinition || definition is ConveyorDefinition;
+            if (definition is CommunicationRelayDefinition || definition is ConveyorDefinition || definition is PoleDefinition) return true;
+            return definition.Id == NetworkCableDefinitionId || definition.Id == NetworkJunctionDefinitionId;
         }
+
+        const string NetworkCableDefinitionId = "network_cable";
+        const string NetworkJunctionDefinitionId = "network_junction";
 
         /// <summary>Whether every cell of the footprint has already been revealed - the one placement gate that reads discovery at all, and only for ground outside every radius (CONSTRUCTION.md). No restriction without a DiscoveryRuntime, same convention as a missing Core.</summary>
         bool IsFullyDiscovered(GridCoord origin, Vector2Int[] cells)
