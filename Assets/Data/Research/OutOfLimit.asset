@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: OutOfLimit
   displayName: "Hors de port\xE9e"
-  description: 
+  description: Permet de construire en dehors du rayon d'action du noyau
   icon: {fileID: 0}
   cuCost: 2000
   computeSource: 0
@@ -28,3 +28,4 @@ MonoBehaviour:
   absorptionRatePerSecond: 40
   tier: 1.5
   angle: 20.7
+  enlargedDisplay: 0

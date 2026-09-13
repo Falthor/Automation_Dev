@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: com_relay
   displayName: Relais communication
-  description: 
+  description: "D\xE9bloque le batiment relais de communication"
   icon: {fileID: 0}
   cuCost: 10000
   computeSource: 0
@@ -28,3 +28,4 @@ MonoBehaviour:
   absorptionRatePerSecond: 40
   tier: 1.4
   angle: 40.2
+  enlargedDisplay: 0

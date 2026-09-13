@@ -856,14 +856,14 @@
 
 .research-subtitle {
     color: rgb(139, 147, 161);
-    font-size: 11px;
+    font-size: 8px;
     margin-left: 10px;
     -unity-text-align: middle-left;
 }
 
 .research-reserve-label {
     color: rgb(200, 210, 218);
-    font-size: 11px;
+    font-size: 8px;
     margin-left: auto;
     margin-right: 10px;
 }
@@ -892,7 +892,7 @@
     position: absolute;
     right: 10px;
     bottom: 8px;
-    font-size: 9px;
+    font-size: 7px;
     color: rgb(78, 85, 99);
 }
 
@@ -900,7 +900,7 @@
     position: absolute;
     right: 8px;
     top: 8px;
-    font-size: 10px;
+    font-size: 8px;
     padding: 4px 8px;
     color: rgb(200, 210, 218);
     background-color: rgba(26, 30, 38, 0.92);
@@ -915,7 +915,7 @@
 
 .research-section-label {
     color: rgb(139, 147, 161);
-    font-size: 10px;
+    font-size: 8px;
     letter-spacing: 1px;
     margin: 8px 0 4px;
 }
@@ -932,7 +932,7 @@
 }
 
 .research-node-glyph {
-    font-size: 11px;
+    font-size: 7px;
     -unity-text-align: middle-center;
     color: rgb(92, 99, 113);
     margin: 0;
@@ -941,13 +941,36 @@
 
 /* A research singled out for CoreSize display (ResearchDefinition.EnlargedDisplay) - same states, bigger glyph so it doesn't get lost in the larger circle. */
 .research-node-enlarged .research-node-glyph {
-    font-size: 18px;
+    font-size: 11px;
+}
+
+/* The definition's own ResearchDefinition.Icon, filling most of the circle - what the research actually
+   is. Only present on a node whose asset carries one; the rest keep the plain state glyph centred. */
+.research-node-icon {
+    width: 68%;
+    height: 68%;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+/* With an icon filling the centre, the state glyph moves to a small badge in the corner instead of
+   overlapping it - still the same colour-coded state, just out of the icon's way. */
+.research-node-has-icon .research-node-glyph {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    width: 13px;
+    height: 13px;
+    font-size: 7px;
+    background-color: rgb(20, 22, 27);
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: rgb(61, 67, 79);
 }
 
 .research-node-name,
 .research-node-caption {
     position: absolute;
-    font-size: 9px;
+    font-size: 7px;
     white-space: normal;
     -unity-text-align: upper-center;
     color: rgb(107, 114, 128);
@@ -966,7 +989,7 @@
 
 .research-node-name-inside {
     width: 100%;
-    font-size: 8px;
+    font-size: 6px;
     white-space: normal;
     -unity-text-align: middle-center;
     padding: 0 3px;
@@ -1056,19 +1079,19 @@
 .research-queue-position {
     width: 16px;
     color: rgb(139, 147, 161);
-    font-size: 10px;
+    font-size: 8px;
 }
 
 .research-queue-name {
     flex-grow: 1;
-    font-size: 10px;
+    font-size: 8px;
 }
 
 .research-queue-button {
     width: 20px;
     height: 20px;
     margin-left: 3px;
-    font-size: 9px;
+    font-size: 8px;
     background-color: rgba(0, 0, 0, 0);
     border-width: 1px;
     border-color: rgb(48, 59, 66);
@@ -1088,21 +1111,21 @@
 
 .research-detail-state {
     color: rgb(250, 199, 117);
-    font-size: 10px;
+    font-size: 8px;
     letter-spacing: 1px;
     margin-bottom: 3px;
 }
 
 .research-detail-name {
     color: rgb(232, 235, 240);
-    font-size: 14px;
+    font-size: 10px;
     -unity-font-style: bold;
     margin-bottom: 6px;
 }
 
 .research-detail-description {
     color: rgb(154, 162, 177);
-    font-size: 11px;
+    font-size: 9px;
     white-space: normal;
     margin-bottom: 10px;
 }
@@ -1116,7 +1139,7 @@
 
 .research-detail-effect-value {
     color: rgb(159, 225, 203);
-    font-size: 10px;
+    font-size: 8px;
     white-space: normal;
 }
 
@@ -1130,7 +1153,7 @@
 .research-detail-absorption-row {
     flex-direction: row;
     justify-content: space-between;
-    font-size: 10px;
+    font-size: 8px;
     color: rgb(154, 162, 177);
     margin-bottom: 8px;
 }
@@ -1141,12 +1164,12 @@
 
 .research-detail-prereq-met {
     color: rgb(93, 202, 165);
-    font-size: 11px;
+    font-size: 9px;
 }
 
 .research-detail-prereq-missing {
     color: rgb(107, 114, 128);
-    font-size: 11px;
+    font-size: 9px;
 }
 
 /* A prerequisite is also a way to get there: clicking it recentres the network on it. */
@@ -1156,12 +1179,12 @@
 
 .research-detail-prereq-none {
     color: rgb(107, 114, 128);
-    font-size: 11px;
+    font-size: 9px;
 }
 
 .research-detail-action-button {
     -unity-text-align: middle-center;
-    font-size: 11px;
+    font-size: 9px;
     -unity-font-style: bold;
     color: rgb(154, 162, 177);
     background-color: rgb(26, 30, 38);
@@ -1181,7 +1204,7 @@
 }
 
 .research-legend-item {
-    font-size: 10px;
+    font-size: 8px;
     margin-right: 14px;
     color: rgb(139, 147, 161);
 }

@@ -36,9 +36,9 @@ namespace Game.UI
         /// <summary>Logical pixels between two rings - the radius is the tier.</summary>
         const float RingStep = 64f;
 
-        const float CentreSize = 58f;
-        const float CoreSize = 50f;
-        const float NodeSize = 30f;
+        const float CentreSize = 44f;
+        const float CoreSize = 38f;
+        const float NodeSize = 20f;
         const float NameWidth = 110f;
         const float StubLength = 22f;
         const float PulseSize = 8f;
@@ -305,7 +305,7 @@ namespace Game.UI
                 else
                 {
                     node.Size = node.Definition.EnlargedDisplay ? CoreSize : NodeSize;
-                    node.Element = AddElement(node.Position, node.Size, "research-node-research", node.Definition.DisplayName, nameInside: false, clickable: true, out node.Glyph);
+                    node.Element = AddElement(node.Position, node.Size, "research-node-research", node.Definition.DisplayName, nameInside: false, clickable: true, out node.Glyph, node.Definition.Icon);
                     node.Element.EnableInClassList("research-node-enlarged", node.Definition.EnlargedDisplay);
                 }
 
@@ -328,7 +328,7 @@ namespace Game.UI
             return new Vector2(offset.x, -offset.y);
         }
 
-        VisualElement AddElement(Vector2 position, float size, string kindClass, string name, bool nameInside, bool clickable, out Label glyph)
+        VisualElement AddElement(Vector2 position, float size, string kindClass, string name, bool nameInside, bool clickable, out Label glyph, Sprite icon = null)
         {
             var element = new VisualElement();
             element.AddToClassList("research-node");
@@ -354,6 +354,16 @@ namespace Game.UI
             }
             else
             {
+                if (icon != null)
+                {
+                    var iconElement = new VisualElement();
+                    iconElement.AddToClassList("research-node-icon");
+                    iconElement.style.backgroundImage = new StyleBackground(icon);
+                    iconElement.pickingMode = PickingMode.Ignore;
+                    element.Add(iconElement);
+                    element.AddToClassList("research-node-has-icon");
+                }
+
                 glyph = new Label();
                 glyph.AddToClassList("research-node-glyph");
                 glyph.pickingMode = PickingMode.Ignore;

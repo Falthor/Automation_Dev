@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: extractor_power
   displayName: "Extracteur am\xE9lior\xE9"
-  description: 
+  description: "Am\xE9liore le d\xE9bit des extracteurs a 30/min"
   icon: {fileID: 5823024787834327110, guid: 46738ccd62a84b24d8d48f71d10898a3, type: 3}
   cuCost: 10000
   computeSource: 0
@@ -28,3 +28,4 @@ MonoBehaviour:
   absorptionRatePerSecond: 80
   tier: 1.4
   angle: 68.4
+  enlargedDisplay: 0
