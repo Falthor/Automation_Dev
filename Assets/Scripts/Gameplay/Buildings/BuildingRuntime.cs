@@ -457,12 +457,21 @@ namespace Game.Gameplay.Buildings
         }
 
         /// <summary>
+        /// Whether the last <see cref="ComputeEffectivePerformance"/> call found the network unable
+        /// to serve this building's type - the base for the red "not enough Energy" badge every power
+        /// consumer wears (PowerShortageBadgeView). Read fresh every frame rather than raised as an
+        /// event, matching PausedBadgeView's own reasoning: one comparison per power-consuming
+        /// building is far below anything worth an event for.
+        /// </summary>
+        public bool IsUnderpowered { get; private set; }
+
+        /// <summary>
         /// Shared Power gating pipeline (ENERGIE.md), used by every building whose own tick
         /// progress must freeze while unpowered: draws its demand only while "active", and returns
         /// 0 if the network could not serve it. The caller multiplies its own deltaTime by the
         /// returned value before advancing any timer. Compute plays no part here - CU is a reserve
-        /// spent in one shot when a cycle starts (§10), never a continuous draw that throttles a
-        /// building's speed.
+        /// spent in one shot when a cycle starts (CALCUL.md), never a continuous draw that throttles
+        /// a building's speed.
         ///
         /// <b>It draws against its own type, not against a global total.</b> It used to ask
         /// <c>IsPowered()</c>, one boolean for the whole base, so a shortage stopped every powered
@@ -479,9 +488,14 @@ namespace Game.Gameplay.Buildings
         {
             if (powerDemand > 0f && powerActive)
             {
-                if (!power.TryDraw(Definition.Id, powerDemand)) return 0f;
+                if (!power.TryDraw(Definition.Id, powerDemand))
+                {
+                    IsUnderpowered = true;
+                    return 0f;
+                }
             }
 
+            IsUnderpowered = false;
             return 1f;
         }
     }

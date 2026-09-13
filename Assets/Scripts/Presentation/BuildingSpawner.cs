@@ -49,6 +49,12 @@ namespace Game.Presentation
         /// <summary>The same yellow the Top Bar and the pause button use for "someone stopped this" - not the red of a fault, because nothing is wrong.</summary>
         public static readonly Color PausedBadgeColor = new Color(1f, 0.847f, 0.4f, 1f);
 
+        /// <summary>Same size as the pause badge, the two never lighting on the same building at once today.</summary>
+        public const float PowerShortageBadgeSizeCells = 0.7f;
+
+        /// <summary>The Top Bar's own deficit red (top-bar-card-value-deficit) - the same fault, the same colour, wherever it is read.</summary>
+        public static readonly Color PowerShortageBadgeColor = new Color(0.949f, 0.325f, 0.325f, 1f);
+
         /// <summary>The arrow's world-space scale on a given grid - what both the built view and the ghost set on the transform.</summary>
         public static float ArrowWorldSize(float cellSize) => cellSize * ArrowSizeCells;
 
@@ -304,6 +310,7 @@ namespace Game.Presentation
 
             AttachShadow(runtime, renderer);
             AttachPausedBadge(runtime, root.transform);
+            AttachPowerShortageBadge(runtime, root.transform);
 
             if (definition.HasOutputArrow)
             {
@@ -513,6 +520,28 @@ namespace Game.Presentation
             _depthSort?.Register(badgeRenderer, BottomEdgeY(runtime), SortingBands.HoverOutline);
 
             badgeGo.AddComponent<PausedBadgeView>().Bind(production);
+        }
+
+        /// <summary>
+        /// Gives a power consumer a red Energy badge for whenever the network cannot serve it, sat
+        /// on its centre like the pause badge. Gated on <c>DrawsPower</c> rather than a runtime type
+        /// check, since Extractor, ProductionBuildingRuntime and the Data Center all draw and none of
+        /// the three shares a common base narrower than BuildingRuntime itself.
+        /// </summary>
+        void AttachPowerShortageBadge(BuildingRuntime runtime, Transform parent)
+        {
+            if (!runtime.Definition.DrawsPower) return;
+
+            var badgeGo = new GameObject("PowerShortageBadge");
+            badgeGo.transform.SetParent(parent, false);
+            badgeGo.transform.localPosition = Vector3.zero;
+            badgeGo.transform.localScale = Vector3.one * (_grid.CellSize * PowerShortageBadgeSizeCells);
+
+            var badgeRenderer = badgeGo.AddComponent<SpriteRenderer>();
+            badgeRenderer.sprite = _spriteFactory.CreatePowerShortageSprite(PowerShortageBadgeColor);
+            _depthSort?.Register(badgeRenderer, BottomEdgeY(runtime), SortingBands.HoverOutline);
+
+            badgeGo.AddComponent<PowerShortageBadgeView>().Bind(runtime);
         }
 
         /// <summary>

@@ -217,6 +217,20 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             Assert.IsFalse(dataCenter.CanAcceptInput("Iron_Ingot", 1, Direction.South));
         }
 
+        /// <summary>
+        /// Regression: the Data Center has no physical output, so unlike a Foundry or a Powerplant
+        /// it must accept from every side including the one FacingRotation happens to name. A belt
+        /// feeding from North - the default placement rotation, so also the most common case - was
+        /// silently refused before this was fixed.
+        /// </summary>
+        [Test]
+        public void CanAcceptInput_AcceptsFromTheFacingSide()
+        {
+            DataCenterRuntime dataCenter = NewDataCenter(); // built facing North
+
+            Assert.IsTrue(dataCenter.CanAcceptInput("cpu_mkI", 1, Direction.North));
+        }
+
         [Test]
         public void Tick_WhilePriming_ConsumesCuButProducesNothing_EvenPoweredWithAComponentInstalled()
         {

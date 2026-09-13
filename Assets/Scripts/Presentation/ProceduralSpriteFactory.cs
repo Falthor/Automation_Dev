@@ -258,6 +258,73 @@ namespace Game.Presentation
             return sprite;
         }
 
+        readonly Dictionary<Color32, Sprite> _powerShortageCache = new Dictionary<Color32, Sprite>();
+
+        /// <summary>
+        /// The lightning-bolt glyph a power-starved building wears, on the same dark disc the pause
+        /// glyph uses so both badges read as one family at a glance.
+        /// </summary>
+        public Sprite CreatePowerShortageSprite(Color color)
+        {
+            Color32 key = color;
+            if (_powerShortageCache.TryGetValue(key, out Sprite cached)) return cached;
+
+            var texture = NewTexture();
+            var pixels = new Color[TextureSize * TextureSize];
+
+            float centre = (TextureSize - 1) * 0.5f;
+            float discRadius = TextureSize * 0.46f;
+            var disc = new Color(0.05f, 0.06f, 0.08f, 0.82f);
+
+            // A stylised bolt in a 0..1 box, y up - rasterised with a plain point-in-polygon test
+            // since it is drawn once per colour and cached like every other glyph here.
+            var bolt = new[]
+            {
+                new Vector2(0.58f, 1.00f), new Vector2(0.28f, 0.54f), new Vector2(0.46f, 0.54f),
+                new Vector2(0.20f, 0.00f), new Vector2(0.50f, 0.46f), new Vector2(0.32f, 0.46f)
+            };
+
+            for (int y = 0; y < TextureSize; y++)
+            {
+                for (int x = 0; x < TextureSize; x++)
+                {
+                    float dx = x - centre;
+                    float dy = y - centre;
+
+                    Color pixel = new Color(0f, 0f, 0f, 0f);
+                    if (dx * dx + dy * dy <= discRadius * discRadius) pixel = disc;
+
+                    var uv = new Vector2((x + 0.5f) / TextureSize, (y + 0.5f) / TextureSize);
+                    if (PointInPolygon(uv, bolt)) pixel = color;
+
+                    pixels[y * TextureSize + x] = pixel;
+                }
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply(false, false);
+
+            var sprite = Sprite.Create(texture, new Rect(0, 0, TextureSize, TextureSize), new Vector2(0.5f, 0.5f), PixelsPerUnit);
+            _powerShortageCache[key] = sprite;
+            return sprite;
+        }
+
+        static bool PointInPolygon(Vector2 point, Vector2[] polygon)
+        {
+            bool inside = false;
+            for (int i = 0, j = polygon.Length - 1; i < polygon.Length; j = i++)
+            {
+                Vector2 a = polygon[i];
+                Vector2 b = polygon[j];
+                if ((a.y > point.y) != (b.y > point.y) &&
+                    point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x)
+                {
+                    inside = !inside;
+                }
+            }
+            return inside;
+        }
+
         public Sprite CreateShapeSprite(ConveyorShapeKind shape, Color color)
         {
             var key = (shape, (Color32)color);

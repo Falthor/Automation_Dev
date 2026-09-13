@@ -345,6 +345,14 @@ puts the first one three quarters of an hour in. The rings decouple the two:
 The innermost is deliberately tight: a robot always starts there, so it crosses one almost at once.
 Ring bounds and counts are settings (`WorldGenerationSettings.wreckRings`).
 
+**None may land inside the Core's furthest possible reach** (`GameRuntime.FurthestActionRadiusCells`)
+— the highest radius any research grants, not the radius as it stands today, the same rule that
+excludes derived ore from that same ground: researching the radius further must not swallow a wreck the
+player already found. `WreckField` raises both bounds of whichever ring the exclusion reaches into,
+rather than dropping a wreck or narrowing the count — the shipped `extended_bandwidth_3` (80 cells)
+already exceeds the innermost ring's own 75-cell outer bound, so at full research both of that ring's
+wrecks sit at exactly 80, differing only in angle.
+
 **The structure separates them, so nothing checks.** A wreck's angle is its rank's share of the
 circle plus a jitter bounded to `WreckRingProfile.AngularJitterFraction` (a third) of that share; its
 radius is drawn between its ring's bounds. Rings separate radially, the bound separates angularly.

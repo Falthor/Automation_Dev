@@ -931,6 +931,11 @@
     padding: 0;
 }
 
+/* Named on hover only - a name under every one of thirty balls at once is mostly noise. */
+.research-node-name {
+    display: none;
+}
+
 .research-node-caption {
     color: rgb(78, 85, 99);
 }
@@ -988,6 +993,10 @@
 /* Last, and the only rule here carrying a pseudo-class, so it wins over both. */
 .research-node:hover {
     border-color: rgb(85, 221, 245);
+}
+
+.research-node-research:hover .research-node-name {
+    display: flex;
 }
 
 .research-pulse {
@@ -2860,19 +2869,6 @@
     color: rgb(150, 158, 165);
     white-space: normal;
     margin-bottom: 12px;
-}
-
-/* The item name a left click reveals in a chest. Absolutely positioned like the slot menu it sits
-   in the same place as, and non-pickable so it can never swallow the click that dismisses it. */
-.storage-name-tag {
-    position: absolute;
-    padding: 3px 8px;
-    background-color: rgba(16, 20, 25, 0.98);
-    border-width: 1px;
-    border-color: rgb(85, 221, 245);
-    color: rgb(215, 224, 229);
-    font-size: 11px;
-    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
 }
 
 /* The save name, typed. Monospace like every other value in the game: a save name is a value the

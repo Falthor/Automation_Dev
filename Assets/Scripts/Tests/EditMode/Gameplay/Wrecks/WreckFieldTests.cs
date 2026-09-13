@@ -37,6 +37,40 @@ namespace Game.Tests.EditMode.Gameplay.Wrecks
 
         // ---- How many, and where ----
 
+        /// <summary>
+        /// Regression: a wreck inside the Core's furthest possible reach (not just its current one)
+        /// is exactly what a fully-researched game found - 80 cells against the shipped
+        /// extended_bandwidth_3 value, well past the innermost ring's own 40-cell inner bound, and
+        /// even past its 75-cell outer one.
+        /// </summary>
+        [Test]
+        public void ExclusionRadius_KeepsEveryWreckBeyondIt_EvenPastARingsOwnOuterBound()
+        {
+            const float exclusion = 80f;
+            WreckField field = new WreckField(Seed, CoreCentre, Shipped, exclusion);
+
+            Assert.AreEqual(8, field.Sites.Count, "pushed outward, never dropped");
+
+            foreach (WreckSite site in field.Sites)
+            {
+                Assert.GreaterOrEqual(site.DistanceFromCoreCells, exclusion,
+                    "no wreck may sit inside ground the Core will eventually cover");
+            }
+        }
+
+        /// <summary>An exclusion below every ring's own inner bound changes nothing - today's shipped shape.</summary>
+        [Test]
+        public void ExclusionRadius_BelowEveryRing_MatchesTheUnexcludedField()
+        {
+            WreckField excluded = new WreckField(Seed, CoreCentre, Shipped, coreExclusionRadiusCells: 10f);
+            WreckField plain = NewField();
+
+            for (int i = 0; i < plain.Sites.Count; i++)
+            {
+                Assert.AreEqual(plain.Sites[i].CentreCells, excluded.Sites[i].CentreCells);
+            }
+        }
+
         [Test]
         public void ThereAreExactlyEight_AllInsideTheDisc()
         {

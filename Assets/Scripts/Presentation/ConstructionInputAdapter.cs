@@ -385,7 +385,7 @@ namespace Game.Presentation
             Vector2 worldSize = BuildingSpawner.ArtWorldSize(selected, gameRuntime.Grid.CellSize, sprite);
             Vector3 worldCenter = gameRuntime.Grid.FootprintCenterToWorld(cell, selected.FootprintSize)
                 + Vector3.up * BuildingSpawner.ArtLift(selected, gameRuntime.Grid.CellSize, sprite);
-            Direction previewRotation = gameRuntime.Construction.PreviewRotation;
+            Direction previewRotation = ResolveAutoRotation(selected, cell);
             (bool rotateSprite, Direction artNativeDirection) = ResolveGhostRotation(selected);
 
             // Which cells carry an arrow, and which way each points, is one rule and it lives apart
@@ -459,7 +459,7 @@ namespace Game.Presentation
                 Direction? entryDirection = gameRuntime.Construction.Selected is ConveyorDefinition
                     ? FindEntryDirection(cell)
                     : null;
-                Direction rotation = entryDirection.HasValue ? entryDirection.Value.Opposite() : gameRuntime.Construction.PreviewRotation;
+                Direction rotation = ResolveAutoRotation(gameRuntime.Construction.Selected, cell);
 
                 _activeConveyorSite = null; // a new gesture always opens its own chantier
                 PlaceAt(cell, rotation);
@@ -502,6 +502,36 @@ namespace Game.Presentation
             _pendingCornerEntry = _dragAxis.Value.Opposite();
             _dragAxis = null;
             _dragAnchorCell = _lastPlacedCell;
+        }
+
+        /// <summary>
+        /// The rotation this definition should preview and place with, given whatever already feeds
+        /// the target cell - shared by the ghost and the actual placement so neither can show a
+        /// rotation the other disagrees with.
+        ///
+        /// A Conveyor's <c>FacingRotation</c> names its <b>exit</b>, so it takes the opposite of
+        /// whatever feeds it - continuing the flow. A Splitter's names its <b>entry</b>
+        /// (<see cref="SplitterRuntime.EntrySide"/>), so it takes the feeding direction directly.
+        /// Anything else, or nothing feeding the cell at all, keeps the player's own R-toggled
+        /// choice.
+        /// </summary>
+        Direction ResolveAutoRotation(BuildingDefinition selected, GridCoord cell)
+        {
+            Direction fallback = gameRuntime.Construction.PreviewRotation;
+
+            if (selected is ConveyorDefinition)
+            {
+                Direction? entry = FindEntryDirection(cell);
+                return entry.HasValue ? entry.Value.Opposite() : fallback;
+            }
+
+            if (selected is SplitterDefinition)
+            {
+                Direction? entry = FindEntryDirection(cell);
+                return entry ?? fallback;
+            }
+
+            return fallback;
         }
 
         /// <summary>

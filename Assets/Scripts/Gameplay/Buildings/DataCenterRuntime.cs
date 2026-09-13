@@ -167,9 +167,13 @@ namespace Game.Gameplay.Buildings
         public void SetMemoryReplacementThreshold(float percent) => MemoryReplacementThresholdPercent = UnityEngine.Mathf.Clamp(percent, MinReplacementThresholdPercent, MaxReplacementThresholdPercent);
         public void SetResearchAxisShare(float share) => ResearchAxisShare = UnityEngine.Mathf.Clamp01(share);
 
+        // No fromDirection == ExitDirection guard here: that rule protects a building's real
+        // physical output side (Foundry, Powerplant...), and the Data Center has none - its
+        // ExitDirection is FacingRotation left over from the base class with nothing behind it.
+        // Guarding on it anyway silently refused any belt feeding from the default-placement
+        // North side, including both of its corners.
         public override bool CanAcceptInput(string itemId, int amount, Direction fromDirection)
         {
-            if (fromDirection == ExitDirection) return false;
             if (System.Array.IndexOf(_definition.AcceptedItemIds, itemId) < 0) return false;
             return _input.CanAccept(itemId, amount);
         }

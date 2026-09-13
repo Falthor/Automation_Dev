@@ -47,12 +47,20 @@ namespace Game.Gameplay.Wrecks
 
         public int DiscoveredCount { get; private set; }
 
-        public WreckField(int seed, Vector2 coreCentreCells, WreckRingProfile rings)
+        /// <summary>
+        /// <paramref name="coreExclusionRadiusCells"/> is the Core's furthest reach, not its current
+        /// one (<see cref="Presentation.GameRuntime.FurthestActionRadiusCells"/>) - the same rule
+        /// <c>SectorMaterialisation</c> applies to derived ore, and for the same reason: a wreck must
+        /// not appear in ground the Core will eventually cover, or researching the radius further
+        /// would swallow one the player had already found. It is read once at construction, so this
+        /// stays correct as shipped research values change without anything here needing to know why.
+        /// </summary>
+        public WreckField(int seed, Vector2 coreCentreCells, WreckRingProfile rings, float coreExclusionRadiusCells = 0f)
         {
-            _sites = Derive(seed, coreCentreCells, rings);
+            _sites = Derive(seed, coreCentreCells, rings, coreExclusionRadiusCells);
         }
 
-        static WreckSite[] Derive(int seed, Vector2 coreCentreCells, WreckRingProfile rings)
+        static WreckSite[] Derive(int seed, Vector2 coreCentreCells, WreckRingProfile rings, float coreExclusionRadiusCells)
         {
             var sites = new List<WreckSite>();
 
@@ -75,7 +83,12 @@ namespace Game.Gameplay.Wrecks
                     float degrees = rank * spacing + jitter;
                     float radians = degrees * Mathf.Deg2Rad;
 
-                    float radius = Mathf.Lerp(band.InnerRadiusCells, band.OuterRadiusCells,
+                    // Both bounds raised together when the exclusion reaches past the ring's own
+                    // outer edge, rather than left to invert: a fully-researched radius (80) already
+                    // exceeds the innermost ring's outer bound (75) in the shipped settings.
+                    float innerBound = Mathf.Max(band.InnerRadiusCells, coreExclusionRadiusCells);
+                    float outerBound = Mathf.Max(band.OuterRadiusCells, innerBound);
+                    float radius = Mathf.Lerp(innerBound, outerBound,
                         (float)DeterministicHash.Unit(seed, rank, RadiusSalt + ringOffset));
 
                     var centre = new Vector2(

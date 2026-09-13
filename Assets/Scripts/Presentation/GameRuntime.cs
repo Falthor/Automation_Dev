@@ -566,7 +566,7 @@ namespace Game.Presentation
                     // wrecks are in the same places in a loaded world - the same reason SectorCatalog
                     // uses it.
                     Wrecks = new WreckField(Terrain.Seed, World?.CoreCenterCells ?? Vector2.zero,
-                        worldGenerationSettings.WreckProfile);
+                        worldGenerationSettings.WreckProfile, FurthestActionRadiusCells);
 
                     ExplorerRobots.Wrecks = Wrecks;
 

@@ -28,6 +28,11 @@ demand whether or not it runs this one, and splitting the two invites a caller t
 other. `BuildingRuntime.ComputeEffectivePerformance` is the single caller for every building whose
 progress freezes while unpowered, and it draws against `Definition.Id`.
 
+**`BuildingRuntime.IsUnderpowered`** is set there too - true exactly when the last draw was refused,
+false otherwise. `PowerShortageBadgeView` reads it every frame the same way `PausedBadgeView` reads
+`IsPaused`, and wears a red Energy icon on any consumer (`Definition.DrawsPower`) currently stalled on
+it.
+
 ## 2. The current is allocated by type, in the order the player arranges
 
 `Settle` walks the priority order and gives each group all of its demand or whatever is left of supply,
