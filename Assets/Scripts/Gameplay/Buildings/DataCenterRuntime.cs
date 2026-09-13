@@ -15,12 +15,12 @@ namespace Game.Gameplay.Buildings
     /// Building/Inventory contract - see ComponentInstance for the per-slot wear/stability/
     /// replacement rules.
     ///
-    /// A freshly placed Data Center primes for 90s (1500 CU consumed, no production, no wear -
-    /// GDD §2.3) before any of that applies; priming is a second continuous per-second CU draw
-    /// alongside research's own (CALCUL.md), and pauses at zero CU exactly like
+    /// A freshly placed Data Center primes for 90s (1500 CU consumed from Building Compute, no
+    /// production, no wear - GDD §2.3) before any of that applies; priming is a second continuous
+    /// per-second CU draw alongside research's own (CALCUL.md), and pauses at zero CU exactly like
     /// research does. Once primed, its output splits across two axes (research/buildings) via a
-    /// concentration-based yield curve (§7) - both currently credit the same single reserve, so
-    /// the split only matters for what the UI reports until per-axis reserves exist.
+    /// concentration-based yield curve (§7), each crediting its own reserve - Research Compute and
+    /// Building Compute (CALCUL.md).
     /// </summary>
     public sealed class DataCenterRuntime : BuildingRuntime
     {
@@ -63,7 +63,13 @@ namespace Game.Gameplay.Buildings
 
         readonly DataCenterDefinition _definition;
         readonly ItemDatabase _itemDatabase;
-        readonly ComputeSystem _computeSystem;
+
+        /// <summary>Where priming spends from, and where GetBuildingsAxisProduction() credits - the reserve Building Compute is (CALCUL.md).</summary>
+        readonly ComputeSystem _buildingCompute;
+
+        /// <summary>Where GetResearchAxisProduction() credits - the reserve Research Compute is (CALCUL.md).</summary>
+        readonly ComputeSystem _researchCompute;
+
         readonly PowerSystem _powerSystem;
         readonly ResearchSystem _researchSystem;
         readonly PooledItemStock _input;
@@ -103,12 +109,13 @@ namespace Game.Gameplay.Buildings
         public float GetPrimingSecondsRemaining() => IsPriming ? (PrimingCostCu - _primingAbsorbedCu) / PrimingAbsorptionRatePerSecond : 0f;
 
         public DataCenterRuntime(DataCenterDefinition definition, GridCoord cell, Direction facingRotation,
-            ItemDatabase itemDatabase, ComputeSystem computeSystem, PowerSystem powerSystem, ResearchSystem researchSystem)
+            ItemDatabase itemDatabase, ComputeSystem buildingCompute, ComputeSystem researchCompute, PowerSystem powerSystem, ResearchSystem researchSystem)
             : base(definition, cell, facingRotation)
         {
             _definition = definition;
             _itemDatabase = itemDatabase;
-            _computeSystem = computeSystem;
+            _buildingCompute = buildingCompute;
+            _researchCompute = researchCompute;
             _powerSystem = powerSystem;
             _researchSystem = researchSystem;
             _input = new PooledItemStock(definition.MaxStackPerItem);
@@ -236,7 +243,7 @@ namespace Game.Gameplay.Buildings
             if (IsPriming)
             {
                 float wanted = UnityEngine.Mathf.Min(PrimingCostCu - _primingAbsorbedCu, PrimingAbsorptionRatePerSecond * deltaTime);
-                _primingAbsorbedCu += _computeSystem.SpendUpTo(wanted);
+                _primingAbsorbedCu += _buildingCompute.SpendUpTo(wanted);
                 _previousPowerDemand = TotalPowerDemand();
                 return; // no production, no wear while priming (GDD §2.3)
             }
@@ -276,11 +283,14 @@ namespace Game.Gameplay.Buildings
             // silence it immediately, not just freeze its progression. `performance` is what the
             // power gate above returned for the datacenter group, so a Data Center the player put
             // first keeps producing CU while the rest of the base waits - which is the whole point
-            // of the priority order. It is a CU/s rate, so what lands in the reserve is that rate
-            // times this tick's own duration. Both axes currently credit the same single reserve
-            // (§7) - going through the same public per-axis methods the UI reads keeps this from
-            // duplicating the yield calculation.
-            if (performance > 0f) _computeSystem.Grant((GetResearchAxisProduction() + GetBuildingsAxisProduction()) * deltaTime);
+            // of the priority order. It is a CU/s rate, so what lands in each reserve is that rate
+            // times this tick's own duration - through the same public per-axis methods the UI
+            // reads, so crediting can never duplicate or disagree with the yield calculation.
+            if (performance > 0f)
+            {
+                _researchCompute.Grant(GetResearchAxisProduction() * deltaTime);
+                _buildingCompute.Grant(GetBuildingsAxisProduction() * deltaTime);
+            }
             _previousPowerDemand = TotalPowerDemand();
         }
 

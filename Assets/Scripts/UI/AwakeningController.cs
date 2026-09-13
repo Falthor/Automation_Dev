@@ -96,7 +96,7 @@ namespace Game.UI
             }
 
             _reserveValue = _overlay.Q<Label>("AwakeningReserveValue");
-            _displayedReserve = gameRuntime.Compute != null ? gameRuntime.Compute.Reserve : 0f;
+            _displayedReserve = gameRuntime.BuildingCompute != null ? gameRuntime.BuildingCompute.Reserve : 0f;
             if (_reserveValue != null) _reserveValue.text = FormatReserve(_displayedReserve);
 
             _beginButton = _overlay.Q<Button>("AwakeningBeginButton");

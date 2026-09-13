@@ -29,7 +29,7 @@ namespace Game.Save
         /// (SAUVEGARDE.md) - Version is a coarser, all-or-nothing gate for changes too structural for that,
         /// like this task's Data Center Capture/Restore reshaping and Research's RP-to-CU switch.
         /// </summary>
-        public const int CurrentVersion = 3;
+        public const int CurrentVersion = 4;
 
         public int Version = CurrentVersion;
         public string SavedAtUtc;
@@ -93,7 +93,11 @@ namespace Game.Save
         /// </summary>
         public JObject ExplorerRobots;
 
-        public float ComputeReserve;
+        /// <summary>The Building Compute reserve (CALCUL.md) - inherits the single "Compute" reserve's old name-space role. Split from it at Version 4.</summary>
+        public float BuildingComputeReserve;
+
+        /// <summary>The Research Compute reserve (CALCUL.md), split out of the single "Compute" reserve at Version 4.</summary>
+        public float ResearchComputeReserve;
 
         public string ResearchActiveId;
         public float ResearchProgress;

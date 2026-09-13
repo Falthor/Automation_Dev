@@ -27,7 +27,7 @@ modification du projet et l'emporte sur le reste.
 | Les bâtiments à recette : cycles, états, tampons | [`PRODUCTION.md`](architecture/PRODUCTION.md) |
 | Poser, déplacer, démolir ; chantiers, robots constructeurs, GlobalStock | [`CONSTRUCTION.md`](architecture/CONSTRUCTION.md) |
 | L'énergie et sa répartition par priorité | [`ENERGIE.md`](architecture/ENERGIE.md) |
-| La réserve de CU | [`CALCUL.md`](architecture/CALCUL.md) |
+| Les réserves de CU (Building/Research/Armament Compute) et le choix par recherche | [`CALCUL.md`](architecture/CALCUL.md) |
 | La recherche, ses effets, l'arbre et ses validations | [`RECHERCHE.md`](architecture/RECHERCHE.md) |
 | Le matériel du Datacenter : usure, stabilité, rendement | [`DATACENTER.md`](architecture/DATACENTER.md) |
 | L'interface : sélection, Échap, raccourcis, barres et panneaux | [`UI.md`](architecture/UI.md) |

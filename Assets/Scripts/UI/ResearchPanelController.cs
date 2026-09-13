@@ -127,6 +127,7 @@ namespace Game.UI
         bool _dirty = true;
         int _signature;
         int _shownReserve = int.MinValue;
+        bool _shownReserveFromBuilding;
         int _shownAbsorbed = int.MinValue;
         int _shownSeconds = int.MinValue;
         int _pulseNode = -1;
@@ -375,13 +376,19 @@ namespace Game.UI
         void Refresh()
         {
             ResearchSystem research = gameRuntime.Research;
-            float reserve = gameRuntime.Compute.Reserve;
+
+            // The reserve the active research is actually drawing from (ResearchDefinition.
+            // ComputeSource) - Research Compute by default, when idle just as when nothing has
+            // overridden it.
+            bool fromBuilding = research.ActiveResearch != null && research.ActiveResearch.ComputeSource == ComputeSource.Building;
+            float reserve = (fromBuilding ? gameRuntime.BuildingCompute : gameRuntime.ResearchCompute).Reserve;
 
             int shownReserve = Mathf.FloorToInt(reserve);
-            if (shownReserve != _shownReserve)
+            if (shownReserve != _shownReserve || fromBuilding != _shownReserveFromBuilding)
             {
                 _shownReserve = shownReserve;
-                _reserveLabel.text = $"Reserve {shownReserve} CU";
+                _shownReserveFromBuilding = fromBuilding;
+                _reserveLabel.text = fromBuilding ? $"Building Compute {shownReserve} CU" : $"Research Compute {shownReserve} CU";
             }
 
             int signature = 17;

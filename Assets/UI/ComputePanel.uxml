@@ -4,7 +4,7 @@
     <ui:VisualElement name="ComputePanelRoot" class="overlay-root hidden" picking-mode="Ignore">
         <ui:VisualElement class="panel panel-accent" picking-mode="Position">
             <ui:VisualElement class="header-row">
-                <ui:Label text="COMPUTE" class="title" />
+                <ui:Label name="ComputeTitle" text="COMPUTE" class="title" />
                 <ui:Button name="ComputeCloseButton" text="&#215;" class="close-button" />
             </ui:VisualElement>
             <ui:VisualElement class="extractor-body">

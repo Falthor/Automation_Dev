@@ -42,7 +42,7 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
         static Game.Gameplay.WorldGeneration.WorldGenerator Generate(WorldGenerationSettings settings)
         {
             var generator = new Game.Gameplay.WorldGeneration.WorldGenerator();
-            generator.Generate(new GridRuntime(1f), MapSizeCells, settings, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            generator.Generate(new GridRuntime(1f), MapSizeCells, settings, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem(), new ComputeSystem()));
             return generator;
         }
 
@@ -53,7 +53,7 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
             var grid = new GridRuntime(1f);
             var generator = new Game.Gameplay.WorldGeneration.WorldGenerator();
 
-            generator.Generate(grid, MapSizeCells, settings, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            generator.Generate(grid, MapSizeCells, settings, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem(), new ComputeSystem()));
 
             // In the radius 4 of each; first ring 4 of each; second ring 8 iron, 8 copper, 4 coal.
             Assert.AreEqual(16, generator.OreDeposits.Count(d => d.ItemId == "iron_ore"));
@@ -192,7 +192,7 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
             var settings = NewSettings(startingRadius, seed);
             var grid = new GridRuntime(1f);
             var generator = new Game.Gameplay.WorldGeneration.WorldGenerator();
-            generator.Generate(grid, MapSizeCells, settings, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            generator.Generate(grid, MapSizeCells, settings, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem(), new ComputeSystem()));
 
             Vector2 coreCenter = new Vector2(generator.CoreOrigin.X + 2f, generator.CoreOrigin.Y + 2f);
             float Distance(DepositRuntime d)
@@ -263,7 +263,7 @@ namespace Game.Tests.EditMode.Gameplay.WorldGeneration
             var generator = new Game.Gameplay.WorldGeneration.WorldGenerator();
 
             Assert.Throws<System.InvalidOperationException>(() =>
-                generator.Generate(grid, MapSizeCells, settings, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem())));
+                generator.Generate(grid, MapSizeCells, settings, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem(), new ComputeSystem())));
         }
     }
 }

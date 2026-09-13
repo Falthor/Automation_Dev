@@ -83,8 +83,8 @@ namespace Game.Tests.EditMode.Presentation
             var grid = new GridRuntime(1f);
             var transport = new TransportSystem(grid);
             var sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
-            var construction = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(),
-                new ResearchSystem(new ComputeSystem()), transport, null, sites);
+            var construction = new ConstructionService(grid, null, null, new ComputeSystem(), new ComputeSystem(), new PowerSystem(),
+                new ResearchSystem(new ComputeSystem(), new ComputeSystem()), transport, null, sites);
 
             StorageDefinition coreChestDefinition = TestDataFactory.NewStorage(ConstructionSiteSystem.CoreStorageDefinitionId, 6, 200, rejectsConveyorInput: true);
             var coreChest = new StorageRuntime(coreChestDefinition, new GridCoord(0, 0), Direction.North);

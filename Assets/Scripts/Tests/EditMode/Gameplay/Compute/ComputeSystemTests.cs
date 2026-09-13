@@ -20,6 +20,22 @@ namespace Game.Tests.EditMode.Gameplay.Compute
             Assert.AreEqual(70000f, ComputeSystem.ReserveCap);
         }
 
+        /// <summary>Research Compute (GameRuntime) starts every run at 0, not at the cap - nothing has produced any yet.</summary>
+        [Test]
+        public void Reserve_StartsAtTheGivenValue_WhenOneIsPassed()
+        {
+            var compute = new ComputeSystem(startingReserve: 0f);
+
+            Assert.AreEqual(0f, compute.Reserve);
+        }
+
+        [Test]
+        public void StartingReserve_IsClampedToTheCap_AndToZero()
+        {
+            Assert.AreEqual(ComputeSystem.ReserveCap, new ComputeSystem(startingReserve: ComputeSystem.ReserveCap + 5000f).Reserve);
+            Assert.AreEqual(0f, new ComputeSystem(startingReserve: -100f).Reserve);
+        }
+
         [Test]
         public void CanSpend_And_Spend_DeductFromReserve()
         {

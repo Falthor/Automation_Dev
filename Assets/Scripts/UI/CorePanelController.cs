@@ -212,7 +212,7 @@ namespace Game.UI
         {
             RenderDirective();
 
-            _computeLabel.text = $"Compute: {Mathf.RoundToInt(gameRuntime.Compute.IncomePerSecond)} CU/s";
+            _computeLabel.text = $"Building Compute: {Mathf.RoundToInt(gameRuntime.BuildingCompute.IncomePerSecond)} CU/s";
             _powerLabel.text = $"Power: {Mathf.RoundToInt(gameRuntime.Power.SettledSupply)} kW";
 
             _itemsList.Clear();

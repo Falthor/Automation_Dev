@@ -52,7 +52,7 @@ namespace Game.Presentation
         /// <summary>Same size as the pause badge, the two never lighting on the same building at once today.</summary>
         public const float PowerShortageBadgeSizeCells = 0.7f;
 
-        /// <summary>The Top Bar's own deficit red (top-bar-card-value-deficit) - the same fault, the same colour, wherever it is read.</summary>
+        /// <summary>The Top Bar's own deficit red (top-bar-element-value-deficit) - the same fault, the same colour, wherever it is read.</summary>
         public static readonly Color PowerShortageBadgeColor = new Color(0.949f, 0.325f, 0.325f, 1f);
 
         /// <summary>The arrow's world-space scale on a given grid - what both the built view and the ghost set on the transform.</summary>

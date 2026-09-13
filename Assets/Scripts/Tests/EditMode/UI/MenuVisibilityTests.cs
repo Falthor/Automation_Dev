@@ -22,7 +22,7 @@ namespace Game.Tests.EditMode.UI
         /// <summary>A ResearchSystem that knows <paramref name="known"/> - so the gates their effects declare exist - with exactly <paramref name="unlocked"/> already completed.</summary>
         static ResearchSystem Knowing(ResearchDefinition[] known, params ResearchDefinition[] unlocked)
         {
-            var research = new ResearchSystem(new ComputeSystem(), new ResearchCatalog(known));
+            var research = new ResearchSystem(new ComputeSystem(), new ComputeSystem(), new ResearchCatalog(known));
             var unlockedIds = new string[unlocked.Length];
             for (int i = 0; i < unlocked.Length; i++) unlockedIds[i] = unlocked[i].Id;
             research.RestoreState(null, 0f, Array.Empty<ResearchDefinition>(), unlockedIds);

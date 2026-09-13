@@ -38,8 +38,8 @@ namespace Game.Tests.EditMode.Construction
 
             var transport = new TransportSystem(_grid);
             var sites = new ConstructionSiteSystem(transport, _grid, new NotificationSystem(), Vector2.zero);
-            _construction = new ConstructionService(_grid, null, null, new ComputeSystem(), new PowerSystem(),
-                new ResearchSystem(new ComputeSystem()), transport, null, sites);
+            _construction = new ConstructionService(_grid, null, null, new ComputeSystem(), new ComputeSystem(), new PowerSystem(),
+                new ResearchSystem(new ComputeSystem(), new ComputeSystem()), transport, null, sites);
         }
 
         // ---- Rotation ----

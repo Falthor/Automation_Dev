@@ -1181,59 +1181,53 @@
     border-bottom-color: rgba(54, 199, 232, 0.5);
 }
 
-.top-bar-cards-area {
+/* Both rows sit right after the clock / right before the pause+menu icons, never centred - each
+   element is a plain clickable label with its own invisible spacing, no card, no hover-expand. */
+.top-bar-elements-left {
     position: absolute;
-    left: 0;
+    left: 90px;
     top: 0;
-    right: 128px;
     bottom: 0;
     flex-direction: row;
-    justify-content: center;
-    align-items: flex-start;
+    align-items: center;
 }
 
-.top-bar-card {
-    background-color: rgb(21, 25, 30);
-    border-width: 1px;
-    border-color: rgb(48, 59, 66);
-    margin: 0 3px;
-    overflow: hidden;
-    height: 28px;
-    transition-property: height;
-    transition-timing-function: ease-out;
-    transition-duration: 0.15s;
-}
-
-.top-bar-card-collapsing {
-    transition-timing-function: ease-in;
-    transition-duration: 0.12s;
-}
-
-.top-bar-card:hover {
-    border-color: rgba(85, 221, 245, 0.55);
-}
-
-.top-bar-card-header {
+.top-bar-elements-right {
+    position: absolute;
+    right: 128px;
+    top: 0;
+    bottom: 0;
     flex-direction: row;
     align-items: center;
-    height: 28px;
-    padding: 0 7px;
 }
 
-.top-bar-card-icon {
+/* A 1px transparent border, not none - .newly-unlocked overrides its colour, and a border that
+   does not exist cannot change colour when it needs to. */
+.top-bar-element {
+    background-color: transparent;
+    border-width: 1px;
+    border-color: transparent;
+    margin: 0 5px;
+    height: 28px;
+    flex-direction: row;
+    align-items: center;
+    padding: 0 4px;
+}
+
+.top-bar-element-icon {
     width: 13px;
     height: 13px;
     margin-right: 5px;
     -unity-background-scale-mode: scale-to-fit;
 }
 
-.top-bar-card-value {
+.top-bar-element-value {
     color: rgb(239, 242, 244);
     font-size: 10px;
     -unity-font-style: bold;
 }
 
-.top-bar-card-value-deficit {
+.top-bar-element-value-deficit {
     color: rgb(242, 83, 83);
 }
 
@@ -1242,24 +1236,24 @@
    an alarm, one that changes size reads as a bug. Toggled from TopBarController on
    NewUnlockPulse's clock; UI Toolkit has transitions but no keyframes, so a blink cannot live in
    a stylesheet on its own. */
-.top-bar-card-value-blink {
+.top-bar-element-value-blink {
     opacity: 0.3;
 }
 
 /* Nearly saturated, not yet short: the same amber the Building menu uses for "you cannot afford
    this yet" - a warning, deliberately not the red kept for something actually going wrong. */
-.top-bar-card-value-strained {
+.top-bar-element-value-strained {
     color: rgb(255, 216, 102);
 }
 
 /* Research finished: the one Top Bar state that is good news, so it gets its own colour rather
    than the neutral text every other idle state uses. */
-.top-bar-card-value-done {
+.top-bar-element-value-done {
     color: rgb(96, 226, 130);
 }
 
-/* The Core's current directive, named item by item in the collapsed card: the player has to be
-   able to read WHAT is being asked for without hovering, which one icon and one figure cannot do. */
+/* The Core's current directive, named item by item: the player has to be able to read WHAT is
+   being asked for at a glance, which one icon and one figure cannot do. */
 .top-bar-directive-number {
     color: rgb(85, 221, 245);
     font-size: 10px;
@@ -1296,68 +1290,14 @@
     color: rgb(100, 210, 130);
 }
 
-.top-bar-card-done {
-    border-color: rgb(96, 226, 130);
-    background-color: rgb(20, 40, 27);
-}
-
-.top-bar-card-detail {
-    padding: 0 7px 0 7px;
-    height: 0;
-    overflow: hidden;
-    transition-property: height;
-    transition-timing-function: ease-out;
-    transition-duration: 0.15s;
-}
-
-.top-bar-card-detail-line {
-    color: rgb(215, 224, 229);
-    font-size: 9px;
-    margin-bottom: 2px;
-}
-
-.top-bar-card-detail-line-deficit {
-    color: rgb(242, 83, 83);
-}
-
-.top-bar-card-detail-line-strained {
-    color: rgb(255, 216, 102);
-}
-
-.top-bar-card-bar-track {
-    width: 100%;
-    height: 4px;
-    background-color: rgb(10, 13, 15);
-    border-radius: 2px;
-    overflow: hidden;
-    margin-top: 3px;
-}
-
-.top-bar-card-bar-fill-power {
-    height: 100%;
-    background-color: rgb(100, 210, 130);
-}
-
-.top-bar-card-bar-fill-compute {
-    height: 100%;
-    background-color: rgb(85, 221, 245);
-}
-
-.top-bar-card-bar-fill-research {
-    height: 100%;
-    background-color: rgb(85, 221, 245);
-}
-
-.top-bar-card-bar-fill-buildings {
-    height: 100%;
-    background-color: rgb(85, 221, 245);
-}
-
+/* 34px, not 36: UI Toolkit's box model adds the 1px border on top of height (content-box), and the
+   Top Bar itself is exactly 36px tall - a 36px button plus its own border overflowed 2px below the
+   bar's bottom edge, past the cyan line that is meant to be the bar's actual edge. */
 .top-bar-icon-button {
     position: absolute;
     top: 0;
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     background-color: rgb(20, 24, 29);
     border-width: 1px;
     border-color: rgb(48, 59, 66);

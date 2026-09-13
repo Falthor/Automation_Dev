@@ -149,23 +149,29 @@ rather than the focused element: a `TextField` delegates its focus to the text i
 
 ## 5. The Top Bar
 
-A single full-width header band, always visible in play, deliberately compact: the collapsed state shows
-the strict minimum and hover reveals the detail. Three cards - **Power, Compute, Research** - plus a run
-chronometer at the left edge and a building-cap card, neither of which the imported Godot spec has an
-equivalent for. Menu and Pause sit at the right.
+A single full-width header band, always visible in play, deliberately compact. Every element is a
+plain clickable icon-and-value pair - no card, no border, no background, no hover-to-reveal step.
+Clicking one directly opens its global panel; there is nothing to see first.
 
-Each card is a pure view over a system and opens its own global panel. Hover expands it in place; only
-one expands at a time, and it reverts on leave. A card's top edge never moves - only its bottom edge
-grows downward, like a dropdown over the world.
+Two groups, on either side of the run chronometer at the left edge. **Left, right after the
+chronometer:** Power, Building Compute, Research Compute, and the current Core directive (when one is
+active) - resource-shaped figures the player checks often. **Right:** Research and the building cap -
+progress-shaped figures, none of which the imported Godot spec has an equivalent for. Menu and Pause
+sit at the far right.
 
-**The Compute card's headline figure is the pooled reserve, not a CU/s flow.** Showing a rate as the
-primary value would misrepresent a model where production pays one-shot costs.
+Each element is a pure view over a system and opens its own global panel; no detail block exists
+beyond the single value shown.
 
-**The Power card turns amber above 85 % of production drawn** - the warning that comes before a deficit,
-not a milder version of one. Past 100 % it is a deficit, which the card already says in red; amber there
-would replace "you are short" with "you are nearly short".
+**Building Compute and Research Compute each show their own pooled reserve, not a CU/s flow.**
+Showing a rate as the primary value would misrepresent a model where production pays one-shot costs.
+Building Compute is what every one-shot spender and the Core's own grant draw from (CALCUL.md);
+Research Compute is what a research absorbs from by default.
 
-**The Research card and the Research category exist only once a core is powered.** Before that the
+**The Power element turns amber above 85 % of production drawn** - the warning that comes before a
+deficit, not a milder version of one. Past 100 % it is a deficit, which the element already says in
+red; amber there would replace "you are short" with "you are nearly short".
+
+**The Research element and the Research category exist only once a core is powered.** Before that the
 introduction runs on the Core's directives alone, and the menu offers nothing it cannot deliver.
 
 ## 6. The Bottom Navigation
@@ -191,7 +197,7 @@ a thumbnail of the whole world says nothing.
 - Opening a global panel closes whichever is active. Two never overlap.
 - Escape closes the active one, subject to the arbiter above.
 - The panel's own X closes it.
-- Clicking a different Top Bar card or Bottom Nav category replaces it.
+- Clicking a different Top Bar element or Bottom Nav category replaces it.
 - Clicking outside the panel closes it - a deliberate addition to the imported spec.
 - A contextual panel and a global panel remain mutually exclusive.
 
@@ -277,8 +283,8 @@ unaffordable/warning tint. Locked entries are greyed and disabled; unaffordable-
 amber - **"locked" and "unaffordable" must never look the same**.
 
 Status bars are a thin dark track with a child fill anchored to the ratio, no shader and no animation.
-Panels open and close instantly; the Top Bar's hover expansion is the one place a transition exists, and
-motion is not to be added elsewhere without being asked for.
+Panels open and close instantly, and so does the Top Bar - motion is not to be added there or elsewhere
+without being asked for.
 
 Icons render at a fixed on-screen box regardless of source resolution, cropped to content first where a
 source carries inconsistent padding.

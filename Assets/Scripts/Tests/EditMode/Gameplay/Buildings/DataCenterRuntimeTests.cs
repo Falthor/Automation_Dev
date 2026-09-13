@@ -43,7 +43,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _researchCore = TestDataFactory.NewResearch("core_a", 0f);
             _buildingsCore = TestDataFactory.NewResearch("core_b", 0f);
             _darkCore = TestDataFactory.NewResearch("core_c", 0f);
-            _research = new ResearchSystem(_compute, new ResearchCatalog(new[] { _bays1, _bays2, _unrelated, _researchCore, _buildingsCore, _darkCore }));
+            _research = new ResearchSystem(_compute, _compute, new ResearchCatalog(new[] { _bays1, _bays2, _unrelated, _researchCore, _buildingsCore, _darkCore }));
         }
 
         static void SetCuPowerLifetime(ItemDefinition item, float cu, float pw, float lifetimeSeconds)
@@ -58,7 +58,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         DataCenterRuntime NewDataCenter(int maxStackPerItem = 10)
         {
             DataCenterDefinition definition = TestDataFactory.NewDataCenter(maxStackPerItem, new[] { "cpu_mkI", "Memory_MK1" }, new[] { _researchCore, _buildingsCore });
-            return new DataCenterRuntime(definition, new GridCoord(0, 0), Direction.North, _itemDatabase, _compute, _power, _research);
+            return new DataCenterRuntime(definition, new GridCoord(0, 0), Direction.North, _itemDatabase, _compute, _compute, _power, _research);
         }
 
         /// <summary>Finishes priming in one oversized tick (the internal Mathf.Min caps absorption at exactly what's left, so any big-enough deltaTime works regardless of the exact 1500/90 rounding) - a fresh Data Center never produces anything until this is done.</summary>
@@ -373,6 +373,54 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             float installedTotal = dataCenter.GetTotalComputeOutput();
             Assert.AreEqual(installedTotal * 0.30f, dataCenter.GetResearchAxisProduction(), 0.01f);
             Assert.AreEqual(installedTotal * 0.30f, dataCenter.GetBuildingsAxisProduction(), 0.01f);
+        }
+
+        /// <summary>
+        /// Regression: both axes used to credit whichever single ComputeSystem this class was
+        /// handed, which every other test here cannot catch since NewDataCenter() passes the same
+        /// _compute instance for both reserves. Two distinct instances are the only way to prove
+        /// the split is real rather than cosmetic.
+        /// </summary>
+        [Test]
+        public void AxisProduction_CreditsEachIntoItsOwnReserve_NeverTheOther()
+        {
+            var buildingCompute = new ComputeSystem();
+            var researchCompute = new ComputeSystem();
+            DataCenterDefinition definition = TestDataFactory.NewDataCenter(10, new[] { "cpu_mkI", "Memory_MK1" }, new[] { _researchCore, _buildingsCore });
+            var dataCenter = new DataCenterRuntime(definition, new GridCoord(0, 0), Direction.North, _itemDatabase, buildingCompute, researchCompute, _power, _research);
+
+            FinishPriming(dataCenter);
+            PowerTheDataCenter();
+            // Only priming draws down buildingCompute; researchCompute would still sit exactly at
+            // ReserveCap, and Grant clamps there - the credit below would land silently on a full
+            // reserve and prove nothing. Spent down on both sides so the credit is actually visible.
+            buildingCompute.Spend(5000f);
+            researchCompute.Spend(5000f);
+            dataCenter.AddInput("cpu_mkI", 1, Direction.South);
+            dataCenter.Tick(0f); // installs
+
+            float buildingBefore = buildingCompute.Reserve;
+            float researchBefore = researchCompute.Reserve;
+            dataCenter.Tick(1f);
+
+            // Default 50/50 split, default 0.20 yield floor -> 0.30 of the 1000 installed each side.
+            Assert.AreEqual(buildingBefore + 1000f * 0.30f, buildingCompute.Reserve, 0.01f);
+            Assert.AreEqual(researchBefore + 1000f * 0.30f, researchCompute.Reserve, 0.01f);
+        }
+
+        /// <summary>Priming is an installation cost, not a research one - Research Compute must stay untouched by it.</summary>
+        [Test]
+        public void Priming_SpendsFromBuildingCompute_NeverFromResearchCompute()
+        {
+            var buildingCompute = new ComputeSystem();
+            var researchCompute = new ComputeSystem();
+            DataCenterDefinition definition = TestDataFactory.NewDataCenter(10, new[] { "cpu_mkI", "Memory_MK1" }, new[] { _researchCore, _buildingsCore });
+            var dataCenter = new DataCenterRuntime(definition, new GridCoord(0, 0), Direction.North, _itemDatabase, buildingCompute, researchCompute, _power, _research);
+
+            FinishPriming(dataCenter);
+
+            Assert.Less(buildingCompute.Reserve, ComputeSystem.ReserveCap, "Priming's 1500 CU came from Building Compute.");
+            Assert.AreEqual(ComputeSystem.ReserveCap, researchCompute.Reserve, "Research Compute is untouched by priming.");
         }
 
         [Test]

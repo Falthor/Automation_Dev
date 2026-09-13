@@ -32,7 +32,7 @@ namespace Game.Tests.EditMode.Construction
         {
             var transport = new TransportSystem(grid);
             sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
-            return new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()), transport, null, sites);
+            return new ConstructionService(grid, null, null, new ComputeSystem(), new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem(), new ComputeSystem()), transport, null, sites);
         }
 
         /// <summary>
@@ -72,6 +72,20 @@ namespace Game.Tests.EditMode.Construction
 
             Assert.IsFalse(result);
             Assert.IsNull(site);
+        }
+
+        /// <summary>What the Top Bar's Research Compute element gates its visibility on - set the moment a Data Center is created, whichever of TryPlace's eventual materialisation or CreateForRestore (the save/load path) created it.</summary>
+        [Test]
+        public void HasDataCenter_BecomesTrue_OnceOneIsCreated()
+        {
+            var grid = new GridRuntime(1f);
+            var service = NewService(grid);
+            Assert.IsFalse(service.HasDataCenter, "Precondition: no Data Center exists yet.");
+
+            DataCenterDefinition definition = TestDataFactory.NewDataCenter(10, new[] { "cpu_mkI", "Memory_MK1" });
+            service.CreateForRestore(definition, new GridCoord(0, 0), Direction.North);
+
+            Assert.IsTrue(service.HasDataCenter);
         }
 
         [Test]
@@ -155,7 +169,7 @@ namespace Game.Tests.EditMode.Construction
             var grid = new GridRuntime(1f);
             ResearchDefinition gate = TestDataFactory.NewResearch("test_gate", 10f);
             var definition = NewGatedStorageDefinition(gate);
-            var service = NewServiceWithResearch(grid, new ResearchSystem(new ComputeSystem(), new ResearchCatalog(new[] { gate })));
+            var service = NewServiceWithResearch(grid, new ResearchSystem(new ComputeSystem(), new ComputeSystem(), new ResearchCatalog(new[] { gate })));
             service.SelectBuilding(definition);
 
             Assert.IsFalse(service.CanPlace(new GridCoord(0, 0)));
@@ -166,7 +180,7 @@ namespace Game.Tests.EditMode.Construction
         {
             var transport = new TransportSystem(grid);
             var sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
-            return new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), research, transport, null, sites);
+            return new ConstructionService(grid, null, null, new ComputeSystem(), new ComputeSystem(), new PowerSystem(), research, transport, null, sites);
         }
 
         [Test]
@@ -175,7 +189,7 @@ namespace Game.Tests.EditMode.Construction
             var grid = new GridRuntime(1f);
             ResearchDefinition gate = TestDataFactory.NewResearch("test_gate", 10f);
             var definition = NewGatedStorageDefinition(gate);
-            var research = new ResearchSystem(new ComputeSystem(), new ResearchCatalog(new[] { gate }));
+            var research = new ResearchSystem(new ComputeSystem(), new ComputeSystem(), new ResearchCatalog(new[] { gate }));
             var service = NewServiceWithResearch(grid, research);
             service.SelectBuilding(definition);
             Assert.IsFalse(service.CanPlace(new GridCoord(0, 0)));
@@ -214,10 +228,10 @@ namespace Game.Tests.EditMode.Construction
             var recipeDatabase = TestDataFactory.NewRecipeDatabase();
             var transport = new TransportSystem(grid);
             var sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
-            var service = new ConstructionService(grid, null, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()), transport, null, sites);
+            var service = new ConstructionService(grid, null, recipeDatabase, new ComputeSystem(), new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem(), new ComputeSystem()), transport, null, sites);
 
             var factoryDefinition = TestDataFactory.NewFactory(0f, System.Array.Empty<string>(), System.Array.Empty<string>());
-            var factory = new FactoryRuntime(factoryDefinition, new GridCoord(5, 5), Direction.North, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            var factory = new FactoryRuntime(factoryDefinition, new GridCoord(5, 5), Direction.North, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem(), new ComputeSystem()));
             factory.AddOutput("iron_plate", 10);
             transport.Register(factory);
 
@@ -285,7 +299,7 @@ namespace Game.Tests.EditMode.Construction
         static (ConstructionService service, TransportSystem transport, ResearchSystem research, CoreRuntime core) NewServiceWithCore(int actionRadiusCells, out ConstructionSiteSystem siteSystem, params ResearchDefinition[] known)
         {
             var grid = new GridRuntime(1f);
-            var research = new ResearchSystem(new ComputeSystem(), new ResearchCatalog(known));
+            var research = new ResearchSystem(new ComputeSystem(), new ComputeSystem(), new ResearchCatalog(known));
             var coreDefinition = TestDataFactory.NewCore(actionRadiusCells, new Vector2Int(4, 4));
             var core = new CoreRuntime(coreDefinition, new GridCoord(0, 0), Direction.North, new ComputeSystem(), new PowerSystem(), research);
             grid.SetOccupantFootprint(core.Cell, coreDefinition.FootprintSize, core);
@@ -293,7 +307,7 @@ namespace Game.Tests.EditMode.Construction
             transport.Register(core);
             var sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
             siteSystem = sites;
-            var service = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(), research, transport, core, sites);
+            var service = new ConstructionService(grid, null, null, new ComputeSystem(), new ComputeSystem(), new PowerSystem(), research, transport, core, sites);
             return (service, transport, research, core);
         }
 

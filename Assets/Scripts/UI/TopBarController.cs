@@ -12,38 +12,38 @@ using UnityEngine.UIElements;
 namespace Game.UI
 {
     /// <summary>
-    /// Global Top Bar (UI.md): three compact status cards (Power/Compute/Research),
-    /// each a pure view over an existing runtime system - no duplicated state, no new
-    /// simulation. Hover expands a card in place to reveal its detail block; click opens the
-    /// matching global panel through the same Selection routing every other panel uses. Menu opens
-    /// the in-game menu (<see cref="GameMenuPanel"/>: save, load, options, quit), whose Options
-    /// entry hands over to the shortcuts screen (<see cref="ShortcutsPanel"/>) - a deliberate
-    /// deviation from the imported spec, where Menu is a reserved placeholder; Pause freezes
-    /// simulation via Time.timeScale,
-    /// which every deltaTime-scaled system (Transport/Research/Power/Compute) already respects
-    /// with no new per-system pause flag needed.
+    /// Global Top Bar (UI.md): plain, borderless status elements, each a pure view over an
+    /// existing runtime system - no duplicated state, no new simulation. Every element is
+    /// directly clickable, opening the matching global panel through the same Selection routing
+    /// every other panel uses - there is no hover-to-expand step. Power, Building Compute,
+    /// Research Compute and the current Directive sit left of centre, right after the clock;
+    /// Research and Buildings sit on the right. Menu opens the in-game menu
+    /// (<see cref="GameMenuPanel"/>: save, load, options, quit), whose Options entry hands over to
+    /// the shortcuts screen (<see cref="ShortcutsPanel"/>) - a deliberate deviation from the
+    /// imported spec, where Menu is a reserved placeholder; Pause freezes simulation via
+    /// GameRuntime.SetPaused, which every deltaTime-scaled system (Transport/Research/Power/
+    /// Compute) already respects with no new per-system pause flag needed.
     /// </summary>
     public sealed class TopBarController : MonoBehaviour
     {
         const float ReferenceWidth = 1920f;
-        const float CollapsedHeight = 28f;
 
         /// <summary>Occupied slots within this many of the cap turn the counter's alert color on - an arbitrary but reasonable "approaching the limit" band, not a pinned-down value.</summary>
         const int BuildingCapAlertMargin = 5;
 
         /// <summary>
-        /// Below this many CU the reserve reads as an emergency rather than as a figure.
+        /// Below this many CU a reserve reads as an emergency rather than as a figure.
         ///
         /// 100 is about a single cycle of the cheapest machine: at that point the next thing to ask
-        /// for CU will not get it, and the player has to be looking at the card before that happens
-        /// rather than after.
+        /// for CU will not get it, and the player has to be looking at the element before that
+        /// happens rather than after.
         /// </summary>
         const float CriticalReserveCu = 100f;
 
         /// <summary>How long a refusal message (ShowRefusalMessage) stays visible before auto-hiding.</summary>
         const float RefusalMessageSeconds = 2.5f;
 
-        /// <summary>Share of production being drawn past which the Power card turns amber - a warning that the network is nearly saturated, distinct from the red of an actual deficit.</summary>
+        /// <summary>Share of production being drawn past which the Power element turns amber - a warning that the network is nearly saturated, distinct from the red of an actual deficit.</summary>
         const float PowerStrainThreshold = 0.85f;
 
         [SerializeField] UIDocument uiDocument;
@@ -55,39 +55,38 @@ namespace Game.UI
 
         [Header("Top Bar icons (placeholder - swap later)")]
         [SerializeField] Sprite powerIcon;
-        [SerializeField] Sprite computeIcon;
+        [SerializeField] Sprite buildingComputeIcon;
+        [SerializeField] Sprite researchComputeIcon;
         [SerializeField] Sprite researchIcon;
         [SerializeField] Sprite buildingIcon;
 
-        VisualElement _cardsRow;
+        VisualElement _leftRow;
+        VisualElement _rightRow;
         Label _clock;
         Label _pauseOverlay;
         Label _refusalMessage;
         float _refusalMessageHideAt = -1f;
 
-        /// <summary>False until the player has opened the Research panel once - what ends the "this is new" pulse on the card the Core just handed them.</summary>
+        /// <summary>False until the player has opened the Research panel once - what ends the "this is new" pulse on the element the Core just handed them.</summary>
         bool _researchMenuSeen;
 
-        Card _powerCard;
-        Card _computeCard;
-        Card _directiveCard;
-        Card _researchCard;
-        Card _buildingCard;
+        Element _powerElement;
+        Element _buildingComputeElement;
+        Element _researchComputeElement;
+        Element _directiveElement;
+        Element _researchElement;
+        Element _buildingElement;
 
-        /// <summary>One built card's live widgets, plus the responsive-width bounds it was configured with.</summary>
-        sealed class Card
+        /// <summary>One built element's live widgets, plus the responsive-width bounds it was configured with.</summary>
+        sealed class Element
         {
             public VisualElement Root;
             public Label Value;
-            public VisualElement Detail;
-            public VisualElement BarFill;
-            public Label[] Lines;
 
-            /// <summary>Only the directive card has this: what it asks for is a list that changes with the directive, so its header is rebuilt rather than filled in.</summary>
+            /// <summary>Only the directive element has this: what it asks for is a list that changes with the directive, so its header is rebuilt rather than filled in.</summary>
             public VisualElement Requirements;
 
             public float RefWidth, MinWidth, MaxWidth;
-            public float DetailHeight;
         }
 
         InputAction _pause;
@@ -114,7 +113,8 @@ namespace Game.UI
             panelRoot.StretchToParentSize();
             panelRoot.pickingMode = PickingMode.Ignore;
 
-            _cardsRow = panelRoot.Q<VisualElement>("TopBarCardsRow");
+            _leftRow = panelRoot.Q<VisualElement>("TopBarLeftRow");
+            _rightRow = panelRoot.Q<VisualElement>("TopBarRightRow");
             _clock = panelRoot.Q<Label>("TopBarClock");
             _pauseOverlay = panelRoot.Q<Label>("TopBarPauseOverlay");
             _refusalMessage = panelRoot.Q<Label>("TopBarRefusalMessage");
@@ -123,16 +123,16 @@ namespace Game.UI
 
             ReleaseFocusAfterAClick();
 
-            // Base widths reduced per user feedback ("moins large") - hover only expands height
-            // (SetExpanded below), never width, so this has no effect on the hover-expand behavior.
-            _powerCard = BuildCard(powerIcon, PowerPanelController.PanelName, 170f, 130f, 210f, 66f, 3, "top-bar-card-bar-fill-power");
-            _computeCard = BuildCard(computeIcon, ComputePanelController.PanelName, 190f, 145f, 230f, 56f, 2, "top-bar-card-bar-fill-compute");
-            // Built between Compute and Research so the row keeps one order for the whole run: the
-            // directive card is what stands there before Research exists, and the two coexist from
-            // the second directive on rather than one taking the other's place.
-            _directiveCard = BuildDirectiveCard();
-            _researchCard = BuildCard(researchIcon, ResearchPanelController.PanelName, 170f, 130f, 210f, 56f, 2, "top-bar-card-bar-fill-research");
-            _buildingCard = BuildCard(buildingIcon, BuildingMenuController.PanelName, 150f, 115f, 190f, 40f, 1, "top-bar-card-bar-fill-buildings");
+            _powerElement = BuildElement(_leftRow, powerIcon, PowerPanelController.PanelName, 100f, 80f, 130f);
+            _buildingComputeElement = BuildElement(_leftRow, buildingComputeIcon, ComputePanelController.BuildingPanelName, 130f, 105f, 160f);
+            _researchComputeElement = BuildElement(_leftRow, researchComputeIcon, ComputePanelController.ResearchPanelName, 130f, 105f, 160f);
+            // Built last on the left so the row keeps one order for the whole run: the directive
+            // element is what stands there before Research exists, and the two coexist from the
+            // second directive on rather than one taking the other's place.
+            _directiveElement = BuildDirectiveElement();
+
+            _researchElement = BuildElement(_rightRow, researchIcon, ResearchPanelController.PanelName, 150f, 115f, 190f);
+            _buildingElement = BuildElement(_rightRow, buildingIcon, BuildingMenuController.PanelName, 110f, 85f, 140f);
 
             if (constructionInputAdapter != null) constructionInputAdapter.PlacementRefused += ShowRefusalMessage;
 
@@ -143,10 +143,10 @@ namespace Game.UI
         /// Hands the Menu button the shortcuts screen.
         ///
         /// <b>Last in Start, and guarded.</b> The overlay is reparented onto the document root, and
-        /// an <c>Add(null)</c> in the middle of this method would have thrown before the cards were
-        /// built - costing the clock, the five status cards and Pause for a missing element that only
-        /// the options screen needs. A screen that cannot be opened is the right price; a Top Bar that
-        /// does not exist is not.
+        /// an <c>Add(null)</c> in the middle of this method would have thrown before the elements
+        /// were built - costing the clock, the six status elements and Pause for a missing element
+        /// that only the options screen needs. A screen that cannot be opened is the right price; a
+        /// Top Bar that does not exist is not.
         /// </summary>
         void BuildShortcutsScreen(VisualElement panelRoot)
         {
@@ -181,7 +181,7 @@ namespace Game.UI
             gameRuntime.Escape.SetMenuProbe(MenuOverlayStateNow);
         }
 
-        /// <summary>Flashes an explicit refusal reason (e.g. the building cap) near the cards row for RefusalMessageSeconds, then auto-hides. Re-showing while already visible just resets the timer.</summary>
+        /// <summary>Flashes an explicit refusal reason (e.g. the building cap) near the elements row for RefusalMessageSeconds, then auto-hides. Re-showing while already visible just resets the timer.</summary>
         public void ShowRefusalMessage(string text)
         {
             if (_refusalMessage == null) return;
@@ -190,103 +190,57 @@ namespace Game.UI
             _refusalMessageHideAt = Time.unscaledTime + RefusalMessageSeconds;
         }
 
-        Card BuildCard(Sprite icon, string panelName, float refWidth, float minWidth, float maxWidth, float detailHeight, int lineCount, string barFillClass)
+        Element BuildElement(VisualElement row, Sprite icon, string panelName, float refWidth, float minWidth, float maxWidth)
         {
-            var card = new Card { RefWidth = refWidth, MinWidth = minWidth, MaxWidth = maxWidth, DetailHeight = detailHeight };
+            var element = new Element { RefWidth = refWidth, MinWidth = minWidth, MaxWidth = maxWidth };
 
             var root = new Button(() => gameRuntime.Selection.OpenGlobalPanel(panelName)) { text = string.Empty };
-            root.AddToClassList("top-bar-card");
-            card.Root = root;
-
-            var header = new VisualElement();
-            header.AddToClassList("top-bar-card-header");
+            root.AddToClassList("top-bar-element");
+            element.Root = root;
 
             var iconElement = new VisualElement();
-            iconElement.AddToClassList("top-bar-card-icon");
+            iconElement.AddToClassList("top-bar-element-icon");
             if (icon != null) iconElement.style.backgroundImage = new StyleBackground(icon);
-            header.Add(iconElement);
+            root.Add(iconElement);
 
             var value = new Label();
-            value.AddToClassList("top-bar-card-value");
-            header.Add(value);
-            card.Value = value;
+            value.AddToClassList("top-bar-element-value");
+            root.Add(value);
+            element.Value = value;
 
-            root.Add(header);
-
-            var detail = new VisualElement();
-            detail.AddToClassList("top-bar-card-detail");
-            card.Detail = detail;
-
-            var lines = new Label[lineCount];
-            for (int i = 0; i < lineCount; i++)
-            {
-                var line = new Label();
-                line.AddToClassList("top-bar-card-detail-line");
-                detail.Add(line);
-                lines[i] = line;
-            }
-            card.Lines = lines;
-
-            var barTrack = new VisualElement();
-            barTrack.AddToClassList("top-bar-card-bar-track");
-            var barFill = new VisualElement();
-            barFill.AddToClassList(barFillClass);
-            barTrack.Add(barFill);
-            detail.Add(barTrack);
-            card.BarFill = barFill;
-
-            root.Add(detail);
-
-            root.RegisterCallback<MouseEnterEvent>(_ => SetExpanded(card, true));
-            root.RegisterCallback<MouseLeaveEvent>(_ => SetExpanded(card, false));
-
-            _cardsRow.Add(root);
-            return card;
+            row.Add(root);
+            return element;
         }
 
         /// <summary>
-        /// The card for what the Core is currently asking for: a row of item chips, and nothing
-        /// else. No detail block and no hover-expand, unlike every other card - what it has to say
-        /// is already fully said in the collapsed header, so there would be nothing behind the
-        /// expansion but the same numbers written out again.
-        ///
-        /// <b>A Button, like the other four cards.</b> It used to be a plain VisualElement with a
-        /// ClickEvent callback, and clicking it did nothing: a Button carries the Clickable
-        /// manipulator that captures the pointer between press and release, which is what the four
-        /// working cards rely on. Written as the same thing they are, rather than as a second way of
-        /// being clickable that only looks equivalent.
+        /// The element for what the Core is currently asking for: a row of item chips, and nothing
+        /// else - no icon of its own, unlike the other elements: the directive number is the icon.
         /// </summary>
-        Card BuildDirectiveCard()
+        Element BuildDirectiveElement()
         {
-            var card = new Card { RefWidth = 200f, MinWidth = 150f, MaxWidth = 250f, DetailHeight = 0f };
+            var element = new Element { RefWidth = 200f, MinWidth = 150f, MaxWidth = 250f };
 
-            // The card states a bill; the Core panel is where it is read in full and accepted. The
-            // player who reads "0/40" on the bar is already asking about the directive, and having to
-            // go find the Core on the map to answer that is a detour the bar can spare them.
+            // The element states a bill; the Core panel is where it is read in full and accepted.
+            // The player who reads "0/40" is already asking about the directive, and having to go
+            // find the Core on the map to answer that is a detour the bar can spare them.
             var root = new Button(OpenCorePanel) { text = string.Empty };
-            root.AddToClassList("top-bar-card");
-            card.Root = root;
-
-            var header = new VisualElement();
-            header.AddToClassList("top-bar-card-header");
+            root.AddToClassList("top-bar-element");
+            element.Root = root;
 
             // Which directive this is, ahead of what it wants: the bill on its own says nothing
             // about how far into the Core's sequence the player is.
             var number = new Label();
             number.AddToClassList("top-bar-directive-number");
-            header.Add(number);
-            card.Value = number;
+            root.Add(number);
+            element.Value = number;
 
             var requirements = new VisualElement();
             requirements.AddToClassList("top-bar-directive-requirements");
-            header.Add(requirements);
-            card.Requirements = requirements;
+            root.Add(requirements);
+            element.Requirements = requirements;
 
-            root.Add(header);
-            root.AddToClassList("top-bar-card-clickable");
-
-            _cardsRow.Add(root);
-            return card;
+            _leftRow.Add(root);
+            return element;
         }
 
         /// <summary>
@@ -301,24 +255,11 @@ namespace Game.UI
             CoreRuntime core = gameRuntime.World?.Core;
             if (core == null)
             {
-                Debug.LogError("The Top Bar's directive card was clicked with no Core in the world - nothing to open.", this);
+                Debug.LogError("The Top Bar's directive element was clicked with no Core in the world - nothing to open.", this);
                 return;
             }
 
             gameRuntime.Selection.Select(core);
-        }
-
-        static void SetExpanded(Card card, bool expanded)
-        {
-            card.Root.EnableInClassList("top-bar-card-collapsing", !expanded);
-            card.Detail.EnableInClassList("top-bar-card-collapsing", !expanded);
-            card.Root.style.height = expanded ? CollapsedHeight + card.DetailHeight : CollapsedHeight;
-            card.Detail.style.height = expanded ? card.DetailHeight : 0f;
-            // Bottom padding is toggled here, not left as a constant in CSS: a fixed padding-
-            // bottom persists even at height:0, leaving a sliver of the detail lines' text
-            // visible under the collapsed card (the "peek" reported by feedback) - it must
-            // collapse to exactly 0 together with height, not stay reserved.
-            card.Detail.style.paddingBottom = expanded ? 6f : 0f;
         }
 
         void TogglePause() => gameRuntime.SetPaused(!gameRuntime.IsPaused);
@@ -345,8 +286,8 @@ namespace Game.UI
         /// Only a <see cref="Button"/> is blurred. A text field must keep the focus a click gives
         /// it, or typing into it would be impossible - which matters from the shortcuts menu on.
         ///
-        /// <b>It asks what holds the focus, not what was clicked.</b> A Top Bar card is a Button
-        /// containing an icon and labels, and those children take the click for themselves - so the
+        /// <b>It asks what holds the focus, not what was clicked.</b> A Top Bar element is a Button
+        /// containing an icon and a label, and those children take the click for themselves - so the
         /// event's own target is usually not the Button that ended up focused. Reading the focus
         /// controller is the same question the digit shortcuts already ask (UIFocus), and
         /// it is the only form of the question that survives a button with children.
@@ -422,7 +363,8 @@ namespace Game.UI
             RefreshClock();
             RefreshWidths();
             RefreshPower();
-            RefreshCompute();
+            RefreshBuildingCompute();
+            RefreshResearchCompute();
             RefreshDirective();
             RefreshResearch();
             RefreshBuildings();
@@ -449,16 +391,17 @@ namespace Game.UI
         void RefreshWidths()
         {
             float widthScale = Screen.width / ReferenceWidth;
-            _powerCard.Root.style.width = ClampedWidth(_powerCard, widthScale);
-            _computeCard.Root.style.width = ClampedWidth(_computeCard, widthScale);
-            _directiveCard.Root.style.width = ClampedWidth(_directiveCard, widthScale);
-            _researchCard.Root.style.width = ClampedWidth(_researchCard, widthScale);
-            _buildingCard.Root.style.width = ClampedWidth(_buildingCard, widthScale);
+            _powerElement.Root.style.width = ClampedWidth(_powerElement, widthScale);
+            _buildingComputeElement.Root.style.width = ClampedWidth(_buildingComputeElement, widthScale);
+            _researchComputeElement.Root.style.width = ClampedWidth(_researchComputeElement, widthScale);
+            _directiveElement.Root.style.width = ClampedWidth(_directiveElement, widthScale);
+            _researchElement.Root.style.width = ClampedWidth(_researchElement, widthScale);
+            _buildingElement.Root.style.width = ClampedWidth(_buildingElement, widthScale);
         }
 
-        static float ClampedWidth(Card card, float widthScale)
+        static float ClampedWidth(Element element, float widthScale)
         {
-            return Mathf.Clamp(card.RefWidth * widthScale, card.MinWidth, card.MaxWidth);
+            return Mathf.Clamp(element.RefWidth * widthScale, element.MinWidth, element.MaxWidth);
         }
 
         /// <summary>
@@ -484,74 +427,70 @@ namespace Game.UI
             float supply = power.SettledSupply;
             float demand = power.SettledDemand;
             bool deficit = demand > supply;
-            float balance = supply - demand;
-            string sign = balance >= 0f ? "+" : "";
 
-            float usage = supply > 0f ? demand / supply : 0f;
             bool strained = IsPowerStrained(demand, supply);
 
-            _powerCard.Value.text = $"{Mathf.RoundToInt(demand)} / {Mathf.RoundToInt(supply)} kW";
-            _powerCard.Value.EnableInClassList("top-bar-card-value-deficit", deficit);
-            _powerCard.Value.EnableInClassList("top-bar-card-value-strained", strained);
-
-            _powerCard.Lines[0].text = $"Consumption: {Mathf.RoundToInt(demand)} kW";
-            _powerCard.Lines[1].text = $"Production: {Mathf.RoundToInt(supply)} kW";
-            _powerCard.Lines[2].text = $"Balance: {sign}{Mathf.RoundToInt(balance)} kW";
-            _powerCard.Lines[2].EnableInClassList("top-bar-card-detail-line-deficit", deficit);
-            _powerCard.Lines[2].EnableInClassList("top-bar-card-detail-line-strained", strained);
-
-            _powerCard.BarFill.style.width = new StyleLength(Length.Percent(Mathf.Clamp01(usage) * 100f));
+            _powerElement.Value.text = $"{Mathf.RoundToInt(demand)} / {Mathf.RoundToInt(supply)} kW";
+            _powerElement.Value.EnableInClassList("top-bar-element-value-deficit", deficit);
+            _powerElement.Value.EnableInClassList("top-bar-element-value-strained", strained);
         }
 
-        void RefreshCompute()
-        {
-            var compute = gameRuntime.Compute;
+        /// <summary>Building Compute (CALCUL.md) - every building-side spender and the Core's own fixed grant, inheriting the role a single undifferentiated reserve used to have.</summary>
+        void RefreshBuildingCompute() => RefreshComputeElement(_buildingComputeElement, gameRuntime.BuildingCompute);
 
-            _computeCard.Value.text = $"{FormatThousands(compute.Reserve)} CU";
+        /// <summary>
+        /// Research Compute (CALCUL.md) - what a research absorbs from by default. Hidden, and left
+        /// at the 0 it starts every run at, until a Data Center exists to credit it
+        /// (ConstructionService.HasDataCenter) - a reserve nothing has produced yet has nothing to
+        /// report.
+        /// </summary>
+        void RefreshResearchCompute()
+        {
+            bool hasDataCenter = gameRuntime.Construction != null && gameRuntime.Construction.HasDataCenter;
+            _researchComputeElement.Root.EnableInClassList("hidden", !hasDataCenter);
+            if (!hasDataCenter) return;
+
+            RefreshComputeElement(_researchComputeElement, gameRuntime.ResearchCompute);
+        }
+
+        void RefreshComputeElement(Element element, ComputeSystem reserve)
+        {
+            element.Value.text = $"{FormatThousands(reserve.Reserve)} CU";
 
             // Red, and blinking - the same rhythm the new-unlock pulse uses, read off the same clock
             // so two things blinking at once blink together. Unscaled, so it keeps going while the
             // player pauses to work out what went wrong, which is exactly when this appears.
-            bool critical = compute.Reserve < CriticalReserveCu;
-            _computeCard.Value.EnableInClassList("top-bar-card-value-deficit", critical);
-            _computeCard.Value.EnableInClassList("top-bar-card-value-blink", critical && !NewUnlockPulse.IsOn);
-            _computeCard.Lines[0].EnableInClassList("top-bar-card-detail-line-deficit", critical);
-
-            // No continuous-draw line: CU is spent in one shot when a production cycle starts,
-            // so there is no per-second consumption to show - only the banked reserve and the
-            // rate it refills at.
-            _computeCard.Lines[0].text = $"Reserve: {FormatThousands(compute.Reserve)} / {FormatThousands(ComputeSystem.ReserveCap)} CU";
-            _computeCard.Lines[1].text = $"Production: {Mathf.RoundToInt(compute.IncomePerSecond)} CU/s";
-
-            _computeCard.BarFill.style.width = new StyleLength(Length.Percent(Mathf.Clamp01(compute.Reserve / ComputeSystem.ReserveCap) * 100f));
+            bool critical = reserve.Reserve < CriticalReserveCu;
+            element.Value.EnableInClassList("top-bar-element-value-deficit", critical);
+            element.Value.EnableInClassList("top-bar-element-value-blink", critical && !NewUnlockPulse.IsOn);
         }
 
         /// <summary>
         /// What the Core is asking for, shown for as long as it is asking.
         ///
-        /// Two states, not one. Before validation the card is a shopping list: each requirement
+        /// Two states, not one. Before validation the element is a shopping list: each requirement
         /// against the aggregate stock a robot could actually go and claim - the same figure, read
         /// the same way, as the Core panel's own, so the two can never disagree. Once the player has
-        /// validated, there is nothing left to shop for and the card simply says the convoy is out.
-        /// A counter there would be answering a question nobody is asking any more, and answering it
-        /// with a number that moves for reasons the player cannot see.
+        /// validated, there is nothing left to shop for and the element simply says the convoy is
+        /// out. A counter there would be answering a question nobody is asking any more, and
+        /// answering it with a number that moves for reasons the player cannot see.
         /// </summary>
         void RefreshDirective()
         {
             CoreDirectiveSystem directives = gameRuntime.CoreDirectives;
             CoreDirectiveDefinition current = directives?.Current;
 
-            _directiveCard.Root.EnableInClassList("hidden", current == null);
+            _directiveElement.Root.EnableInClassList("hidden", current == null);
             if (current == null) return;
 
-            _directiveCard.Value.text = $"Directive {directives.CurrentNumber}";
-            _directiveCard.Requirements.Clear();
+            _directiveElement.Value.text = $"Directive {directives.CurrentNumber}";
+            _directiveElement.Requirements.Clear();
 
             if (directives.IsDelivering)
             {
                 var status = new Label("Approvisionnement en cours");
-                status.AddToClassList("top-bar-card-value");
-                _directiveCard.Requirements.Add(status);
+                status.AddToClassList("top-bar-element-value");
+                _directiveElement.Requirements.Add(status);
                 return;
             }
 
@@ -561,7 +500,7 @@ namespace Game.UI
                 if (requirement.Item == null || requirement.Amount <= 0) continue;
 
                 int stock = available != null && available.TryGetValue(requirement.Item.Id, out int inStock) ? inStock : 0;
-                _directiveCard.Requirements.Add(BuildDirectiveChip(requirement, Mathf.Min(stock, requirement.Amount)));
+                _directiveElement.Requirements.Add(BuildDirectiveChip(requirement, Mathf.Min(stock, requirement.Amount)));
             }
         }
 
@@ -588,26 +527,22 @@ namespace Game.UI
             var research = gameRuntime.Research;
 
             // No research menu before the Datacenter has finished priming and powered its cores
-            // (GDD §5.4), so before that there is no card to fill in - and nothing to fill it from.
+            // (GDD §5.4), so before that there is no element to fill in - and nothing to fill it from.
             bool menuUnlocked = ResearchPanelController.IsAvailable(gameRuntime.Researches, research);
-            _researchCard.Root.EnableInClassList("hidden", !menuUnlocked);
+            _researchElement.Root.EnableInClassList("hidden", !menuUnlocked);
 
-            // A card that appears mid-run appears among three the player has long stopped looking
-            // at, so it announces itself until they act on it - and then stops, which is the point.
+            // An element that appears mid-run appears among others the player has long stopped
+            // looking at, so it announces itself until they act on it - and then stops, which is
+            // the point.
             if (gameRuntime.Selection.ActiveGlobalPanel == ResearchPanelController.PanelName) _researchMenuSeen = true;
-            NewUnlockPulse.Apply(_researchCard.Root, menuUnlocked && !_researchMenuSeen);
+            NewUnlockPulse.Apply(_researchElement.Root, menuUnlocked && !_researchMenuSeen);
 
             if (!menuUnlocked) return;
 
             if (research.HasActiveResearch())
             {
                 ResearchDefinition active = research.GetActiveResearch();
-                float progress = research.GetProgress();
-
-                _researchCard.Value.text = active.DisplayName;
-                _researchCard.Lines[0].text = $"{Mathf.RoundToInt(progress * 100f)}%";
-                _researchCard.Lines[1].text = $"Temps restant  {FormatTime(research.GetEstimatedSecondsRemaining())}";
-                _researchCard.BarFill.style.width = new StyleLength(Length.Percent(Mathf.Clamp01(progress) * 100f));
+                _researchElement.Value.text = active.DisplayName;
 
                 SetResearchFinished(false);
             }
@@ -620,10 +555,7 @@ namespace Game.UI
                 // and announced the end of a tree they had not started.
                 bool finished = queued == 0 && IsWholeTreeUnlocked();
                 string idleText = finished ? "Recherche finie" : "Aucune";
-                _researchCard.Value.text = queued > 0 ? $"{queued} en file" : idleText;
-                _researchCard.Lines[0].text = "0%";
-                _researchCard.Lines[1].text = "Temps restant  --:--";
-                _researchCard.BarFill.style.width = new StyleLength(Length.Percent(0f));
+                _researchElement.Value.text = queued > 0 ? $"{queued} en file" : idleText;
 
                 SetResearchFinished(finished);
             }
@@ -647,14 +579,13 @@ namespace Game.UI
 
         /// <summary>
         /// The one Top Bar state that is good news rather than a warning: everything researched and
-        /// nothing queued. It gets a green frame and a green value, so it reads as finished at a
-        /// glance instead of looking like the "Aucune" it sits next to in the same slot. Cleared as
-        /// soon as anything is being researched again, or the halo would outlive what it announced.
+        /// nothing queued. It gets a green value, so it reads as finished at a glance instead of
+        /// looking like the "Aucune" it sits in the same place as. Cleared as soon as anything is
+        /// being researched again, or the halo would outlive what it announced.
         /// </summary>
         void SetResearchFinished(bool finished)
         {
-            _researchCard.Root.EnableInClassList("top-bar-card-done", finished);
-            _researchCard.Value.EnableInClassList("top-bar-card-value-done", finished);
+            _researchElement.Value.EnableInClassList("top-bar-element-value-done", finished);
         }
 
         /// <summary>Occupied/cap counter (CONSTRUCTION.md) - the second Top Bar figure the survival-phase UI shows, alongside CU. Turns alert-colored within BuildingCapAlertMargin slots of the cap; the cap itself is read live from ConstructionService, so each memory allocation level shows the moment it lands.</summary>
@@ -667,19 +598,8 @@ namespace Game.UI
             int cap = construction.BuildingCap;
             bool approaching = occupied >= cap - BuildingCapAlertMargin;
 
-            _buildingCard.Value.text = $"{occupied} / {cap}";
-            _buildingCard.Value.EnableInClassList("top-bar-card-value-deficit", approaching);
-
-            _buildingCard.Lines[0].text = $"Batiments: {occupied} / {cap}";
-            _buildingCard.Lines[0].EnableInClassList("top-bar-card-detail-line-deficit", approaching);
-
-            _buildingCard.BarFill.style.width = new StyleLength(Length.Percent(cap > 0 ? Mathf.Clamp01((float)occupied / cap) * 100f : 0f));
-        }
-
-        static string FormatTime(float seconds)
-        {
-            int s = Mathf.Max(Mathf.RoundToInt(seconds), 0);
-            return $"{s / 60:00}:{s % 60:00}";
+            _buildingElement.Value.text = $"{occupied} / {cap}";
+            _buildingElement.Value.EnableInClassList("top-bar-element-value-deficit", approaching);
         }
 
         static string FormatThousands(float value)

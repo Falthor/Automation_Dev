@@ -424,6 +424,7 @@ GameObject:
   - component: {fileID: 60635906}
   - component: {fileID: 60635910}
   - component: {fileID: 60635911}
+  - component: {fileID: 60635912}
   m_Layer: 0
   m_Name: GameUI
   m_TagString: Untagged
@@ -635,6 +636,7 @@ MonoBehaviour:
   uiDocument: {fileID: 60635889}
   visualTree: {fileID: 9197481963319205126, guid: f6178f5e2db8fef46aa15b9dc2e3a401, type: 3}
   gameRuntime: {fileID: 2103112250}
+  pool: 1
 --- !u!114 &60635897
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -667,7 +669,8 @@ MonoBehaviour:
   gameRuntime: {fileID: 2103112250}
   constructionInputAdapter: {fileID: 134080687}
   powerIcon: {fileID: 21300000, guid: c5fadfe822770ae419fc331a29a9f908, type: 3}
-  computeIcon: {fileID: 21300000, guid: c1148f9bf137438429b11c466e80c86b, type: 3}
+  buildingComputeIcon: {fileID: 21300000, guid: 531b0d4dbe5e93844984a0e12d2c9837, type: 3}
+  researchComputeIcon: {fileID: 21300000, guid: 19d07e1d0cf373c4c88ddb6570c767b4, type: 3}
   researchIcon: {fileID: 8189402887507919899, guid: c997547e9d9b83340bd6a4e53e9a8e10, type: 3}
   buildingIcon: {fileID: 597411320055623791, guid: 010eeacec31baf84887f268a78c928dd, type: 3}
 --- !u!114 &60635899
@@ -826,6 +829,22 @@ MonoBehaviour:
   pauseAfterDeficit: 3.1
   pauseBeforeResult: 2.4
   pauseBeforeButton: 1.2
+--- !u!114 &60635912
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 60635885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9526aa6c4bcda9c47864318f5a3a22a8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.UI::Game.UI.ComputePanelController
+  uiDocument: {fileID: 60635889}
+  visualTree: {fileID: 9197481963319205126, guid: f6178f5e2db8fef46aa15b9dc2e3a401, type: 3}
+  gameRuntime: {fileID: 2103112250}
+  pool: 0
 --- !u!1 &134080686
 GameObject:
   m_ObjectHideFlags: 0

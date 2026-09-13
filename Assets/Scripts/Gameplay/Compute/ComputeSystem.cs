@@ -34,7 +34,13 @@ namespace Game.Gameplay.Compute
         float _grantedInWindow;
         float _windowTimer;
 
-        public float Reserve { get; private set; } = ReserveCap;
+        public float Reserve { get; private set; }
+
+        /// <summary>Building Compute and Armament Compute start full, like the single reserve this class used to be the only instance of. Research Compute starts empty - see GameRuntime.</summary>
+        public ComputeSystem(float startingReserve = ReserveCap)
+        {
+            Reserve = System.Math.Min(System.Math.Max(startingReserve, 0f), ReserveCap);
+        }
 
         /// <summary>CU actually credited per second, averaged over the last window - what the UI shows as production.</summary>
         public float IncomePerSecond { get; private set; }

@@ -30,7 +30,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             var factory = new FactoryRuntime(
                 TestDataFactory.NewFactory(PowerDemandKw, new[] { WireId }, new[] { IngotId }),
-                new GridCoord(0, 0), Direction.East, recipes, compute, power, new ResearchSystem(compute));
+                new GridCoord(0, 0), Direction.East, recipes, compute, power, new ResearchSystem(compute, compute));
 
             factory.SetSelectedRecipe(WireId);
             factory.AddInput(IngotId, 3, Direction.North);

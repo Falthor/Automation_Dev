@@ -40,7 +40,8 @@ namespace Game.Tests.EditMode.Save
             WrecksDiscovered = "0,3,7",
             PowerPriority = new List<string> { "datacenter", "factory", "extractor" },
             ExplorerRobots = new JObject { ["robots"] = new JArray { new JObject { ["x"] = 40f, ["state"] = 1 } } },
-            ComputeReserve = 12.5f,
+            BuildingComputeReserve = 12.5f,
+            ResearchComputeReserve = 8.25f,
             ResearchActiveId = "automation",
             ResearchProgress = 0.75f,
             ResearchQueue = new List<string> { "a", "b" },
@@ -80,7 +81,7 @@ namespace Game.Tests.EditMode.Save
             // Same call as DecorRemoved above.
             "WrecksDiscovered",
             "ExplorerRobots",
-            "ComputeReserve",
+            "BuildingComputeReserve", "ResearchComputeReserve",
             "ResearchActiveId", "ResearchProgress", "ResearchQueue", "ResearchUnlocked",
             "ConstructionSites", "CoreDirectives",
             "CoreDefinitionId", "CoreCellX", "CoreCellY", "CoreState",

@@ -55,8 +55,8 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             var transport = new TransportSystem(grid);
             var notifications = new NotificationSystem();
             var sites = new ConstructionSiteSystem(transport, grid, notifications, Vector2.zero, robotCount);
-            var construction = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(),
-                new ResearchSystem(new ComputeSystem()), transport, null, sites);
+            var construction = new ConstructionService(grid, null, null, new ComputeSystem(), new ComputeSystem(), new PowerSystem(),
+                new ResearchSystem(new ComputeSystem(), new ComputeSystem()), transport, null, sites);
 
             var fixture = new Fixture
             {
@@ -383,7 +383,7 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             var recipeDatabase = TestDataFactory.NewRecipeDatabase();
             FactoryDefinition factoryDefinition = TestDataFactory.NewFactory(0f, System.Array.Empty<string>(), System.Array.Empty<string>());
             var factory = new FactoryRuntime(factoryDefinition, new GridCoord(30, 30), Direction.North, recipeDatabase,
-                new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+                new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem(), new ComputeSystem()));
             factory.AddOutput(PlateId, 3);
             factory.AddInput(PlateId, 100, Direction.North); // input is deliberately NOT part of the aggregate
             fixture.Transport.Register(factory);

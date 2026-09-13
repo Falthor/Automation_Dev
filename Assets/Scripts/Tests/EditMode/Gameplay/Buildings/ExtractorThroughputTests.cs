@@ -3,8 +3,10 @@ using Game.Data;
 using Game.Gameplay.Buildings;
 using Game.Gameplay.Compute;
 using Game.Gameplay.Power;
+using Game.Gameplay.Research;
 using Game.Grid;
 using Game.Tests.EditMode.TestSupport;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -39,13 +41,14 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         /// Runs an extractor for a minute with its output emptied every tick, so the buffer never
         /// fills and what is measured is the extraction rate itself rather than a downstream stall.
         /// </summary>
-        static int ItemsExtractedInOneMinute(ExtractorDefinition definition)
+        static int ItemsExtractedInOneMinute(ExtractorDefinition definition, ResearchSystem research = null)
         {
             var compute = new ComputeSystem();
             var power = new PowerSystem();
+            research ??= new ResearchSystem(compute, compute);
             ItemDefinition ore = TestDataFactory.NewItem("iron_ore");
 
-            var extractor = new ExtractorRuntime(definition, new GridCoord(0, 0), Direction.East, NewDeposit(ore), compute, power);
+            var extractor = new ExtractorRuntime(definition, new GridCoord(0, 0), Direction.East, NewDeposit(ore), compute, power, research);
 
             int extracted = 0;
             int ticks = Mathf.RoundToInt(60f / TickSeconds);
@@ -101,6 +104,89 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
                 definition.ItemsPerMinute, 0.0001f);
         }
 
+        // ---- ExtractorItemsPerMinute research effect ----
+
+        /// <summary>A test research carrying one rate target. Named for what it does, never after a shipped research (extractor_power): the id is not what the effect hangs on.</summary>
+        static ResearchDefinition RateTarget(float itemsPerMinute)
+            => TestDataFactory.WithEffects(TestDataFactory.NewResearch("rate_" + itemsPerMinute, 10f),
+                new ResearchEffect(ResearchEffectKind.ExtractorItemsPerMinute, value: (int)itemsPerMinute));
+
+        [Test]
+        public void Constructor_StartsAtTheDefinitionsRate()
+        {
+            ExtractorDefinition definition = NewExtractor(intervalSeconds: 4f, itemsPerCycle: 1, cuCostPerCycle: 2f); // 15/min
+            var extractor = new ExtractorRuntime(definition, new GridCoord(0, 0), Direction.East,
+                NewDeposit(TestDataFactory.NewItem("iron_ore")), new ComputeSystem(), new PowerSystem(),
+                new ResearchSystem(new ComputeSystem(), new ComputeSystem()));
+
+            Assert.AreEqual(15f, extractor.ItemsPerMinute, 0.0001f);
+        }
+
+        /// <summary>The shipped extractor_power research: 15/min doubled to 30/min once completed, actually delivered rather than just quoted.</summary>
+        [Test]
+        public void ARateEffect_GrowsTheRateToItsTarget_AndTheExtraCargoIsActuallyDelivered()
+        {
+            ExtractorDefinition definition = NewExtractor(intervalSeconds: 4f, itemsPerCycle: 1, cuCostPerCycle: 2f); // 15/min
+            ResearchDefinition rate30 = RateTarget(30f);
+            var research = new ResearchSystem(new ComputeSystem(), new ComputeSystem(), new ResearchCatalog(new[] { rate30 }));
+            var deposit = NewDeposit(TestDataFactory.NewItem("iron_ore"));
+            var extractor = new ExtractorRuntime(definition, new GridCoord(0, 0), Direction.East, deposit,
+                new ComputeSystem(), new PowerSystem(), research);
+
+            research.Grant(rate30.Id);
+
+            Assert.AreEqual(30f, extractor.ItemsPerMinute, 0.0001f);
+            Assert.AreEqual(30f, ItemsExtractedInOneMinute(definition, research), 2f);
+        }
+
+        /// <summary>Each research sets its own target and the highest completed wins, matching CoreRuntime.ActionRadiusCells.</summary>
+        [Test]
+        public void RateTargets_TheHighestReachedWins_WhateverTheOrder()
+        {
+            ExtractorDefinition definition = NewExtractor(intervalSeconds: 4f, itemsPerCycle: 1, cuCostPerCycle: 2f);
+            ResearchDefinition rate30 = RateTarget(30f), rate45 = RateTarget(45f);
+            var research = new ResearchSystem(new ComputeSystem(), new ComputeSystem(), new ResearchCatalog(new[] { rate30, rate45 }));
+            var extractor = new ExtractorRuntime(definition, new GridCoord(0, 0), Direction.East,
+                NewDeposit(TestDataFactory.NewItem("iron_ore")), new ComputeSystem(), new PowerSystem(), research);
+
+            research.Grant(rate45.Id);
+            Assert.AreEqual(45f, extractor.ItemsPerMinute, 0.0001f);
+
+            research.Grant(rate30.Id);
+            Assert.AreEqual(45f, extractor.ItemsPerMinute, 0.0001f, "A lower target after a higher one changes nothing.");
+        }
+
+        [Test]
+        public void CaptureAndRestore_RoundTripsTheResearchedRate()
+        {
+            ExtractorDefinition definition = NewExtractor(intervalSeconds: 4f, itemsPerCycle: 1, cuCostPerCycle: 2f);
+            ResearchDefinition rate30 = RateTarget(30f);
+            var research = new ResearchSystem(new ComputeSystem(), new ComputeSystem(), new ResearchCatalog(new[] { rate30 }));
+            var extractor = new ExtractorRuntime(definition, new GridCoord(0, 0), Direction.East,
+                NewDeposit(TestDataFactory.NewItem("iron_ore")), new ComputeSystem(), new PowerSystem(), research);
+            research.Grant(rate30.Id);
+
+            var restored = new ExtractorRuntime(definition, new GridCoord(0, 0), Direction.East,
+                NewDeposit(TestDataFactory.NewItem("iron_ore")), new ComputeSystem(), new PowerSystem(),
+                new ResearchSystem(new ComputeSystem(), new ComputeSystem()));
+            restored.RestoreState(extractor.CaptureState());
+
+            Assert.AreEqual(30f, restored.ItemsPerMinute, 0.0001f);
+        }
+
+        [Test]
+        public void RestoreState_ToleratesABlobMissingTheResearchedRate_FallsBackToTheDefinitionsRate()
+        {
+            ExtractorDefinition definition = NewExtractor(intervalSeconds: 4f, itemsPerCycle: 1, cuCostPerCycle: 2f);
+            var extractor = new ExtractorRuntime(definition, new GridCoord(0, 0), Direction.East,
+                NewDeposit(TestDataFactory.NewItem("iron_ore")), new ComputeSystem(), new PowerSystem(),
+                new ResearchSystem(new ComputeSystem(), new ComputeSystem()));
+
+            extractor.RestoreState(new JObject());
+
+            Assert.AreEqual(15f, extractor.ItemsPerMinute, 0.0001f);
+        }
+
         /// <summary>
         /// A rating, not a promise. Starve the CU and the extractor produces nothing - which is why
         /// the menu quotes what it can do rather than what it will do, and why this is measured with
@@ -111,10 +197,11 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         {
             var compute = new ComputeSystem();
             var power = new PowerSystem();
+            var research = new ResearchSystem(compute, compute);
             ItemDefinition ore = TestDataFactory.NewItem("iron_ore");
 
             ExtractorDefinition definition = NewExtractor(intervalSeconds: 1f, itemsPerCycle: 1, cuCostPerCycle: 1000000f);
-            var extractor = new ExtractorRuntime(definition, new GridCoord(0, 0), Direction.East, NewDeposit(ore), compute, power);
+            var extractor = new ExtractorRuntime(definition, new GridCoord(0, 0), Direction.East, NewDeposit(ore), compute, power, research);
 
             for (int tick = 0; tick < 60 * 10; tick++)
             {

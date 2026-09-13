@@ -44,7 +44,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             _compute = new ComputeSystem();
             _power = new PowerSystem();
-            _research = new ResearchSystem(_compute);
+            _research = new ResearchSystem(_compute, _compute);
         }
 
         FoundryRuntime NewFoundryAt(GridCoord cell)

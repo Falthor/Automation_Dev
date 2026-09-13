@@ -360,7 +360,21 @@ namespace Game.Presentation
         public RecipeDatabase Recipes => recipeDatabase;
         public ResearchDatabase Researches => researchDatabase;
         public PowerSystem Power { get; private set; }
-        public ComputeSystem Compute { get; private set; }
+
+        /// <summary>
+        /// The three typed compute reserves (CALCUL.md), each a plain ComputeSystem instance -
+        /// BuildingCompute is what every building-side spender (a recipe cost, an Extractor cycle,
+        /// Data Center priming) and the Core's own fixed grant use, inheriting the role a single
+        /// undifferentiated "Compute" reserve used to have. ResearchCompute is what a research
+        /// absorbs from by default (ResearchDefinition.ComputeSource). ArmamentCompute has no
+        /// producer or spender yet and is not shown in the Top Bar - reserved for when that content
+        /// exists.
+        /// </summary>
+        public ComputeSystem BuildingCompute { get; private set; }
+
+        public ComputeSystem ResearchCompute { get; private set; }
+        public ComputeSystem ArmamentCompute { get; private set; }
+
         public ResearchSystem Research { get; private set; }
 
         /// <summary>What the Core is currently asking for. Built after ConstructionSiteSystem, which carries the deliveries it starts.</summary>
@@ -444,10 +458,15 @@ namespace Game.Presentation
             PowerPriority = new PowerPriorityOrder();
             PowerPriority.EnsureKnows(PowerGroupIds());
             Power.Priority = PowerPriority;
-            Compute = new ComputeSystem();
+            BuildingCompute = new ComputeSystem();
+            // Empty rather than full: nothing has produced any yet, and the Top Bar hides this
+            // element entirely until a Data Center exists (ConstructionService.HasDataCenter) - a
+            // full reserve nobody credited would misread as CU already banked.
+            ResearchCompute = new ComputeSystem(startingReserve: 0f);
+            ArmamentCompute = new ComputeSystem();
             ResearchCatalog researchCatalog = BuildResearchCatalog();
             if (Debug.isDebugBuild) ReportResearchTreeDefects();
-            Research = new ResearchSystem(Compute, researchCatalog);
+            Research = new ResearchSystem(ResearchCompute, BuildingCompute, researchCatalog);
             FurthestActionRadiusCells = researchCatalog.HighestActionRadius(
                 worldGenerationSettings != null && worldGenerationSettings.CoreDefinition != null ? worldGenerationSettings.CoreDefinition.ActionRadiusCells : 0);
             Transport = new TransportSystem(Grid);
@@ -475,7 +494,8 @@ namespace Game.Presentation
                 Discovery.RestoreState(loadedSave.Discovered);
                 _pendingDecorRemoved = loadedSave.DecorRemoved;
                 _pendingWrecksDiscovered = loadedSave.WrecksDiscovered;
-                Compute.RestoreReserve(loadedSave.ComputeReserve);
+                BuildingCompute.RestoreReserve(loadedSave.BuildingComputeReserve);
+                ResearchCompute.RestoreReserve(loadedSave.ResearchComputeReserve);
 
                 var restoredQueue = new List<ResearchDefinition>();
                 foreach (string queuedId in loadedSave.ResearchQueue)
@@ -511,12 +531,12 @@ namespace Game.Presentation
                 if (worldGenerationSettings != null)
                 {
                     World = new WorldGenerator();
-                    World.Generate(Grid, Terrain.Size, worldGenerationSettings, Compute, Power, Research);
+                    World.Generate(Grid, Terrain.Size, worldGenerationSettings, BuildingCompute, Power, Research);
                 }
 
                 ConstructionSites = new ConstructionSiteSystem(Transport, Grid, Notifications, RobotParkOrigin());
                 CoreDirectives = new CoreDirectiveSystem(coreDirectiveDatabase, ConstructionSites, Research);
-                Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core, ConstructionSites);
+                Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, BuildingCompute, ResearchCompute, Power, Research, Transport, World?.Core, ConstructionSites);
             }
 
             // After both branches: the Core exists whether it was generated or restored, and its
@@ -556,7 +576,7 @@ namespace Game.Presentation
                     ? new ExplorerHarvestLog()
                     : null;
 
-                ExplorerRobots = new ExplorerRobotSystem(explorerRobotSettings, Discovery, Compute,
+                ExplorerRobots = new ExplorerRobotSystem(explorerRobotSettings, Discovery, BuildingCompute,
                     World?.CoreCenterCells ?? Vector2.zero, ExplorerParkOrigin(), Terrain.Seed,
                     Sectors, harvestLog);
 
@@ -667,7 +687,7 @@ namespace Game.Presentation
             if (worldGenerationSettings != null && FindBuildingDefinition(save.CoreDefinitionId) is CoreDefinition coreDefinition)
             {
                 var coreCell = new GridCoord(save.CoreCellX, save.CoreCellY);
-                var core = new CoreRuntime(coreDefinition, coreCell, Direction.North, Compute, Power, Research);
+                var core = new CoreRuntime(coreDefinition, coreCell, Direction.North, BuildingCompute, Power, Research);
                 core.RestoreState(save.CoreState ?? new JObject());
                 Grid.SetOccupantFootprint(coreCell, coreDefinition.FootprintSize, core);
 
@@ -688,7 +708,7 @@ namespace Game.Presentation
             ConstructionSites = new ConstructionSiteSystem(Transport, Grid, Notifications, RobotParkOrigin());
             CoreDirectives = new CoreDirectiveSystem(coreDirectiveDatabase, ConstructionSites, Research);
             CoreDirectives.RestoreState(save.CoreDirectives);
-            Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, Compute, Power, Research, Transport, World?.Core, ConstructionSites);
+            Construction = new ConstructionService(Grid, itemDatabase, recipeDatabase, BuildingCompute, ResearchCompute, Power, Research, Transport, World?.Core, ConstructionSites);
             Construction.RestoreBuildingCap(save.BuildingCap);
             PowerPriority.RestoreState(save.PowerPriority, PowerGroupIds());
             Clock.Restore(save.PlayTimeSeconds);
@@ -921,7 +941,8 @@ namespace Game.Presentation
                 // functions of the seed - the same boundary as the decor above.
                 WrecksDiscovered = Wrecks?.CaptureState(),
                 ExplorerRobots = ExplorerRobots?.CaptureState(),
-                ComputeReserve = Compute.Reserve,
+                BuildingComputeReserve = BuildingCompute.Reserve,
+                ResearchComputeReserve = ResearchCompute.Reserve,
                 ResearchActiveId = Research.ActiveResearch != null ? Research.ActiveResearch.Id : null,
                 ResearchProgress = Research.AbsorbedCu,
                 ResearchQueue = BuildResearchQueueIds(),
@@ -1257,10 +1278,12 @@ namespace Game.Presentation
         {
             // Settle last frame's Power reports before this frame's buildings report new ones -
             // the one-frame lag is intentional (ENERGIE.md's report-then-settle contract),
-            // not an ordering bug. Compute has no such flow: its Tick only advances the window
-            // its displayed income rate is averaged over.
+            // not an ordering bug. A ComputeSystem has no such flow: its Tick only advances the
+            // window its displayed income rate is averaged over.
             Power.Settle();
-            Compute.Tick(Time.deltaTime);
+            BuildingCompute.Tick(Time.deltaTime);
+            ResearchCompute.Tick(Time.deltaTime);
+            ArmamentCompute.Tick(Time.deltaTime);
 
             Transport.Tick(Time.deltaTime);
 

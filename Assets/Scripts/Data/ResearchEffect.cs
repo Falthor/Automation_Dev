@@ -19,7 +19,10 @@ namespace Game.Data
         BuildingCap = 3,
 
         /// <summary>A Datacenter gains Value pairs of bays, one CPU and one memory each - DataCenterRuntime. Summed across researches.</summary>
-        DataCenterBayPairs = 4
+        DataCenterBayPairs = 4,
+
+        /// <summary>Every Extractor's rate becomes Value items/min - ExtractorRuntime. A target, not a step.</summary>
+        ExtractorItemsPerMinute = 5
     }
 
     /// <summary>

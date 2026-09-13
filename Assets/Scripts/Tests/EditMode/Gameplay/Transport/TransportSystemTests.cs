@@ -46,7 +46,7 @@ namespace Game.Tests.EditMode.Gameplay.Transport
             so.ApplyModifiedPropertiesWithoutUndo();
 
             var factory = new FactoryRuntime(definition, new GridCoord(0, 0), Direction.East, recipes,
-                new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+                new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem(), new ComputeSystem()));
             grid.SetOccupantFootprint(factory.Cell, definition.FootprintSize, factory);
             transport.Register(factory);
 
@@ -288,7 +288,7 @@ namespace Game.Tests.EditMode.Gameplay.Transport
 
             // Facing East, so its input sides are the other three - the chest is on its West side.
             var factory = new FactoryRuntime(definition, new GridCoord(1, 0), Direction.East, recipes,
-                new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+                new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem(), new ComputeSystem()));
             factory.SetSelectedRecipe("copper_wire");
             grid.SetOccupantFootprint(factory.Cell, definition.FootprintSize, factory);
             transport.Register(factory);
@@ -445,9 +445,9 @@ namespace Game.Tests.EditMode.Gameplay.Transport
 
             var conveyorCell = new GridCoord(5, 5);
             // North of the conveyor, entry pointing South at it.
-            var factoryA = new FactoryRuntime(definitionA, new GridCoord(5, 6), Direction.North, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            var factoryA = new FactoryRuntime(definitionA, new GridCoord(5, 6), Direction.North, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem(), new ComputeSystem()));
             // West of the conveyor, entry pointing East at it.
-            var factoryB = new FactoryRuntime(definitionB, new GridCoord(4, 5), Direction.West, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            var factoryB = new FactoryRuntime(definitionB, new GridCoord(4, 5), Direction.West, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem(), new ComputeSystem()));
             factoryA.SetSelectedRecipe("iron_ore_sink");
             factoryB.SetSelectedRecipe("iron_ore_sink");
             transport.Register(factoryA);
@@ -499,7 +499,7 @@ namespace Game.Tests.EditMode.Gameplay.Transport
 
             // East arm's neighbor cell - one of the splitter's non-entry candidate exits.
             GridCoord factoryCell = CrossFootprint_NeighborCellForTest(splitterOrigin, Direction.East);
-            var factory = new FactoryRuntime(factoryDefinition, factoryCell, Direction.North, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem()));
+            var factory = new FactoryRuntime(factoryDefinition, factoryCell, Direction.North, recipeDatabase, new ComputeSystem(), new PowerSystem(), new ResearchSystem(new ComputeSystem(), new ComputeSystem()));
             factory.SetSelectedRecipe("iron_ore_sink");
             grid.SetOccupant(factoryCell, factory);
             transport.Register(factory);

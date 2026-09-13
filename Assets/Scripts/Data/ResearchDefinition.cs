@@ -4,6 +4,18 @@ using UnityEngine;
 namespace Game.Data
 {
     /// <summary>
+    /// Which of the typed compute reserves (CALCUL.md) a research's absorption draws from. Research
+    /// by default; Building for a research that is really an engineering effort rather than a
+    /// research one - the reserve it draws from is a deliberate per-research choice, not a fact
+    /// about the research tree's shape.
+    /// </summary>
+    public enum ComputeSource
+    {
+        Research = 0,
+        Building = 1
+    }
+
+    /// <summary>
     /// Static definition of one research (RECHERCHE.md): its cost, its prerequisites and its
     /// effects. Enumerated by ResearchDatabase for the tree, and by ResearchCatalog for everything
     /// the game asks about researches.
@@ -19,6 +31,7 @@ namespace Game.Data
         [SerializeField, TextArea] string description;
         [SerializeField] Sprite icon;
         [SerializeField, Min(0f)] float cuCost;
+        [SerializeField] ComputeSource computeSource = ComputeSource.Research;
         [SerializeField] ResearchDefinition[] prerequisites = System.Array.Empty<ResearchDefinition>();
 
         /// <summary>What completing this research does - see ResearchEffect.</summary>
@@ -38,6 +51,7 @@ namespace Game.Data
         public string Description => description;
         public Sprite Icon => icon;
         public float CuCost => cuCost;
+        public ComputeSource ComputeSource => computeSource;
 
         /// <summary>Every research that must already be completed before this one may be started. Empty means available from the start.</summary>
         public IReadOnlyList<ResearchDefinition> Prerequisites => prerequisites;

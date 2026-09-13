@@ -8,16 +8,21 @@ namespace Game.Gameplay.Research
     /// <summary>
     /// CU/absorption research model (RECHERCHE.md). A research
     /// defines a total CU cost and an absorption-rate ceiling, never a duration - the duration is
-    /// the consequence of how fast the active research can actually draw CU out of the shared
-    /// reserve: cost / min(AbsorptionRatePerSecond, what the reserve currently gives). One active
-    /// research at a time; the rest wait in a reorderable queue and start automatically in order.
-    /// Progress is a running CU total, never rolled back - at zero reserve the draw is simply
-    /// zero that tick, which is what makes "pause without loss" a natural consequence of the
-    /// model rather than a special case.
+    /// the consequence of how fast the active research can actually draw CU out of its reserve:
+    /// cost / min(AbsorptionRatePerSecond, what the reserve currently gives). Which reserve is the
+    /// research's own choice (ResearchDefinition.ComputeSource, CALCUL.md) - Research by default,
+    /// Building for one authored as an engineering effort instead. One active research at a time;
+    /// the rest wait in a reorderable queue and start automatically in order. Progress is a running
+    /// CU total, never rolled back - at zero reserve the draw is simply zero that tick, which is
+    /// what makes "pause without loss" a natural consequence of the model rather than a special case.
     /// </summary>
     public sealed class ResearchSystem
     {
-        readonly ComputeSystem _computeSystem;
+        /// <summary>Where ComputeSource.Research absorbs from - the default for a research that has not chosen Building instead.</summary>
+        readonly ComputeSystem _researchCompute;
+
+        /// <summary>Where ComputeSource.Building absorbs from - a research authored as an engineering effort rather than a research one.</summary>
+        readonly ComputeSystem _buildingCompute;
 
         /// <summary>Every research this system can resolve an id to. Null in a test that needs none: then nothing is gated and no effect is found.</summary>
         readonly ResearchCatalog _catalog;
@@ -31,11 +36,16 @@ namespace Game.Gameplay.Research
 
         public event Action<string> ResearchCompleted;
 
-        public ResearchSystem(ComputeSystem computeSystem, ResearchCatalog catalog = null)
+        public ResearchSystem(ComputeSystem researchCompute, ComputeSystem buildingCompute, ResearchCatalog catalog = null)
         {
-            _computeSystem = computeSystem;
+            _researchCompute = researchCompute;
+            _buildingCompute = buildingCompute;
             _catalog = catalog;
         }
+
+        /// <summary>Which reserve a research's own ComputeSource names - Research by default, Building for the ones authored otherwise.</summary>
+        ComputeSystem PoolFor(ResearchDefinition research)
+            => research != null && research.ComputeSource == ComputeSource.Building ? _buildingCompute : _researchCompute;
 
         public bool HasActiveResearch() => ActiveResearch != null;
         public ResearchDefinition GetActiveResearch() => ActiveResearch;
@@ -178,7 +188,7 @@ namespace Game.Gameplay.Research
 
             float remaining = ActiveResearch.CuCost - AbsorbedCu;
             float wanted = Math.Min(remaining, ActiveResearch.AbsorptionRatePerSecond * deltaTime);
-            AbsorbedCu += _computeSystem.SpendUpTo(wanted);
+            AbsorbedCu += PoolFor(ActiveResearch).SpendUpTo(wanted);
 
             if (AbsorbedCu < ActiveResearch.CuCost) return;
 

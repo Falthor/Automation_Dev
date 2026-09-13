@@ -62,8 +62,8 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             var transport = new TransportSystem(grid);
             var notifications = new NotificationSystem();
             var sites = new ConstructionSiteSystem(transport, grid, notifications, Vector2.zero);
-            var construction = new ConstructionService(grid, null, null, new ComputeSystem(), new PowerSystem(),
-                new ResearchSystem(new ComputeSystem()), transport, null, sites);
+            var construction = new ConstructionService(grid, null, null, new ComputeSystem(), new ComputeSystem(), new PowerSystem(),
+                new ResearchSystem(new ComputeSystem(), new ComputeSystem()), transport, null, sites);
 
             var fixture = new Fixture
             {

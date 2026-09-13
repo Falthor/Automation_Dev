@@ -23,7 +23,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         static ResearchDefinition Radius(int cells)
             => TestDataFactory.WithEffects(TestDataFactory.NewResearch("radius_" + cells, 10f), new ResearchEffect(ResearchEffectKind.ActionRadius, value: cells));
 
-        static ResearchSystem Knowing(params ResearchDefinition[] known) => new ResearchSystem(new ComputeSystem(), new ResearchCatalog(known));
+        static ResearchSystem Knowing(params ResearchDefinition[] known) => new ResearchSystem(new ComputeSystem(), new ComputeSystem(), new ResearchCatalog(known));
 
         [Test]
         public void Constructor_StartsAtTheDefinitionsActionRadius()

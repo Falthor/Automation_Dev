@@ -12,7 +12,7 @@ namespace Game.Tests.EditMode.Gameplay.Research
         public void Tick_ProgressesAtMinOfAbsorptionAndAvailable_NeverMore()
         {
             var compute = new ComputeSystem(); // full reserve, far more than the absorption ceiling could ever draw in one tick
-            var research = new ResearchSystem(compute);
+            var research = new ResearchSystem(compute, compute);
             ResearchDefinition def = TestDataFactory.NewResearch("test", cuCost: 1000f, absorptionRatePerSecond: 40f);
             research.Enqueue(def); // starts synchronously - nothing else was active
 
@@ -29,7 +29,7 @@ namespace Game.Tests.EditMode.Gameplay.Research
         public void Tick_AtZeroCu_PausesAndPreservesProgressExactly()
         {
             var compute = new ComputeSystem();
-            var research = new ResearchSystem(compute);
+            var research = new ResearchSystem(compute, compute);
             ResearchDefinition def = TestDataFactory.NewResearch("test", cuCost: 1000f, absorptionRatePerSecond: 100f);
             research.Enqueue(def); // starts synchronously - nothing else was active
 
@@ -48,7 +48,7 @@ namespace Game.Tests.EditMode.Gameplay.Research
         public void Tick_ResumesExactlyWhereItLeftOff_OnceCuIsAvailableAgain()
         {
             var compute = new ComputeSystem();
-            var research = new ResearchSystem(compute);
+            var research = new ResearchSystem(compute, compute);
             ResearchDefinition def = TestDataFactory.NewResearch("test", cuCost: 1000f, absorptionRatePerSecond: 100f);
             research.Enqueue(def); // starts synchronously - nothing else was active
 
@@ -66,7 +66,7 @@ namespace Game.Tests.EditMode.Gameplay.Research
         public void ArePrerequisitesMet_RequiresEveryPrerequisite_NotJustOne()
         {
             var compute = new ComputeSystem();
-            var research = new ResearchSystem(compute);
+            var research = new ResearchSystem(compute, compute);
             ResearchDefinition prereqA = TestDataFactory.NewResearch("a", 10f);
             ResearchDefinition prereqB = TestDataFactory.NewResearch("b", 10f);
             ResearchDefinition combined = TestDataFactory.NewResearch("combined", 10f, prerequisites: new[] { prereqA, prereqB });
@@ -93,7 +93,7 @@ namespace Game.Tests.EditMode.Gameplay.Research
         [Test]
         public void AGrantedUnlock_SatisfiesAPrerequisite_LikeAResearchedOne()
         {
-            var research = new ResearchSystem(new ComputeSystem());
+            var research = new ResearchSystem(new ComputeSystem(), new ComputeSystem());
             ResearchDefinition researched = TestDataFactory.NewResearch("researched", 10f);
             ResearchDefinition granted = TestDataFactory.NewResearch("granted_by_the_core", 0f);
             ResearchDefinition gated = TestDataFactory.NewResearch("gated", 10f, prerequisites: new[] { researched, granted });
@@ -112,7 +112,7 @@ namespace Game.Tests.EditMode.Gameplay.Research
         [Test]
         public void AGrantedUnlockAlone_DoesNotOpenAResearchThatAlsoNeedsAResearchedOne()
         {
-            var research = new ResearchSystem(new ComputeSystem());
+            var research = new ResearchSystem(new ComputeSystem(), new ComputeSystem());
             ResearchDefinition researched = TestDataFactory.NewResearch("researched", 10f);
             ResearchDefinition granted = TestDataFactory.NewResearch("granted_by_the_core", 0f);
             ResearchDefinition gated = TestDataFactory.NewResearch("gated", 10f, prerequisites: new[] { researched, granted });
@@ -127,7 +127,7 @@ namespace Game.Tests.EditMode.Gameplay.Research
         public void Enqueue_Fails_WhenAPrerequisiteIsMissing()
         {
             var compute = new ComputeSystem();
-            var research = new ResearchSystem(compute);
+            var research = new ResearchSystem(compute, compute);
             ResearchDefinition prereq = TestDataFactory.NewResearch("prereq", 10f);
             ResearchDefinition gated = TestDataFactory.NewResearch("gated", 10f, prerequisites: new[] { prereq });
 
@@ -139,7 +139,7 @@ namespace Game.Tests.EditMode.Gameplay.Research
         public void Enqueue_Fails_WhenAlreadyUnlocked()
         {
             var compute = new ComputeSystem();
-            var research = new ResearchSystem(compute);
+            var research = new ResearchSystem(compute, compute);
             ResearchDefinition def = TestDataFactory.NewResearch("test", 10f);
             research.Enqueue(def);
             research.Tick(1f);
@@ -152,7 +152,7 @@ namespace Game.Tests.EditMode.Gameplay.Research
         public void Enqueue_OnlyOneResearchActiveAtATime_SecondGoesToQueue()
         {
             var compute = new ComputeSystem();
-            var research = new ResearchSystem(compute);
+            var research = new ResearchSystem(compute, compute);
             ResearchDefinition first = TestDataFactory.NewResearch("first", 1000f, absorptionRatePerSecond: 1f);
             ResearchDefinition second = TestDataFactory.NewResearch("second", 10f);
 
@@ -168,7 +168,7 @@ namespace Game.Tests.EditMode.Gameplay.Research
         public void Tick_QueueChainsInOrder_OnceTheActiveResearchCompletes()
         {
             var compute = new ComputeSystem();
-            var research = new ResearchSystem(compute);
+            var research = new ResearchSystem(compute, compute);
             ResearchDefinition first = TestDataFactory.NewResearch("first", 10f);
             ResearchDefinition second = TestDataFactory.NewResearch("second", 10f);
             research.Enqueue(first);
@@ -190,7 +190,7 @@ namespace Game.Tests.EditMode.Gameplay.Research
         public void ResearchCompleted_FiresExactlyOnce_WithTheCompletedId()
         {
             var compute = new ComputeSystem();
-            var research = new ResearchSystem(compute);
+            var research = new ResearchSystem(compute, compute);
             ResearchDefinition def = TestDataFactory.NewResearch("test", 10f);
             research.Enqueue(def);
 
@@ -209,6 +209,40 @@ namespace Game.Tests.EditMode.Gameplay.Research
 
             research.Tick(1f); // nothing left active or queued - must not fire again
             Assert.AreEqual(1, fireCount);
+        }
+
+        // ---- ComputeSource routing (CALCUL.md) ----
+
+        [Test]
+        public void ADefaultResearch_AbsorbsFromResearchCompute_NeverFromBuildingCompute()
+        {
+            var researchCompute = new ComputeSystem();
+            var buildingCompute = new ComputeSystem();
+            var research = new ResearchSystem(researchCompute, buildingCompute);
+            ResearchDefinition def = TestDataFactory.NewResearch("test", cuCost: 1000f, absorptionRatePerSecond: 100f);
+            research.Enqueue(def);
+
+            research.Tick(1f);
+
+            Assert.AreEqual(ComputeSystem.ReserveCap - 100f, researchCompute.Reserve);
+            Assert.AreEqual(ComputeSystem.ReserveCap, buildingCompute.Reserve, "Building Compute must stay untouched by a Research-sourced absorption.");
+        }
+
+        /// <summary>A research authored as an engineering effort (ComputeSource.Building) draws from the other reserve entirely.</summary>
+        [Test]
+        public void ABuildingSourcedResearch_AbsorbsFromBuildingCompute_NeverFromResearchCompute()
+        {
+            var researchCompute = new ComputeSystem();
+            var buildingCompute = new ComputeSystem();
+            var research = new ResearchSystem(researchCompute, buildingCompute);
+            ResearchDefinition def = TestDataFactory.WithComputeSource(
+                TestDataFactory.NewResearch("test", cuCost: 1000f, absorptionRatePerSecond: 100f), ComputeSource.Building);
+            research.Enqueue(def);
+
+            research.Tick(1f);
+
+            Assert.AreEqual(ComputeSystem.ReserveCap - 100f, buildingCompute.Reserve);
+            Assert.AreEqual(ComputeSystem.ReserveCap, researchCompute.Reserve, "Research Compute must stay untouched by a Building-sourced absorption.");
         }
     }
 }

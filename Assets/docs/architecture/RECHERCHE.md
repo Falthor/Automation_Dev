@@ -62,10 +62,11 @@ the research that opens it - the research names it**. The list is closed:
 | `ActionRadius` | the Core - a target, highest completed wins |
 | `BuildingCap` | the construction service - a target, highest completed wins |
 | `DataCenterBayPairs` | the Data Center - a number of pairs, summed |
+| `ExtractorItemsPerMinute` | every Extractor - a target, highest completed wins |
 
-Radius and cap are **targets, not increments**, so completion order never matters: a directive granted
-late, a save reloaded, a lower research finished after a higher one - none of them reduce anything. Bays
-add up, capped by the Data Center.
+Radius, cap and extraction rate are **targets, not increments**, so completion order never matters: a
+directive granted late, a save reloaded, a lower research finished after a higher one - none of them
+reduce anything. Bays add up, capped by the Data Center.
 
 **No system compares a research id.** An id is how a save names an unlock and how `ResearchCompleted`
 reports one, never what an effect is keyed on - renaming a research cannot silently detach its effect.

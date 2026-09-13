@@ -179,6 +179,15 @@ namespace Game.Tests.EditMode.TestSupport
             return research;
         }
 
+        /// <summary>Sets which reserve this research's absorption draws from (CALCUL.md) - Research by default, so only a Building-routed test ever needs this.</summary>
+        public static ResearchDefinition WithComputeSource(ResearchDefinition research, ComputeSource source)
+        {
+            var so = new SerializedObject(research);
+            so.FindProperty("computeSource").enumValueIndex = (int)source;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            return research;
+        }
+
         static void SetStringArray(SerializedObject so, string propertyName, string[] values)
         {
             SerializedProperty array = so.FindProperty(propertyName);

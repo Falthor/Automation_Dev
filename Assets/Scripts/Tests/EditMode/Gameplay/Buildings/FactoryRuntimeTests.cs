@@ -37,7 +37,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             _compute = new ComputeSystem();
             _power = new PowerSystem();
-            _research = new ResearchSystem(_compute, new ResearchCatalog(new[] { _memoireResearch }));
+            _research = new ResearchSystem(_compute, _compute, new ResearchCatalog(new[] { _memoireResearch }));
         }
 
         FactoryRuntime NewFactory()

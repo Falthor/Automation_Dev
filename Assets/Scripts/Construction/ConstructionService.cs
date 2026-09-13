@@ -43,12 +43,24 @@ namespace Game.Construction
         readonly GridRuntime _grid;
         readonly ItemDatabase _itemDatabase;
         readonly RecipeDatabase _recipeDatabase;
-        readonly ComputeSystem _computeSystem;
+        readonly ComputeSystem _buildingCompute;
+
+        /// <summary>Passed through only to the Data Center it builds - every other building here spends from _buildingCompute.</summary>
+        readonly ComputeSystem _researchCompute;
+
         readonly PowerSystem _powerSystem;
         readonly ResearchSystem _researchSystem;
         readonly TransportSystem _transport;
         readonly CoreRuntime _core;
         readonly ConstructionSiteSystem _constructionSites;
+
+        /// <summary>
+        /// Whether a Data Center exists - set the moment one is created, whether freshly placed or
+        /// restored from a save, since both paths go through CreateAndRegisterOccupant. What the Top
+        /// Bar gates its Research Compute element on: that reserve exists from the start of the run
+        /// but stays hidden and at 0 until there is a Data Center to credit it.
+        /// </summary>
+        public bool HasDataCenter { get; private set; }
 
         public BuildingDefinition Selected { get; private set; }
         public Direction PreviewRotation { get; private set; } = Direction.North;
@@ -106,13 +118,14 @@ namespace Game.Construction
             }
         }
 
-        public ConstructionService(GridRuntime grid, ItemDatabase itemDatabase, RecipeDatabase recipeDatabase, ComputeSystem computeSystem, PowerSystem powerSystem, ResearchSystem researchSystem, TransportSystem transport = null, CoreRuntime core = null, ConstructionSiteSystem constructionSites = null)
+        public ConstructionService(GridRuntime grid, ItemDatabase itemDatabase, RecipeDatabase recipeDatabase, ComputeSystem buildingCompute, ComputeSystem researchCompute, PowerSystem powerSystem, ResearchSystem researchSystem, TransportSystem transport = null, CoreRuntime core = null, ConstructionSiteSystem constructionSites = null)
         {
             _constructionSites = constructionSites;
             _grid = grid;
             _itemDatabase = itemDatabase;
             _recipeDatabase = recipeDatabase;
-            _computeSystem = computeSystem;
+            _buildingCompute = buildingCompute;
+            _researchCompute = researchCompute;
             _powerSystem = powerSystem;
             _researchSystem = researchSystem;
             _transport = transport;
@@ -538,7 +551,7 @@ namespace Game.Construction
                 // whole footprint is the same exploitable deposit. During restore the caller has
                 // already placed the matching deposit at this cell before calling us.
                 var deposit = _grid.GetOccupant(cell) as DepositRuntime;
-                var extractor = new ExtractorRuntime(extractorDefinition, cell, rotation, deposit, _computeSystem, _powerSystem);
+                var extractor = new ExtractorRuntime(extractorDefinition, cell, rotation, deposit, _buildingCompute, _powerSystem, _researchSystem);
                 _grid.SetOccupantFootprint(cell, extractorDefinition.FootprintSize, extractor);
                 return extractor;
             }
@@ -552,43 +565,44 @@ namespace Game.Construction
 
             if (definition is FoundryDefinition foundryDefinition)
             {
-                var foundry = new FoundryRuntime(foundryDefinition, cell, rotation, _recipeDatabase, _itemDatabase, _computeSystem, _powerSystem, _researchSystem);
+                var foundry = new FoundryRuntime(foundryDefinition, cell, rotation, _recipeDatabase, _itemDatabase, _buildingCompute, _powerSystem, _researchSystem);
                 _grid.SetOccupantFootprint(cell, foundryDefinition.FootprintSize, foundry);
                 return foundry;
             }
 
             if (definition is FactoryDefinition factoryDefinition)
             {
-                var factory = new FactoryRuntime(factoryDefinition, cell, rotation, _recipeDatabase, _computeSystem, _powerSystem, _researchSystem);
+                var factory = new FactoryRuntime(factoryDefinition, cell, rotation, _recipeDatabase, _buildingCompute, _powerSystem, _researchSystem);
                 _grid.SetOccupantFootprint(cell, factoryDefinition.FootprintSize, factory);
                 return factory;
             }
 
             if (definition is ConstructorDefinition constructorDefinition)
             {
-                var constructor = new ConstructorRuntime(constructorDefinition, cell, rotation, _recipeDatabase, _computeSystem, _powerSystem, _researchSystem);
+                var constructor = new ConstructorRuntime(constructorDefinition, cell, rotation, _recipeDatabase, _buildingCompute, _powerSystem, _researchSystem);
                 _grid.SetOccupantFootprint(cell, constructorDefinition.FootprintSize, constructor);
                 return constructor;
             }
 
             if (definition is AdvancedFoundryDefinition advancedFoundryDefinition)
             {
-                var advancedFoundry = new AdvancedFoundryRuntime(advancedFoundryDefinition, cell, rotation, _recipeDatabase, _computeSystem, _powerSystem, _researchSystem);
+                var advancedFoundry = new AdvancedFoundryRuntime(advancedFoundryDefinition, cell, rotation, _recipeDatabase, _buildingCompute, _powerSystem, _researchSystem);
                 _grid.SetOccupantFootprint(cell, advancedFoundryDefinition.FootprintSize, advancedFoundry);
                 return advancedFoundry;
             }
 
             if (definition is PowerplantGazDefinition powerplantGazDefinition)
             {
-                var powerplant = new PowerplantGazRuntime(powerplantGazDefinition, cell, rotation, _computeSystem, _powerSystem);
+                var powerplant = new PowerplantGazRuntime(powerplantGazDefinition, cell, rotation, _buildingCompute, _powerSystem);
                 _grid.SetOccupantFootprint(cell, powerplantGazDefinition.FootprintSize, powerplant);
                 return powerplant;
             }
 
             if (definition is DataCenterDefinition dataCenterDefinition)
             {
-                var dataCenter = new DataCenterRuntime(dataCenterDefinition, cell, rotation, _itemDatabase, _computeSystem, _powerSystem, _researchSystem);
+                var dataCenter = new DataCenterRuntime(dataCenterDefinition, cell, rotation, _itemDatabase, _buildingCompute, _researchCompute, _powerSystem, _researchSystem);
                 _grid.SetOccupantFootprint(cell, dataCenterDefinition.FootprintSize, dataCenter);
+                HasDataCenter = true;
                 return dataCenter;
             }
 

@@ -99,7 +99,7 @@ namespace Game.Tests.EditMode.Gameplay.Directives
             var grid = new GridRuntime(1f);
             var transport = new TransportSystem(grid);
             var sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
-            var research = new ResearchSystem(new ComputeSystem());
+            var research = new ResearchSystem(new ComputeSystem(), new ComputeSystem());
 
             StorageDefinition coreChestDefinition = TestDataFactory.NewStorage(ConstructionSiteSystem.CoreStorageDefinitionId, 6, 200, rejectsConveyorInput: true);
             var coreChest = new StorageRuntime(coreChestDefinition, new GridCoord(0, 0), Direction.North);

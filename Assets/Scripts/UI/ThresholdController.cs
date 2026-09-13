@@ -125,7 +125,7 @@ namespace Game.UI
         /// </summary>
         void WriteReadout()
         {
-            float reserve = gameRuntime.Compute != null ? gameRuntime.Compute.Reserve : 0f;
+            float reserve = gameRuntime.BuildingCompute != null ? gameRuntime.BuildingCompute.Reserve : 0f;
 
             Label reserveValue = _overlay.Q<Label>("ThresholdReserveValue");
             if (reserveValue != null) reserveValue.text = FormatUnits(reserve);
