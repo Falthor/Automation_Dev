@@ -362,6 +362,15 @@ namespace Game.Construction
         /// one site across many belts, and cancelling all of them because the player right-clicked
         /// the third meant a run could only ever be undone whole. A single building is one segment,
         /// so for it this is still the cancellation it always was.
+        ///
+        /// <b>Undoes the same eager registration TryDemolish undoes, for the same reason.</b> A pole
+        /// or a Communication Relay is added to its own auxiliary list (PoleNetworkSystem's graph,
+        /// _communicationRelays) the instant CreateOccupant creates it - at TryPlace, before any
+        /// robot has delivered a single item, since a chantier occupies its cell and exists as a
+        /// real runtime from placement (CONSTRUCTION.md). TryDemolish already knew to remove it from
+        /// there again; this path never did, so a pole cancelled before it ever materialized stayed
+        /// in the pole graph forever - ground with nothing on it that every later pole placed nearby
+        /// still connected to, permanently, because nothing had told the graph it was gone.
         /// </summary>
         public bool TryCancelPendingAt(GridCoord cell)
         {
@@ -370,7 +379,12 @@ namespace Game.Construction
 
             // False for anything that is not an unbuilt segment - a finished building, a deposit -
             // which is exactly how the demolition input falls through to TryDemolish.
-            return _constructionSites.CancelPendingSegment(occupant);
+            if (!_constructionSites.CancelPendingSegment(occupant)) return false;
+
+            if (occupant is PoleRuntime pole) _poleNetwork?.UnregisterPole(pole);
+            if (occupant is CommunicationRelayRuntime relay) _communicationRelays.Remove(relay);
+
+            return true;
         }
 
         /// <summary>

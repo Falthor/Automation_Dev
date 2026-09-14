@@ -91,12 +91,22 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             Assert.IsFalse(plant.CanAcceptInput("Iron_Ingot", 1, Direction.South));
         }
 
+        /// <summary>
+        /// A gas power plant has no physical output at all - only power, which leaves through no
+        /// cell - so its ExitDirection (FacingRotation left over from the base class) must gate
+        /// nothing, the same reasoning DataCenterRuntime.CanAcceptInput already documents. This used
+        /// to refuse fuel from the North side unconditionally: every plant placed at its default
+        /// facing (North) could never be fed from that side, however much coal a belt ran past it,
+        /// while the same plant turned to face any other way took fuel from that side without
+        /// trouble - a placement-dependent trap invisible until someone happened to route a belt
+        /// into the one blocked side.
+        /// </summary>
         [Test]
-        public void CanAcceptInput_RejectsFromOutputSide()
+        public void CanAcceptInput_AcceptsEvenFromTheFacingSide()
         {
             PowerplantGazRuntime plant = NewPlant();
 
-            Assert.IsFalse(plant.CanAcceptInput("Coal_ore", 1, Direction.North)); // facing North -> output side is North
+            Assert.IsTrue(plant.CanAcceptInput("Coal_ore", 1, Direction.North)); // facing North - must not be excluded
         }
     }
 }

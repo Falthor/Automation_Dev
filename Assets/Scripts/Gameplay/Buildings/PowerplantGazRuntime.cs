@@ -38,9 +38,16 @@ namespace Game.Gameplay.Buildings
             _powerSystem = powerSystem;
         }
 
+        // No fromDirection == ExitDirection guard here: that rule protects a building's real
+        // physical output side (a Foundry, a Constructor) from also being fed into, and this one
+        // has no physical output at all - only power, which leaves through no cell. ExitDirection
+        // is FacingRotation left over from the base class with nothing behind it (same reasoning
+        // as DataCenterRuntime.CanAcceptInput). Guarding on it anyway silently refused fuel
+        // arriving from the default-placement North side, on every plant ever placed facing North -
+        // it never lit, however much coal a belt ran past it, while the same plant turned to face
+        // any other way took fuel from that side without trouble.
         public override bool CanAcceptInput(string itemId, int amount, Direction fromDirection)
         {
-            if (fromDirection == ExitDirection) return false;
             if (itemId != _definition.FuelItem.Id) return false;
             return _fuelAmount + amount <= _definition.MaxFuelStack;
         }

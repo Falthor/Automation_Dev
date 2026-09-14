@@ -413,6 +413,64 @@ namespace Game.Tests.EditMode.Construction
             Assert.AreEqual(0, service.OccupiedBuildingSlots);
         }
 
+        /// <summary>A rig with a real PoleNetworkSystem wired in, for the two regression tests below - every other rig in this file passes poleNetwork: null, which the bug they cover would have hidden.</summary>
+        static (ConstructionService service, ConstructionSiteSystem sites, PoleNetworkSystem poleNetwork) NewServiceWithPoleNetwork()
+        {
+            var grid = new GridRuntime(1f);
+            var research = new ResearchSystem(new ComputeSystem(), new ComputeSystem(), new ResearchCatalog(System.Array.Empty<ResearchDefinition>()));
+            var coreDefinition = TestDataFactory.NewCore(1000, new Vector2Int(4, 4));
+            var core = new CoreRuntime(coreDefinition, new GridCoord(0, 0), Direction.North, new ComputeSystem(), new PowerSystem(), research);
+            grid.SetOccupantFootprint(core.Cell, coreDefinition.FootprintSize, core);
+            var transport = new TransportSystem(grid);
+            transport.Register(core);
+            var sites = new ConstructionSiteSystem(transport, grid, new NotificationSystem(), Vector2.zero);
+            var poleNetwork = new PoleNetworkSystem(grid, TestDataFactory.NewPoleNetworkSettings());
+            var service = new ConstructionService(grid, null, null, new ComputeSystem(), new ComputeSystem(), new PowerSystem(), research,
+                transport, core, sites, poleNetwork: poleNetwork);
+            return (service, sites, poleNetwork);
+        }
+
+        /// <summary>
+        /// A pole is registered into PoleNetworkSystem's graph the instant CreateOccupant creates
+        /// it - at TryPlace, before any robot has delivered anything (CONSTRUCTION.md) - and
+        /// TryDemolish already knew to undo that. TryCancelPendingAt did not: a pole cancelled while
+        /// still a pending segment (never ticked into materialization here) used to stay in the
+        /// graph forever, a ghost every later pole placed nearby would still connect to.
+        /// </summary>
+        [Test]
+        public void CancellingAPendingPole_UnregistersItFromThePoleNetwork()
+        {
+            var (service, _, poleNetwork) = NewServiceWithPoleNetwork();
+            var cell = new GridCoord(5, 5);
+
+            service.SelectBuilding(TestDataFactory.NewPoleDefinition());
+            Assert.IsTrue(service.TryPlace(cell, Direction.North, out ConstructionSiteRuntime site));
+            Assert.AreEqual(1, poleNetwork.Poles.Count, "Registered immediately at placement, still pending or not.");
+
+            Assert.IsTrue(service.TryCancelPendingAt(cell), "Never ticked into materialization - still a pending segment.");
+
+            Assert.AreEqual(0, poleNetwork.Poles.Count, "Cancelling before it was ever built must remove it from the graph too.");
+
+            var candidates = poleNetwork.FindConnectionCandidates(new GridCoord(6, 5));
+            Assert.AreEqual(0, candidates.Count, "A pole placed next to it afterwards must not connect to a ghost that no longer exists.");
+        }
+
+        /// <summary>Same bug, same fix, the Communication Relay's own auxiliary list (ConstructionService.CommunicationRelays) instead of the pole graph.</summary>
+        [Test]
+        public void CancellingAPendingCommunicationRelay_RemovesItFromTheList()
+        {
+            var (service, _, _) = NewServiceWithPoleNetwork();
+            var cell = new GridCoord(5, 5);
+
+            service.SelectBuilding(TestDataFactory.NewCommunicationRelay(actionRadiusCells: 12));
+            Assert.IsTrue(service.TryPlace(cell, Direction.North, out ConstructionSiteRuntime site));
+            Assert.AreEqual(1, service.CommunicationRelays.Count);
+
+            Assert.IsTrue(service.TryCancelPendingAt(cell));
+
+            Assert.AreEqual(0, service.CommunicationRelays.Count, "Cancelling before it was ever built must remove it from the list too.");
+        }
+
         /// <summary>A test research carrying one figure. Named for what it does, never after a shipped research: the id is not what the effect hangs on.</summary>
         static ResearchDefinition Raising(ResearchEffectKind kind, int value)
             => TestDataFactory.WithEffects(TestDataFactory.NewResearch(kind + "_" + value, 10f), new ResearchEffect(kind, value: value));

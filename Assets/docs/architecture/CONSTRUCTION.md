@@ -127,6 +127,14 @@ the **one segment** under the cursor: that segment's cost comes off the bill, th
 justified go back, and its ground is freed, while every sibling of a dragged run keeps its own cell and
 its own share.
 
+**Both cancellation paths undo the same eager registration.** A pole or a Communication Relay is added
+to its own auxiliary list - PoleNetworkSystem's graph, `ConstructionService.CommunicationRelays` - the
+instant `CreateOccupant` creates it, at `TryPlace`, before any robot has delivered a single item; the
+runtime exists and occupies its cell from placement, pending or not. `TryCancelPendingAt` mirrors what
+`TryDemolish` already did for a finished one, or a pole cancelled before it was ever built stayed in the
+graph forever - a ghost every later pole placed nearby went on connecting to, on ground with nothing
+standing on it.
+
 `TryDemolish` refuses for the Core, for the Core chest fixture - matched by definition id, since a
 restored instance is just an ordinary entry in the save's building list - and for any building that is
 still a pending site's unbuilt segment. The first two are world-generated fixtures the player never
