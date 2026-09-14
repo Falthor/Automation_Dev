@@ -198,6 +198,16 @@ mechanism the Core's own radius uses to write into discovery (`GameRuntime.Revea
 just triggered once at creation instead of re-checked every tick, since a relay's own radius never
 grows the way the Core's does with research.
 
+**Discovered is not the same as watched, and a relay needs both to show no fog at all.** Discovery
+(above) is permanent; `GameRuntime.Observation` is live, rebuilt every frame from scratch
+(`RebuildObservers`), and is what `FogOfWarView` actually reads to tell "remembered" ground (veiled)
+from "currently observed" ground (clear) - MAP.md's own two-channel texture. Every currently-active
+relay is one of `RebuildObservers`' observer sources, at its own action radius, exactly like the Core;
+skipped the moment `IsActive` goes false, so an unpowered relay's ground stays discovered (it can
+never be forgotten) but drops back to the veil rather than reading as watched. A relay that has never
+been active yet still shows the veil inside its own radius, not the full fog of the unknown - the
+one-time `RevealDisc` at creation already lit it as discovered.
+
 ## 9. Chantiers: reservation, segments, order
 
 Placing opens a `ConstructionSiteRuntime` holding one segment - a normal building - or several in

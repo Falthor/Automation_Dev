@@ -1265,11 +1265,17 @@ namespace Game.Presentation
         /// through their read-only interface would box an enumerator once a frame, and this runs
         /// every frame for the life of the process.
         ///
-        /// Two kinds of observer today, and adding a third is one line here and nothing anywhere
+        /// Three kinds of observer today, and adding a fourth is one line here and nothing anywhere
         /// else:
         /// <list type="bullet">
         /// <item>the Core, at its live action radius - so a radius extended by research widens what
         /// is observed the frame it is granted, the same way it widens what is revealed.</item>
+        /// <item>every currently-active Communication Relay, at its own action radius - active exactly
+        /// like the buildable zone it also grants (CommunicationRelayRuntime.IsActive), so a relay
+        /// starved of power or CU drops its ground back to the remembered veil instead of reading as
+        /// currently watched. Unlike discovery, which CreateOccupant writes once and permanently, this
+        /// is re-evaluated every rebuild - a relay's ground stays discovered forever, but only counts
+        /// as observed while the relay is actually running.</item>
         /// <item>every explorer robot that is out, at the radius it uncovers with. Derived from the
         /// reveal radius rather than given its own setting: what a robot sees is what it uncovers,
         /// and two numbers would drift. A robot resting at the base is skipped because it is inside
@@ -1284,6 +1290,22 @@ namespace Game.Presentation
             Observation.BeginRebuild();
 
             if (World?.Core != null) Observation.Add(World.CoreCenterCells, World.ActionRadiusCells);
+
+            // A relay only ever gets a cell discovered once (ConstructionService.CreateOccupant), but
+            // observation is live and must track its current power state exactly like the Core's own
+            // radius does - an unpowered relay's ground stays discovered (permanent) but drops back to
+            // the remembered veil (FogOfWarView) instead of reading as currently watched.
+            if (Construction != null)
+            {
+                IReadOnlyList<CommunicationRelayRuntime> relays = Construction.CommunicationRelays;
+                for (int i = 0; i < relays.Count; i++)
+                {
+                    if (!relays[i].IsActive) continue;
+                    Vector2Int relaySize = relays[i].Definition.FootprintSize;
+                    var relayCentre = new Vector2(relays[i].Cell.X + relaySize.x * 0.5f, relays[i].Cell.Y + relaySize.y * 0.5f);
+                    Observation.Add(relayCentre, relays[i].ActionRadiusCells);
+                }
+            }
 
             if (ExplorerRobots != null && explorerRobotSettings != null)
             {
