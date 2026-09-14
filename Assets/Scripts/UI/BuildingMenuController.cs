@@ -167,8 +167,8 @@ namespace Game.UI
             }
         }
 
-        /// <summary>The rail's label text. The enum name itself for every existing category (Production, Power, Logistic, Organisation - English, unlike the rest of the UI); Reseau is the one spelled out in French since the accent it needs cannot live in a C# identifier.</summary>
-        static string CategoryLabel(BuildingCategory category) => category == BuildingCategory.Reseau ? "Réseau" : category.ToString();
+        /// <summary>The rail's label text - the enum name itself for every category (Production, Power, Logistic, Organisation).</summary>
+        static string CategoryLabel(BuildingCategory category) => category.ToString();
 
         Sprite ResolveCategoryIcon(BuildingCategory category)
         {

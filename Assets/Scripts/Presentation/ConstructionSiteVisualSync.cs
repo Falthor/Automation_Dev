@@ -529,8 +529,8 @@ namespace Game.Presentation
         /// A conveyor ghost turns with its own orientation (mirroring included, exactly as
         /// ConveyorView does - a corner's chirality is otherwise wrong half the time); a
         /// Splitter/Crossroad turns with its facing, measured against its art's native side; a
-        /// definition opted into BuildingDefinition.RotatesSpriteWithFacing (the Network Cable) turns
-        /// with its own FacingRotation, the same maths BuildingSpawner.SpawnStandardView uses for the
+        /// definition opted into BuildingDefinition.RotatesSpriteWithFacing turns with its own
+        /// FacingRotation, the same maths BuildingSpawner.SpawnStandardView uses for the
         /// materialised view - otherwise the segment shown while pending would face one way and snap
         /// to another the instant it finishes. Every other building's view never rotates, so its
         /// ghost must not either.

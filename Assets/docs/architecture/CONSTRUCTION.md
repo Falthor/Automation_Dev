@@ -83,14 +83,6 @@ Drag-gesture decoding - turning a mouse drag into a sequence of single-cell call
 to reshape an anchor into a corner - is input interpretation and lives in the Presentation-layer
 adapter. The service stays single-cell and input-agnostic.
 
-The Network Cable drags the same way but simpler: it is a plain `BuildingRuntime` with no shape to
-reconfigure, so a turn - the same Ctrl "drop axis" gesture, or a fresh click onto an existing cable's
-own endpoint - does not reshape anything in place. It removes the plain cable segment at the pivot cell
-(`ConstructionInputAdapter.DemolishAt`, which already handles both a still-pending segment and a
-materialised one) and places the omnidirectional Network Junction there instead. Whether a movement
-counts as a turn is read off the existing segment's own `FacingRotation` rather than a flow-based entry
-lookup, since an undirected cable has no "feeds/fed by" to ask.
-
 ## 3. Overtaking
 
 The occupancy check lets a Conveyor, Splitter or Crossroad be placed onto belts already laid instead of
@@ -170,11 +162,10 @@ second time.
 `HasDataCenter`), a cell counts as in range if it is within the Core's radius **or** within any
 currently-active `CommunicationRelayRuntime`'s own radius - each checked whole-footprint-at-once
 against its own single circle, never a per-cell mix of two sources. Outside every one of them, only
-what a relay needs to reach and be reached may still be placed: a straight/corner conveyor, a pole, the
-network cable and its junction, and the Communication Relay itself (`ConstructionService.
-IsEligibleOutsideRadius`) - and only on ground that is **already discovered**. Discovery is otherwise
-never consulted by placement anywhere else in the game; this is the one exception, and it exists only
-out here.
+what a relay needs to reach and be reached may still be placed: a straight/corner conveyor, a pole, and
+the Communication Relay itself (`ConstructionService.IsEligibleOutsideRadius`) - and only on ground that
+is **already discovered**. Discovery is otherwise never consulted by placement anywhere else in the
+game; this is the one exception, and it exists only out here.
 
 **A Communication Relay projects its own radius while active, and only then.** "Active"
 (`CommunicationRelayRuntime.IsActive`) is all-or-nothing like every other power consumer

@@ -491,12 +491,6 @@ MonoBehaviour:
     category: 0
   - definition: {fileID: 11400000, guid: 6c6ad08e4ac011343b31c80b30f90c54, type: 2}
     category: 2
-  - definition: {fileID: 11400000, guid: 69e12704173410b4c9c9b4389bed2654, type: 2}
-    category: 4
-  - definition: {fileID: 11400000, guid: 98ff54328ab38654bacc3fdb0079fe30, type: 2}
-    category: 4
-  - definition: {fileID: 11400000, guid: 5aaf2da93053dc546923e44609ef7d20, type: 2}
-    category: 4
   - definition: {fileID: 11400000, guid: 00baa074a58789442ad19338bb7e9402, type: 2}
     category: 1
   categoryIcons:
@@ -508,8 +502,6 @@ MonoBehaviour:
     icon: {fileID: 21300000, guid: 8b920d50efaf1024790e8a4744cbdbb8, type: 3}
   - category: 1
     icon: {fileID: 21300000, guid: cda16e440486b5d4cab687e7e1158a66, type: 3}
-  - category: 4
-    icon: {fileID: 21300000, guid: 657a7153a1c246740b623f9bf653aa3a, type: 3}
   powerIcon: {fileID: 21300000, guid: c5fadfe822770ae419fc331a29a9f908, type: 3}
   computeIcon: {fileID: 21300000, guid: c1148f9bf137438429b11c466e80c86b, type: 3}
 --- !u!114 &60635889

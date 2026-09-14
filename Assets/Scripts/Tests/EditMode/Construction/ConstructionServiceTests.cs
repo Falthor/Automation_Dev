@@ -642,23 +642,6 @@ namespace Game.Tests.EditMode.Construction
         }
 
         [Test]
-        public void OutsideRadius_ResearchedAndDiscovered_AllowsTheNetworkCableAndJunction()
-        {
-            ResearchDefinition unlock = OutOfRadiusUnlock();
-            var (service, _, research, _, discovery) = NewServiceWithCoreAndDiscovery(1, unlock);
-            research.Enqueue(unlock);
-            research.Tick(60f);
-            var farCell = new GridCoord(50, 0);
-            discovery.Reveal(farCell);
-
-            service.SelectBuilding(TestDataFactory.NewShowcaseDefinition("network_cable"));
-            Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(farCell), "network_cable");
-
-            service.SelectBuilding(TestDataFactory.NewShowcaseDefinition("network_junction"));
-            Assert.AreEqual(PlacementRefusalReason.None, service.GetPlacementRefusalReason(farCell), "network_junction");
-        }
-
-        [Test]
         public void OutsideRadius_EvenResearchedAndDiscovered_RefusesAnOrdinaryBuilding()
         {
             ResearchDefinition unlock = OutOfRadiusUnlock();
@@ -670,7 +653,7 @@ namespace Game.Tests.EditMode.Construction
 
             service.SelectBuilding(NewFreeCountingDefinition()); // a FactoryDefinition - not eligible out here
             Assert.AreEqual(PlacementRefusalReason.OutOfActionRadius, service.GetPlacementRefusalReason(farCell),
-                "Only a conveyor, a pole, the network cable/junction or the relay itself may be placed outside every radius.");
+                "Only a conveyor, a pole or the relay itself may be placed outside every radius.");
         }
 
         [Test]

@@ -85,7 +85,7 @@ namespace Game.Data
         /// </summary>
         public virtual bool SuppliesPower => false;
 
-        /// <summary>Whether BuildingSpawner drops a ground shadow under this building's art - true for everything standing on the ground, false for what lies flat on it (a Storage crate, a Network cable). A type with no shadow to skip overrides this.</summary>
+        /// <summary>Whether BuildingSpawner drops a ground shadow under this building's art - true for everything standing on the ground, false for what lies flat on it (a Storage crate). A type with no shadow to skip overrides this.</summary>
         public virtual bool DrawsShadow => true;
 
         /// <summary>

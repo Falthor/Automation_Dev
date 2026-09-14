@@ -58,20 +58,6 @@ namespace Game.Presentation
         /// </summary>
         [SerializeField] ConveyorDefinition cornerConveyorForReshape;
 
-        /// <summary>
-        /// The Network Cable's drag run: laid one per cell along the locked axis exactly like a
-        /// belt, but with no orientation of its own to reshape at a turn - see
-        /// networkJunctionDefinition and HandleAxisDropRequest.
-        /// </summary>
-        [SerializeField] ShowcaseDefinition networkCableDefinition;
-
-        /// <summary>
-        /// Dropped in place of a cable at the pivot cell of a mid-drag turn (the same Ctrl
-        /// "drop axis" gesture a conveyor corners with) - omnidirectional art, so unlike a
-        /// conveyor's corner this never needs an entry/exit side to configure.
-        /// </summary>
-        [SerializeField] ShowcaseDefinition networkJunctionDefinition;
-
         // Arrow colours and size come from BuildingSpawner, which draws the real ones - the ghost
         // previewing a building must not describe it with a different marker.
 
@@ -100,7 +86,7 @@ namespace Game.Presentation
         /// A pole's own drag: free-direction rather than axis-locked (a pole has no facing to
         /// preview differently on the diagonal), and a new pole appears only once the cursor has
         /// pulled ConnectionRangeCells away from the last one placed - see AdvancePoleDrag. Kept
-        /// apart from _isDragPlacing/_dragAxis, which are the conveyor/cable axis-lock's own state
+        /// apart from _isDragPlacing/_dragAxis, which are the conveyor axis-lock's own state
         /// and stay unused here: each pole placed this way is still its own chantier, not a run
         /// (IsDraggableRun deliberately excludes PoleDefinition).
         /// </summary>
@@ -467,9 +453,9 @@ namespace Game.Presentation
 
         /// <summary>
         /// Whether the ghost's sprite itself must rotate to match the real built view. Only the
-        /// "+"-shaped Splitter/Crossroad rotate their sprite (SpawnRotatingCrossView), and so does a
-        /// definition opted into BuildingDefinition.RotatesSpriteWithFacing (the Network Cable) -
-        /// every other building's root never rotates (SpawnStandardView), so the ghost mustn't either.
+        /// "+"-shaped Splitter/Crossroad rotate their sprite (SpawnRotatingCrossView), and so does any
+        /// definition opted into BuildingDefinition.RotatesSpriteWithFacing - every other building's
+        /// root never rotates (SpawnStandardView), so the ghost mustn't either.
         /// </summary>
         static (bool rotateSprite, Direction artNativeDirection) ResolveGhostRotation(BuildingDefinition definition)
         {
@@ -501,15 +487,9 @@ namespace Game.Presentation
                 // axis becomes known (first movement), this anchor cell gets reshaped to match
                 // it exactly - straight if collinear, a corner otherwise - instead of being
                 // stuck with whatever rotation it happened to be given at the initial click.
-                //
-                // A cable clicked onto its own existing endpoint inherits that segment's own
-                // FacingRotation the same way - undirected, so there is no entry/exit to pick
-                // between, just the axis it already runs along.
                 Direction? entryDirection = gameRuntime.Construction.Selected is ConveyorDefinition
                     ? FindEntryDirection(cell)
-                    : ReferenceEquals(gameRuntime.Construction.Selected, networkCableDefinition)
-                        ? ExistingCableAxis(cell)
-                        : null;
+                    : null;
                 Direction rotation = ResolveAutoRotation(gameRuntime.Construction.Selected, cell);
 
                 _activeConveyorSite = null; // a new gesture always opens its own chantier
@@ -600,52 +580,10 @@ namespace Game.Presentation
             if (!_dragAxis.HasValue || cell != _lastPlacedCell) return;
             if (!InputBindings.WasPressedThisFrame(_dropDragAxis)) return;
 
-            // A cable has no entry/exit to reconcile - just the axis it already runs along, fed
-            // straight into the same "does the next movement turn" check a fresh click on an
-            // existing endpoint uses (AdvanceLockedAxisDrag, ExistingCableAxis).
-            _pendingCornerEntry = ReferenceEquals(gameRuntime.Construction.Selected, networkCableDefinition)
-                ? _dragAxis.Value
-                : _dragAxis.Value.Opposite();
+            _pendingCornerEntry = _dragAxis.Value.Opposite();
             _dragAxis = null;
             _dragAnchorCell = _lastPlacedCell;
         }
-
-        /// <summary>
-        /// Upgrades the pivot cell of a cable drag into a junction at a mid-drag turn. A cable has
-        /// no orientation to reshape in place the way ConfigureAsCorner reshapes a conveyor, so the
-        /// simplest equivalent is removing the plain cable segment there (DemolishAt handles both a
-        /// still-pending segment and an already-materialised one) and placing the omnidirectional
-        /// junction instead.
-        /// </summary>
-        void ReplaceWithJunction(GridCoord cell)
-        {
-            DemolishAt(cell);
-
-            BuildingDefinition previousSelected = gameRuntime.Construction.Selected;
-            gameRuntime.Construction.SelectBuilding(networkJunctionDefinition);
-            PlaceAt(cell, gameRuntime.Construction.PreviewRotation);
-            gameRuntime.Construction.SelectBuilding(previousSelected);
-        }
-
-        /// <summary>Sets an already-placed cable segment's facing to match the axis its drag turned out to take - see AdvanceLockedAxisDrag's cable branch.</summary>
-        void ReorientAnchor(GridCoord cell, Direction axis)
-        {
-            if (gameRuntime.Grid.GetOccupant(cell) is BuildingRuntime building && ReferenceEquals(building.Definition, networkCableDefinition))
-            {
-                building.SetFacingRotation(axis);
-                RefreshViewIfMaterialized(building);
-            }
-        }
-
-        /// <summary>The axis an existing cable segment at `cell` already runs along, or null when there is none there yet - what a click onto a cable's own endpoint inherits (HandlePlacement), the cable equivalent of FindEntryDirection.</summary>
-        Direction? ExistingCableAxis(GridCoord cell)
-            => gameRuntime.Grid.GetOccupant(cell) is BuildingRuntime existing && ReferenceEquals(existing.Definition, networkCableDefinition)
-                ? existing.FacingRotation
-                : (Direction?)null;
-
-        /// <summary>Whether two directions belong to the same drag axis - both horizontal (East/West) or both vertical (North/South). What decides a cable turn: a plain rotation has no other notion of "collinear" the way a conveyor's entry/exit does.</summary>
-        static bool SameAxisFamily(Direction a, Direction b)
-            => (a == Direction.North || a == Direction.South) == (b == Direction.North || b == Direction.South);
 
         /// <summary>
         /// The rotation this definition should preview and place with, given whatever already feeds
@@ -761,23 +699,6 @@ namespace Game.Presentation
                         // rotation happened to be previewed, which may not match the direction
                         // the drag actually went. Re-point it at the discovered axis.
                         ReshapeAnchorAsStraight(_dragAnchorCell, newAxis);
-                    }
-                }
-                else if (ReferenceEquals(gameRuntime.Construction.Selected, networkCableDefinition))
-                {
-                    // Undirected, so there is no entry/exit to reconcile - just whether the axis
-                    // the anchor already ran along (its own FacingRotation, carried here as
-                    // _pendingCornerEntry by ExistingCableAxis or HandleAxisDropRequest) differs
-                    // from the axis the drag turned out to take. Same family (both horizontal or
-                    // both vertical): the anchor was just re-pointed to face it exactly, nothing
-                    // to insert. A genuine turn: the anchor becomes a junction instead.
-                    if (_pendingCornerEntry.HasValue && !SameAxisFamily(_pendingCornerEntry.Value, newAxis))
-                    {
-                        ReplaceWithJunction(_dragAnchorCell);
-                    }
-                    else
-                    {
-                        ReorientAnchor(_dragAnchorCell, newAxis);
                     }
                 }
 
@@ -980,12 +901,11 @@ namespace Game.Presentation
         /// Whether this tool lays a <b>run</b> - a line of pieces drawn in one gesture, gathered into
         /// a single chantier.
         ///
-        /// Belts and the Network Cable. A Splitter and a Crossroad are single pieces placed one per
-        /// click: they were counted as runs, which made a click-and-slide drop several of them,
-        /// each rotated to the drag's axis rather than to the rotation the ghost was showing.
+        /// Belts only. A Splitter and a Crossroad are single pieces placed one per click: they were
+        /// counted as runs, which made a click-and-slide drop several of them, each rotated to the
+        /// drag's axis rather than to the rotation the ghost was showing.
         /// </summary>
-        bool IsDraggableRun(BuildingDefinition definition)
-            => definition is ConveyorDefinition || ReferenceEquals(definition, networkCableDefinition);
+        bool IsDraggableRun(BuildingDefinition definition) => definition is ConveyorDefinition;
 
         /// <summary>
         /// Right-clicking the building whose contextual panel is open removes it, panel and all.

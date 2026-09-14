@@ -19,13 +19,13 @@ MonoBehaviour:
   cuCost: 10000
   computeSource: 0
   prerequisites:
-  - {fileID: 11400000, guid: 6d2f8b3c0e4a4f71b9c5d3e7f1a2b4c6, type: 2}
+  - {fileID: 11400000, guid: d480d6f5dc814760a79619c05471ba5c, type: 2}
   effects:
   - kind: 5
     building: {fileID: 0}
     recipe: {fileID: 0}
     value: 30
   absorptionRatePerSecond: 80
-  tier: 1.7
-  angle: 68.7
+  tier: 2
+  angle: 359.6
   enlargedDisplay: 0

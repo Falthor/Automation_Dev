@@ -969,21 +969,14 @@ namespace Game.Construction
         /// <summary>
         /// Whether this definition may be placed outside every action radius at all - unlocked, and
         /// one of the buildings that carries power or items to a relay's own patch rather than
-        /// something that needs a relay already covering it: the relay itself, a conveyor, a pole,
-        /// or the network cable/junction (CONSTRUCTION.md). The last two are ShowcaseDefinition
-        /// instances - there is no NetworkCableDefinition/NetworkJunctionDefinition type to match on,
-        /// so they are named by Definition.Id instead, the same way CoreStorageDefinitionId already
-        /// picks one showcase-shaped asset out of the rest.
+        /// something that needs a relay already covering it: the relay itself, a conveyor, or a pole
+        /// (CONSTRUCTION.md).
         /// </summary>
         bool IsEligibleOutsideRadius(BuildingDefinition definition)
         {
             if (!HasUnlockedOutOfRadiusConstruction) return false;
-            if (definition is CommunicationRelayDefinition || definition is ConveyorDefinition || definition is PoleDefinition) return true;
-            return definition.Id == NetworkCableDefinitionId || definition.Id == NetworkJunctionDefinitionId;
+            return definition is CommunicationRelayDefinition || definition is ConveyorDefinition || definition is PoleDefinition;
         }
-
-        const string NetworkCableDefinitionId = "network_cable";
-        const string NetworkJunctionDefinitionId = "network_junction";
 
         /// <summary>Whether every cell of the footprint has already been revealed - the one placement gate that reads discovery at all, and only for ground outside every radius (CONSTRUCTION.md). No restriction without a DiscoveryRuntime, same convention as a missing Core.</summary>
         bool IsFullyDiscovered(GridCoord origin, Vector2Int[] cells)

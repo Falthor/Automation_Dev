@@ -507,8 +507,8 @@ namespace Game.Presentation
         /// Storage boxes are excluded by request: their art is low and flat-topped, so the offset
         /// silhouette reads as a second box beside the first rather than as the box's own shadow -
         /// and they are placed in rows, which multiplies the effect. BuildingDefinition.DrawsShadow
-        /// excludes the rest, same reasoning as conveyors: a Network cable lies flat on the ground,
-        /// so it has nothing to cast either.
+        /// excludes the rest, same reasoning as conveyors: anything lying flat on the ground has
+        /// nothing to cast either.
         /// </summary>
         static bool CastsShadow(BuildingRuntime runtime) => !(runtime is StorageRuntime) && runtime.Definition.DrawsShadow;
 
