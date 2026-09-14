@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: extended_bandwidth_3
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: extended_bandwidth_3
-  displayName: Bande passante etendue 3
+  displayName: Portee du Noyau III
   description: Porte le rayon d'action du Noyau a 80 cellules.
   icon: {fileID: 0}
   cuCost: 30000
