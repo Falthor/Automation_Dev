@@ -13,15 +13,28 @@ MonoBehaviour:
   m_Name: AdvancedFoundryDefinition
   m_EditorClassIdentifier: Game.Data::Game.Data.AdvancedFoundryDefinition
   id: fonderie_avancee
-  displayName: Fonderie avancée
+  displayName: "Fonderie avanc\xE9e"
   footprintSize: {x: 3, y: 3}
   placeholderColor: {r: 0.7, g: 0.45, b: 0.15, a: 1}
-  sprite: {fileID: 21300000, guid: 71bf25a4db8328048a34fc864865c752, type: 3}
-  animationFrames: []
+  sprite: {fileID: -6622863259242664493, guid: af88d9750fb80af4796b867988de59ba, type: 3}
+  animationFrames:
+  - {fileID: -6622863259242664493, guid: af88d9750fb80af4796b867988de59ba, type: 3}
+  - {fileID: 4138848172959368440, guid: af88d9750fb80af4796b867988de59ba, type: 3}
+  - {fileID: 5823024787834327110, guid: af88d9750fb80af4796b867988de59ba, type: 3}
+  - {fileID: -5429809939435209488, guid: af88d9750fb80af4796b867988de59ba, type: 3}
+  - {fileID: -7409573511083393705, guid: af88d9750fb80af4796b867988de59ba, type: 3}
+  - {fileID: 2402639969742374697, guid: af88d9750fb80af4796b867988de59ba, type: 3}
+  - {fileID: 368041112877095050, guid: af88d9750fb80af4796b867988de59ba, type: 3}
+  - {fileID: -3326688003119052452, guid: af88d9750fb80af4796b867988de59ba, type: 3}
+  - {fileID: 9209089764030810201, guid: af88d9750fb80af4796b867988de59ba, type: 3}
+  - {fileID: 7800090583882032772, guid: af88d9750fb80af4796b867988de59ba, type: 3}
+  - {fileID: -7160256121808793437, guid: af88d9750fb80af4796b867988de59ba, type: 3}
+  - {fileID: -955268259036638798, guid: af88d9750fb80af4796b867988de59ba, type: 3}
   animationFps: 8
+  animationIntervalSeconds: 0
   cost:
   - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
     amount: 20
   powerDemandKw: 4
-  recipeIds:
-  acceptedItemIds:
+  recipeIds: []
+  acceptedItemIds: []
