@@ -32,7 +32,13 @@ MonoBehaviour:
   - {fileID: -955268259036638798, guid: da8d5f93ce6a63e4ab140aa4d6fd6034, type: 3}
   animationFps: 12
   animationIntervalSeconds: 0
-  cost: []
+  cost:
+  - item: {fileID: 11400000, guid: 71bd4fc6e8052b793d4f6183ae205729, type: 2}
+    amount: 10
+  - item: {fileID: 11400000, guid: d5be11fa9d151e345a38f4254d3f1430, type: 2}
+    amount: 6
+  - item: {fileID: 11400000, guid: 5f8b2da4c6e309571b2d4f6180c3e507, type: 2}
+    amount: 12
   powerDemandKw: 0
   drawsShadow: 1
   rotatesSpriteWithFacing: 0
