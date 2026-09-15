@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: OutOfLimit
   displayName: "Hors de port\xE9e"
-  description: Permet de construire en dehors du rayon d'action du noyau. Necessite Portee du Noyau III.
+  description: Permet de construire en dehors du rayon d'action du noyau. Necessite
+    Portee du Noyau III.
   icon: {fileID: 0}
   cuCost: 20000
   computeSource: 0
@@ -26,6 +27,6 @@ MonoBehaviour:
     recipe: {fileID: 0}
     value: 0
   absorptionRatePerSecond: 120
-  tier: 3.5
-  angle: 140
+  tier: 3
+  angle: 136.6
   enlargedDisplay: 0

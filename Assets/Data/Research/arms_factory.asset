@@ -16,12 +16,16 @@ MonoBehaviour:
   displayName: Usine d'armement
   description: 
   icon: {fileID: 21300000, guid: 0fabfbaf5e697384580bdc918ca2f451, type: 3}
-  cuCost: 2000
+  cuCost: 5000
   computeSource: 0
   prerequisites:
   - {fileID: 11400000, guid: 7e3a9c4d1f5b4a82c0d6e4f8a2b3c5d7, type: 2}
   - {fileID: 11400000, guid: d480d6f5dc814760a79619c05471ba5c, type: 2}
-  effects: []
+  effects:
+  - kind: 0
+    building: {fileID: 11400000, guid: bb1085cb5aca67e409acb512f5a23b68, type: 2}
+    recipe: {fileID: 0}
+    value: 0
   absorptionRatePerSecond: 40
   tier: 1.5
   angle: 308.7

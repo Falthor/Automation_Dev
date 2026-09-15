@@ -72,7 +72,8 @@ namespace Game.Tests.EditMode.Gameplay.Research
             var capaciteI = Load<ResearchDefinition>("Assets/Data/Research/memory_allocation.asset");
             var extensionI = Load<ResearchDefinition>("Assets/Data/Research/datacenter_bay_1.asset");
 
-            Assert.AreEqual(2, advancedFoundry.Prerequisites.Count);
+            // Also requires cortex_buildings directly (kept alongside the two below) - both
+            // cortices feed this research, not just the Datacenter's own branch.
             Assert.IsTrue(HasPrerequisite(advancedFoundry, capaciteI), "Must require Capacite de gestion I.");
             Assert.IsTrue(HasPrerequisite(advancedFoundry, extensionI), "Must require Extension de baies I.");
         }

@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: ordonnancement_1
   displayName: Ordonnancement parallele I
-  description: Une baie memoire peut assister 1,5 CPU au lieu d'un seul. Necessite Architecture memoire.
+  description: Une baie memoire peut assister 1,5 CPU au lieu d'un seul. Necessite
+    Architecture memoire.
   icon: {fileID: 0}
   cuCost: 15000
   computeSource: 0
@@ -26,6 +27,6 @@ MonoBehaviour:
     recipe: {fileID: 0}
     value: 15
   absorptionRatePerSecond: 90
-  tier: 3
-  angle: 354.2
+  tier: 2.5
+  angle: 165.6
   enlargedDisplay: 0

@@ -14,7 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: memory_architecture
   displayName: Architecture memoire
-  description: Debloque la recette Memoire Mk.I et l'affectation Memory des baies du Datacenter.
+  description: Debloque la recette Memoire Mk.I et l'affectation Memory des baies
+    du Datacenter.
   icon: {fileID: 0}
   cuCost: 9000
   computeSource: 0
@@ -30,6 +31,6 @@ MonoBehaviour:
     recipe: {fileID: 0}
     value: 0
   absorptionRatePerSecond: 60
-  tier: 2.3
-  angle: 354.2
+  tier: 1.6
+  angle: 152.9
   enlargedDisplay: 0
