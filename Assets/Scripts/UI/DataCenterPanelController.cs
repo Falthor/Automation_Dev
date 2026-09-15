@@ -559,7 +559,12 @@ namespace Game.UI
 
             DataCenterBayType effectiveTarget = bay.ReconfigureTarget ?? bay.Assignment;
             view.CpuButton.SetEnabled(effectiveTarget != DataCenterBayType.Cpu);
-            view.MemoryButton.SetEnabled(effectiveTarget != DataCenterBayType.Memory);
+
+            // Visible but locked before Architecture memoire (DATACENTER.md), rather than hidden -
+            // the runtime (SetBayAssignment) is the actual authority refusing the assignment; this
+            // only reflects it, so the option reads as "not yet" instead of not existing at all.
+            view.MemoryButton.SetEnabled(effectiveTarget != DataCenterBayType.Memory && _selected.HasUnlockedMemory);
+            view.MemoryButton.tooltip = _selected.HasUnlockedMemory ? string.Empty : "Necessite la recherche Architecture memoire";
 
             bool hasCpuSpare = _selected.GetInputAmount(DataCenterRuntime.CpuItemId) > 0;
             bool hasMemorySpare = _selected.GetInputAmount(DataCenterRuntime.MemoryItemId) > 0;
