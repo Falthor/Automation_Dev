@@ -566,11 +566,12 @@ namespace Game.UI
                     {
                         Curve(painter, from, to, node.State == NodeState.Completed ? AcquiredColor : LitColor, 1f, dashed: false);
                     }
-                    else if (!_nodes[parentIndex].IsCore && research.ArePrerequisitesMet(prerequisite))
+                    else
                     {
+                        // Not unlocked yet, however far behind its own prerequisites still are - the
+                        // relationship itself is what the stub shows, not how soon it will resolve.
                         Stub(painter, to, from, node.Size);
                     }
-                    // A parent locked further back, or an unpowered core: no path, so nothing drawn.
                 }
             }
         }
@@ -598,7 +599,7 @@ namespace Game.UI
             painter.Stroke();
         }
 
-        /// <summary>A short floating stub leaving the node toward a parent that is available but not acquired yet, starting at the node's own edge (its drawn size, not always NodeSize - see Node.Size).</summary>
+        /// <summary>A short floating stub leaving the node toward a prerequisite not unlocked yet, whatever else that prerequisite itself still needs, starting at the node's own edge (its drawn size, not always NodeSize - see Node.Size).</summary>
         static void Stub(Painter2D painter, Vector2 node, Vector2 towards, float size)
         {
             Vector2 direction = (towards - node).normalized;
