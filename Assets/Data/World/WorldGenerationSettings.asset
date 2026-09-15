@@ -19,6 +19,14 @@ MonoBehaviour:
   randomizeResourceSeed: 1
   resourceSeed: 12345
   oreBands:
+  - MinDistanceCells: 27
+    MaxDistanceCells: 32
+    IronDepositsMin: 3
+    IronDepositsMax: 3
+    CopperDepositsMin: 3
+    CopperDepositsMax: 3
+    CoalDepositsMin: 1
+    CoalDepositsMax: 1
   - MinDistanceCells: 130
     MaxDistanceCells: 170
     IronDepositsMin: 8

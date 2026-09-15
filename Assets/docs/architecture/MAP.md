@@ -341,16 +341,24 @@ down, here included. The ore in it is placed by hand, at chosen distances, becau
 depends on it (`WorldGenerator`): one cluster of each resource inside the starting radius (radius 22,
 4 deposits each), then one or more further **guaranteed bands** beyond it, each a distance ring from
 the Core plus a per-resource deposit-count range (`OreBand`, on `WorldGenerationSettings.OreBands`).
-Shipped with a single band at 130-170 cells: 8-12 iron, 8-12 copper, 3-7 coal, each count drawn once
-per world within its own range. A band is required, like the starting cluster: a world that cannot
-place one is refused rather than handed over amputated. A list rather than named fields, so a further
-tier is one more entry - the same reason `WreckRing` is a list on `WreckRingProfile`.
+Shipped with two bands: an **invitation band at 27-32 cells** (3 iron, 3 copper, 1 coal, each count
+fixed rather than a range) sitting just past the starting radius - visible the moment a player scouts
+the edge of it, reachable by extending the Core's own radius through research rather than needing a
+Communication Relay - and the **far band at 130-170 cells** (8-12 iron, 8-12 copper, 3-7 coal, each
+count drawn once per world within its own range). A band is required, like the starting cluster: a
+world that cannot place one is refused rather than handed over amputated. A list rather than named
+fields, so a further tier is one more entry - the same reason `WreckRing` is a list on
+`WreckRingProfile`. Listed nearest first for readability; `WorldGenerator` places every band's clusters
+in list order regardless, so pinning `ResourceSeed` for a reproducible layout is sensitive to that
+order the same way any other entry in the list is.
 
-Reaching a guaranteed band means leaving every action radius: nothing narrower than a Communication
-Relay's own radius reaches 130 cells out, so placing one there is the only way to exploit it
-(CONSTRUCTION.md §8). A sector is skipped when *any part of it* falls inside the Core's own radius
-rather than having its cells clipped — a clipped cluster would be two tiles against a wall, which is
-worse than none.
+**Only the far band forces a Communication Relay.** The 130-170 band stays out of reach of every
+action radius on the shipped research tree, so a Relay is the only way to exploit it
+(CONSTRUCTION.md §8). The 27-32 invitation band is reachable by the Core's own growing radius once a
+range research completes - it is meant to be found while still building inside the Core's own reach,
+not to require reaching for a Relay the way the far band does. A sector is skipped when *any part of
+it* falls inside the Core's own radius rather than having its cells clipped — a clipped cluster would
+be two tiles against a wall, which is worse than none.
 
 **The procedural layer above does not currently generate past the guaranteed bands either.**
 `SectorMaterialisation` also holds an outer limit — `WorldGenerationSettings.FurthestOreBandCells`,
