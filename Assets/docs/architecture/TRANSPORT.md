@@ -205,12 +205,20 @@ It said more than that twice, and both were wrong in the same way: straight conv
 belt network only. Each was an attempt to say "aimed at it" by naming types, and each refused a layout
 nobody could see a reason for.
 
-**A chest hands out to a belt leading away from it, and to nothing else** (`MayTakeFromStorage`): the
-taker must be part of the belt network and must be taking through its own **back edge**, the
-straight-through pull. A machine standing against a chest may not take from one, and neither may a line
-merely running past it - the side merge refuses a Storage source outright. A chest has no output side
-to declare, so it answers `FeedsCell` for all four of them, and without that refusal every buffer in a
-base bled into whatever line passed it.
+**A chest hands out to whatever its generic pull offers it to** - a belt taking through its own back
+edge, or a machine standing against it reaching straight in, exactly as if a belt sat between them.
+`MayTakeFromStorage` used to refuse the machine's case outright, on the reasoning that allowing it
+would turn every chest into an unread feeder; in play a chest sitting between a belt and the machine it
+was meant to supply just dead-ended there instead - the chest could take the delivery (nothing else
+contended for it) but could never pass it on (a chest cannot hand to another chest, and a machine could
+not reach in), so it read as the chest stealing the delivery and never emptying. Removed for that
+reason - a machine adjacent to a chest is now an ordinary consumer of it.
+
+**The side merge still refuses a Storage source outright**, unaffected by the above: a line merely
+running past a chest may not drain it that way, only the two forms above (a belt's own back edge, or a
+machine's straight pull) may. A chest has no output side to declare, so it answers `FeedsCell` for all
+four of them - without the side-merge refusal, every buffer in a base would bleed into whatever line
+happened to run past it.
 
 It exposes one unit at a time from a cursor that moves on after every unit, so a chest holding three
 item types hands out one of each in turn instead of emptying its first slot first.

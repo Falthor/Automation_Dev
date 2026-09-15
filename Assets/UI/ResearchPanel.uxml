@@ -62,7 +62,7 @@
                 <ui:Label text="&#10003; acquis" class="research-legend-item research-legend-completed" />
                 <ui:Label text="&#9687; en cours" class="research-legend-item research-legend-in-progress" />
                 <ui:Label text="&#9670; payable" class="research-legend-item research-legend-payable" />
-                <ui:Label text="&#9671; CU insuffisant" class="research-legend-item research-legend-unaffordable" />
+                <ui:Label text="&#9671; accessible" class="research-legend-item research-legend-accessible" />
                 <ui:Label text="&#128274; verrouille" class="research-legend-item research-legend-locked" />
             </ui:VisualElement>
         </ui:VisualElement>

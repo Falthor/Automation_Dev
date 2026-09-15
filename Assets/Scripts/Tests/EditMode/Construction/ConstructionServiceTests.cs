@@ -75,7 +75,7 @@ namespace Game.Tests.EditMode.Construction
             Assert.IsNull(site);
         }
 
-        /// <summary>What the Top Bar's Research Compute element gates its visibility on - set the moment a Data Center is created, whichever of TryPlace's eventual materialisation or CreateForRestore (the save/load path) created it.</summary>
+        /// <summary>Set the moment a Data Center is created, whichever of TryPlace's eventual materialisation or CreateForRestore (the save/load path) created it.</summary>
         [Test]
         public void HasDataCenter_BecomesTrue_OnceOneIsCreated()
         {
@@ -87,6 +87,26 @@ namespace Game.Tests.EditMode.Construction
             service.CreateForRestore(definition, new GridCoord(0, 0), Direction.North);
 
             Assert.IsTrue(service.HasDataCenter);
+        }
+
+        /// <summary>
+        /// What the Top Bar's Research Compute element actually reads: the instance itself, not just
+        /// the flag, so it can gate on DataCenterRuntime.IsPriming too - the reserve it would show
+        /// stays uncredited for the whole priming window, and a card that appears the moment the
+        /// building stands would read as broken rather than as not started yet.
+        /// </summary>
+        [Test]
+        public void DataCenter_IsExposed_OnceOneIsCreated()
+        {
+            var grid = new GridRuntime(1f);
+            var service = NewService(grid);
+            Assert.IsNull(service.DataCenter, "Precondition: no Data Center exists yet.");
+
+            DataCenterDefinition definition = TestDataFactory.NewDataCenter(10, new[] { "cpu_mkI", "Memory_MK1" });
+            service.CreateForRestore(definition, new GridCoord(0, 0), Direction.North);
+
+            Assert.IsNotNull(service.DataCenter);
+            Assert.IsTrue(service.DataCenter.IsPriming, "A freshly restored/placed Data Center starts priming.");
         }
 
         [Test]

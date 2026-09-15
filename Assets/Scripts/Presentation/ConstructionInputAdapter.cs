@@ -608,7 +608,14 @@ namespace Game.Presentation
 
             if (selected is SplitterDefinition)
             {
-                Direction? entry = FindEntryDirection(cell);
+                // Excludes Storage: a chest answers FeedsCell on all four sides unconditionally (it
+                // has no facing of its own - TRANSPORT.md 7), so an ordinary AllDirections scan
+                // could hand a splitter's fixed entry side to a chest sitting next to it instead of
+                // the belt actually meant to feed it, purely because the chest's side happened to be
+                // checked first. A conveyor inheriting a chest's direction is the intended case
+                // (leaving a chest, continuing its flow) and is untouched - only the splitter's own
+                // single entry side is scoped to the belt network here.
+                Direction? entry = FindEntryDirection(cell, excludeStorage: true);
                 return entry ?? fallback;
             }
 
@@ -622,17 +629,16 @@ namespace Game.Presentation
         /// instead of producing a bogus inherited direction - and a Splitter or Crossroad answers
         /// for every exit it has, not for one edge derived from a rotation that names its entry.
         /// </summary>
-        Direction? FindEntryDirection(GridCoord cell, Direction? excluding = null)
+        Direction? FindEntryDirection(GridCoord cell, Direction? excluding = null, bool excludeStorage = false)
         {
             foreach (Direction dir in AllDirections)
             {
                 if (excluding.HasValue && dir == excluding.Value) continue;
 
                 GridCoord neighborCell = cell + dir;
-                if (gameRuntime.Grid.GetOccupant(neighborCell) is BuildingRuntime candidate && candidate.FeedsCell(cell))
-                {
-                    return dir;
-                }
+                if (!(gameRuntime.Grid.GetOccupant(neighborCell) is BuildingRuntime candidate)) continue;
+                if (excludeStorage && candidate is StorageRuntime) continue;
+                if (candidate.FeedsCell(cell)) return dir;
             }
 
             return null;

@@ -138,8 +138,12 @@ standing on it.
 `TryDemolish` refuses for the Core, for the Core chest fixture - matched by definition id, since a
 restored instance is just an ordinary entry in the save's building list - and for any building that is
 still a pending site's unbuilt segment. The first two are world-generated fixtures the player never
-placed; the chest especially, since its contents would otherwise be lost for good. Only the
-construction *cost* is ever repatriated, never a building's own held contents.
+placed; the chest especially, since its contents would otherwise be lost for good. The construction
+*cost* is always repatriated; a building's own held contents are not, with one exception - a
+Conveyor's carried items are repatriated too, by item id rather than by `RecipeIngredient` (they are
+not the belt's cost), since what a demolished belt was physically carrying is otherwise destroyed
+silently along with it. Nothing else's held contents travel this way: a Storage box's inventory, a
+production building's input or output buffer, is lost on demolition exactly as before.
 
 ## 6. The building cap
 

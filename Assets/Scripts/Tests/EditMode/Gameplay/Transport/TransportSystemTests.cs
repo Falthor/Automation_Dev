@@ -268,12 +268,15 @@ namespace Game.Tests.EditMode.Gameplay.Transport
         }
 
         /// <summary>
-        /// A chest gives to the belt network and to nothing else: a machine standing against one may
-        /// not reach into it. The mirror of what a chest accepts, and what keeps a box a buffer on a
-        /// line rather than a feeder with no belt to see and no rate to read.
+        /// A machine standing against a chest may pull from it directly, exactly as if a belt sat
+        /// between them - a chest placed between a belt and the machine it was meant to feed used to
+        /// dead-end there (a machine could not reach in, and a chest cannot hand to another building
+        /// either), which read as the chest "stealing" the delivery and never emptying. Reported
+        /// during playtesting; the fix is this one direction, not the mirror - MayFeedStorage still
+        /// requires a chest's own incoming side to be aimed at it (CONSTRUCTION.md).
         /// </summary>
         [Test]
-        public void AMachineTouchingAChest_MayNotTakeFromIt()
+        public void AMachineTouchingAChest_MayTakeFromIt()
         {
             var grid = new GridRuntime(1f);
             var transport = new TransportSystem(grid);
@@ -295,8 +298,8 @@ namespace Game.Tests.EditMode.Gameplay.Transport
 
             for (int i = 0; i < 200; i++) transport.Tick(0.1f);
 
-            Assert.AreEqual(0, factory.GetInputAmount("copper_Ingot"), "Put a belt between them.");
-            Assert.AreEqual(20, chest.GetInputAmount("copper_Ingot"), "And the chest is untouched.");
+            Assert.Greater(factory.GetInputAmount("copper_Ingot"), 0, "The factory reaches into the chest directly.");
+            Assert.AreEqual(20 - factory.GetInputAmount("copper_Ingot"), chest.GetInputAmount("copper_Ingot"));
         }
 
         /// <summary>
