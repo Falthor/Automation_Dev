@@ -65,6 +65,7 @@ the research that opens it - the research names it**. The list is closed:
 | `MemoryAssistCapacityTenths` | the Data Center - a target in tenths of a CPU per active Memory bay, highest completed wins (DATACENTER.md) |
 | `ExtractorItemsPerMinute` | every Extractor - a target, highest completed wins |
 | `UnlockOutOfRadiusConstruction` | the construction service - a flag, `Value` unused, never goes back once completed (CONSTRUCTION.md §8) |
+| `UnlockDataCenterMemory` | the Data Center - a flag, `Value` unused, never goes back once completed; `SetBayAssignment` refuses a `Memory` target until it is true (DATACENTER.md §6) |
 
 Radius, cap and extraction rate are **targets, not increments**, so completion order never matters: a
 directive granted late, a save reloaded, a lower research finished after a higher one - none of them

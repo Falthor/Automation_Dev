@@ -59,11 +59,18 @@ namespace Game.Construction
 
         /// <summary>
         /// Whether a Data Center exists - set the moment one is created, whether freshly placed or
-        /// restored from a save, since both paths go through CreateAndRegisterOccupant. What the Top
-        /// Bar gates its Research Compute element on: that reserve exists from the start of the run
-        /// but stays hidden and at 0 until there is a Data Center to credit it.
+        /// restored from a save, since both paths go through CreateAndRegisterOccupant. Never goes
+        /// back to false: a Data Center is never demolished (IsProtectedFromDemolition).
         /// </summary>
         public bool HasDataCenter { get; private set; }
+
+        /// <summary>
+        /// The Data Center instance itself, once one exists - null until then. What the Top Bar reads
+        /// to gate its Research Compute element on priming having actually finished
+        /// (DataCenterRuntime.IsPriming), not merely on the building existing: a reserve nothing has
+        /// credited yet has nothing to report, and priming credits nothing.
+        /// </summary>
+        public DataCenterRuntime DataCenter { get; private set; }
 
         readonly List<CommunicationRelayRuntime> _communicationRelays = new List<CommunicationRelayRuntime>();
 
@@ -680,11 +687,19 @@ namespace Game.Construction
                 return powerplant;
             }
 
+            if (definition is GunTurretDefinition gunTurretDefinition)
+            {
+                var turret = new GunTurretRuntime(gunTurretDefinition, cell, rotation);
+                _grid.SetOccupantFootprint(cell, gunTurretDefinition.FootprintSize, turret);
+                return turret;
+            }
+
             if (definition is DataCenterDefinition dataCenterDefinition)
             {
                 var dataCenter = new DataCenterRuntime(dataCenterDefinition, cell, rotation, _itemDatabase, _buildingCompute, _researchCompute, _powerSystem, _researchSystem);
                 _grid.SetOccupantFootprint(cell, dataCenterDefinition.FootprintSize, dataCenter);
                 HasDataCenter = true;
+                DataCenter = dataCenter;
                 return dataCenter;
             }
 
@@ -757,6 +772,23 @@ namespace Game.Construction
             }
 
             _constructionSites?.EnqueueRepatriation(removed.Cell, removed.Definition.Cost);
+
+            // A conveyor's own construction cost is repatriated like any other building's above -
+            // but whatever it was physically carrying is not a cost and has no RecipeIngredient of
+            // its own, so it goes through the same Core-chest-first repatriation by item id instead
+            // of being silently destroyed with the belt.
+            if (removed is ConveyorRuntime conveyor && conveyor.HasItem)
+            {
+                var carried = new Dictionary<string, int>();
+                foreach (ConveyorItemSlot slot in conveyor.Items)
+                {
+                    if (slot.Item is string itemId)
+                    {
+                        carried[itemId] = (carried.TryGetValue(itemId, out int existing) ? existing : 0) + 1;
+                    }
+                }
+                _constructionSites?.EnqueueRepatriation(carried);
+            }
 
             // A demolished relay's ring must stop counting ground as covered immediately - unlike
             // HasDataCenter, which never goes back, a relay is genuinely removable and the player may

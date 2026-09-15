@@ -513,21 +513,6 @@ namespace Game.Gameplay.Transport
             => !(consumer is StorageRuntime) || source.FeedsCell(intoCell);
 
         /// <summary>
-        /// A chest hands out to the <b>belt network</b> and to nothing else: a belt, a Splitter or a
-        /// Crossroad leading away from it may take from it, a machine standing against it may not.
-        ///
-        /// The mirror of <see cref="MayFeedStorage"/>, and the same reasoning read backwards. A chest
-        /// is a buffer on a line, and what makes it one is that the line is the only thing at either
-        /// end of it: a Factory allowed to reach into an adjacent box would turn every box in the
-        /// base into a feeder nobody asked for, with no belt to see and no rate to read.
-        ///
-        /// A builder robot is a separate path (<c>TakeInput</c>) and is not affected - nor is the
-        /// player emptying a slot by hand.
-        /// </summary>
-        static bool MayTakeFromStorage(BuildingRuntime consumer, BuildingRuntime source)
-            => !(source is StorageRuntime) || IsBeltGated(consumer);
-
-        /// <summary>
         /// Hands the splitter's held item to whatever sits at the given exit's neighbor cell. A
         /// conveyor target is fed directly via ReceiveItem (conveyors never accept the generic
         /// CanAcceptInput/AddInput push contract - see the conveyor loop above); anything else
@@ -672,7 +657,6 @@ namespace Game.Gameplay.Transport
                     if (!occupant.HandsOutTo(cell + fromMySide.Opposite())) continue;
 
                     if (!MayFeedStorage(building, occupant, cell + fromMySide.Opposite())) continue;
-                    if (!MayTakeFromStorage(building, occupant)) continue;
 
                     object item = occupant.PeekPullableItem();
                     if (item == null || !(item is string itemId)) continue;

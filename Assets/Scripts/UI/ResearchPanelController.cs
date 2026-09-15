@@ -54,13 +54,13 @@ namespace Game.UI
         static readonly Color StubColor = new Color32(61, 67, 79, 255);
         static readonly Color DarkColor = new Color32(42, 48, 58, 255);
 
-        enum NodeState { Completed, InProgress, Payable, Unaffordable, Locked, CoreOn, CoreOff }
+        enum NodeState { Completed, InProgress, Payable, Accessible, Locked, CoreOn, CoreOff }
 
         /// <summary>Indexed by NodeState - one class per state, never distinguished by colour alone: each also has its own glyph.</summary>
         static readonly string[] StateClasses =
         {
             "research-node-completed", "research-node-in-progress", "research-node-payable",
-            "research-node-unaffordable", "research-node-locked", "research-node-core-on",
+            "research-node-accessible", "research-node-locked", "research-node-core-on",
             "research-node-core-off"
         };
 
@@ -433,8 +433,11 @@ namespace Game.UI
         }
 
         /// <summary>
-        /// "Payable" vs "CU insuffisant" is display only (reserve above zero right now): queuing never
-        /// requires CU up front, so it never blocks a click, it only tells the player what to expect.
+        /// "Payable" vs "Accessible" is display only (reserve covering the cost right now): queuing
+        /// never requires CU up front, so it never blocks a click, it only tells the player what to
+        /// expect. Payable compares against this node's own CuCost, not merely whether the reserve is
+        /// non-zero - a research costing more than what little is left used to read identically to one
+        /// well within reach, both lit the same colour as "reachable" prerequisites-met nodes.
         /// </summary>
         static NodeState ResolveState(ResearchSystem research, Node node, float reserve)
         {
@@ -442,7 +445,7 @@ namespace Game.UI
             if (research.IsUnlocked(node.Definition.Id)) return NodeState.Completed;
             if (ReferenceEquals(node.Definition, research.GetActiveResearch())) return NodeState.InProgress;
             if (!research.ArePrerequisitesMet(node.Definition)) return NodeState.Locked;
-            return reserve > 0f ? NodeState.Payable : NodeState.Unaffordable;
+            return reserve >= node.Definition.CuCost ? NodeState.Payable : NodeState.Accessible;
         }
 
         static string Glyph(NodeState state) => state switch
@@ -450,7 +453,7 @@ namespace Game.UI
             NodeState.Completed => "✓",
             NodeState.InProgress => "◷",
             NodeState.Payable => "◆",
-            NodeState.Unaffordable => "◇",
+            NodeState.Accessible => "◇",
             _ => "\U0001F512"
         };
 

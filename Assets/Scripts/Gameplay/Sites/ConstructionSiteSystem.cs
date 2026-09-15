@@ -228,6 +228,23 @@ namespace Game.Gameplay.Sites
                 if (ingredient.Item == null || ingredient.Amount <= 0) continue;
                 remaining[ingredient.Item.Id] = (remaining.TryGetValue(ingredient.Item.Id, out int existing) ? existing : 0) + ingredient.Amount;
             }
+            EnqueueRepatriation(remaining);
+        }
+
+        /// <summary>
+        /// The same repatriation job, from item ids rather than a recipe's own ingredient list -
+        /// what a demolished Conveyor's carried items go through (ConstructionService.TryDemolish),
+        /// since they are not the building's construction cost and have no RecipeIngredient of their
+        /// own to be read from.
+        /// </summary>
+        public void EnqueueRepatriation(IReadOnlyDictionary<string, int> itemsById)
+        {
+            var remaining = new Dictionary<string, int>();
+            foreach (var entry in itemsById)
+            {
+                if (string.IsNullOrEmpty(entry.Key) || entry.Value <= 0) continue;
+                remaining[entry.Key] = (remaining.TryGetValue(entry.Key, out int existing) ? existing : 0) + entry.Value;
+            }
             if (remaining.Count == 0) return;
 
             _repatriationJobs.Add(new RepatriationJob { Remaining = remaining });

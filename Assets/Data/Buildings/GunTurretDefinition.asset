@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a8ec6c792ec2e5d49b6764792cae9b06, type: 3}
+  m_Name: GunTurretDefinition
+  m_EditorClassIdentifier: Game.Data::Game.Data.GunTurretDefinition
+  id: turret
+  displayName: Tourelle
+  footprintSize: {x: 3, y: 3}
+  placeholderColor: {r: 0.5, g: 0.5, b: 0.55, a: 1}
+  sprite: {fileID: 21300000, guid: 852b990655a7f2348bb43e325a1e17a3, type: 3}
+  animationFrames: []
+  animationFps: 12
+  animationIntervalSeconds: 0
+  cost:
+  - item: {fileID: 11400000, guid: 71bd4fc6e8052b793d4f6183ae205729, type: 2}
+    amount: 3
+  - item: {fileID: 11400000, guid: 82ce50d7f9163c8a4e507294bf316830, type: 2}
+    amount: 1
+  ammoItem: {fileID: 11400000, guid: b21d303bee4def2448850e3fdc1a70c8, type: 2}
+  maxAmmoStack: 50

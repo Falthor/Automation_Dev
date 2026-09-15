@@ -432,15 +432,16 @@ namespace Game.UI
 
         /// <summary>
         /// Research Compute (CALCUL.md) - what a research absorbs from by default. Hidden, and left
-        /// at the 0 it starts every run at, until a Data Center exists to credit it
-        /// (ConstructionService.HasDataCenter) - a reserve nothing has produced yet has nothing to
-        /// report.
+        /// at the 0 it starts every run at, until a Data Center exists AND has finished priming
+        /// (DataCenterRuntime.IsPriming) - priming credits nothing, so a reserve still at 0 while the
+        /// Data Center visibly stands would read as broken rather than as not started yet.
         /// </summary>
         void RefreshResearchCompute()
         {
-            bool hasDataCenter = gameRuntime.Construction != null && gameRuntime.Construction.HasDataCenter;
-            _researchComputeElement.Root.EnableInClassList("hidden", !hasDataCenter);
-            if (!hasDataCenter) return;
+            DataCenterRuntime dataCenter = gameRuntime.Construction?.DataCenter;
+            bool ready = dataCenter != null && !dataCenter.IsPriming;
+            _researchComputeElement.Root.EnableInClassList("hidden", !ready);
+            if (!ready) return;
 
             RefreshComputeElement(_researchComputeElement, gameRuntime.ResearchCompute);
         }
