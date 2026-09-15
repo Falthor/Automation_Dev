@@ -591,6 +591,28 @@ namespace Game.Tests.EditMode.Gameplay.Sites
             Assert.AreEqual(2, storage.GetInputAmount(PlateId), "Core chest first, then any Storage with room.");
         }
 
+        /// <summary>
+        /// A demolished Conveyor's own construction cost is repatriated like any other building's,
+        /// but what it was physically carrying is not a RecipeIngredient - it goes back by item id
+        /// instead of being silently destroyed with the belt (CONSTRUCTION.md 5).
+        /// </summary>
+        [Test]
+        public void DemolishingAConveyor_RepatriatesWhatItWasCarrying_CoreChestFirst()
+        {
+            Fixture fixture = NewFixture(coreChestContents: 0);
+            ConveyorRuntime belt = AddBeltEndingOn(fixture, new GridCoord(6, 5));
+            belt.ReceiveItem(PlateId);
+            belt.ReceiveItem(PlateId);
+
+            Assert.IsTrue(fixture.Construction.TryDemolish(belt.Cell, out BuildingRuntime removed));
+            fixture.Transport.Unregister(removed);
+            Assert.AreEqual(0, fixture.CoreChest.GetInputAmount(PlateId), "Nothing reappears instantly: a robot has to carry it back.");
+
+            fixture.Simulate(20f);
+
+            Assert.AreEqual(2, fixture.CoreChest.GetInputAmount(PlateId), "Both items the belt was carrying come back, into the Core chest first.");
+        }
+
         [Test]
         public void ARobotThatCannotUnload_DestroysItsCargoAfter20Seconds_AndBecomesAvailableAgain()
         {
