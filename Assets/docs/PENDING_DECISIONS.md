@@ -18,4 +18,9 @@ One entry per finding:
 
 ## Open
 
-None.
+- **Crossroad cost vs. the new Conveyor cost** (`Assets/Data/Buildings/CrossroadDefinition.asset`) —
+  the early-game-economy-rebalance chantier gave the Conveyor a real per-segment cost (1 Plaque de
+  fer) but left the Crossroad free, per its own directive ("ne pas modifier son coût... il devra être
+  réévalué ultérieurement"). A free Crossroad can now be laid in place of two Conveyor segments
+  crossing, which is a way around the belt's own sink the design has not yet ruled on. Needs a
+  deliberate design decision, not a default carried over from when both were free.
