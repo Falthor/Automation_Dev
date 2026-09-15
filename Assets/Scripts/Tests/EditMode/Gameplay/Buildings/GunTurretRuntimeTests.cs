@@ -10,8 +10,9 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 {
     /// <summary>
     /// The Armament branch's newly-wired content: Tourelle, Usine d'armement (now a real
-    /// FactoryDefinition instead of a ShowcaseDefinition), Munition Mk.I. Reads the shipped assets
-    /// by path - a fixture copy would stop tracking them the moment they changed.
+    /// FactoryDefinition instead of a ShowcaseDefinition), Munition Mk.I - unlocked directly by
+    /// arms_factory itself, the standalone "ammo" research having been removed as redundant. Reads
+    /// the shipped assets by path - a fixture copy would stop tracking them the moment they changed.
     /// </summary>
     public class GunTurretRuntimeTests
     {
@@ -37,31 +38,27 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         }
 
         [Test]
-        public void AmmoResearch_UnlocksTheRealAmmoRecipe()
-        {
-            var research = Load<ResearchDefinition>("Assets/Data/Research/ammo.asset");
-            var recipe = Load<RecipeDefinition>("Assets/Data/Recipes/Ammo_MK1_Recipe.asset");
-
-            bool unlocksRecipe = false;
-            foreach (ResearchEffect effect in research.Effects)
-            {
-                if (effect.Kind == ResearchEffectKind.UnlockRecipe && effect.Recipe == recipe) unlocksRecipe = true;
-            }
-            Assert.IsTrue(unlocksRecipe);
-        }
-
-        [Test]
-        public void ArmsFactoryResearch_UnlocksTheRealArmsFactoryBuilding()
+        public void ArmsFactoryResearch_UnlocksTheBuildingAndTheAmmoRecipe()
         {
             var research = Load<ResearchDefinition>("Assets/Data/Research/arms_factory.asset");
             var building = Load<BuildingDefinition>("Assets/Data/Buildings/ArmsFactoryDefinition.asset");
+            var recipe = Load<RecipeDefinition>("Assets/Data/Recipes/Ammo_MK1_Recipe.asset");
 
-            bool unlocksBuilding = false;
+            bool unlocksBuilding = false, unlocksRecipe = false;
             foreach (ResearchEffect effect in research.Effects)
             {
                 if (effect.Kind == ResearchEffectKind.UnlockBuilding && effect.Building == building) unlocksBuilding = true;
+                if (effect.Kind == ResearchEffectKind.UnlockRecipe && effect.Recipe == recipe) unlocksRecipe = true;
             }
             Assert.IsTrue(unlocksBuilding);
+            Assert.IsTrue(unlocksRecipe, "Munitions no longer exists as its own research - arms_factory unlocks the recipe directly.");
+        }
+
+        [Test]
+        public void AmmoResearch_NoLongerExists()
+        {
+            Assert.IsNull(AssetDatabase.LoadAssetAtPath<ResearchDefinition>("Assets/Data/Research/ammo.asset"),
+                "Removed - redundant with arms_factory's own UnlockRecipe effect.");
         }
 
         [Test]

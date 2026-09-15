@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Vis
   description: "Recette Vis et recette Plaque d'acier boulonn\xE9e. Necessite Metallurgie
     avancee."
-  icon: {fileID: 21300000, guid: ff9d64ed8e7e98b469aee691f8653d26, type: 3}
+  icon: {fileID: 21300000, guid: a4dff7aaa0ba0264a911b86e35b7227f, type: 3}
   cuCost: 4500
   computeSource: 0
   prerequisites:

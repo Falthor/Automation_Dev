@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Bolted_Steel_Plate
   type: 2
   displayName: "Plaque d'acier boulonn\xE9e"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 882127fbca216e84898f359838ea3554, type: 3}
   fallbackColor: {r: 0.5, g: 0.53, b: 0.58, a: 1}
   cuOutput: 0
   powerKw: 0

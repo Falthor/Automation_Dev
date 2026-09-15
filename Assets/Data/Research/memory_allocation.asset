@@ -15,7 +15,7 @@ MonoBehaviour:
   id: memory_allocation
   displayName: Capacite de gestion I
   description: Porte le plafond de batiments a 75.
-  icon: {fileID: 597411320055623791, guid: 010eeacec31baf84887f268a78c928dd, type: 3}
+  icon: {fileID: 21300000, guid: a33c3bb856c3c0c4fb172a3ac74e1bed, type: 3}
   cuCost: 3300
   computeSource: 0
   prerequisites:

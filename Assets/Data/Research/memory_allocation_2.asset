@@ -15,7 +15,7 @@ MonoBehaviour:
   id: memory_allocation_2
   displayName: Capacite de gestion II
   description: Porte le plafond de batiments a 151.
-  icon: {fileID: 597411320055623791, guid: 010eeacec31baf84887f268a78c928dd, type: 3}
+  icon: {fileID: 21300000, guid: e6914b1ef20ced442a83250b6c690f1d, type: 3}
   cuCost: 19500
   computeSource: 0
   prerequisites:

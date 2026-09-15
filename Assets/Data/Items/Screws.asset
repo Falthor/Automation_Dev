@@ -15,7 +15,7 @@ MonoBehaviour:
   id: Screws
   type: 2
   displayName: Vis
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: ff9d64ed8e7e98b469aee691f8653d26, type: 3}
   fallbackColor: {r: 0.55, g: 0.55, b: 0.58, a: 1}
   cuOutput: 0
   powerKw: 0

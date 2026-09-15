@@ -205,22 +205,18 @@ namespace Game.Tests.EditMode.Gameplay.Research
             Assert.IsNotNull(researchDatabase.Get("screws"));
         }
 
-        // --- Placeholder art ---
+        // --- Art ---
 
         [Test]
-        public void NewItems_HaveAnIconOrAFallbackColorTheUiCanRenderPlaceholderArtFrom()
+        public void NewItems_HaveTheirRealIcon()
         {
+            // Final art shipped after this chain was first built (screw.png / bolted_steel_plate.png) -
+            // supersedes the FallbackColor-only placeholder these two items launched with.
             var screwsItem = Load<ItemDefinition>("Assets/Data/Items/Screws.asset");
             var boltedPlateItem = Load<ItemDefinition>("Assets/Data/Items/Bolted_Steel_Plate.asset");
 
-            // No final sprite yet for either - the project's own fallback (a solid square in
-            // ItemDefinition.FallbackColor, already how ExtractorPanelController/ProductionPanelController/
-            // StoragePanelController/ConstructionSitePanelController render a null icon) is deliberately
-            // used instead of fabricating placeholder art. See PENDING_DECISIONS.md.
-            Assert.IsNull(screwsItem.Icon);
-            Assert.AreNotEqual(Color.magenta, screwsItem.FallbackColor);
-            Assert.IsNull(boltedPlateItem.Icon);
-            Assert.AreNotEqual(Color.magenta, boltedPlateItem.FallbackColor);
+            Assert.IsNotNull(screwsItem.Icon);
+            Assert.IsNotNull(boltedPlateItem.Icon);
         }
     }
 }
