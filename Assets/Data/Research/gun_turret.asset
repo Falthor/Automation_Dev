@@ -15,8 +15,9 @@ MonoBehaviour:
   id: gun_turret
   displayName: Tourelle
   description: 
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 852b990655a7f2348bb43e325a1e17a3, type: 3}
   cuCost: 2000
+  computeSource: 0
   prerequisites:
   - {fileID: 11400000, guid: 4154b75430a1827458b93dda38de58cb, type: 2}
   - {fileID: 11400000, guid: ca295c3fadd3c6b498483b9ea2289f06, type: 2}
@@ -28,3 +29,4 @@ MonoBehaviour:
   absorptionRatePerSecond: 40
   tier: 2.2
   angle: 275.9
+  enlargedDisplay: 0
