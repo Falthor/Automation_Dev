@@ -49,6 +49,39 @@
             </ui:VisualElement>
             <ui:Slider name="DataCenterAxisSlider" low-value="0" high-value="100" value="50" class="dc-axis-slider" />
 
+            <!-- How Memory claws back the concentration penalty above - read-only, all figures come
+                 from DataCenterRuntime, nothing computed here (DEVELOPMENT_RULES.md UI rules). -->
+            <ui:VisualElement class="dc-memory-summary">
+                <ui:VisualElement class="dc-memory-summary-row">
+                    <ui:Label text="CPU actifs" class="dc-memory-summary-name" />
+                    <ui:Label name="DataCenterActiveCpuValue" text="0" class="dc-memory-summary-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="dc-memory-summary-row">
+                    <ui:Label text="M&#233;moire active" class="dc-memory-summary-name" />
+                    <ui:Label name="DataCenterActiveMemoryValue" text="0" class="dc-memory-summary-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="dc-memory-summary-row">
+                    <ui:Label text="Capacit&#233; d'assistance" class="dc-memory-summary-name" />
+                    <ui:Label name="DataCenterAssistCapacityValue" text="1,0 CPU / m&#233;moire" class="dc-memory-summary-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="dc-memory-summary-row">
+                    <ui:Label text="Couverture m&#233;moire" class="dc-memory-summary-name" />
+                    <ui:Label name="DataCenterCoverageValue" text="0&#160;%" class="dc-memory-summary-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="dc-memory-summary-row">
+                    <ui:Label text="Rendement naturel" class="dc-memory-summary-name" />
+                    <ui:Label name="DataCenterBaseYieldValue" text="0&#160;%" class="dc-memory-summary-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="dc-memory-summary-row">
+                    <ui:Label text="R&#233;cup&#233;ration m&#233;moire" class="dc-memory-summary-name" />
+                    <ui:Label name="DataCenterRecoveredValue" text="+0&#160;%" class="dc-memory-summary-value" />
+                </ui:VisualElement>
+                <ui:VisualElement class="dc-memory-summary-row dc-memory-summary-final">
+                    <ui:Label text="Rendement final" class="dc-memory-summary-name" />
+                    <ui:Label name="DataCenterFinalYieldValue" text="0&#160;%" class="dc-memory-summary-value" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
             <ui:VisualElement class="dc-separator" />
 
             <!-- 3. The state of my hardware. One block per unlocked bay, built by the controller. -->

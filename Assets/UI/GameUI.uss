@@ -1528,6 +1528,35 @@
     border-radius: 0;
 }
 
+/* How Memory claws back the concentration penalty above - read-only figures under the split. */
+
+.dc-memory-summary {
+    margin-top: 6px;
+}
+
+.dc-memory-summary-row {
+    flex-direction: row;
+    justify-content: space-between;
+    margin-top: 2px;
+}
+
+.dc-memory-summary-name {
+    font-size: 9px;
+    color: rgb(150, 158, 165);
+}
+
+.dc-memory-summary-value {
+    font-size: 9px;
+    color: rgb(200, 210, 218);
+    -unity-font-definition: url("Fonts/RobotoMono-Regular.ttf");
+}
+
+.dc-memory-summary-final .dc-memory-summary-name,
+.dc-memory-summary-final .dc-memory-summary-value {
+    font-size: 10px;
+    color: rgb(85, 221, 245);
+}
+
 /* --- 3. The bays. A block each, and stability drawn rather than written. --- */
 
 .dc-bay-list {
@@ -1663,6 +1692,57 @@
     color: rgb(242, 83, 83);
     margin-top: 5px;
     white-space: normal;
+}
+
+/* Assign/reconfigure: the same two buttons for a fresh Unassigned bay and for retyping an
+   occupied one - the button matching what the bay already targets is simply disabled. */
+.dc-bay-configure-row {
+    flex-direction: row;
+    margin-top: 5px;
+}
+
+.dc-bay-configure-button {
+    flex-grow: 1;
+    height: 18px;
+    margin-right: 4px;
+    font-size: 9px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 1px;
+    border-radius: 0;
+    border-color: rgb(48, 59, 66);
+    color: rgb(200, 210, 218);
+}
+
+.dc-bay-configure-button:hover {
+    border-color: rgb(85, 221, 245);
+    color: rgb(232, 240, 245);
+}
+
+.dc-bay-configure-button:disabled {
+    border-color: rgb(38, 46, 52);
+    color: rgb(90, 98, 105);
+}
+
+.dc-reconfigure-row {
+    margin-top: 5px;
+}
+
+.dc-reconfigure-label {
+    font-size: 9px;
+    color: rgb(85, 221, 245);
+    margin-bottom: 3px;
+}
+
+.dc-reconfigure-track {
+    height: 6px;
+    background-color: rgb(15, 18, 22);
+    border-width: 1px;
+    border-color: rgb(38, 46, 52);
+}
+
+.dc-reconfigure-fill {
+    height: 100%;
+    background-color: rgb(85, 221, 245);
 }
 
 /* --- 4. The reserve. Inventory convention: a square tile, the count bottom-right. --- */

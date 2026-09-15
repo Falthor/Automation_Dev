@@ -21,6 +21,8 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         // Test researches, named for what they do - never after a shipped research.
         ResearchDefinition _bays1;
         ResearchDefinition _bays2;
+        ResearchDefinition _assist1;
+        ResearchDefinition _assist2;
         ResearchDefinition _unrelated;
         ResearchDefinition _researchCore;
         ResearchDefinition _buildingsCore;
@@ -39,11 +41,13 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _power = new PowerSystem();
             _bays1 = TestDataFactory.WithEffects(TestDataFactory.NewResearch("bays_a", 10f), new ResearchEffect(ResearchEffectKind.DataCenterBayPairs, value: 1));
             _bays2 = TestDataFactory.WithEffects(TestDataFactory.NewResearch("bays_b", 10f, prerequisites: new[] { _bays1 }), new ResearchEffect(ResearchEffectKind.DataCenterBayPairs, value: 1));
+            _assist1 = TestDataFactory.WithEffects(TestDataFactory.NewResearch("assist_a", 10f), new ResearchEffect(ResearchEffectKind.MemoryAssistCapacityTenths, value: 15));
+            _assist2 = TestDataFactory.WithEffects(TestDataFactory.NewResearch("assist_b", 10f, prerequisites: new[] { _assist1 }), new ResearchEffect(ResearchEffectKind.MemoryAssistCapacityTenths, value: 20));
             _unrelated = TestDataFactory.NewResearch("unrelated", 10f);
             _researchCore = TestDataFactory.NewResearch("core_a", 0f);
             _buildingsCore = TestDataFactory.NewResearch("core_b", 0f);
             _darkCore = TestDataFactory.NewResearch("core_c", 0f);
-            _research = new ResearchSystem(_compute, _compute, new ResearchCatalog(new[] { _bays1, _bays2, _unrelated, _researchCore, _buildingsCore, _darkCore }));
+            _research = new ResearchSystem(_compute, _compute, new ResearchCatalog(new[] { _bays1, _bays2, _assist1, _assist2, _unrelated, _researchCore, _buildingsCore, _darkCore }));
         }
 
         static void SetCuPowerLifetime(ItemDefinition item, float cu, float pw, float lifetimeSeconds)
@@ -83,7 +87,27 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _power.Settle();
         }
 
-        /// <summary>A research with no bay effect adds no bay, whether it completes before the Datacenter exists or after.</summary>
+        /// <summary>Configures a bay and lets one zero-length tick install whatever spare sits in the input - the pattern every test that needs an active component starts from.</summary>
+        static void ConfigureAndInstall(DataCenterRuntime dataCenter, int bayIndex, DataCenterBayType type, string itemId, int amount = 1)
+        {
+            dataCenter.SetBayAssignment(bayIndex, type);
+            dataCenter.AddInput(itemId, amount, Direction.South);
+            dataCenter.Tick(0f);
+        }
+
+        [Test]
+        public void StartsWithTwoUnassignedEmptyBays()
+        {
+            DataCenterRuntime dataCenter = NewDataCenter();
+
+            Assert.AreEqual(2, dataCenter.Bays.Count);
+            foreach (DataCenterBay bay in dataCenter.Bays)
+            {
+                Assert.AreEqual(DataCenterBayType.Unassigned, bay.Assignment);
+                Assert.IsNull(bay.Component);
+            }
+        }
+
         [Test]
         public void AResearchWithNoBayEffect_AddsNoBay()
         {
@@ -94,19 +118,8 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             DataCenterRuntime builtAfter = NewDataCenter();
 
-            Assert.AreEqual(1, builtBefore.CpuSlots.Count);
-            Assert.AreEqual(1, builtBefore.MemorySlots.Count);
-            Assert.AreEqual(1, builtAfter.CpuSlots.Count);
-            Assert.AreEqual(1, builtAfter.MemorySlots.Count);
-        }
-
-        [Test]
-        public void StartsWithOneCpuAndOneMemorySlot()
-        {
-            DataCenterRuntime dataCenter = NewDataCenter();
-
-            Assert.AreEqual(1, dataCenter.CpuSlots.Count);
-            Assert.AreEqual(1, dataCenter.MemorySlots.Count);
+            Assert.AreEqual(2, builtBefore.Bays.Count);
+            Assert.AreEqual(2, builtAfter.Bays.Count);
         }
 
         /// <summary>
@@ -132,19 +145,20 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         }
 
         [Test]
-        public void ABayPairEffect_AddsOneCpuBayAndOneMemoryBay()
+        public void ABayPairEffect_AddsTwoUnassignedBays()
         {
             DataCenterRuntime dataCenter = NewDataCenter();
 
             _research.Enqueue(_bays1);
             _research.Tick(60f);
 
-            Assert.AreEqual(2, dataCenter.CpuSlots.Count);
-            Assert.AreEqual(2, dataCenter.MemorySlots.Count);
+            Assert.AreEqual(4, dataCenter.Bays.Count);
+            Assert.AreEqual(DataCenterBayType.Unassigned, dataCenter.Bays[2].Assignment);
+            Assert.AreEqual(DataCenterBayType.Unassigned, dataCenter.Bays[3].Assignment);
         }
 
         [Test]
-        public void TwoBayPairEffects_BringItToThreeAndThree()
+        public void TwoBayPairEffects_BringItToSix()
         {
             DataCenterRuntime dataCenter = NewDataCenter();
 
@@ -153,8 +167,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _research.Enqueue(_bays2);
             _research.Tick(60f);
 
-            Assert.AreEqual(3, dataCenter.CpuSlots.Count);
-            Assert.AreEqual(3, dataCenter.MemorySlots.Count);
+            Assert.AreEqual(6, dataCenter.Bays.Count);
         }
 
         /// <summary>The bays of researches completed before this Datacenter was built are there from the start - it is not only the completion event that grants them.</summary>
@@ -168,8 +181,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             DataCenterRuntime dataCenter = NewDataCenter();
 
-            Assert.AreEqual(3, dataCenter.CpuSlots.Count);
-            Assert.AreEqual(3, dataCenter.MemorySlots.Count);
+            Assert.AreEqual(6, dataCenter.Bays.Count);
         }
 
         [Test]
@@ -181,32 +193,170 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _research.Enqueue(_bays1);
             _research.Tick(60f);
 
-            Assert.AreEqual(1, dataCenter.CpuSlots.Count);
-            Assert.AreEqual(1, dataCenter.MemorySlots.Count);
+            Assert.AreEqual(2, dataCenter.Bays.Count);
         }
 
         [Test]
-        public void Tick_InstallsDeliveredComponent_IntoFirstEmptySlot()
+        public void UnassignedBay_InstallsNothing_EvenWithSpareInInput()
         {
             DataCenterRuntime dataCenter = NewDataCenter();
             dataCenter.AddInput("cpu_mkI", 1, Direction.South);
 
             dataCenter.Tick(0f);
 
-            Assert.IsNotNull(dataCenter.CpuSlots[0]);
-            Assert.AreEqual("cpu_mkI", dataCenter.CpuSlots[0].ItemId);
-            Assert.AreEqual(0, dataCenter.GetInputAmount("cpu_mkI"));
+            Assert.IsNull(dataCenter.Bays[0].Component);
+            Assert.AreEqual(1, dataCenter.GetInputAmount("cpu_mkI"));
         }
 
         [Test]
-        public void Tick_ExcessDelivered_StaysInInput_WhenNoEmptySlotLeft()
+        public void CpuBay_InstallsCpu_ButNeverMemory()
         {
-            DataCenterRuntime dataCenter = NewDataCenter(maxStackPerItem: 10);
-            dataCenter.AddInput("cpu_mkI", 5, Direction.South); // only 1 initial CPU slot
+            DataCenterRuntime dataCenter = NewDataCenter();
+            dataCenter.SetBayAssignment(0, DataCenterBayType.Cpu);
+            dataCenter.AddInput("Memory_MK1", 1, Direction.South);
 
             dataCenter.Tick(0f);
 
-            Assert.AreEqual(4, dataCenter.GetInputAmount("cpu_mkI"));
+            Assert.IsNull(dataCenter.Bays[0].Component, "A CPU bay must never accept a Memory component.");
+            Assert.AreEqual(1, dataCenter.GetInputAmount("Memory_MK1"));
+
+            dataCenter.AddInput("cpu_mkI", 1, Direction.South);
+            dataCenter.Tick(0f);
+
+            Assert.IsNotNull(dataCenter.Bays[0].Component);
+            Assert.AreEqual("cpu_mkI", dataCenter.Bays[0].Component.ItemId);
+        }
+
+        [Test]
+        public void MemoryBay_InstallsMemory_ButNeverCpu()
+        {
+            DataCenterRuntime dataCenter = NewDataCenter();
+            dataCenter.SetBayAssignment(0, DataCenterBayType.Memory);
+            dataCenter.AddInput("cpu_mkI", 1, Direction.South);
+
+            dataCenter.Tick(0f);
+
+            Assert.IsNull(dataCenter.Bays[0].Component, "A Memory bay must never accept a CPU component.");
+
+            dataCenter.AddInput("Memory_MK1", 1, Direction.South);
+            dataCenter.Tick(0f);
+
+            Assert.IsNotNull(dataCenter.Bays[0].Component);
+            Assert.AreEqual("Memory_MK1", dataCenter.Bays[0].Component.ItemId);
+        }
+
+        [Test]
+        public void SetBayAssignment_OnAnEmptyBay_IsInstantaneous_WhicheverItsCurrentType()
+        {
+            DataCenterRuntime dataCenter = NewDataCenter();
+
+            dataCenter.SetBayAssignment(0, DataCenterBayType.Cpu);
+            Assert.AreEqual(DataCenterBayType.Cpu, dataCenter.Bays[0].Assignment);
+
+            dataCenter.SetBayAssignment(0, DataCenterBayType.Memory);
+            Assert.AreEqual(DataCenterBayType.Memory, dataCenter.Bays[0].Assignment, "Reassigning an empty bay must be instant, no reconfiguration delay.");
+            Assert.IsNull(dataCenter.Bays[0].ReconfigureTarget);
+        }
+
+        [Test]
+        public void SetBayAssignment_OnAnOccupiedBay_StartsAFiveSecondReconfiguration_ProducingNothingMeanwhile()
+        {
+            PowerTheDataCenter();
+            DataCenterRuntime dataCenter = NewDataCenter();
+            FinishPriming(dataCenter);
+            ConfigureAndInstall(dataCenter, 0, DataCenterBayType.Cpu, "cpu_mkI");
+
+            dataCenter.SetBayAssignment(0, DataCenterBayType.Memory);
+
+            DataCenterBay bay = dataCenter.Bays[0];
+            Assert.AreEqual(DataCenterBayType.Memory, bay.ReconfigureTarget);
+            Assert.AreEqual(DataCenterBayType.Cpu, bay.Assignment, "Assignment only flips once the delay completes.");
+            Assert.AreEqual(0f, bay.Component.EffectiveCu(), "Must produce nothing while reconfiguring.");
+
+            dataCenter.Tick(4.9f);
+            Assert.AreEqual(DataCenterBayType.Cpu, dataCenter.Bays[0].Assignment, "Not yet - under 5 seconds.");
+
+            dataCenter.Tick(0.2f);
+            Assert.AreEqual(DataCenterBayType.Memory, dataCenter.Bays[0].Assignment);
+            Assert.IsNull(dataCenter.Bays[0].Component, "The old component is discarded, not returned - a fresh Memory must be delivered.");
+            Assert.IsNull(dataCenter.Bays[0].ReconfigureTarget);
+        }
+
+        [Test]
+        public void ReconfiguringBay_LooksForTheNewTypeOnly_OnceComplete()
+        {
+            PowerTheDataCenter();
+            DataCenterRuntime dataCenter = NewDataCenter();
+            FinishPriming(dataCenter);
+            ConfigureAndInstall(dataCenter, 0, DataCenterBayType.Cpu, "cpu_mkI");
+
+            dataCenter.SetBayAssignment(0, DataCenterBayType.Memory);
+            dataCenter.AddInput("Memory_MK1", 1, Direction.South);
+            dataCenter.Tick(5.1f); // completes the reconfiguration - the bay is empty by the end of this tick
+            dataCenter.Tick(0f);   // InstallInto runs at the START of a tick, so it needs one more to see the now-empty bay
+
+            Assert.IsNotNull(dataCenter.Bays[0].Component);
+            Assert.AreEqual("Memory_MK1", dataCenter.Bays[0].Component.ItemId);
+        }
+
+        [Test]
+        public void Wear_DoesNotDecay_WhileReconfiguring()
+        {
+            PowerTheDataCenter();
+            DataCenterRuntime dataCenter = NewDataCenter();
+            FinishPriming(dataCenter);
+            ConfigureAndInstall(dataCenter, 0, DataCenterBayType.Cpu, "cpu_mkI");
+
+            dataCenter.SetBayAssignment(0, DataCenterBayType.Memory);
+            float wearAtStart = dataCenter.Bays[0].Component.Wear;
+
+            dataCenter.Tick(3f);
+
+            Assert.AreEqual(wearAtStart, dataCenter.Bays[0].Component.Wear, "Wear must freeze once a bay stops producing for reconfiguration.");
+        }
+
+        [Test]
+        public void AlreadyReplacingForWear_ChangingTarget_DoesNotRestartTheTimer()
+        {
+            PowerTheDataCenter();
+            DataCenterRuntime dataCenter = NewDataCenter();
+            dataCenter.SetCpuReplacementThreshold(DataCenterRuntime.MaxReplacementThresholdPercent); // 60%
+            FinishPriming(dataCenter);
+            ConfigureAndInstall(dataCenter, 0, DataCenterBayType.Cpu, "cpu_mkI");
+
+            const float step = 0.5f;
+            float elapsed = 0f;
+            while (!dataCenter.Bays[0].Component.IsReplacing && elapsed < 200f)
+            {
+                dataCenter.Tick(step);
+                elapsed += step;
+            }
+            Assert.IsTrue(dataCenter.Bays[0].Component.IsReplacing, "Precondition: already replacing for wear.");
+            float elapsedBeforeRetarget = dataCenter.Bays[0].Component.ReplacementElapsed;
+
+            dataCenter.SetBayAssignment(0, DataCenterBayType.Memory); // player retargets mid-flight
+
+            Assert.AreEqual(elapsedBeforeRetarget, dataCenter.Bays[0].Component.ReplacementElapsed, "Retargeting an in-flight replacement must not reset its timer.");
+            Assert.AreEqual(DataCenterBayType.Memory, dataCenter.Bays[0].ReconfigureTarget);
+        }
+
+        [Test]
+        public void CancellingAReconfiguration_BeforeItsComponentWasDue_RestoresProductionForFree()
+        {
+            PowerTheDataCenter();
+            DataCenterRuntime dataCenter = NewDataCenter();
+            FinishPriming(dataCenter);
+            ConfigureAndInstall(dataCenter, 0, DataCenterBayType.Cpu, "cpu_mkI");
+
+            dataCenter.SetBayAssignment(0, DataCenterBayType.Memory);
+            dataCenter.Tick(1f);
+            dataCenter.SetBayAssignment(0, DataCenterBayType.Cpu); // back to what it already was
+
+            DataCenterBay bay = dataCenter.Bays[0];
+            Assert.IsNull(bay.ReconfigureTarget);
+            Assert.IsFalse(bay.Component.IsReplacing);
+            Assert.AreEqual(DataCenterBayType.Cpu, bay.Assignment);
+            Assert.Greater(bay.Component.EffectiveCu(), 0f, "Cancelled before its own threshold - must resume producing.");
         }
 
         [Test]
@@ -237,13 +387,14 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             PowerTheDataCenter();
 
             DataCenterRuntime dataCenter = NewDataCenter();
+            dataCenter.SetBayAssignment(0, DataCenterBayType.Cpu);
             dataCenter.AddInput("cpu_mkI", 1, Direction.South);
             float reserveBefore = _compute.Reserve;
 
             dataCenter.Tick(1f);
 
             Assert.IsTrue(dataCenter.IsPriming);
-            Assert.IsNotNull(dataCenter.CpuSlots[0], "Pre-stocking a bay during priming must still work.");
+            Assert.IsNotNull(dataCenter.Bays[0].Component, "Pre-stocking a bay during priming must still work.");
             Assert.AreEqual(reserveBefore - 1500f / 90f, _compute.Reserve, 0.01f, "Priming draws its own fixed rate, not the installed component's output.");
         }
 
@@ -261,9 +412,6 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             }
 
             Assert.IsFalse(dataCenter.IsPriming);
-            // Stepping in whole 1s ticks can overshoot by exactly one iteration when the
-            // cumulative sum lands a hair under 1500 due to float rounding (1500/90 doesn't
-            // divide evenly) - tolerate that one extra step rather than the underlying absorption.
             Assert.AreEqual(90f, elapsed, 1.5f);
             Assert.AreEqual(reserveBefore - 1500f, _compute.Reserve, 0.5f);
         }
@@ -306,18 +454,12 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             DataCenterRuntime dataCenter = NewDataCenter();
             FinishPriming(dataCenter);
 
-            // Nothing supplies, so the datacenter group is allocated nothing once settled - power
-            // is drawn per building type now, and the datacenter's own group is what gates its CU.
             _power.TryDraw("datacenter", 9999f);
             _power.Settle();
-            _compute.Spend(5000f); // make room under the cap so a grant would be visible
+            _compute.Spend(5000f);
 
+            dataCenter.SetBayAssignment(0, DataCenterBayType.Cpu);
             dataCenter.AddInput("cpu_mkI", 1, Direction.South);
-
-            // Installed on its own tick first, like the test above: a building reports the demand it
-            // had at the end of the previous tick, so one that has just been given its first
-            // component is still asking for nothing - and a group asking for nothing is not a group
-            // the network can refuse. The one-frame lag is the power contract's, not this test's.
             dataCenter.Tick(0f);
 
             float before = _compute.Reserve;
@@ -334,12 +476,12 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             PowerTheDataCenter();
             _compute.Spend(5000f);
+            ConfigureAndInstall(dataCenter, 0, DataCenterBayType.Cpu, "cpu_mkI");
 
-            dataCenter.AddInput("cpu_mkI", 1, Direction.South);
-            dataCenter.Tick(0f); // installs
             float before = _compute.Reserve;
             dataCenter.Tick(1f);
 
+            // Only bay 0 (CPU) is active; no Memory means no coverage, so FinalYield == GetYield().
             // Default 50/50 axis split, default 0.20 yield floor -> yield = 0.20 + 0.80*0.5 = 0.60.
             Assert.AreEqual(before + 1000f * 0.60f, _compute.Reserve, 0.01f);
         }
@@ -350,8 +492,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             DataCenterRuntime dataCenter = NewDataCenter();
             FinishPriming(dataCenter);
             PowerTheDataCenter();
-            dataCenter.AddInput("cpu_mkI", 1, Direction.South);
-            dataCenter.Tick(0f);
+            ConfigureAndInstall(dataCenter, 0, DataCenterBayType.Cpu, "cpu_mkI");
 
             dataCenter.SetResearchAxisShare(1f); // 100/0
 
@@ -366,10 +507,9 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             DataCenterRuntime dataCenter = NewDataCenter();
             FinishPriming(dataCenter);
             PowerTheDataCenter();
-            dataCenter.AddInput("cpu_mkI", 1, Direction.South);
-            dataCenter.Tick(0f);
+            ConfigureAndInstall(dataCenter, 0, DataCenterBayType.Cpu, "cpu_mkI");
 
-            // ResearchAxisShare already defaults to 0.5.
+            // ResearchAxisShare already defaults to 0.5. No Memory installed -> FinalYield == GetYield() == 0.60.
             float installedTotal = dataCenter.GetTotalComputeOutput();
             Assert.AreEqual(installedTotal * 0.30f, dataCenter.GetResearchAxisProduction(), 0.01f);
             Assert.AreEqual(installedTotal * 0.30f, dataCenter.GetBuildingsAxisProduction(), 0.01f);
@@ -391,11 +531,9 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             FinishPriming(dataCenter);
             PowerTheDataCenter();
-            // Only priming draws down buildingCompute; researchCompute would still sit exactly at
-            // ReserveCap, and Grant clamps there - the credit below would land silently on a full
-            // reserve and prove nothing. Spent down on both sides so the credit is actually visible.
             buildingCompute.Spend(5000f);
             researchCompute.Spend(5000f);
+            dataCenter.SetBayAssignment(0, DataCenterBayType.Cpu);
             dataCenter.AddInput("cpu_mkI", 1, Direction.South);
             dataCenter.Tick(0f); // installs
 
@@ -430,11 +568,13 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             DataCenterRuntime lowThreshold = NewDataCenter(maxStackPerItem: 1000);
             lowThreshold.SetCpuReplacementThreshold(DataCenterRuntime.MinReplacementThresholdPercent);
+            lowThreshold.SetBayAssignment(0, DataCenterBayType.Cpu);
             FinishPriming(lowThreshold);
             lowThreshold.AddInput("cpu_mkI", 500, Direction.South);
 
             DataCenterRuntime highThreshold = NewDataCenter(maxStackPerItem: 1000);
             highThreshold.SetCpuReplacementThreshold(DataCenterRuntime.MaxReplacementThresholdPercent);
+            highThreshold.SetBayAssignment(0, DataCenterBayType.Cpu);
             FinishPriming(highThreshold);
             highThreshold.AddInput("cpu_mkI", 500, Direction.South);
 
@@ -459,21 +599,150 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
 
             DataCenterRuntime dataCenter = NewDataCenter();
             dataCenter.SetCpuReplacementThreshold(40f);
+            dataCenter.SetBayAssignment(0, DataCenterBayType.Cpu);
             FinishPriming(dataCenter);
             dataCenter.AddInput("cpu_mkI", 1, Direction.South);
             dataCenter.Tick(0f); // installs
 
             const float step = 0.05f;
             float elapsed = 0f;
-            while (dataCenter.CpuSlots[0] != null && !dataCenter.CpuSlots[0].IsReplacing && elapsed < 500f)
+            while (dataCenter.Bays[0].Component != null && !dataCenter.Bays[0].Component.IsReplacing && elapsed < 500f)
             {
                 dataCenter.Tick(step);
                 elapsed += step;
             }
 
-            Assert.IsNotNull(dataCenter.CpuSlots[0], "Should have entered replacement well before being hard-removed at 0% wear.");
-            Assert.IsTrue(dataCenter.CpuSlots[0].IsReplacing);
-            Assert.AreEqual(40f, dataCenter.CpuSlots[0].Wear, 1f, "Wear at the moment replacement starts must match the configured threshold.");
+            Assert.IsNotNull(dataCenter.Bays[0].Component, "Should have entered replacement well before being hard-removed at 0% wear.");
+            Assert.IsTrue(dataCenter.Bays[0].Component.IsReplacing);
+            Assert.AreEqual(40f, dataCenter.Bays[0].Component.Wear, 1f, "Wear at the moment replacement starts must match the configured threshold.");
+        }
+
+        // --- Memory coverage / final yield (DATACENTER.md) ---
+
+        // Fixture CU values (SetUp: cpu_mkI=1000, Memory_MK1=500) stand in for the shipped 40/25 -
+        // what these three test is the summation shape (2xCPU, 1 each, 2 each), not the real balance.
+
+        [Test]
+        public void RawCompute_TwoCpu_SumsBothCpuBays()
+        {
+            DataCenterRuntime dataCenter = NewDataCenter();
+            FinishPriming(dataCenter);
+            ConfigureAndInstall(dataCenter, 0, DataCenterBayType.Cpu, "cpu_mkI");
+            ConfigureAndInstall(dataCenter, 1, DataCenterBayType.Cpu, "cpu_mkI");
+
+            Assert.AreEqual(2000f, dataCenter.GetTotalComputeOutput(), 0.01f);
+        }
+
+        [Test]
+        public void RawCompute_OneCpuOneMemory_SumsBoth()
+        {
+            DataCenterRuntime dataCenter = NewDataCenter();
+            FinishPriming(dataCenter);
+            ConfigureAndInstall(dataCenter, 0, DataCenterBayType.Cpu, "cpu_mkI");
+            ConfigureAndInstall(dataCenter, 1, DataCenterBayType.Memory, "Memory_MK1");
+
+            Assert.AreEqual(1500f, dataCenter.GetTotalComputeOutput(), 0.01f);
+        }
+
+        [Test]
+        public void RawCompute_TwoCpuTwoMemory_SumsAllFour()
+        {
+            DataCenterRuntime dataCenter = NewDataCenter();
+            _research.Enqueue(_bays1);
+            _research.Tick(60f);
+            FinishPriming(dataCenter);
+            ConfigureAndInstall(dataCenter, 0, DataCenterBayType.Cpu, "cpu_mkI");
+            ConfigureAndInstall(dataCenter, 1, DataCenterBayType.Cpu, "cpu_mkI");
+            ConfigureAndInstall(dataCenter, 2, DataCenterBayType.Memory, "Memory_MK1");
+            ConfigureAndInstall(dataCenter, 3, DataCenterBayType.Memory, "Memory_MK1");
+
+            Assert.AreEqual(3000f, dataCenter.GetTotalComputeOutput(), 0.01f);
+        }
+
+        [TestCase(1, 1, 1.0f, 1.0f)]
+        [TestCase(2, 1, 1.0f, 0.5f)]
+        [TestCase(3, 1, 1.0f, 1f / 3f)]
+        [TestCase(2, 2, 1.0f, 1.0f)]
+        [TestCase(3, 1, 1.5f, 0.5f)]
+        [TestCase(4, 2, 2.0f, 1.0f)]
+        public void MemoryCoverage_MatchesTheSpecifiedRatios(int cpuBays, int memoryBays, float assistCapacityFromResearch, float expectedCoverage)
+        {
+            DataCenterRuntime dataCenter = NewDataCenter();
+            // Enough bay pairs to fit the requested composition.
+            while (dataCenter.Bays.Count < cpuBays + memoryBays)
+            {
+                _research.Enqueue(dataCenter.Bays.Count < 4 ? _bays1 : _bays2);
+                _research.Tick(60f);
+            }
+
+            if (assistCapacityFromResearch >= 2.0f)
+            {
+                _research.Enqueue(_assist1);
+                _research.Tick(60f);
+                _research.Enqueue(_assist2);
+                _research.Tick(60f);
+            }
+            else if (assistCapacityFromResearch > DataCenterRuntime.DefaultMemoryAssistCapacity)
+            {
+                _research.Enqueue(_assist1);
+                _research.Tick(60f);
+            }
+
+            FinishPriming(dataCenter);
+            for (int i = 0; i < cpuBays; i++) ConfigureAndInstall(dataCenter, i, DataCenterBayType.Cpu, "cpu_mkI");
+            for (int i = 0; i < memoryBays; i++) ConfigureAndInstall(dataCenter, cpuBays + i, DataCenterBayType.Memory, "Memory_MK1");
+
+            Assert.AreEqual(expectedCoverage, dataCenter.GetMemoryCoverage(), 0.001f);
+        }
+
+        [Test]
+        public void FinalYield_At5050Split_NoMemory_EqualsBaseYield()
+        {
+            DataCenterRuntime dataCenter = NewDataCenter();
+            FinishPriming(dataCenter);
+            ConfigureAndInstall(dataCenter, 0, DataCenterBayType.Cpu, "cpu_mkI");
+
+            Assert.AreEqual(0.60f, dataCenter.GetYield(), 0.001f);
+            Assert.AreEqual(dataCenter.GetYield(), dataCenter.GetFinalYield(), 0.001f, "No active Memory -> zero coverage -> FinalYield must equal the base concentration yield.");
+        }
+
+        [Test]
+        public void FinalYield_At5050Split_FullCoverage_Is090()
+        {
+            DataCenterRuntime dataCenter = NewDataCenter();
+            FinishPriming(dataCenter);
+            ConfigureAndInstall(dataCenter, 0, DataCenterBayType.Cpu, "cpu_mkI");
+            ConfigureAndInstall(dataCenter, 1, DataCenterBayType.Memory, "Memory_MK1");
+
+            Assert.AreEqual(1f, dataCenter.GetMemoryCoverage(), 0.001f, "Precondition: 1 CPU + 1 Memory at default capacity 1.0 is full coverage.");
+            Assert.AreEqual(0.90f, dataCenter.GetFinalYield(), 0.001f);
+        }
+
+        [Test]
+        public void NoActiveCpu_ProducesNothing_EvenWithMemoryInstalled()
+        {
+            DataCenterRuntime dataCenter = NewDataCenter();
+            FinishPriming(dataCenter);
+            PowerTheDataCenter();
+            ConfigureAndInstall(dataCenter, 0, DataCenterBayType.Memory, "Memory_MK1");
+
+            Assert.Greater(dataCenter.GetTotalComputeOutput(), 0f, "Precondition: Memory alone still contributes to RawCompute.");
+            Assert.AreEqual(0, dataCenter.ActiveCpuCount);
+            Assert.AreEqual(0f, dataCenter.GetMemoryCoverage(), "No division by zero, and no coverage without a CPU to cover.");
+            Assert.AreEqual(0f, dataCenter.GetResearchAxisProduction());
+            Assert.AreEqual(0f, dataCenter.GetBuildingsAxisProduction());
+        }
+
+        [Test]
+        public void NoActiveMemory_CoverageIsZero_FinalYieldEqualsBaseYield()
+        {
+            DataCenterRuntime dataCenter = NewDataCenter();
+            FinishPriming(dataCenter);
+            ConfigureAndInstall(dataCenter, 0, DataCenterBayType.Cpu, "cpu_mkI");
+
+            Assert.AreEqual(0, dataCenter.ActiveMemoryCount);
+            Assert.AreEqual(0f, dataCenter.GetMemoryCoverage());
+            Assert.AreEqual(dataCenter.GetYield(), dataCenter.GetFinalYield(), 0.0001f);
         }
 
         [Test]
@@ -484,26 +753,76 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             DataCenterRuntime original = NewDataCenter();
             FinishPriming(original);
 
-            original.AddInput("cpu_mkI", 1, Direction.South);
-            original.Tick(0f); // installs
+            ConfigureAndInstall(original, 0, DataCenterBayType.Cpu, "cpu_mkI");
             original.SetCpuReplacementThreshold(40f);
             original.SetMemoryReplacementThreshold(10f);
             original.SetResearchAxisShare(0.75f);
             original.Tick(5f); // let some wear accumulate
-            float wearBeforeCapture = original.CpuSlots[0].Wear;
-            float lifetimeBeforeCapture = original.CpuSlots[0].NominalLifetimeSeconds;
+            float wearBeforeCapture = original.Bays[0].Component.Wear;
+            float lifetimeBeforeCapture = original.Bays[0].Component.NominalLifetimeSeconds;
 
             JObject state = original.CaptureState();
 
             DataCenterRuntime restored = NewDataCenter();
             restored.RestoreState(state);
 
-            Assert.AreEqual(wearBeforeCapture, restored.CpuSlots[0].Wear);
-            Assert.AreEqual(lifetimeBeforeCapture, restored.CpuSlots[0].NominalLifetimeSeconds);
+            Assert.AreEqual(DataCenterBayType.Cpu, restored.Bays[0].Assignment);
+            Assert.AreEqual(wearBeforeCapture, restored.Bays[0].Component.Wear);
+            Assert.AreEqual(lifetimeBeforeCapture, restored.Bays[0].Component.NominalLifetimeSeconds);
             Assert.AreEqual(40f, restored.CpuReplacementThresholdPercent);
             Assert.AreEqual(10f, restored.MemoryReplacementThresholdPercent);
             Assert.AreEqual(0.75f, restored.ResearchAxisShare);
             Assert.IsFalse(restored.IsPriming);
+        }
+
+        [Test]
+        public void CaptureAndRestore_RoundTripsAReconfigurationInProgress()
+        {
+            PowerTheDataCenter();
+            DataCenterRuntime original = NewDataCenter();
+            FinishPriming(original);
+            ConfigureAndInstall(original, 0, DataCenterBayType.Cpu, "cpu_mkI");
+            original.SetBayAssignment(0, DataCenterBayType.Memory);
+            original.Tick(2f);
+
+            JObject state = original.CaptureState();
+            DataCenterRuntime restored = NewDataCenter();
+            restored.RestoreState(state);
+
+            Assert.AreEqual(DataCenterBayType.Memory, restored.Bays[0].ReconfigureTarget);
+            Assert.AreEqual(DataCenterBayType.Cpu, restored.Bays[0].Assignment);
+            Assert.IsTrue(restored.Bays[0].Component.IsReplacing);
+            Assert.AreEqual(original.Bays[0].Component.ReplacementElapsed, restored.Bays[0].Component.ReplacementElapsed, 0.0001f);
+        }
+
+        [Test]
+        public void RestoreState_MigratesALegacyCpuAndMemorySlotBlob_OneForOneIntoTypedBays()
+        {
+            DataCenterRuntime dataCenter = NewDataCenter();
+            var state = new JObject
+            {
+                ["cpuSlots"] = new JArray
+                {
+                    new JObject { ["itemId"] = "cpu_mkI", ["wear"] = 60f, ["effectivePerformance"] = 0.9f, ["isReplacing"] = false, ["replacementElapsed"] = 0f },
+                    JValue.CreateNull()
+                },
+                ["memorySlots"] = new JArray
+                {
+                    new JObject { ["itemId"] = "Memory_MK1", ["wear"] = 30f, ["effectivePerformance"] = 0.7f, ["isReplacing"] = true, ["replacementElapsed"] = 2f }
+                }
+            };
+
+            dataCenter.RestoreState(state);
+
+            Assert.AreEqual(3, dataCenter.Bays.Count);
+            Assert.AreEqual(DataCenterBayType.Cpu, dataCenter.Bays[0].Assignment);
+            Assert.AreEqual(60f, dataCenter.Bays[0].Component.Wear);
+            Assert.AreEqual(DataCenterBayType.Cpu, dataCenter.Bays[1].Assignment);
+            Assert.IsNull(dataCenter.Bays[1].Component, "A null legacy slot restores as an empty typed bay.");
+            Assert.AreEqual(DataCenterBayType.Memory, dataCenter.Bays[2].Assignment);
+            Assert.AreEqual(30f, dataCenter.Bays[2].Component.Wear);
+            Assert.IsTrue(dataCenter.Bays[2].Component.IsReplacing);
+            Assert.AreEqual(2f, dataCenter.Bays[2].Component.ReplacementElapsed);
         }
 
         [Test]
@@ -516,26 +835,29 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             Assert.AreEqual(DataCenterRuntime.DefaultReplacementThresholdPercent, dataCenter.MemoryReplacementThresholdPercent);
             Assert.AreEqual(0.5f, dataCenter.ResearchAxisShare);
             Assert.IsFalse(dataCenter.IsPriming, "Absent primingAbsorbedCu must default to 'already primed', not re-freeze an established playthrough.");
-            Assert.AreEqual(0, dataCenter.CpuSlots.Count, "An absent cpuSlots array clears to no slots, per RestoreSlots' own null-check - matches the pre-existing convention for every other restorable list.");
+            Assert.AreEqual(0, dataCenter.Bays.Count, "An absent bays array (and no legacy keys either) clears to no bays.");
         }
 
         [Test]
-        public void RestoreState_ToleratesASlotBlobMissingTheNewLifetimeFields()
+        public void RestoreState_ToleratesABayBlobMissingTheNewLifetimeFields()
         {
             DataCenterRuntime dataCenter = NewDataCenter();
             var state = new JObject
             {
-                ["cpuSlots"] = new JArray
+                ["bays"] = new JArray
                 {
-                    new JObject { ["itemId"] = "cpu_mkI", ["wear"] = 60f, ["effectivePerformance"] = 0.9f, ["isReplacing"] = false, ["replacementElapsed"] = 0f }
-                },
-                ["memorySlots"] = new JArray()
+                    new JObject
+                    {
+                        ["assignment"] = (int)DataCenterBayType.Cpu,
+                        ["component"] = new JObject { ["itemId"] = "cpu_mkI", ["wear"] = 60f, ["effectivePerformance"] = 0.9f, ["isReplacing"] = false, ["replacementElapsed"] = 0f }
+                    }
+                }
             };
 
             Assert.DoesNotThrow(() => dataCenter.RestoreState(state));
-            Assert.AreEqual(60f, dataCenter.CpuSlots[0].Wear);
-            Assert.Greater(dataCenter.CpuSlots[0].NominalLifetimeSeconds, 0f);
-            Assert.Greater(dataCenter.CpuSlots[0].BaseLossPerSecond, 0f);
+            Assert.AreEqual(60f, dataCenter.Bays[0].Component.Wear);
+            Assert.Greater(dataCenter.Bays[0].Component.NominalLifetimeSeconds, 0f);
+            Assert.Greater(dataCenter.Bays[0].Component.BaseLossPerSecond, 0f);
         }
     }
 }

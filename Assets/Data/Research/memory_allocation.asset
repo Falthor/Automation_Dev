@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: memory_allocation
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: memory_allocation
-  displayName: Allocation memoire
+  displayName: Capacite de gestion I
   description: Porte le plafond de batiments a 75.
   icon: {fileID: 597411320055623791, guid: 010eeacec31baf84887f268a78c928dd, type: 3}
   cuCost: 3300

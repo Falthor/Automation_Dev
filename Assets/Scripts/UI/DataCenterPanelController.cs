@@ -10,8 +10,14 @@ namespace Game.UI
 {
     /// <summary>
     /// The Data Center inspector: what it produces, where that goes, the state of its hardware,
-    /// what is in reserve, and when to replace. Read-only except for its three sliders, and it talks
-    /// to the building only through its public contract - never a private field.
+    /// what is in reserve, and when to replace. Read-only except for its axis/threshold sliders
+    /// and the per-bay CPU/Memory buttons, and it talks to the building only through its public
+    /// contract - never a private field.
+    ///
+    /// <b>Bays are universal.</b> A fresh bay is Unassigned and empty; the player picks CPU or
+    /// Memory per bay through <see cref="DataCenterRuntime.SetBayAssignment"/>, the one entry
+    /// point this controller ever calls to change what a bay is - both a first assignment and a
+    /// later reconfiguration go through it.
     ///
     /// <b>Five sections, in the order each one explains the next</b> (design/maquette-panneau-
     /// datacenter.png). Production first, and the real figure rather than the nominal one, because
@@ -28,9 +34,9 @@ namespace Game.UI
     /// once every five seconds reads as frozen rather than unsteady.
     ///
     /// <b>The bay blocks are built once and updated in place.</b> The previous panel rebuilt its
-    /// rows every frame; a block is ten elements, and up to eight bays of them every frame is a
+    /// rows every frame; a block is many elements, and up to eight bays of them every frame is a
     /// per-frame allocation this project does not allow. They are rebuilt only when the number of
-    /// unlocked bays changes, which is twice per run at most.
+    /// unlocked bays changes, which is at most a few times per run.
     /// </summary>
     public sealed class DataCenterPanelController : MonoBehaviour
     {
@@ -55,6 +61,14 @@ namespace Game.UI
 
         /// <summary>The research share, drawn inside the axis slider's own tracker so the bar is the setting rather than a picture of it - see BuildAxisBar.</summary>
         VisualElement _axisResearchFill;
+
+        Label _activeCpuValue;
+        Label _activeMemoryValue;
+        Label _assistCapacityValue;
+        Label _coverageValue;
+        Label _baseYieldValue;
+        Label _recoveredValue;
+        Label _finalYieldValue;
 
         Label _bayCount;
         VisualElement _bayList;
@@ -97,8 +111,14 @@ namespace Game.UI
             public VisualElement WearFill;
             public Label Alert;
 
-            /// <summary>Which item this bay takes, for the spare-stock question a bay asks about itself.</summary>
-            public string ItemId;
+            public VisualElement ConfigureRow;
+            public Button CpuButton;
+            public Button MemoryButton;
+
+            public VisualElement ReconfigureRow;
+            public Label ReconfigureLabel;
+            public VisualElement ReconfigureTrack;
+            public VisualElement ReconfigureFill;
         }
 
         sealed class SpareView
@@ -128,6 +148,14 @@ namespace Game.UI
             _researchAxisValue = panelRoot.Q<Label>("DataCenterResearchAxisValue");
             _buildingsAxisValue = panelRoot.Q<Label>("DataCenterBuildingsAxisValue");
             _axisSlider = panelRoot.Q<Slider>("DataCenterAxisSlider");
+
+            _activeCpuValue = panelRoot.Q<Label>("DataCenterActiveCpuValue");
+            _activeMemoryValue = panelRoot.Q<Label>("DataCenterActiveMemoryValue");
+            _assistCapacityValue = panelRoot.Q<Label>("DataCenterAssistCapacityValue");
+            _coverageValue = panelRoot.Q<Label>("DataCenterCoverageValue");
+            _baseYieldValue = panelRoot.Q<Label>("DataCenterBaseYieldValue");
+            _recoveredValue = panelRoot.Q<Label>("DataCenterRecoveredValue");
+            _finalYieldValue = panelRoot.Q<Label>("DataCenterFinalYieldValue");
 
             _bayCount = panelRoot.Q<Label>("DataCenterBayCount");
             _bayList = panelRoot.Q<VisualElement>("DataCenterBayList");
@@ -276,11 +304,12 @@ namespace Game.UI
             if (isPriming)
             {
                 _primingFill.style.width = new StyleLength(Length.Percent(_selected.PrimingProgress * 100f));
-                _primingLabel.text = $"~{Mathf.CeilToInt(_selected.GetPrimingSecondsRemaining())} s restantes";
+                _primingLabel.text = $"~{Mathf.CeilToInt(_selected.GetPrimingSecondsRemaining())} s restantes";
             }
 
             RenderProduction();
             RenderAxes();
+            RenderMemorySummary();
             RenderBays();
             RenderSpares();
             RenderThresholds();
@@ -296,13 +325,14 @@ namespace Game.UI
             _productionValue.text = One(real);
 
             // One factor rather than two, and it is real/nominal - so it moves with the bays' own
-            // condition as well as with the axis split. GetYield() alone would not: it is a function
-            // of the split and nothing else, and a figure called "rendement" that does not budge
-            // while the bays tire is the defect this panel exists to fix.
+            // condition as well as with the axis split and the Memory coverage recovery.
+            // GetYield() alone would not: it is a function of the split and nothing else, and a
+            // figure called "rendement" that does not budge while the bays tire is the defect this
+            // panel exists to fix.
             float factor = nominal > 0f ? real / nominal : 0f;
             _productionBreakdown.text = $"nominal {One(nominal)} · rendement {Two(factor)}";
 
-            _powerLabel.text = $"consomme {UnitFormat.Kilowatts(_selected.GetTotalPowerDemand())} kW";
+            _powerLabel.text = $"consomme {UnitFormat.Kilowatts(_selected.GetTotalPowerDemand())} kW";
         }
 
         void RenderAxes()
@@ -321,6 +351,21 @@ namespace Game.UI
             if (!_applyingSliderChange) _axisSlider.SetValueWithoutNotify(_selected.ResearchAxisShare * 100f);
         }
 
+        /// <summary>How Memory claws back the concentration penalty - every figure read straight from DataCenterRuntime, nothing recomputed here (UI rules, DEVELOPMENT_RULES.md).</summary>
+        void RenderMemorySummary()
+        {
+            float baseYield = _selected.GetYield();
+            float finalYield = _selected.GetFinalYield();
+
+            _activeCpuValue.text = _selected.ActiveCpuCount.ToString(CultureInfo.InvariantCulture);
+            _activeMemoryValue.text = _selected.ActiveMemoryCount.ToString(CultureInfo.InvariantCulture);
+            _assistCapacityValue.text = $"{One(_selected.MemoryAssistCapacity)} CPU / mémoire";
+            _coverageValue.text = Percent(_selected.GetMemoryCoverage());
+            _baseYieldValue.text = Percent(baseYield);
+            _recoveredValue.text = $"+{Percent(finalYield - baseYield)}";
+            _finalYieldValue.text = Percent(finalYield);
+        }
+
         void RenderThresholds()
         {
             if (!_applyingSliderChange)
@@ -329,8 +374,8 @@ namespace Game.UI
                 _memoryThresholdSlider.SetValueWithoutNotify(_selected.MemoryReplacementThresholdPercent);
             }
 
-            _cpuThresholdValue.text = $"{Mathf.RoundToInt(_selected.CpuReplacementThresholdPercent)} %";
-            _memoryThresholdValue.text = $"{Mathf.RoundToInt(_selected.MemoryReplacementThresholdPercent)} %";
+            _cpuThresholdValue.text = $"{Mathf.RoundToInt(_selected.CpuReplacementThresholdPercent)} %";
+            _memoryThresholdValue.text = $"{Mathf.RoundToInt(_selected.MemoryReplacementThresholdPercent)} %";
         }
 
         void RenderSpares()
@@ -350,35 +395,27 @@ namespace Game.UI
 
         void RenderBays()
         {
-            IReadOnlyList<ComponentInstance> cpu = _selected.CpuSlots;
-            IReadOnlyList<ComponentInstance> memory = _selected.MemorySlots;
-            int total = cpu.Count + memory.Count;
+            IReadOnlyList<DataCenterBay> bays = _selected.Bays;
 
-            if (total != _builtBayCount) RebuildBays(cpu.Count, memory.Count);
+            if (bays.Count != _builtBayCount) RebuildBays(bays.Count);
 
-            _bayCount.text = total == 1 ? "1 emplacement" : $"{total} emplacements";
+            _bayCount.text = bays.Count == 1 ? "1 emplacement" : $"{bays.Count} emplacements";
 
-            for (int i = 0; i < cpu.Count; i++) RenderBay(_bays[i], cpu[i], _selected.CpuReplacementThresholdPercent);
-            for (int i = 0; i < memory.Count; i++) RenderBay(_bays[cpu.Count + i], memory[i], _selected.MemoryReplacementThresholdPercent);
+            for (int i = 0; i < bays.Count; i++) RenderBay(_bays[i], i, bays[i]);
         }
 
-        /// <summary>
-        /// One block per <b>unlocked</b> bay, CPU bays then Memory bays. A bay that does not exist
-        /// yet is not drawn at all - an empty row for a locked extension would read as something the
-        /// player could fill.
-        /// </summary>
-        void RebuildBays(int cpuCount, int memoryCount)
+        /// <summary>One block per <b>unlocked</b> bay. A bay that does not exist yet is not drawn at all - an empty row for a locked extension would read as something the player could fill.</summary>
+        void RebuildBays(int bayCount)
         {
             _bayList.Clear();
             _bays.Clear();
 
-            for (int i = 0; i < cpuCount; i++) _bays.Add(AddBay(DataCenterRuntime.CpuItemId));
-            for (int i = 0; i < memoryCount; i++) _bays.Add(AddBay(DataCenterRuntime.MemoryItemId));
+            for (int i = 0; i < bayCount; i++) _bays.Add(AddBay());
 
-            _builtBayCount = cpuCount + memoryCount;
+            _builtBayCount = bayCount;
         }
 
-        BayView AddBay(string itemId)
+        BayView AddBay()
         {
             var frame = new VisualElement();
             frame.AddToClassList("dc-bay");
@@ -388,7 +425,6 @@ namespace Game.UI
 
             var icon = new VisualElement();
             icon.AddToClassList("dc-bay-icon");
-            SetItemIcon(icon, itemId);
             head.Add(icon);
 
             var name = new Label();
@@ -448,6 +484,34 @@ namespace Game.UI
             alert.AddToClassList("dc-bay-alert-line");
             frame.Add(alert);
 
+            var reconfigureRow = new VisualElement();
+            reconfigureRow.AddToClassList("dc-reconfigure-row");
+
+            var reconfigureLabel = new Label();
+            reconfigureLabel.AddToClassList("dc-reconfigure-label");
+            reconfigureRow.Add(reconfigureLabel);
+
+            var reconfigureTrack = new VisualElement();
+            reconfigureTrack.AddToClassList("dc-reconfigure-track");
+
+            var reconfigureFill = new VisualElement();
+            reconfigureFill.AddToClassList("dc-reconfigure-fill");
+            reconfigureTrack.Add(reconfigureFill);
+            reconfigureRow.Add(reconfigureTrack);
+            frame.Add(reconfigureRow);
+
+            var configureRow = new VisualElement();
+            configureRow.AddToClassList("dc-bay-configure-row");
+
+            var cpuButton = new Button { text = "CPU" };
+            cpuButton.AddToClassList("dc-bay-configure-button");
+            configureRow.Add(cpuButton);
+
+            var memoryButton = new Button { text = "Mémoire" };
+            memoryButton.AddToClassList("dc-bay-configure-button");
+            configureRow.Add(memoryButton);
+            frame.Add(configureRow);
+
             _bayList.Add(frame);
 
             return new BayView
@@ -467,26 +531,75 @@ namespace Game.UI
                 WearTrack = wearTrack,
                 WearFill = wearFill,
                 Alert = alert,
-                ItemId = itemId
+                ConfigureRow = configureRow,
+                CpuButton = cpuButton,
+                MemoryButton = memoryButton,
+                ReconfigureRow = reconfigureRow,
+                ReconfigureLabel = reconfigureLabel,
+                ReconfigureTrack = reconfigureTrack,
+                ReconfigureFill = reconfigureFill
             };
         }
 
-        void RenderBay(BayView view, ComponentInstance slot, float thresholdPercent)
+        void RenderBay(BayView view, int bayIndex, DataCenterBay bay)
         {
-            bool hasSpare = _selected.GetInputAmount(view.ItemId) > 0;
+            // Buttons are rebuilt-once elements: the click handler is rebound every render rather
+            // than once at AddBay, since it needs to close over this bay's own index and the
+            // runtime call is idempotent and cheap - RegisterCallback would stack a new closure
+            // per render instead, so the previous one is cleared first.
+            view.CpuButton.clicked -= view.CpuButton.userData as System.Action;
+            System.Action assignCpu = () => { _selected.SetBayAssignment(bayIndex, DataCenterBayType.Cpu); gameRuntime.NotePlayerAction(); };
+            view.CpuButton.userData = assignCpu;
+            view.CpuButton.clicked += assignCpu;
 
-            if (slot == null)
+            view.MemoryButton.clicked -= view.MemoryButton.userData as System.Action;
+            System.Action assignMemory = () => { _selected.SetBayAssignment(bayIndex, DataCenterBayType.Memory); gameRuntime.NotePlayerAction(); };
+            view.MemoryButton.userData = assignMemory;
+            view.MemoryButton.clicked += assignMemory;
+
+            DataCenterBayType effectiveTarget = bay.ReconfigureTarget ?? bay.Assignment;
+            view.CpuButton.SetEnabled(effectiveTarget != DataCenterBayType.Cpu);
+            view.MemoryButton.SetEnabled(effectiveTarget != DataCenterBayType.Memory);
+
+            bool hasCpuSpare = _selected.GetInputAmount(DataCenterRuntime.CpuItemId) > 0;
+            bool hasMemorySpare = _selected.GetInputAmount(DataCenterRuntime.MemoryItemId) > 0;
+
+            if (bay.ReconfigureTarget != null)
+            {
+                RenderReconfiguringBay(view, bay);
+                return;
+            }
+
+            if (bay.Assignment == DataCenterBayType.Unassigned)
+            {
+                view.Name.text = "Non configurée";
+                view.Performance.text = "—";
+                ShowComponentRows(view, false);
+                view.ReconfigureRow.style.display = DisplayStyle.None;
+                view.Alert.style.display = DisplayStyle.None;
+                view.Frame.EnableInClassList("dc-bay-alert", false);
+                view.Frame.EnableInClassList("dc-bay-vacant", true);
+                view.Icon.style.backgroundImage = StyleKeyword.Null;
+                return;
+            }
+
+            string itemId = bay.Assignment == DataCenterBayType.Memory ? DataCenterRuntime.MemoryItemId : DataCenterRuntime.CpuItemId;
+            SetItemIcon(view.Icon, itemId);
+
+            if (bay.Component == null)
             {
                 // <b>Hidden, not emptied.</b> A vacant bay used to draw an empty range track, an
                 // empty wear bar and a row of blank numbers - three rails describing a component
                 // that is not there, and the tallest block in the panel for the least information
-                // in it. What is left says the whole of it: which bay, that it is empty, and whether
-                // anything is coming.
-                view.Name.text = "Emplacement vide";
+                // in it. What is left says the whole of it: which type, that it is empty, and
+                // whether anything is coming.
+                bool hasSpare = bay.Assignment == DataCenterBayType.Memory ? hasMemorySpare : hasCpuSpare;
+                view.Name.text = ItemDisplayName(itemId);
                 view.Performance.text = "—";
                 ShowComponentRows(view, false);
+                view.ReconfigureRow.style.display = DisplayStyle.None;
 
-                view.Alert.text = hasSpare ? "Installation en cours" : "Aucune pièce en stock";
+                view.Alert.text = hasSpare ? "Installation en cours" : $"En attente de {ItemDisplayName(itemId)}";
                 view.Alert.style.display = DisplayStyle.Flex;
                 view.Frame.EnableInClassList("dc-bay-alert", !hasSpare);
                 view.Frame.EnableInClassList("dc-bay-vacant", true);
@@ -495,9 +608,13 @@ namespace Game.UI
 
             view.Frame.EnableInClassList("dc-bay-vacant", false);
             ShowComponentRows(view, true);
+            view.ReconfigureRow.style.display = DisplayStyle.None;
 
-            ItemDefinition item = gameRuntime.Items?.Get(slot.ItemId);
-            view.Name.text = item != null && !string.IsNullOrEmpty(item.DisplayName) ? item.DisplayName : slot.ItemId;
+            ComponentInstance slot = bay.Component;
+            float thresholdPercent = bay.Assignment == DataCenterBayType.Memory ? _selected.MemoryReplacementThresholdPercent : _selected.CpuReplacementThresholdPercent;
+            bool hasSpareForRepair = bay.Assignment == DataCenterBayType.Memory ? hasMemorySpare : hasCpuSpare;
+
+            view.Name.text = ItemDisplayName(slot.ItemId);
 
             // Zero while it is being replaced, because that is what it produces: EffectiveCu is
             // forced to 0 for those five seconds while EffectivePerformance keeps its last roll, and
@@ -509,15 +626,16 @@ namespace Game.UI
 
             view.Performance.text = Two(performance);
             view.Range.text = $"{Two(floor)} – {Two(ceiling)}";
-            view.Stability.text = $"stable {Mathf.RoundToInt(slot.Stability)} %";
-            view.WearValue.text = $"{Mathf.RoundToInt(slot.Wear)} %";
+            view.Stability.text = $"stable {Mathf.RoundToInt(slot.Stability)} %";
+            view.WearValue.text = $"{Mathf.RoundToInt(slot.Wear)} %";
 
             view.RangeBand.style.left = new StyleLength(Length.Percent(floor * 100f));
             view.RangeBand.style.width = new StyleLength(Length.Percent((ceiling - floor) * 100f));
             view.RangeTick.style.left = new StyleLength(Length.Percent(performance * 100f));
             view.WearFill.style.width = new StyleLength(Length.Percent(Mathf.Clamp01(slot.Wear / 100f) * 100f));
 
-            string alert = AlertFor(slot, hasSpare);
+            _ = thresholdPercent; // read via HasCrossedReplacementThreshold inside the runtime already; kept for a future finer-grained alert if needed.
+            string alert = AlertFor(slot, hasSpareForRepair);
             view.Alert.text = alert;
             view.Alert.style.display = string.IsNullOrEmpty(alert) ? DisplayStyle.None : DisplayStyle.Flex;
 
@@ -528,7 +646,34 @@ namespace Game.UI
             view.WearFill.EnableInClassList("dc-wear-fill-alert", alerting);
         }
 
-        /// <summary>Everything that describes an installed component: shown for a bay that has one, hidden for a bay that does not.</summary>
+        void RenderReconfiguringBay(BayView view, DataCenterBay bay)
+        {
+            string fromName = TypeDisplayName(bay.Assignment);
+            string toName = TypeDisplayName(bay.ReconfigureTarget.Value);
+
+            view.Frame.EnableInClassList("dc-bay-vacant", false);
+            view.Frame.EnableInClassList("dc-bay-alert", false);
+            view.Performance.EnableInClassList("dc-value-alert", false);
+            view.WearValue.EnableInClassList("dc-value-alert", false);
+            view.WearFill.EnableInClassList("dc-wear-fill-alert", false);
+
+            view.Name.text = $"Reconfiguration {fromName} → {toName}";
+            view.Performance.text = "—";
+            ShowComponentRows(view, false);
+            view.Alert.style.display = DisplayStyle.None;
+
+            ComponentInstance component = bay.Component;
+            float elapsed = component != null ? Mathf.Min(component.ReplacementElapsed, ReplacementDurationSeconds) : 0f;
+
+            view.ReconfigureRow.style.display = DisplayStyle.Flex;
+            view.ReconfigureLabel.text = $"{One(elapsed)} / {One(ReplacementDurationSeconds)} s";
+            view.ReconfigureFill.style.width = new StyleLength(Length.Percent(Mathf.Clamp01(elapsed / ReplacementDurationSeconds) * 100f));
+        }
+
+        /// <summary>Matches DataCenterRuntime's own ReplacementDuration (also reused for reconfiguration) - not exposed as a public constant there, so mirrored here for the progress bar only; the runtime remains the sole authority on when a bay actually completes.</summary>
+        const float ReplacementDurationSeconds = 5f;
+
+        /// <summary>Everything that describes an installed component: shown for a bay that has one, hidden for a bay that does not or that is mid-reconfiguration.</summary>
         static void ShowComponentRows(BayView view, bool shown)
         {
             DisplayStyle display = shown ? DisplayStyle.Flex : DisplayStyle.None;
@@ -553,6 +698,19 @@ namespace Game.UI
             return hasSpare ? string.Empty : "Aucune pièce en stock";
         }
 
+        string ItemDisplayName(string itemId)
+        {
+            ItemDefinition item = gameRuntime.Items?.Get(itemId);
+            return item != null && !string.IsNullOrEmpty(item.DisplayName) ? item.DisplayName : itemId;
+        }
+
+        string TypeDisplayName(DataCenterBayType type) => type switch
+        {
+            DataCenterBayType.Cpu => ItemDisplayName(DataCenterRuntime.CpuItemId),
+            DataCenterBayType.Memory => ItemDisplayName(DataCenterRuntime.MemoryItemId),
+            _ => "Non configurée"
+        };
+
         void SetItemIcon(VisualElement element, string itemId)
         {
             Sprite icon = gameRuntime.Items?.Get(itemId)?.Icon;
@@ -567,5 +725,7 @@ namespace Game.UI
         static string One(float value) => value.ToString("0.0", CultureInfo.InvariantCulture).Replace('.', ',');
 
         static string Two(float value) => value.ToString("0.00", CultureInfo.InvariantCulture).Replace('.', ',');
+
+        static string Percent(float fraction01) => $"{Mathf.RoundToInt(fraction01 * 100f)} %";
     }
 }

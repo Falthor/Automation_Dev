@@ -11,27 +11,28 @@ namespace Game.Gameplay.Buildings
 {
     /// <summary>
     /// Aggregates installed CPU/Memory components into Compute supply and Power demand
-    /// (DATACENTER.md). Pooled input accepts cpu_mkI/Memory_MK1 via the standard
-    /// Building/Inventory contract - see ComponentInstance for the per-slot wear/stability/
-    /// replacement rules.
+    /// (DATACENTER.md). Bays are physically universal: a fresh bay is Unassigned and empty, the
+    /// player chooses CPU or Memory per bay, and only then does the standard Building/Inventory
+    /// pooled input (cpu_mkI/Memory_MK1) auto-install into it - see ComponentInstance for the
+    /// per-slot wear/stability/replacement rules.
     ///
     /// A freshly placed Data Center primes for 90s (1500 CU consumed from Building Compute, no
     /// production, no wear - GDD §2.3) before any of that applies; priming is a second continuous
     /// per-second CU draw alongside research's own (CALCUL.md), and pauses at zero CU exactly like
-    /// research does. Once primed, its output splits across two axes (research/buildings) via a
-    /// concentration-based yield curve (§7), each crediting its own reserve - Research Compute and
-    /// Building Compute (CALCUL.md).
+    /// research does. Once primed, its raw output splits across two axes (research/buildings) via
+    /// a concentration-based yield curve, recoverable by Memory coverage (DATACENTER.md §"Baies
+    /// universelles"), each crediting its own reserve - Research Compute and Building Compute
+    /// (CALCUL.md).
     /// </summary>
     public sealed class DataCenterRuntime : BuildingRuntime
     {
-        const int InitialCpuSlots = 1;
-        const int InitialMemorySlots = 1;
+        const int InitialBaySlots = 2;
 
-        // Hard cap, deliberately above what the shipped bay effects reach: starting at 1+1, the two
-        // researches carrying one pair each bring a Data Center to 3+3. The fourth bay exists for a
-        // third, and guards the restore path meanwhile.
-        const int MaxCpuSlots = 4;
-        const int MaxMemorySlots = 4;
+        // Hard cap, deliberately above what the shipped bay effects reach today: starting at 2,
+        // Extension I/II bring a Data Center to 6. The remaining headroom exists for Extension
+        // III and guards the restore path meanwhile.
+        const int MaxBaySlots = 8;
+
         /// <summary>
         /// How often each installed component draws its performance again.
         ///
@@ -61,6 +62,12 @@ namespace Game.Gameplay.Buildings
         public const float MaxReplacementThresholdPercent = 60f;
         public const float DefaultReplacementThresholdPercent = 25f;
 
+        /// <summary>How many CPUs one active Memory bay can assist, at the starting research tier. A target read from MemoryAssistCapacityTenths effects, the highest completed wins - see UnlockedMemoryAssistCapacityTenths.</summary>
+        public const float DefaultMemoryAssistCapacity = 1.0f;
+
+        /// <summary>Fraction of the yield lost to axis concentration that full Memory coverage claws back (DATACENTER.md). A balancing constant, not exposed to research in this pass.</summary>
+        const float MemoryPenaltyRecovery = 0.75f;
+
         readonly DataCenterDefinition _definition;
         readonly ItemDatabase _itemDatabase;
 
@@ -73,8 +80,7 @@ namespace Game.Gameplay.Buildings
         readonly PowerSystem _powerSystem;
         readonly ResearchSystem _researchSystem;
         readonly PooledItemStock _input;
-        readonly List<ComponentInstance> _cpuSlots;
-        readonly List<ComponentInstance> _memorySlots;
+        readonly List<DataCenterBay> _bays;
         readonly System.Action<string> _onResearchCompleted;
 
         /// <summary>Owns every per-component lifetime draw for this Data Center's whole lifetime - one seeded stream, not re-seeded per install, so a fixed seed plus a fixed installation sequence always reproduces the same drawn lifetimes (DEVELOPMENT_RULES.md).</summary>
@@ -87,8 +93,7 @@ namespace Game.Gameplay.Buildings
         /// <summary>Whether this instance has granted the cores yet. Not saved: Grant is silent for an id already unlocked, so a reload simply asks again.</summary>
         bool _coresPowered;
 
-        public IReadOnlyList<ComponentInstance> CpuSlots => _cpuSlots;
-        public IReadOnlyList<ComponentInstance> MemorySlots => _memorySlots;
+        public IReadOnlyList<DataCenterBay> Bays => _bays;
 
         /// <summary>5..60, default 25 - adjustable at any time, for free (DATACENTER.md).</summary>
         public float CpuReplacementThresholdPercent { get; private set; } = DefaultReplacementThresholdPercent;
@@ -98,6 +103,9 @@ namespace Game.Gameplay.Buildings
 
         /// <summary>Fraction of installed output aimed at the research axis, in [0,1]; the buildings axis gets the complement. Default 0.5 (50/50). Free and instantaneous to change (§7) - there is no armament axis yet.</summary>
         public float ResearchAxisShare { get; private set; } = 0.5f;
+
+        /// <summary>How many CPUs one active Memory bay currently assists - a target from MemoryAssistCapacityTenths research effects, the highest completed wins, same shape as CoreRuntime.ActionRadiusCells.</summary>
+        public float MemoryAssistCapacity { get; private set; } = DefaultMemoryAssistCapacity;
 
         /// <summary>True from placement until PrimingCostCu has been absorbed - no production, no wear while true (GDD §2.3).</summary>
         public bool IsPriming => _primingAbsorbedCu < PrimingCostCu;
@@ -121,47 +129,67 @@ namespace Game.Gameplay.Buildings
             _input = new PooledItemStock(definition.MaxStackPerItem);
             _lifetimeRandom = new System.Random(definition.ComponentLifetimeSeed);
 
-            _cpuSlots = new List<ComponentInstance>(new ComponentInstance[InitialCpuSlots]);
-            _memorySlots = new List<ComponentInstance>(new ComponentInstance[InitialMemorySlots]);
-            AddBayPairs(UnlockedBayPairs(researchSystem));
+            _bays = new List<DataCenterBay>();
+            for (int i = 0; i < InitialBaySlots; i++) _bays.Add(new DataCenterBay());
+            AddBaySlots(UnlockedBaySlots(researchSystem));
+            MemoryAssistCapacity = UnlockedMemoryAssistCapacity(researchSystem);
 
             _onResearchCompleted = OnResearchCompleted;
             researchSystem.ResearchCompleted += _onResearchCompleted;
         }
 
-        /// <summary>Each DataCenterBayPairs effect appends that many CPU and Memory bays, capped at MaxCpuSlots/MaxMemorySlots - usable by the same install/wear/replacement code, no separate mechanism.</summary>
-        void OnResearchCompleted(string researchId) => AddBayPairs(BayPairsOf(_researchSystem.Definition(researchId)));
-
-        /// <summary>The pairs every research already completed grants - what a Datacenter built after them starts with.</summary>
-        static int UnlockedBayPairs(ResearchSystem research)
+        /// <summary>Each DataCenterBayPairs effect adds twice its value in fresh Unassigned bays, capped at MaxBaySlots - usable by the same install/wear/replacement code, no separate mechanism. Also re-reads MemoryAssistCapacityTenths, a target that only ever grows.</summary>
+        void OnResearchCompleted(string researchId)
         {
-            int pairs = 0;
-            foreach (string id in research.GetUnlockedIds()) pairs += BayPairsOf(research.Definition(id));
-            return pairs;
+            ResearchDefinition research = _researchSystem.Definition(researchId);
+            AddBaySlots(BaySlotsOf(research));
+            MemoryAssistCapacity = UnityEngine.Mathf.Max(MemoryAssistCapacity, MemoryAssistCapacityOf(research));
         }
 
-        static int BayPairsOf(ResearchDefinition research)
+        /// <summary>The bay slots every research already completed grants - what a Datacenter built after them starts with.</summary>
+        static int UnlockedBaySlots(ResearchSystem research)
+        {
+            int slots = 0;
+            foreach (string id in research.GetUnlockedIds()) slots += BaySlotsOf(research.Definition(id));
+            return slots;
+        }
+
+        static float UnlockedMemoryAssistCapacity(ResearchSystem research)
+        {
+            float highest = DefaultMemoryAssistCapacity;
+            foreach (string id in research.GetUnlockedIds()) highest = UnityEngine.Mathf.Max(highest, MemoryAssistCapacityOf(research.Definition(id)));
+            return highest;
+        }
+
+        static int BaySlotsOf(ResearchDefinition research)
         {
             if (research == null) return 0;
 
-            int pairs = 0;
+            int slots = 0;
             IReadOnlyList<ResearchEffect> effects = research.Effects;
             for (int i = 0; i < effects.Count; i++)
             {
-                if (effects[i].Kind == ResearchEffectKind.DataCenterBayPairs) pairs += effects[i].Value;
+                if (effects[i].Kind == ResearchEffectKind.DataCenterBayPairs) slots += effects[i].Value * 2;
             }
-            return pairs;
+            return slots;
         }
 
-        void AddBayPairs(int pairs)
+        static float MemoryAssistCapacityOf(ResearchDefinition research)
         {
-            for (int i = 0; i < pairs; i++) AddBayPair();
+            if (research == null) return DefaultMemoryAssistCapacity;
+
+            float highest = DefaultMemoryAssistCapacity;
+            IReadOnlyList<ResearchEffect> effects = research.Effects;
+            for (int i = 0; i < effects.Count; i++)
+            {
+                if (effects[i].Kind == ResearchEffectKind.MemoryAssistCapacityTenths) highest = UnityEngine.Mathf.Max(highest, effects[i].Value / 10f);
+            }
+            return highest;
         }
 
-        void AddBayPair()
+        void AddBaySlots(int count)
         {
-            if (_cpuSlots.Count < MaxCpuSlots) _cpuSlots.Add(null);
-            if (_memorySlots.Count < MaxMemorySlots) _memorySlots.Add(null);
+            for (int i = 0; i < count && _bays.Count < MaxBaySlots; i++) _bays.Add(new DataCenterBay());
         }
 
         /// <summary>Unsubscribes from ResearchSystem so a demolished Data Center doesn't keep growing slots forever.</summary>
@@ -173,6 +201,49 @@ namespace Game.Gameplay.Buildings
         public void SetCpuReplacementThreshold(float percent) => CpuReplacementThresholdPercent = UnityEngine.Mathf.Clamp(percent, MinReplacementThresholdPercent, MaxReplacementThresholdPercent);
         public void SetMemoryReplacementThreshold(float percent) => MemoryReplacementThresholdPercent = UnityEngine.Mathf.Clamp(percent, MinReplacementThresholdPercent, MaxReplacementThresholdPercent);
         public void SetResearchAxisShare(float share) => ResearchAxisShare = UnityEngine.Mathf.Clamp01(share);
+
+        float ThresholdFor(DataCenterBayType type) => type == DataCenterBayType.Memory ? MemoryReplacementThresholdPercent : CpuReplacementThresholdPercent;
+        static string ItemIdFor(DataCenterBayType type) => type == DataCenterBayType.Memory ? MemoryItemId : CpuItemId;
+
+        /// <summary>
+        /// The one entry point the panel calls, for both a first assignment and a later
+        /// reconfiguration (DATACENTER.md). An empty bay (Unassigned or already typed) takes the
+        /// new type instantly. An occupied bay starts a 5s reconfiguration - the installed
+        /// component stops producing immediately, reusing ComponentInstance.IsReplacing/
+        /// ReplacementElapsed rather than a parallel timer. Asking for the type it already is (or
+        /// already targets) while one is in flight cancels it, for free unless the component had
+        /// already crossed its own replacement threshold on its own - that one was coming out
+        /// regardless.
+        /// </summary>
+        public void SetBayAssignment(int bayIndex, DataCenterBayType type)
+        {
+            DataCenterBay bay = _bays[bayIndex];
+
+            if (bay.Component == null)
+            {
+                bay.Assignment = type;
+                bay.ReconfigureTarget = null;
+                return;
+            }
+
+            if (type == bay.Assignment)
+            {
+                bay.ReconfigureTarget = null;
+                if (!bay.Component.HasCrossedReplacementThreshold(ThresholdFor(bay.Assignment)))
+                {
+                    bay.Component.IsReplacing = false;
+                    bay.Component.ReplacementElapsed = 0f;
+                }
+                return;
+            }
+
+            bay.ReconfigureTarget = type;
+            if (!bay.Component.IsReplacing)
+            {
+                bay.Component.IsReplacing = true;
+                bay.Component.ReplacementElapsed = 0f;
+            }
+        }
 
         // No fromDirection == ExitDirection guard here: that rule protects a building's real
         // physical output side (Foundry, Powerplant...), and the Data Center has none - its
@@ -193,15 +264,15 @@ namespace Game.Gameplay.Buildings
         /// axis yield - not what actually gets credited; see GetResearchAxisProduction/
         /// GetBuildingsAxisProduction for that. Not untouched by wear either: it sums EffectiveCu(),
         /// which is BaseCu times the StabilityInterval performance roll, and zero for a component
-        /// being replaced. See <see cref="GetNominalComputeOutput"/> for the figure that really is
-        /// untouched.
+        /// being replaced or reconfigured. See <see cref="GetNominalComputeOutput"/> for the figure
+        /// that really is untouched.
         /// </summary>
         public float GetTotalComputeOutput() => TotalComputeOutput();
 
         /// <summary>
         /// What the installed components would produce new, at full concentration: the sum of their
-        /// <c>BaseCu</c>, untouched by wear, by the stability roll, by a replacement in progress or
-        /// by the axis split.
+        /// <c>BaseCu</c>, untouched by wear, by the stability roll, by a replacement/reconfiguration
+        /// in progress or by the axis split.
         ///
         /// Exists for the panel to show the chain the player cannot otherwise see - nominal, then
         /// the factor the bays' condition and the axis split apply to it, then what is actually
@@ -212,11 +283,38 @@ namespace Game.Gameplay.Buildings
         public float GetNominalComputeOutput()
         {
             float total = 0f;
-            foreach (ComponentInstance slot in _cpuSlots) if (slot != null) total += slot.BaseCu;
-            foreach (ComponentInstance slot in _memorySlots) if (slot != null) total += slot.BaseCu;
+            foreach (DataCenterBay bay in _bays) if (bay.Component != null) total += bay.Component.BaseCu;
             return total;
         }
         public float GetTotalPowerDemand() => TotalPowerDemand();
+
+        /// <summary>Bays assigned Cpu, occupied, and not currently replacing/reconfiguring - the count DATACENTER.md's "at least one active CPU" gate and Memory coverage both read.</summary>
+        public int ActiveCpuCount => CountActive(DataCenterBayType.Cpu);
+
+        /// <summary>Bays assigned Memory, occupied, and not currently replacing/reconfiguring.</summary>
+        public int ActiveMemoryCount => CountActive(DataCenterBayType.Memory);
+
+        int CountActive(DataCenterBayType type)
+        {
+            int count = 0;
+            foreach (DataCenterBay bay in _bays)
+            {
+                if (bay.Assignment == type && bay.Component != null && !bay.Component.IsReplacing) count++;
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// Fraction, in [0,1], of the installed CPUs an active Memory bay's assist capacity can
+        /// cover - min(1, memory·capacity/cpu). 0 with no active CPU, never a division by zero
+        /// (DATACENTER.md).
+        /// </summary>
+        public float GetMemoryCoverage()
+        {
+            int cpu = ActiveCpuCount;
+            if (cpu == 0) return 0f;
+            return UnityEngine.Mathf.Min(1f, ActiveMemoryCount * MemoryAssistCapacity / cpu);
+        }
 
         /// <summary>Σ(share²) of the two axes - DATACENTER.md. 1.0 at either extreme (100/0), lowest at an even split.</summary>
         public float GetConcentration()
@@ -226,19 +324,29 @@ namespace Game.Gameplay.Buildings
             return research * research + buildings * buildings;
         }
 
-        /// <summary>floor + (1-floor) * concentration - the fraction of installed capacity actually produced. floor is DataCenterDefinition.AxisYieldFloor (a parameter, not a buried constant - see there).</summary>
+        /// <summary>floor + (1-floor) * concentration - the fraction of installed capacity produced before Memory coverage claws any of it back. floor is DataCenterDefinition.AxisYieldFloor (a parameter, not a buried constant - see there).</summary>
         public float GetYield() => _definition.AxisYieldFloor + (1f - _definition.AxisYieldFloor) * GetConcentration();
 
-        /// <summary>Actual CU/s the research axis currently produces - installed capacity * yield * its own share.</summary>
-        public float GetResearchAxisProduction() => TotalComputeOutput() * GetYield() * ResearchAxisShare;
+        /// <summary>
+        /// GetYield() plus the share of what it lost that Memory coverage recovers -
+        /// (1-GetYield())·coverage·MemoryPenaltyRecovery (DATACENTER.md). Full coverage never
+        /// reaches 1: a 50/50 split at 100% coverage lands at 0.90, not 1.00.
+        /// </summary>
+        public float GetFinalYield()
+        {
+            float baseYield = GetYield();
+            return baseYield + (1f - baseYield) * GetMemoryCoverage() * MemoryPenaltyRecovery;
+        }
 
-        /// <summary>Actual CU/s the buildings axis currently produces.</summary>
-        public float GetBuildingsAxisProduction() => TotalComputeOutput() * GetYield() * (1f - ResearchAxisShare);
+        /// <summary>Actual CU/s the research axis currently produces - installed capacity * final yield * its own share. 0 with no active CPU, whatever Memory is installed (DATACENTER.md).</summary>
+        public float GetResearchAxisProduction() => ActiveCpuCount > 0 ? TotalComputeOutput() * GetFinalYield() * ResearchAxisShare : 0f;
+
+        /// <summary>Actual CU/s the buildings axis currently produces - see GetResearchAxisProduction.</summary>
+        public float GetBuildingsAxisProduction() => ActiveCpuCount > 0 ? TotalComputeOutput() * GetFinalYield() * (1f - ResearchAxisShare) : 0f;
 
         public override void Tick(float deltaTime)
         {
-            InstallInto(CpuItemId, _cpuSlots);
-            InstallInto(MemoryItemId, _memorySlots);
+            InstallInto();
 
             if (IsPriming)
             {
@@ -264,18 +372,14 @@ namespace Game.Gameplay.Buildings
             float performance = ComputeEffectivePerformance(_previousPowerDemand, powerActive: true, _powerSystem);
             float effectiveDelta = deltaTime * performance;
 
-            DecayWear(_cpuSlots, effectiveDelta);
-            DecayWear(_memorySlots, effectiveDelta);
-
-            ProcessReplacement(effectiveDelta, _cpuSlots, CpuItemId, CpuReplacementThresholdPercent);
-            ProcessReplacement(effectiveDelta, _memorySlots, MemoryItemId, MemoryReplacementThresholdPercent);
+            DecayWear(effectiveDelta);
+            ProcessBays(effectiveDelta);
 
             _stabilityTimer += effectiveDelta;
             if (_stabilityTimer >= StabilityInterval)
             {
                 _stabilityTimer = 0f;
-                RecalculateStability(_cpuSlots);
-                RecalculateStability(_memorySlots);
+                RecalculateStability();
             }
 
             // Gated on this building's own draw rather than on a global answer (an instantaneous
@@ -294,85 +398,98 @@ namespace Game.Gameplay.Buildings
             _previousPowerDemand = TotalPowerDemand();
         }
 
-        void InstallInto(string itemId, List<ComponentInstance> slots)
+        void InstallInto()
         {
-            while (_input.GetAmount(itemId) > 0)
+            foreach (DataCenterBay bay in _bays)
             {
-                int slotIndex = slots.FindIndex(s => s == null);
-                if (slotIndex == -1) return; // no compatible empty slot - item stays in input (normal jam behavior)
+                if (bay.Assignment == DataCenterBayType.Unassigned) continue;
+                if (bay.Component != null) continue;
+
+                string itemId = ItemIdFor(bay.Assignment);
+                if (_input.GetAmount(itemId) <= 0) continue;
 
                 _input.Take(itemId, 1);
-                slots[slotIndex] = new ComponentInstance(itemId, _itemDatabase, _lifetimeRandom);
+                bay.Component = new ComponentInstance(itemId, _itemDatabase, _lifetimeRandom);
             }
         }
 
-        static void DecayWear(List<ComponentInstance> slots, float deltaTime)
+        void DecayWear(float deltaTime)
         {
-            foreach (ComponentInstance slot in slots) slot?.DecayWear(deltaTime);
+            foreach (DataCenterBay bay in _bays)
+            {
+                // Frozen while replacing/reconfiguring (DATACENTER.md §13): the bay already
+                // produces nothing, so the part stops ageing too - it no longer keeps decaying
+                // toward 0% wear during the five seconds it sits out, which used to be able to
+                // race past a very low replacement threshold before the swap ever completed.
+                if (bay.Component == null || bay.Component.IsReplacing) continue;
+                bay.Component.DecayWear(deltaTime);
+            }
         }
 
-        static void RecalculateStability(List<ComponentInstance> slots)
+        void RecalculateStability()
         {
-            foreach (ComponentInstance slot in slots) slot?.RecalculatePerformance();
+            foreach (DataCenterBay bay in _bays) bay.Component?.RecalculatePerformance();
         }
 
         /// <summary>
-        /// Starts/advances/resolves replacement for one slot list. A slot enters replacement the
-        /// instant its wear crosses the CURRENT threshold; hard removal at 0% wear takes priority
-        /// over completing the timer - a component that decays to 0% before a spare ever arrives
-        /// is simply gone.
+        /// Starts/advances/resolves replacement and reconfiguration for every bay in one pass. A
+        /// bay enters replacement the instant its component's wear crosses the CURRENT threshold
+        /// for its assigned type; hard removal at 0% wear takes priority over completing the timer.
+        /// Reconfiguration (DataCenterBay.ReconfigureTarget set by SetBayAssignment) reuses the same
+        /// timer; on completion the bay's Assignment flips to the target instead of looking for a
+        /// spare of the same type.
         /// </summary>
-        void ProcessReplacement(float deltaTime, List<ComponentInstance> slots, string itemId, float replacementThresholdPercent)
+        void ProcessBays(float deltaTime)
         {
-            for (int i = 0; i < slots.Count; i++)
+            foreach (DataCenterBay bay in _bays)
             {
-                ComponentInstance slot = slots[i];
-                if (slot == null) continue;
+                ComponentInstance component = bay.Component;
+                if (component == null) continue;
 
-                if (!slot.IsReplacing)
+                if (!component.IsReplacing)
                 {
-                    if (slot.HasCrossedReplacementThreshold(replacementThresholdPercent))
+                    if (component.HasCrossedReplacementThreshold(ThresholdFor(bay.Assignment)))
                     {
-                        slot.IsReplacing = true;
-                        slot.ReplacementElapsed = 0f;
+                        component.IsReplacing = true;
+                        component.ReplacementElapsed = 0f;
                     }
                     continue;
                 }
 
-                if (slot.Wear <= 0f)
+                if (component.Wear <= 0f)
                 {
-                    slots[i] = null;
+                    CompleteBay(bay);
                     continue;
                 }
 
-                slot.ReplacementElapsed += deltaTime;
-                if (slot.ReplacementElapsed < ReplacementDuration) continue;
+                component.ReplacementElapsed += deltaTime;
+                if (component.ReplacementElapsed < ReplacementDuration) continue;
 
-                if (_input.GetAmount(itemId) > 0)
-                {
-                    _input.Take(itemId, 1);
-                    slots[i] = new ComponentInstance(itemId, _itemDatabase, _lifetimeRandom);
-                }
-                else
-                {
-                    slots[i] = null; // no spare - slot freed, normal auto-install picks it up later
-                }
+                CompleteBay(bay);
             }
+        }
+
+        static void CompleteBay(DataCenterBay bay)
+        {
+            if (bay.ReconfigureTarget != null)
+            {
+                bay.Assignment = bay.ReconfigureTarget.Value;
+                bay.ReconfigureTarget = null;
+            }
+            bay.Component = null; // discarded either way - InstallInto picks a fresh one up later
         }
 
         float TotalComputeOutput()
         {
             float total = 0f;
-            foreach (ComponentInstance slot in _cpuSlots) if (slot != null) total += slot.EffectiveCu();
-            foreach (ComponentInstance slot in _memorySlots) if (slot != null) total += slot.EffectiveCu();
+            foreach (DataCenterBay bay in _bays) if (bay.Component != null) total += bay.Component.EffectiveCu();
             return total;
         }
 
         float TotalPowerDemand()
         {
             float total = 0f;
-            foreach (ComponentInstance slot in _cpuSlots) if (slot != null) total += slot.ActivePowerKw();
-            foreach (ComponentInstance slot in _memorySlots) if (slot != null) total += slot.ActivePowerKw();
+            foreach (DataCenterBay bay in _bays) if (bay.Component != null) total += bay.Component.ActivePowerKw();
             return total;
         }
 
@@ -387,32 +504,33 @@ namespace Game.Gameplay.Buildings
                 ["memoryReplacementThresholdPercent"] = MemoryReplacementThresholdPercent,
                 ["researchAxisShare"] = ResearchAxisShare,
                 ["input"] = JObject.FromObject(_input.Contents),
-                ["cpuSlots"] = CaptureSlots(_cpuSlots),
-                ["memorySlots"] = CaptureSlots(_memorySlots)
+                ["bays"] = CaptureBays()
             };
         }
 
-        static JArray CaptureSlots(List<ComponentInstance> slots)
+        JArray CaptureBays()
         {
             var array = new JArray();
-            foreach (ComponentInstance slot in slots)
+            foreach (DataCenterBay bay in _bays)
             {
-                if (slot == null)
-                {
-                    array.Add(JValue.CreateNull());
-                    continue;
-                }
+                var entry = new JObject { ["assignment"] = (int)bay.Assignment };
+                if (bay.ReconfigureTarget != null) entry["reconfigureTarget"] = (int)bay.ReconfigureTarget.Value;
 
-                array.Add(new JObject
+                ComponentInstance component = bay.Component;
+                if (component != null)
                 {
-                    ["itemId"] = slot.ItemId,
-                    ["wear"] = slot.Wear,
-                    ["effectivePerformance"] = slot.EffectivePerformance,
-                    ["isReplacing"] = slot.IsReplacing,
-                    ["replacementElapsed"] = slot.ReplacementElapsed,
-                    ["nominalLifetimeSeconds"] = slot.NominalLifetimeSeconds,
-                    ["baseLossPerSecond"] = slot.BaseLossPerSecond
-                });
+                    entry["component"] = new JObject
+                    {
+                        ["itemId"] = component.ItemId,
+                        ["wear"] = component.Wear,
+                        ["effectivePerformance"] = component.EffectivePerformance,
+                        ["isReplacing"] = component.IsReplacing,
+                        ["replacementElapsed"] = component.ReplacementElapsed,
+                        ["nominalLifetimeSeconds"] = component.NominalLifetimeSeconds,
+                        ["baseLossPerSecond"] = component.BaseLossPerSecond
+                    };
+                }
+                array.Add(entry);
             }
             return array;
         }
@@ -433,33 +551,59 @@ namespace Game.Gameplay.Buildings
             MemoryReplacementThresholdPercent = state.Value<float?>("memoryReplacementThresholdPercent") ?? DefaultReplacementThresholdPercent;
             ResearchAxisShare = state.Value<float?>("researchAxisShare") ?? 0.5f;
             _input.RestoreContents(state["input"]?.ToObject<Dictionary<string, int>>());
-            RestoreSlots(_cpuSlots, state["cpuSlots"] as JArray);
-            RestoreSlots(_memorySlots, state["memorySlots"] as JArray);
+
+            _bays.Clear();
+            if (state["bays"] is JArray bays) RestoreBays(bays);
+            else RestoreLegacySlots(state["cpuSlots"] as JArray, state["memorySlots"] as JArray);
         }
 
-        void RestoreSlots(List<ComponentInstance> slots, JArray saved)
+        void RestoreBays(JArray saved)
         {
-            slots.Clear();
+            foreach (JToken entry in saved)
+            {
+                var bay = new DataCenterBay
+                {
+                    Assignment = (DataCenterBayType)(entry.Value<int?>("assignment") ?? 0)
+                };
+
+                int? reconfigureTarget = entry.Value<int?>("reconfigureTarget");
+                if (reconfigureTarget != null) bay.ReconfigureTarget = (DataCenterBayType)reconfigureTarget.Value;
+
+                if (entry["component"] is JObject component) bay.Component = RestoreComponent(component);
+                _bays.Add(bay);
+            }
+        }
+
+        /// <summary>Pre-universal-bays saves (SAUVEGARDE.md §2 - a structural key change inside one building's own blob, not a Version bump): cpuSlots/memorySlots become Cpu/Memory bays one-for-one. Every research tier gave the same total count either way (1+1, then +2 per pair), so no extra bay needs inventing here.</summary>
+        void RestoreLegacySlots(JArray cpuSlots, JArray memorySlots)
+        {
+            RestoreLegacySlotList(cpuSlots, DataCenterBayType.Cpu);
+            RestoreLegacySlotList(memorySlots, DataCenterBayType.Memory);
+        }
+
+        void RestoreLegacySlotList(JArray saved, DataCenterBayType type)
+        {
             if (saved == null) return;
 
             foreach (JToken entry in saved)
             {
-                if (entry.Type == JTokenType.Null)
-                {
-                    slots.Add(null);
-                    continue;
-                }
-
-                string itemId = entry.Value<string>("itemId");
-                float nominalLifetime = entry.Value<float?>("nominalLifetimeSeconds") ?? (_itemDatabase.Get(itemId)?.NominalLifetimeSeconds ?? 120f);
-                float baseLoss = entry.Value<float?>("baseLossPerSecond") ?? ComponentInstance.DeriveBaseLossPerSecond(nominalLifetime);
-
-                var component = new ComponentInstance(itemId, _itemDatabase, nominalLifetime, baseLoss);
-                component.RestoreWearAndPerformance(entry.Value<float?>("wear") ?? 100f, entry.Value<float?>("effectivePerformance") ?? 1f);
-                component.IsReplacing = entry.Value<bool?>("isReplacing") ?? false;
-                component.ReplacementElapsed = entry.Value<float?>("replacementElapsed") ?? 0f;
-                slots.Add(component);
+                var bay = new DataCenterBay { Assignment = type };
+                if (entry.Type == JTokenType.Object) bay.Component = RestoreComponent((JObject)entry);
+                _bays.Add(bay);
             }
+        }
+
+        ComponentInstance RestoreComponent(JObject entry)
+        {
+            string itemId = entry.Value<string>("itemId");
+            float nominalLifetime = entry.Value<float?>("nominalLifetimeSeconds") ?? (_itemDatabase.Get(itemId)?.NominalLifetimeSeconds ?? 120f);
+            float baseLoss = entry.Value<float?>("baseLossPerSecond") ?? ComponentInstance.DeriveBaseLossPerSecond(nominalLifetime);
+
+            var component = new ComponentInstance(itemId, _itemDatabase, nominalLifetime, baseLoss);
+            component.RestoreWearAndPerformance(entry.Value<float?>("wear") ?? 100f, entry.Value<float?>("effectivePerformance") ?? 1f);
+            component.IsReplacing = entry.Value<bool?>("isReplacing") ?? false;
+            component.ReplacementElapsed = entry.Value<float?>("replacementElapsed") ?? 0f;
+            return component;
         }
     }
 }

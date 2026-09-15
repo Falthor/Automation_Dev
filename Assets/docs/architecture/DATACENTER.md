@@ -66,19 +66,40 @@ Time to replacement, for L = 120 s:
 | 25 % (default) | 103 s | 0.861 |
 | 5 % | 120 s | 1.000 |
 
-## 3. Replacement
+## 3. Replacement and reconfiguration
 
 The slider runs **5 to 60 %**, default **25 %**, and is re-read continuously: moving it acts
 immediately, the value is not frozen at install. On crossing, the part goes into replacement, its CU
-falls to **0 for `ReplacementDuration`**, then the slot takes a spare from the input if there is one -
-otherwise it empties and automatic installation picks it up later. Wear keeps running during those
-seconds, and if it reaches 0 the slot empties at once.
+falls to **0 for `ReplacementDuration`** (5 s), then the bay takes a spare from the input if there is
+one - otherwise it empties and automatic installation picks it up later. **Wear is frozen for as long
+as a part is replacing or reconfiguring** - it has already stopped producing, so it stops ageing too;
+a component can no longer reach 0 % wear mid-window regardless of how low the threshold is set.
+
+Reconfiguring a bay to the other type reuses this exact mechanism (`DataCenterBay.ReconfigureTarget`
+set, the installed `ComponentInstance.IsReplacing` driving the same timer) rather than a parallel one -
+see §6. Retargeting a bay that is already replacing or reconfiguring does not restart the timer;
+retargeting back to what it already is cancels for free unless the part had already crossed its own
+threshold, in which case the ordinary wear-triggered replacement it was already due for continues.
 
 ## 4. What multiplies everything else
 
 **Axis arbitration.** `concentration = r² + (1−r)²`, and
-`yield = floor + (1 − floor)·concentration` with `AxisYieldFloor` = 0.2. Split 50/50 gives **0.6**;
-everything on one axis gives **1.0**. The same parts therefore produce 40 % less at equal shares.
+`baseYield = floor + (1 − floor)·concentration` with `AxisYieldFloor` = 0.2 (`GetYield()`). Split
+50/50 gives **0.6**; everything on one axis gives **1.0**. The same parts therefore produce 40 % less
+at equal shares, before Memory's recovery below.
+
+**Memory coverage recovers part of that loss.** `coverage = min(1, activeMemory·MemoryAssistCapacity /
+activeCpu)` (0 with no active CPU - never a division by zero), and
+`finalYield = baseYield + (1 − baseYield)·coverage·MemoryPenaltyRecovery` with
+`MemoryPenaltyRecovery` = 0.75 (`GetFinalYield()`, DataCenterRuntime). Full coverage at a 50/50 split
+recovers 0.75 of the 0.4 lost, landing at **0.9**, never 1.0 - Memory makes an even split cheap, not
+free. `MemoryAssistCapacity` starts at 1.0 CPU per active Memory bay and is a research target (highest
+completed wins, RECHERCHE.md): 1.5 after Ordonnancement parallèle I, 2.0 after II.
+
+**No active CPU, no output**, however much Memory is installed: `GetResearchAxisProduction()`/
+`GetBuildingsAxisProduction()` are gated on `ActiveCpuCount > 0`. Memory's own `EffectiveCu()` still
+counts toward `GetTotalComputeOutput()` (the diagnostic "raw" figure) - the gate is on what is
+actually credited, not on what a bay nominally produces.
 
 **Power is all or nothing.** `ComputeEffectivePerformance` returns 1 or 0 - there is no gradual
 degradation. Unpowered: no production **and no wear**. The same during priming: neither production nor
@@ -92,18 +113,33 @@ wear.
 | Memory MK1 | 25 | 2.5 | 120 s |
 
 Consumption followed production in the same proportion when production rose from 15 to 40 and from 10
-to 25 CU/s: **7.5 CU per kW for the CPU, 10 for the memory**. A full Data Center (4 + 4) therefore draws
-31.2 kW - more than the Core alone supplies, so it needs a plant.
+to 25 CU/s: **7.5 CU per kW for the CPU, 10 for the memory**.
 
-CPU and memory have **no mechanical difference**: same formulas, same thresholds, same curve. Only the
-numbers and the bay differ. Slots start at 1 + 1 and gain a pair per bay research, capped at 4 + 4.
+CPU and memory have **no mechanical difference** at the component level: same formulas, same
+thresholds, same curve. Only the numbers, and which item a bay is currently configured to take,
+differ.
 
-## 6. "Yield" means two things
+## 6. Universal bays
 
-Worth watching while reading the code. `DataCenterRuntime.GetYield()` is the **axis concentration**
-factor and has nothing to do with wear. The factor the panel shows under the production figure is
-`real / nominal`, which folds in wear, the stability draw, a replacement in progress **and** the
-concentration.
+A bay (`DataCenterBay`) is physically interchangeable; what it is comes from
+`DataCenterBayType Assignment` (`Unassigned`/`Cpu`/`Memory`), chosen by the player through
+`DataCenterRuntime.SetBayAssignment` - the one entry point for both a first assignment and a later
+reconfiguration. A bay starts `Unassigned` and empty and installs nothing until assigned; assigning an
+empty bay (whichever type it already is) is instant. Assigning an occupied bay to a different type
+starts the reconfiguration described in §3.
 
-Both are legitimate; they simply answer different questions - and it is the second the player watches,
-because it is the only one that moves when the bays tire.
+Every Data Center starts with **2** universal bays. `DataCenterBayPairs` research effects (unchanged
+by name - `datacenter_bay_1`/`_2`/`_3`) each add **2** fresh `Unassigned` bays rather than one
+pre-typed CPU and one Memory, up to `MaxBaySlots` = 8. The totals at each tier are unchanged from
+before this bay type existed (2 → 4 → 6), since the old model always granted its pairs symmetrically;
+only `datacenter_bay_3` (6 → 8) is new.
+
+## 7. "Yield" means several things
+
+Worth watching while reading the code. `GetYield()` is the axis concentration factor alone
+(`baseYield`, §4); `GetFinalYield()` adds Memory's coverage recovery on top. The factor the panel
+shows under the production figure is `real / nominal`, which folds in wear, the stability draw, a
+replacement/reconfiguration in progress, the axis split **and** Memory coverage.
+
+All three are legitimate; they simply answer different questions - and it is `real / nominal` the
+player watches, because it is the only one that moves when the bays tire.

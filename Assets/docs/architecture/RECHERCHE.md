@@ -61,7 +61,8 @@ the research that opens it - the research names it**. The list is closed:
 | `UnlockRecipe` | a production building's offered recipes |
 | `ActionRadius` | the Core - a target, highest completed wins |
 | `BuildingCap` | the construction service - a target, highest completed wins |
-| `DataCenterBayPairs` | the Data Center - a number of pairs, summed |
+| `DataCenterBayPairs` | the Data Center - a number of universal bays (2× the value), summed |
+| `MemoryAssistCapacityTenths` | the Data Center - a target in tenths of a CPU per active Memory bay, highest completed wins (DATACENTER.md) |
 | `ExtractorItemsPerMinute` | every Extractor - a target, highest completed wins |
 | `UnlockOutOfRadiusConstruction` | the construction service - a flag, `Value` unused, never goes back once completed (CONSTRUCTION.md §8) |
 

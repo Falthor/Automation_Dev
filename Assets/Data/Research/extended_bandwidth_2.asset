@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: extended_bandwidth_2
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: extended_bandwidth_2
-  displayName: Bande passante etendue 2
+  displayName: Portee du Noyau II
   description: Porte le rayon d'action du Noyau a 60 cellules.
   icon: {fileID: 0}
   cuCost: 15000
