@@ -37,6 +37,8 @@ MonoBehaviour:
     amount: 6
   - item: {fileID: 11400000, guid: a1c4e07b3f5d42a1b8e6c9d0f2a4b6c8, type: 2}
     amount: 4
+  - item: {fileID: 11400000, guid: 7df6375229817774580b6719c8506659, type: 2}
+    amount: 4
   powerDemandKw: 3
   recipeIds:
   - iron_rod

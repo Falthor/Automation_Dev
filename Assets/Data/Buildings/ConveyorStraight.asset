@@ -52,7 +52,9 @@ MonoBehaviour:
   - {fileID: 3791100395525971453, guid: 1611c260d89a2434fb0df2602e5c9ac0, type: 3}
   animationFps: 12
   animationIntervalSeconds: 0
-  cost: []
+  cost:
+  - item: {fileID: 11400000, guid: 3c8d6bb1e0992a74c833e1cb12ba7b77, type: 2}
+    amount: 1
   defaultShape: 0
   overrideSprite: {fileID: -6622863259242664493, guid: 1611c260d89a2434fb0df2602e5c9ac0, type: 3}
   artNativeDirection: 1
