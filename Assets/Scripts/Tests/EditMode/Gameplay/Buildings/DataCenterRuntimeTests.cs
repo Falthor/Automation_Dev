@@ -27,6 +27,7 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
         ResearchDefinition _researchCore;
         ResearchDefinition _buildingsCore;
         ResearchDefinition _darkCore;
+        ResearchDefinition _memoryUnlock;
 
         [SetUp]
         public void SetUp()
@@ -47,7 +48,12 @@ namespace Game.Tests.EditMode.Gameplay.Buildings
             _researchCore = TestDataFactory.NewResearch("core_a", 0f);
             _buildingsCore = TestDataFactory.NewResearch("core_b", 0f);
             _darkCore = TestDataFactory.NewResearch("core_c", 0f);
-            _research = new ResearchSystem(_compute, _compute, new ResearchCatalog(new[] { _bays1, _bays2, _assist1, _assist2, _unrelated, _researchCore, _buildingsCore, _darkCore }));
+            // Granted immediately below: this file is about bay/component mechanics, not about the
+            // Memory gate itself - HasUnlockedMemoryTests owns a fixture that deliberately withholds
+            // this, to test the gate on its own.
+            _memoryUnlock = TestDataFactory.WithEffects(TestDataFactory.NewResearch("memory_unlock_a", 10f), new ResearchEffect(ResearchEffectKind.UnlockDataCenterMemory));
+            _research = new ResearchSystem(_compute, _compute, new ResearchCatalog(new[] { _bays1, _bays2, _assist1, _assist2, _unrelated, _researchCore, _buildingsCore, _darkCore, _memoryUnlock }));
+            _research.Grant(_memoryUnlock.Id);
         }
 
         static void SetCuPowerLifetime(ItemDefinition item, float cu, float pw, float lifetimeSeconds)

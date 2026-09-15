@@ -9,9 +9,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 76b97d5570b632a46a026dc71bb732ec, type: 3}
+  m_Script: {fileID: 11500000, guid: 590339159f78f32409693b32f76166ee, type: 3}
   m_Name: ArmsFactoryDefinition
-  m_EditorClassIdentifier: Game.Data::Game.Data.ShowcaseDefinition
+  m_EditorClassIdentifier: Game.Data::Game.Data.FactoryDefinition
   id: arms_factory
   displayName: Usine d'armement
   footprintSize: {x: 3, y: 3}
@@ -39,7 +39,8 @@ MonoBehaviour:
     amount: 6
   - item: {fileID: 11400000, guid: 5f8b2da4c6e309571b2d4f6180c3e507, type: 2}
     amount: 12
-  powerDemandKw: 0
-  drawsShadow: 1
-  rotatesSpriteWithFacing: 0
-  artNativeDirection: 0
+  powerDemandKw: 3
+  recipeIds:
+  - Ammo_MK1
+  acceptedItemIds:
+  - Steel

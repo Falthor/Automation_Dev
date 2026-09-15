@@ -54,6 +54,13 @@ namespace Game.Gameplay.Buildings
         /// <summary>What a Memory bay takes - see <see cref="CpuItemId"/>.</summary>
         public const string MemoryItemId = "Memory_MK1";
 
+        /// <summary>
+        /// The research id RestoreState's migration grants to a save that already proved Memory was
+        /// usable before this research existed - see MigrateMemoryUnlockIfProven. The one research
+        /// id this class ever names directly.
+        /// </summary>
+        const string MemoryArchitectureResearchId = "memory_architecture";
+
         const float PrimingCostCu = 1500f;
         const float PrimingDurationSeconds = 90f;
         const float PrimingAbsorptionRatePerSecond = PrimingCostCu / PrimingDurationSeconds;
@@ -107,6 +114,13 @@ namespace Game.Gameplay.Buildings
         /// <summary>How many CPUs one active Memory bay currently assists - a target from MemoryAssistCapacityTenths research effects, the highest completed wins, same shape as CoreRuntime.ActionRadiusCells.</summary>
         public float MemoryAssistCapacity { get; private set; } = DefaultMemoryAssistCapacity;
 
+        /// <summary>
+        /// Whether any completed research carries UnlockDataCenterMemory - what SetBayAssignment
+        /// checks before allowing DataCenterBayType.Memory. A flag, not a target: never goes back to
+        /// false once true, like ConstructionService.HasUnlockedOutOfRadiusConstruction.
+        /// </summary>
+        public bool HasUnlockedMemory { get; private set; }
+
         /// <summary>True from placement until PrimingCostCu has been absorbed - no production, no wear while true (GDD §2.3).</summary>
         public bool IsPriming => _primingAbsorbedCu < PrimingCostCu;
 
@@ -133,6 +147,7 @@ namespace Game.Gameplay.Buildings
             for (int i = 0; i < InitialBaySlots; i++) _bays.Add(new DataCenterBay());
             AddBaySlots(UnlockedBaySlots(researchSystem));
             MemoryAssistCapacity = UnlockedMemoryAssistCapacity(researchSystem);
+            HasUnlockedMemory = UnlockedHasMemory(researchSystem);
 
             _onResearchCompleted = OnResearchCompleted;
             researchSystem.ResearchCompleted += _onResearchCompleted;
@@ -144,6 +159,7 @@ namespace Game.Gameplay.Buildings
             ResearchDefinition research = _researchSystem.Definition(researchId);
             AddBaySlots(BaySlotsOf(research));
             MemoryAssistCapacity = UnityEngine.Mathf.Max(MemoryAssistCapacity, MemoryAssistCapacityOf(research));
+            if (HasMemoryEffect(research)) HasUnlockedMemory = true;
         }
 
         /// <summary>The bay slots every research already completed grants - what a Datacenter built after them starts with.</summary>
@@ -187,6 +203,24 @@ namespace Game.Gameplay.Buildings
             return highest;
         }
 
+        static bool UnlockedHasMemory(ResearchSystem research)
+        {
+            foreach (string id in research.GetUnlockedIds()) if (HasMemoryEffect(research.Definition(id))) return true;
+            return false;
+        }
+
+        static bool HasMemoryEffect(ResearchDefinition research)
+        {
+            if (research == null) return false;
+
+            IReadOnlyList<ResearchEffect> effects = research.Effects;
+            for (int i = 0; i < effects.Count; i++)
+            {
+                if (effects[i].Kind == ResearchEffectKind.UnlockDataCenterMemory) return true;
+            }
+            return false;
+        }
+
         void AddBaySlots(int count)
         {
             for (int i = 0; i < count && _bays.Count < MaxBaySlots; i++) _bays.Add(new DataCenterBay());
@@ -214,16 +248,25 @@ namespace Game.Gameplay.Buildings
         /// already targets) while one is in flight cancels it, for free unless the component had
         /// already crossed its own replacement threshold on its own - that one was coming out
         /// regardless.
+        ///
+        /// <b>Refused outright for a Memory target until HasUnlockedMemory</b> - the runtime is the
+        /// authority on this, not the panel: a caller bypassing the UI (a test, a future script)
+        /// gets the same refusal. Only assigning <i>to</i> Memory is gated; reconfiguring an
+        /// already-Memory bay away from it, or re-confirming what it already is, is never blocked -
+        /// a bay a save legitimately restored as Memory (RestoreState's migration) always has
+        /// HasUnlockedMemory true by the time this could be called on it anyway.
         /// </summary>
-        public void SetBayAssignment(int bayIndex, DataCenterBayType type)
+        public bool SetBayAssignment(int bayIndex, DataCenterBayType type)
         {
+            if (type == DataCenterBayType.Memory && !HasUnlockedMemory) return false;
+
             DataCenterBay bay = _bays[bayIndex];
 
             if (bay.Component == null)
             {
                 bay.Assignment = type;
                 bay.ReconfigureTarget = null;
-                return;
+                return true;
             }
 
             if (type == bay.Assignment)
@@ -234,7 +277,7 @@ namespace Game.Gameplay.Buildings
                     bay.Component.IsReplacing = false;
                     bay.Component.ReplacementElapsed = 0f;
                 }
-                return;
+                return true;
             }
 
             bay.ReconfigureTarget = type;
@@ -243,6 +286,7 @@ namespace Game.Gameplay.Buildings
                 bay.Component.IsReplacing = true;
                 bay.Component.ReplacementElapsed = 0f;
             }
+            return true;
         }
 
         // No fromDirection == ExitDirection guard here: that rule protects a building's real
@@ -555,6 +599,39 @@ namespace Game.Gameplay.Buildings
             _bays.Clear();
             if (state["bays"] is JArray bays) RestoreBays(bays);
             else RestoreLegacySlots(state["cpuSlots"] as JArray, state["memorySlots"] as JArray);
+
+            MigrateMemoryUnlockIfProven();
+            HasUnlockedMemory = UnlockedHasMemory(_researchSystem);
+        }
+
+        /// <summary>
+        /// Grants MemoryArchitectureResearchId to a save that already proved Memory was usable
+        /// before this research existed, so restoring never strips a bay a save legitimately has
+        /// (RECHERCHE.md: migration is the one place this class compares a research id directly,
+        /// rather than an effect kind - there is no other way to name "the specific research a save
+        /// predates"). Proof is either an active/targeted Memory bay right here, or Ordonnancement
+        /// parallele I/II already unlocked - unreachable under the current tree without Architecture
+        /// memoire, so its presence can only mean an older tree granted it more easily. A save with
+        /// only core_directive_4 and no such proof gets nothing extra: that is the gate doing its
+        /// job on a save that never actually used Memory.
+        /// </summary>
+        void MigrateMemoryUnlockIfProven()
+        {
+            if (_researchSystem.IsUnlocked(MemoryArchitectureResearchId)) return;
+
+            bool hasMemoryBay = false;
+            foreach (DataCenterBay bay in _bays)
+            {
+                if (bay.Assignment == DataCenterBayType.Memory || bay.ReconfigureTarget == DataCenterBayType.Memory)
+                {
+                    hasMemoryBay = true;
+                    break;
+                }
+            }
+
+            bool provenByOldProgress = _researchSystem.IsUnlocked("ordonnancement_1") || _researchSystem.IsUnlocked("ordonnancement_2");
+
+            if (hasMemoryBay || provenByOldProgress) _researchSystem.Grant(MemoryArchitectureResearchId);
         }
 
         void RestoreBays(JArray saved)

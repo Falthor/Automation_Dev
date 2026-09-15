@@ -687,6 +687,13 @@ namespace Game.Construction
                 return powerplant;
             }
 
+            if (definition is GunTurretDefinition gunTurretDefinition)
+            {
+                var turret = new GunTurretRuntime(gunTurretDefinition, cell, rotation);
+                _grid.SetOccupantFootprint(cell, gunTurretDefinition.FootprintSize, turret);
+                return turret;
+            }
+
             if (definition is DataCenterDefinition dataCenterDefinition)
             {
                 var dataCenter = new DataCenterRuntime(dataCenterDefinition, cell, rotation, _itemDatabase, _buildingCompute, _researchCompute, _powerSystem, _researchSystem);

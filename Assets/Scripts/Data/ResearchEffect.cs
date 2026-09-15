@@ -32,7 +32,15 @@ namespace Game.Data
         UnlockOutOfRadiusConstruction = 6,
 
         /// <summary>The Data Center's Memory assist capacity becomes Value/10 CPUs per active Memory bay - DataCenterRuntime.MemoryAssistCapacity. A target in tenths (15 = 1.5), not an increment: the highest completed wins, same shape as ActionRadius/BuildingCap.</summary>
-        MemoryAssistCapacityTenths = 7
+        MemoryAssistCapacityTenths = 7,
+
+        /// <summary>
+        /// A Datacenter bay may be assigned DataCenterBayType.Memory - DataCenterRuntime.
+        /// SetBayAssignment refuses a Memory assignment until some completed research carries this
+        /// effect. A flag, not a target, like UnlockOutOfRadiusConstruction: Value is unused, and it
+        /// never goes back once any research granting it completes.
+        /// </summary>
+        UnlockDataCenterMemory = 8
     }
 
     /// <summary>

@@ -20,7 +20,11 @@ MonoBehaviour:
   prerequisites:
   - {fileID: 11400000, guid: 4154b75430a1827458b93dda38de58cb, type: 2}
   - {fileID: 11400000, guid: ca295c3fadd3c6b498483b9ea2289f06, type: 2}
-  effects: []
+  effects:
+  - kind: 0
+    building: {fileID: 11400000, guid: bbafb69b2d67181408443e08d02ca9cd, type: 2}
+    recipe: {fileID: 0}
+    value: 0
   absorptionRatePerSecond: 40
   tier: 2.2
   angle: 275.9

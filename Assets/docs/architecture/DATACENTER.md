@@ -134,6 +134,22 @@ pre-typed CPU and one Memory, up to `MaxBaySlots` = 8. The totals at each tier a
 before this bay type existed (2 → 4 → 6), since the old model always granted its pairs symmetrically;
 only `datacenter_bay_3` (6 → 8) is new.
 
+**Assigning `Memory` is gated; `Cpu` never is.** `SetBayAssignment` returns `bool` and refuses a
+`Memory` target outright until `DataCenterRuntime.HasUnlockedMemory` is true - a research target
+(RECHERCHE.md's `UnlockDataCenterMemory`, `memory_architecture`), not a step, re-derived the same
+way as `MemoryAssistCapacity` (scanned on construction and on every `ResearchCompleted`, never goes
+back to false). The panel reflects this rather than deciding it: the Memory button stays visible but
+disabled, with a tooltip naming the research, until the runtime says otherwise. Reconfiguring an
+already-Memory bay away from it, or re-confirming what it already is, is never blocked - the gate is
+on becoming Memory, not on having been Memory.
+
+`RestoreState` grants `memory_architecture` on the spot to a save that already proves Memory was
+usable before this research existed - an active or targeted Memory bay right there, or
+`ordonnancement_1`/`_2` already unlocked (unreachable under the current tree without it). A save
+with only `core_directive_4` and no such proof gets nothing extra: the gate holding for a save that
+never actually used Memory is the point of it. A bay a save restores as Memory is never stripped
+either way - only future assignments are gated, never what a save already has.
+
 ## 7. "Yield" means several things
 
 Worth watching while reading the code. `GetYield()` is the axis concentration factor alone
