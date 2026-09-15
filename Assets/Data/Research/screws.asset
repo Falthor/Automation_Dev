@@ -10,27 +10,27 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72c3c39fefc96e1488e1fdd7ff1eb525, type: 3}
-  m_Name: memory_architecture
+  m_Name: screws
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
-  id: memory_architecture
-  displayName: Architecture memoire
-  description: Debloque la recette Memoire Mk.I et l'affectation Memory des baies
-    du Datacenter. Necessite Vis.
+  id: screws
+  displayName: Vis
+  description: "Recette Vis et recette Plaque d'acier boulonn\xE9e. Necessite Metallurgie\
+    \ avancee."
   icon: {fileID: 0}
-  cuCost: 9000
+  cuCost: 4500
   computeSource: 0
   prerequisites:
-  - {fileID: 11400000, guid: 19d9c28f1049db603b1f72b185a3c5fa, type: 2}
+  - {fileID: 11400000, guid: d480d6f5dc814760a79619c05471ba5c, type: 2}
   effects:
   - kind: 1
     building: {fileID: 0}
-    recipe: {fileID: 11400000, guid: b3e7e4a6985d2c4459f989ff544f41f5, type: 2}
+    recipe: {fileID: 11400000, guid: 7f9568e7d842afdd212e1e7891071ea5, type: 2}
     value: 0
-  - kind: 8
+  - kind: 1
     building: {fileID: 0}
-    recipe: {fileID: 0}
+    recipe: {fileID: 11400000, guid: c9234b4b873d19b3082e5557c30e31c6, type: 2}
     value: 0
-  absorptionRatePerSecond: 60
-  tier: 2.1
-  angle: 152.9
+  absorptionRatePerSecond: 30
+  tier: 1.85
+  angle: 140
   enlargedDisplay: 0

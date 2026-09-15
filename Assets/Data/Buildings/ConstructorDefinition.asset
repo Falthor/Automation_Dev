@@ -43,8 +43,12 @@ MonoBehaviour:
   - copper_wire
   - Gear
   - copper_coil
+  - Screws
+  - Bolted_Steel_Plate
   acceptedItemIds:
   - Iron_Plate
   - copper_plate
   - iron_rod
   - copper_wire
+  - Steel
+  - Screws

@@ -112,14 +112,14 @@ namespace Game.Tests.EditMode.Gameplay.Research
         // --- Architecture memoire ---
 
         [Test]
-        public void MemoryArchitecture_RequiresAdvancedFoundry_AndUnlocksMemoryRecipeAndTheGate()
+        public void MemoryArchitecture_RequiresScrews_AndUnlocksMemoryRecipeAndTheGate()
         {
             var memoryArchitecture = Load<ResearchDefinition>("Assets/Data/Research/memory_architecture.asset");
-            var advancedFoundry = Load<ResearchDefinition>("Assets/Data/Research/advanced_foundry.asset");
+            var screws = Load<ResearchDefinition>("Assets/Data/Research/screws.asset");
             var memoryRecipe = Load<RecipeDefinition>("Assets/Data/Recipes/Memory_MK1_Recipe.asset");
 
             Assert.AreEqual(1, memoryArchitecture.Prerequisites.Count);
-            Assert.IsTrue(HasPrerequisite(memoryArchitecture, advancedFoundry));
+            Assert.IsTrue(HasPrerequisite(memoryArchitecture, screws));
 
             bool unlocksMemory = false;
             foreach (ResearchEffect effect in memoryArchitecture.Effects)

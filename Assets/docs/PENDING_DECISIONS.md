@@ -33,3 +33,21 @@ One entry per finding:
   process the project's own research-tree editor work already used (no automated layout tool
   exists). Not verified visually in the Research panel this pass - flagged the same way the original
   Data Center bay researches were when they were first added.
+- **`screws`'s `absorptionRatePerSecond`** (`Assets/Data/Research/screws.asset`) — set to 30,
+  interpolated from the cost:rate ratio of its neighbours (`advanced_foundry` 6000:40,
+  `memory_architecture` 9000:60, both ≈150:1) at its own 4500 CU cost. Not requested explicitly, and
+  not verified by playtest.
+- **`screws` tier/angle, and `memory_architecture`'s tier bump** (`Assets/Data/Research/screws.asset`
+  tier 1.85/angle 140, `memory_architecture` tier 1.6 → 2.1) — placed by hand so `memory_architecture`
+  sits at a greater tier than its new parent `screws`, which itself sits between `advanced_foundry`
+  (1.7) and the old `memory_architecture` position (1.6/152.9). Not verified visually in the Research
+  panel this pass.
+- **`memory_allocation.asset` has an empty `prerequisites` list on disk right now**
+  (`Assets/Data/Research/memory_allocation.asset`) — found by the full EditMode run this chantier
+  triggered: `ResearchTreeValidationTests.TheShippedTree_HasNoCycle_AndNothingUnreachable` fails,
+  reporting `memory_allocation` and everything that (transitively, including this chantier's own
+  `screws`/`memory_architecture`) requires it as unreachable from any core. This is **not** a change
+  made by this chantier - `git diff` shows it as part of an uncommitted, in-progress edit already on
+  the branch before this chantier started (alongside `extended_bandwidth_2`/`memory_allocation_2`
+  untangling what looks like a former prerequisite cycle between the two). Left untouched, since its
+  intended final prerequisite is not this chantier's to guess; every other test - 927/928 - passes.
