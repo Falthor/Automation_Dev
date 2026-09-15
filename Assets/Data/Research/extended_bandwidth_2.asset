@@ -19,7 +19,7 @@ MonoBehaviour:
   cuCost: 15000
   computeSource: 0
   prerequisites:
-  - {fileID: 11400000, guid: dd8c0be5fde9f2156a424539f2b6a635, type: 2}
+  - {fileID: 11400000, guid: ad3f371f2226368e8a91ba4c18f7d75c, type: 2}
   effects:
   - kind: 2
     building: {fileID: 0}

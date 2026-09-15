@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: screws
   displayName: Vis
-  description: "Recette Vis et recette Plaque d'acier boulonn\xE9e. Necessite Metallurgie\
-    \ avancee."
+  description: "Recette Vis et recette Plaque d'acier boulonn\xE9e. Necessite Metallurgie
+    avancee."
   icon: {fileID: 0}
   cuCost: 4500
   computeSource: 0
@@ -31,6 +31,6 @@ MonoBehaviour:
     recipe: {fileID: 11400000, guid: c9234b4b873d19b3082e5557c30e31c6, type: 2}
     value: 0
   absorptionRatePerSecond: 30
-  tier: 1.85
-  angle: 140
+  tier: 2.4
+  angle: 43.2
   enlargedDisplay: 0

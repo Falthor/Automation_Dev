@@ -19,7 +19,7 @@ MonoBehaviour:
   cuCost: 19500
   computeSource: 0
   prerequisites:
-  - {fileID: 11400000, guid: a1b2c3d4e5f60718293a4b5c6d7e8f90, type: 2}
+  - {fileID: 11400000, guid: dd8c0be5fde9f2156a424539f2b6a635, type: 2}
   effects:
   - kind: 3
     building: {fileID: 0}
@@ -27,5 +27,5 @@ MonoBehaviour:
     value: 100
   absorptionRatePerSecond: 110
   tier: 2
-  angle: 131.1
+  angle: 81.7
   enlargedDisplay: 0

@@ -22,7 +22,6 @@ MonoBehaviour:
   prerequisites:
   - {fileID: 11400000, guid: 6d2f8b3c0e4a4f71b9c5d3e7f1a2b4c6, type: 2}
   - {fileID: 11400000, guid: dd8c0be5fde9f2156a424539f2b6a635, type: 2}
-  - {fileID: 11400000, guid: b4504efb95934dc9b042f00ca6cff1f8, type: 2}
   effects:
   - kind: 0
     building: {fileID: 11400000, guid: b8f5a41bb3ae49b488dbb71936ae4a0a, type: 2}
@@ -33,6 +32,6 @@ MonoBehaviour:
     recipe: {fileID: 11400000, guid: 66679cd50c59c3a4aa11923faf0caa02, type: 2}
     value: 0
   absorptionRatePerSecond: 40
-  tier: 1.7
-  angle: 19.5
+  tier: 2
+  angle: 11.4
   enlargedDisplay: 0
