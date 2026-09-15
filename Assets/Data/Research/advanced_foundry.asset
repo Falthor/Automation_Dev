@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: advanced_foundry
   displayName: Metallurgie avancee
-  description: Batiment Fonderie avancee et recette Acier. Necessite Capacite de
-    gestion I et Extension de baies I.
+  description: Batiment Fonderie avancee et recette Acier. Necessite Capacite
+    de gestion I.
   icon: {fileID: 21300000, guid: 71bf25a4db8328048a34fc864865c752, type: 3}
   cuCost: 6000
   computeSource: 0
@@ -32,6 +32,6 @@ MonoBehaviour:
     recipe: {fileID: 11400000, guid: 66679cd50c59c3a4aa11923faf0caa02, type: 2}
     value: 0
   absorptionRatePerSecond: 40
-  tier: 1.7
-  angle: 18
+  tier: 1.8
+  angle: 17.6
   enlargedDisplay: 0

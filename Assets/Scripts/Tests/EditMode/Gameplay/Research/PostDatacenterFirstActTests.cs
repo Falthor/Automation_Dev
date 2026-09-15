@@ -66,16 +66,17 @@ namespace Game.Tests.EditMode.Gameplay.Research
         // --- Metallurgie avancee ---
 
         [Test]
-        public void AdvancedFoundry_RequiresCapaciteIAndExtensionI()
+        public void AdvancedFoundry_RequiresCapaciteI_NotExtensionI()
         {
             var advancedFoundry = Load<ResearchDefinition>("Assets/Data/Research/advanced_foundry.asset");
             var capaciteI = Load<ResearchDefinition>("Assets/Data/Research/memory_allocation.asset");
             var extensionI = Load<ResearchDefinition>("Assets/Data/Research/datacenter_bay_1.asset");
+            var cortexBuildings = Load<ResearchDefinition>("Assets/Data/Research/cortex_buildings.asset");
 
-            // Also requires cortex_buildings directly (kept alongside the two below) - both
-            // cortices feed this research, not just the Datacenter's own branch.
+            Assert.AreEqual(2, advancedFoundry.Prerequisites.Count);
             Assert.IsTrue(HasPrerequisite(advancedFoundry, capaciteI), "Must require Capacite de gestion I.");
-            Assert.IsTrue(HasPrerequisite(advancedFoundry, extensionI), "Must require Extension de baies I.");
+            Assert.IsTrue(HasPrerequisite(advancedFoundry, cortexBuildings), "Must require the Buildings cortex directly.");
+            Assert.IsFalse(HasPrerequisite(advancedFoundry, extensionI), "No longer requires Extension de baies I.");
         }
 
         [Test]
