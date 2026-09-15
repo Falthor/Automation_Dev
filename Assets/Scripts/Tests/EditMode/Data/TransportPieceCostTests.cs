@@ -6,20 +6,21 @@ using UnityEditor;
 namespace Game.Tests.EditMode.Data
 {
     /// <summary>
-    /// Conveyors and crossroads are free to place. The splitter is not, by decision.
+    /// Crossroads are still free to place. The conveyor and the splitter are not.
     ///
-    /// <b>The rule and its one exception.</b> The reason conveyors are free is the one already
-    /// written on the building cap: the belts between machines are not the thing being budgeted, and
-    /// charging for them would make connecting a factory the expensive part of building one. The
-    /// splitter is charged anyway - four iron plates and a gear - because it is not a length of belt
-    /// but a routing decision the player makes deliberately and rarely. That is a design call, not a
-    /// derivation, so it is pinned here as a number rather than argued from the rule.
+    /// <b>The rule and its exceptions.</b> Transport pieces are exempt from the building cap - the
+    /// belts between machines are not the thing being budgeted - but exemption from the cap is not
+    /// the same question as being free to build. The conveyor carries a light, permanent Plaque de
+    /// fer sink per segment (early-game-economy-rebalance): a long drag is meant to draw visibly on
+    /// the stockpile it took to reach that expansion, which a free belt could never do. The splitter
+    /// is charged a fixed, heavier figure - four iron plates and a gear - because it is not a length
+    /// of belt but a routing decision the player makes deliberately and rarely. The crossroad is the
+    /// one still free, left that way pending a review of whether it now undercuts the conveyor's own
+    /// cost (PENDING_DECISIONS.md).
     ///
-    /// The costs used to be an unwatched inconsistency - a splitter and a crossroad each cost one
-    /// iron plate while conveyors were free, which the player met at the moment of placing one and
-    /// nowhere else. The assets are read here by <b>type</b> rather than by path, so a new conveyor
-    /// or crossroad variant is covered the day it is added rather than quietly reintroducing a
-    /// charge, and a splitter variant is held to the splitter's own figure.
+    /// The assets are read here by <b>type</b> rather than by path, so a new conveyor or crossroad
+    /// variant is covered the day it is added, and a splitter variant is held to the splitter's own
+    /// figure.
     ///
     /// Storage boxes are exempt from the cap too and are deliberately <b>not</b> in this rule: a box
     /// is a thing you build, not a wire between two things.
@@ -38,18 +39,23 @@ namespace Game.Tests.EditMode.Data
         static void AssertFree(BuildingDefinition definition)
         {
             Assert.AreEqual(0, definition.Cost.Length,
-                $"{definition.name} charges for a transport piece. Conveyors are free, so a splitter or a "
-                + "crossroad that is not reads as an inconsistency at the moment of placing one - which is "
-                + "the only moment the player ever sees it.");
+                $"{definition.name} charges for a transport piece that is meant to stay free.");
         }
 
+        /// <summary>
+        /// Pinned to the exact figure rather than "costs something", so losing the ingredient or
+        /// doubling the amount is caught too - the same reasoning as the splitter's own test below.
+        /// </summary>
         [Test]
-        public void EveryShippedConveyorIsFree()
+        public void EveryShippedConveyorCostsOneIronPlate()
         {
             var found = 0;
             foreach (ConveyorDefinition definition in ShippedAssetsOfType<ConveyorDefinition>())
             {
-                AssertFree(definition);
+                Assert.AreEqual(1, definition.Cost.Length, definition.name + ": one ingredient");
+                Assert.IsNotNull(definition.Cost[0].Item, definition.name + ": an unassigned cost item");
+                Assert.AreEqual("Iron_Plate", definition.Cost[0].Item.Id, definition.name + ": iron plate");
+                Assert.AreEqual(1, definition.Cost[0].Amount, definition.name + ": one per segment");
                 found++;
             }
 

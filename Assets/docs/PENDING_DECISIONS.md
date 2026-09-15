@@ -18,6 +18,12 @@ One entry per finding:
 
 ## Open
 
+- **Crossroad cost vs. the new Conveyor cost** (`Assets/Data/Buildings/CrossroadDefinition.asset`) —
+  the early-game-economy-rebalance chantier gave the Conveyor a real per-segment cost (1 Plaque de
+  fer) but left the Crossroad free, per its own directive ("ne pas modifier son coût... il devra être
+  réévalué ultérieurement"). A free Crossroad can now be laid in place of two Conveyor segments
+  crossing, which is a way around the belt's own sink the design has not yet ruled on. Needs a
+  deliberate design decision, not a default carried over from when both were free.
 - **Steel recipe's exact values** (`Assets/Data/Recipes/Steel_Recipe.asset`) — 2 Plaque de fer + 1
   Charbon → 1 Acier, 8 s, 15 CU. The chantier asked for "la définition minimale nécessaire" without
   giving numbers; these were chosen to sit plausibly among the existing Foundry/Constructor tier
