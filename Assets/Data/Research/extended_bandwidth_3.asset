@@ -15,17 +15,17 @@ MonoBehaviour:
   id: extended_bandwidth_3
   displayName: Portee du Noyau III
   description: Porte le rayon d'action du Noyau a 80 cellules.
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 694951ecfcd31f84286bdf4c2247ae99, type: 3}
   cuCost: 30000
   computeSource: 0
   prerequisites:
-  - {fileID: 11400000, guid: b2c3d4e5f6a70819203b4c5d6e7f8091, type: 2}
+  - {fileID: 11400000, guid: a1b2c3d4e5f60718293a4b5c6d7e8f90, type: 2}
   effects:
   - kind: 2
     building: {fileID: 0}
     recipe: {fileID: 0}
     value: 80
-  absorptionRatePerSecond: 200
+  absorptionRatePerSecond: 150
   tier: 2.6
-  angle: 149.2
+  angle: 96.9
   enlargedDisplay: 0

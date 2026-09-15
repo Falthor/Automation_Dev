@@ -21,13 +21,12 @@ MonoBehaviour:
   prerequisites:
   - {fileID: 11400000, guid: 2d21c857cc4f4be9b22a2f6886064237, type: 2}
   - {fileID: 11400000, guid: 1d185db578ee417682c4030bac521ce1, type: 2}
-  - {fileID: 11400000, guid: d4e5f6a7b8c90a1b324d5e6f70819203, type: 2}
   effects:
   - kind: 4
     building: {fileID: 0}
     recipe: {fileID: 0}
     value: 1
   absorptionRatePerSecond: 200
-  tier: 3.2
-  angle: 191.2
+  tier: 2.8
+  angle: 184.7
   enlargedDisplay: 0

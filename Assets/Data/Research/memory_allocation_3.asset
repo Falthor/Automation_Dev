@@ -14,18 +14,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Data::Game.Data.ResearchDefinition
   id: memory_allocation_3
   displayName: Capacite de gestion III
-  description: Porte le plafond de batiments a 200.
-  icon: {fileID: 597411320055623791, guid: 010eeacec31baf84887f268a78c928dd, type: 3}
+  description: Porte le plafond de batiments a 250.
+  icon: {fileID: 21300000, guid: df83e27231c32344a924c95fd43245b8, type: 3}
   cuCost: 30000
   computeSource: 0
   prerequisites:
-  - {fileID: 11400000, guid: c3d4e5f6a7b8091a213c4d5e6f708192, type: 2}
+  - {fileID: 11400000, guid: b2c3d4e5f6a70819203b4c5d6e7f8091, type: 2}
   effects:
   - kind: 3
     building: {fileID: 0}
     recipe: {fileID: 0}
-    value: 200
-  absorptionRatePerSecond: 40
-  tier: 2.8
-  angle: 159.4
+    value: 250
+  absorptionRatePerSecond: 100
+  tier: 2.5
+  angle: 84.2
   enlargedDisplay: 0
